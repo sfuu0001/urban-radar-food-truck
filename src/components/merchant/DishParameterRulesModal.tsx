@@ -30,7 +30,13 @@ import {
   ArrowRight,
   Printer
 } from 'lucide-react';
-import { DishItem, DishVariant } from '../../types';
+import {
+  DishItem,
+  DishVariant,
+  DishOptionGroup,
+  DishOptionChoice,
+  FieldSelectorMediaItem
+} from '../../types';
 import { globalScannerEngine } from '../../utils/barcodeScannerEngine';
 import { DishPriceCalculator } from '../DishPriceCalculator';
 import { FlavorTagSelector } from './FlavorTagSelector';
@@ -39,6 +45,12 @@ import {
   FLAVOR_PRESETS,
   COOKING_STYLE_PRESETS
 } from './MerchantMenuChannel';
+import {
+  generateArtisanSvgBlueprint,
+  convertPhotoToBlueprintCanvas,
+  PRESET_SELECTOR_MEDIA_BANK,
+  resolveVariantBlueprint
+} from '../../utils/autoBlueprintEngine';
 
 export interface DishParameterRulesModalProps {
   dish: DishItem;
@@ -51,7 +63,8 @@ export interface DishParameterRulesModalProps {
     | 'barcode'
     | 'preview'
     | 'variants'
-    | 'operating_rules';
+    | 'operating_rules'
+    | 'selector_media';
   onClose: () => void;
   onSave: (updatedDish: DishItem) => void;
   showToast: (msg: string) => void;
@@ -78,6 +91,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
     | 'barcode'
     | 'variants'
     | 'preview'
+    | 'selector_media'
   >(initialTab === 'image' ? 'parameters' : initialTab);
 
   // Form states
@@ -139,6 +153,16 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
     dish.variants && dish.variants.length > 0 ? JSON.parse(JSON.stringify(dish.variants)) : []
   );
 
+  // Field Selector Media Map & Option Groups (字段选择器图纸与线稿管理)
+  const [editFieldSelectorMediaMap, setEditFieldSelectorMediaMap] = useState<Record<string, FieldSelectorMediaItem>>(
+    dish.fieldSelectorMediaMap ? JSON.parse(JSON.stringify(dish.fieldSelectorMediaMap)) : {}
+  );
+  const [editOptionGroups, setEditOptionGroups] = useState<DishOptionGroup[]>(
+    dish.optionGroups ? JSON.parse(JSON.stringify(dish.optionGroups)) : []
+  );
+  const [selectorCategoryFilter, setSelectorCategoryFilter] = useState<'all' | 'variant' | 'flavor' | 'option' | 'spiciness'>('all');
+  const [activeMediaEditingKey, setActiveMediaEditingKey] = useState<string | null>(null);
+
   // Enhanced Operational Rules States (运营规则参数)
   const [minOrderThreshold, setMinOrderThreshold] = useState<number>(0);
   const [peakThrottleLimit, setPeakThrottleLimit] = useState<number>(30); // 15分钟最大制作单数
@@ -151,6 +175,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
   const [rightPreviewChannel, setRightPreviewChannel] = useState<'delivery' | 'dine_in'>('delivery');
   const [rightActiveVariantIndex, setRightActiveVariantIndex] = useState<number>(-1);
   const [previewStyleMode, setPreviewStyleMode] = useState<'hud_card' | 'spec_modal'>('hud_card');
+  const [previewBlueprintMode, setPreviewBlueprintMode] = useState<'photo' | 'blueprint'>('photo');
   const [previewQuantity, setPreviewQuantity] = useState<number>(1);
   const [previewSelectedSpice, setPreviewSelectedSpice] = useState<string>(editSpicinessLevel);
   const [previewSelectedFlavor, setPreviewSelectedFlavor] = useState<string>(editFlavor);
@@ -187,6 +212,8 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
     const updated: DishItem = {
       ...dish,
       variants: editVariants && editVariants.length > 0 ? editVariants : undefined,
+      fieldSelectorMediaMap: editFieldSelectorMediaMap,
+      optionGroups: editOptionGroups && editOptionGroups.length > 0 ? editOptionGroups : undefined,
       price: p,
       originalPrice: op,
       prevPrice: pp,
@@ -335,6 +362,12 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                   icon: Layers
                 },
                 {
+                  id: 'selector_media',
+                  label: '字段选择器图纸与线稿 SELECTOR MEDIA',
+                  icon: Camera,
+                  highlight: true
+                },
+                {
                   id: 'preview',
                   label: '真机前台预览',
                   icon: Sparkles
@@ -348,7 +381,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                     type="button"
                     onClick={() => {
                       setActiveTab(tab.id as any);
-                      if (tab.id === 'variants') {
+                      if (tab.id === 'variants' || tab.id === 'selector_media') {
                         setPreviewStyleMode('spec_modal');
                       }
                     }}
@@ -1161,7 +1194,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                         </div>
                         <div>
                           <h4 className="font-bold text-sm text-[#1a1c1b]">
-                            多规格变体与独立定价矩阵
+                            多规格变体与独立定价矩阵 MULTI-VARIANT PRICING MATRIX
                           </h4>
                           <p className="text-[11px] text-[#787770]">
                             为菜品配置份量大小（大份/标准/双拼）及各自独立的销售价与主图
@@ -1174,6 +1207,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                           const newVar: DishVariant = {
                             id: `var_${Date.now()}`,
                             name: `规格 ${editVariants.length + 1}`,
+                            enName: `Variant ${editVariants.length + 1}`,
                             price: parseFloat(editPrice) || dish.price,
                             available: true
                           };
@@ -1183,7 +1217,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                         className="px-3 py-1.5 bg-[#000000] text-white rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-neutral-800 transition-colors cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        <span>新增规格</span>
+                        <span>新增规格 ADD VARIANT</span>
                       </button>
                     </div>
 
@@ -1248,6 +1282,872 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+
+              {/* TAB: 字段选择器图纸与线稿自动化管理 (中文在前，英文在后) */}
+              {activeTab === 'selector_media' && (
+                <div className="space-y-4">
+                  {/* Top Header Card */}
+                  <div className="p-5 bg-[#ffffff] rounded-xl border border-[#e2e3e1] shadow-urban space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-start gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-[#006d36]/10 text-[#006d36] flex items-center justify-center font-bold shrink-0">
+                          <Camera className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-sm text-[#1a1c1b]">
+                              字段选择器图纸与线稿自动化管理 SELECTOR MEDIA & BLUEPRINTS
+                            </h4>
+                            <span className="text-[10px] bg-[#006d36] text-white px-2 py-0.2 rounded font-mono font-bold">
+                              自动程序 LIVE ENGINE
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-[#787770] leading-relaxed mt-0.5">
+                            对规格变体、口味风格、定制配菜及熟度等每个选择器选项设置专属实物图片与矢量工匠线稿。支持一键自动化生成 CAD 蓝图或通过 Canvas 实物极速转换。
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Batch Auto Actions */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // 一键自动化批量补齐全量线稿程序
+                            const newMediaMap = { ...editFieldSelectorMediaMap };
+                            let updatedCount = 0;
+
+                            // 1. 处理所有变体
+                            const updatedVariants = editVariants.map((v) => {
+                              if (!v.blueprintImageUrl) {
+                                const generated = generateArtisanSvgBlueprint({
+                                  titleZh: v.name,
+                                  titleEn: v.enName || 'PRECISION DRAFT',
+                                  category: dish.category,
+                                  sketchType: v.name.includes('双') ? 'burger' : 'burger',
+                                  coreTemp: v.coreTemp || '56°C',
+                                  specRatio: v.name.includes('双') ? '7:3 (双层/DUAL)' : '7:3',
+                                  artisanCode: v.artisanCode || `ARTISAN #${dish.id.replace(/\D/g, '')}`
+                                });
+                                updatedCount++;
+                                return {
+                                  ...v,
+                                  blueprintImageUrl: generated,
+                                  coreTemp: v.coreTemp || '56°C',
+                                  specRatio: v.specRatio || '7:3',
+                                  artisanCode: v.artisanCode || `ARTISAN #${dish.id.replace(/\D/g, '')}`
+                                };
+                              }
+                              return v;
+                            });
+                            setEditVariants(updatedVariants);
+
+                            // 2. 处理所有口味
+                            editFlavorOptions.forEach((flavor) => {
+                              const key = `flavor_${flavor}`;
+                              if (!newMediaMap[key]?.blueprintImageUrl) {
+                                const presetKey = flavor.includes('松露')
+                                  ? 'flavor_truffle_garlic'
+                                  : flavor.includes('黑椒')
+                                  ? 'flavor_black_pepper'
+                                  : flavor.includes('藤椒')
+                                  ? 'flavor_rattan_pepper'
+                                  : 'flavor_charcoal_salt';
+                                const preset = PRESET_SELECTOR_MEDIA_BANK[presetKey];
+                                newMediaMap[key] = {
+                                  id: key,
+                                  key,
+                                  category: 'flavor',
+                                  fieldCategory: 'flavor',
+                                  targetFieldId: flavor,
+                                  fieldName: flavor,
+                                  labelZh: flavor,
+                                  labelEn: preset?.labelEn || 'SIGNATURE FLAVOR',
+                                  imageUrl: preset?.imageUrl || dish.imageUrl,
+                                  blueprintImageUrl: generateArtisanSvgBlueprint({
+                                    titleZh: flavor,
+                                    titleEn: preset?.labelEn || 'FLAVOR STYLE',
+                                    category: dish.category,
+                                    sketchType: 'sauce',
+                                    coreTemp: preset?.coreTemp || '60°C'
+                                  }),
+                                  sketchType: 'sauce',
+                                  sketchNoteZh: preset?.noteZh || `${flavor} 秘制工艺标定。`,
+                                  sketchNoteEn: preset?.noteEn || `${flavor} craft calibrated.`
+                                };
+                                updatedCount++;
+                              }
+                            });
+
+                            // 3. 处理所有配菜选项组
+                            const updatedGroups = editOptionGroups.map((group) => {
+                              const newChoices = group.choices.map((choice) => {
+                                const choiceKey = `option_${choice.label}`;
+                                if (!choice.blueprintImageUrl) {
+                                  const isFries = choice.label.includes('薯条') || choice.label.toLowerCase().includes('fries');
+                                  const isSalad = choice.label.includes('沙拉') || choice.label.toLowerCase().includes('salad');
+                                  const isCrisps = choice.label.includes('红薯') || choice.label.includes('薄片');
+                                  const presetKey = isFries ? 'truffle_fries' : isSalad ? 'garden_salad' : isCrisps ? 'sweet_potato_crisps' : 'truffle_fries';
+                                  const preset = PRESET_SELECTOR_MEDIA_BANK[presetKey];
+
+                                  const generated = generateArtisanSvgBlueprint({
+                                    titleZh: choice.label,
+                                    titleEn: choice.enLabel || preset?.labelEn || 'CUSTOM CHOICE',
+                                    category: 'snacks',
+                                    sketchType: isFries ? 'fries' : isSalad ? 'salad' : isCrisps ? 'crisps' : 'general'
+                                  });
+                                  newMediaMap[choiceKey] = {
+                                    id: choiceKey,
+                                    key: choiceKey,
+                                    category: 'option',
+                                    fieldCategory: 'option',
+                                    targetFieldId: choice.label,
+                                    fieldName: choice.label,
+                                    labelZh: choice.label,
+                                    labelEn: choice.enLabel || preset?.labelEn || 'CUSTOM CHOICE',
+                                    imageUrl: preset?.imageUrl || choice.imageUrl || dish.imageUrl,
+                                    blueprintImageUrl: generated,
+                                    sketchType: isFries ? 'fries' : isSalad ? 'salad' : isCrisps ? 'crisps' : 'general',
+                                    sketchNoteZh: preset?.noteZh || `${choice.label} 工艺标定`,
+                                    sketchNoteEn: preset?.noteEn || `${choice.label} craft calibrated`
+                                  };
+                                  updatedCount++;
+                                  return {
+                                    ...choice,
+                                    blueprintImageUrl: generated,
+                                    imageUrl: preset?.imageUrl || choice.imageUrl
+                                  };
+                                }
+                                return choice;
+                              });
+                              return { ...group, choices: newChoices };
+                            });
+                            setEditOptionGroups(updatedGroups);
+                            setEditFieldSelectorMediaMap(newMediaMap);
+
+                            showToast(`[自动化活程序] 已成功为 ${updatedCount} 项字段选择器自动生成工匠矢量线稿！`);
+                            setPreviewStyleMode('spec_modal');
+                          }}
+                          className="px-3 py-1.5 bg-[#006d36] text-white rounded-lg text-xs font-bold flex items-center gap-1.5 hover:bg-[#005429] transition-colors cursor-pointer shadow-sm"
+                          title="自动扫描并为所有尚未配置线稿的变体、口味和配菜生成专属工匠矢量蓝图"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                          <span>一键智能补齐全量线稿 AUTO-FILL ALL BLUEPRINTS</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Category Filter Chips (中文在前，英文在后) */}
+                    <div className="flex items-center gap-1.5 pt-2 border-t border-[#e2e3e1] overflow-x-auto hide-scrollbar">
+                      <span className="text-[11px] font-mono text-[#787770] mr-1 shrink-0">
+                        筛选类型 FILTER:
+                      </span>
+                      {[
+                        { id: 'all', labelZh: '全部选项', labelEn: 'ALL', count: editVariants.length + editFlavorOptions.length + editSpicinessOptions.length },
+                        { id: 'variant', labelZh: '规格变体', labelEn: 'VARIANTS', count: editVariants.length },
+                        { id: 'flavor', labelZh: '口味风格', labelEn: 'FLAVORS', count: editFlavorOptions.length },
+                        { id: 'option', labelZh: '定制配菜', labelEn: 'OPTIONS', count: editOptionGroups.reduce((acc, g) => acc + g.choices.length, 0) },
+                        { id: 'spiciness', labelZh: '辣度调教', labelEn: 'SPICINESS', count: editSpicinessOptions.length }
+                      ].map((tab) => (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          onClick={() => setSelectorCategoryFilter(tab.id as any)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shrink-0 ${
+                            selectorCategoryFilter === tab.id
+                              ? 'bg-[#1a1c1b] text-white'
+                              : 'bg-[#f4f4f2] text-[#787770] hover:text-[#1a1c1b]'
+                          }`}
+                        >
+                          <span>{tab.labelZh}</span>
+                          <span className="text-[10px] opacity-75 font-mono">[{tab.labelEn}]</span>
+                          <span className="ml-0.5 text-[9px] px-1 bg-white/20 rounded-full font-mono">
+                            {tab.count}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Section 1: 规格变体 (VARIANTS) */}
+                  {(selectorCategoryFilter === 'all' || selectorCategoryFilter === 'variant') && (
+                    <div className="p-5 bg-[#ffffff] rounded-xl border border-[#e2e3e1] shadow-urban space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 bg-[#006d36]"></span>
+                          <h5 className="font-bold text-xs text-[#1a1c1b] uppercase font-mono">
+                            规格变体选择器图纸 VARIANT BLUEPRINT SPECIFICATIONS ({editVariants.length})
+                          </h5>
+                        </div>
+                        <span className="text-[10px] text-[#787770] font-mono">
+                          用户切换变体即时联动线稿
+                        </span>
+                      </div>
+
+                      {editVariants.length === 0 ? (
+                        <p className="text-xs text-[#787770] italic p-3 bg-[#f9f9f7] rounded-lg">
+                          暂无多规格变体，如需使用请在「规格变体」Tab 中添加变体。
+                        </p>
+                      ) : (
+                        <div className="space-y-3">
+                          {editVariants.map((variant, vIdx) => {
+                            const hasBlueprint = !!variant.blueprintImageUrl;
+                            const isEditing = activeMediaEditingKey === `variant_${variant.id}`;
+                            return (
+                              <div
+                                key={variant.id || vIdx}
+                                className="p-3.5 bg-[#f9f9f7] rounded-xl border border-[#e2e3e1] space-y-3 transition-all"
+                              >
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                                  <div className="flex items-center gap-2.5">
+                                    {/* Preview Dual-Window: Photo & Blueprint */}
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      {/* Photo Window */}
+                                      <div
+                                        className="w-14 h-14 rounded-lg bg-[#eeeeec] border border-[#c8c7be] overflow-hidden relative group"
+                                        title="实物照片 PHOTO"
+                                      >
+                                        <img
+                                          src={variant.imageUrl || dish.imageUrl}
+                                          alt={variant.name}
+                                          className="w-full h-full object-cover"
+                                        />
+                                        <span className="absolute bottom-0 inset-x-0 bg-black/60 text-white font-mono text-[7px] text-center leading-tight">
+                                          实物 PHOTO
+                                        </span>
+                                      </div>
+                                      {/* Blueprint Window */}
+                                      <div
+                                        className="w-14 h-14 rounded-lg bg-[#041224] border border-[#00d4ff]/40 overflow-hidden relative"
+                                        title="工匠蓝图 BLUEPRINT"
+                                      >
+                                        {variant.blueprintImageUrl ? (
+                                          <img
+                                            src={variant.blueprintImageUrl}
+                                            alt={`${variant.name} 蓝图`}
+                                            className="w-full h-full object-contain scale-105"
+                                          />
+                                        ) : (
+                                          <div className="w-full h-full flex flex-col items-center justify-center text-[8px] text-[#00d4ff]/60 font-mono text-center px-1">
+                                            <span>未标定</span>
+                                            <span>NO CAD</span>
+                                          </div>
+                                        )}
+                                        <span className="absolute bottom-0 inset-x-0 bg-[#00d4ff] text-[#041224] font-mono text-[7px] text-center font-bold leading-tight">
+                                          线稿 CAD
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    {/* Titles & Specs */}
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="font-bold text-xs text-[#1a1c1b]">
+                                          {variant.name}
+                                        </span>
+                                        {variant.enName && (
+                                          <span className="text-[10px] font-mono text-gray-500">
+                                            [{variant.enName}]
+                                          </span>
+                                        )}
+                                        <span className="font-mono text-xs font-bold text-[#006d36]">
+                                          ¥{variant.price.toFixed(2)}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-2 mt-1 text-[10px] font-mono text-[#787770] flex-wrap">
+                                        <span>
+                                          编号 CODE:{' '}
+                                          <strong className="text-[#1a1c1b]">
+                                            {variant.artisanCode || 'ARTISAN #SPEC'}
+                                          </strong>
+                                        </span>
+                                        <span>•</span>
+                                        <span>
+                                          温控 TEMP:{' '}
+                                          <strong className="text-[#d9730d]">
+                                            {variant.coreTemp || '56°C'}
+                                          </strong>
+                                        </span>
+                                        <span>•</span>
+                                        <span>
+                                          配比 RATIO:{' '}
+                                          <strong className="text-[#006d36]">
+                                            {variant.specRatio || '7:3'}
+                                          </strong>
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Quick Action Buttons (中文在前，英文在后) */}
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    {/* 1. Auto Generate CAD Blueprint */}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const vName = (variant.name || '').toLowerCase();
+                                        let detectedType = 'burger_single';
+                                        if (vName.includes('双') || vName.includes('double') || vName.includes('两层') || vName.includes('厚切')) {
+                                          detectedType = 'burger_double';
+                                        } else if (vName.includes('三') || vName.includes('triple') || vName.includes('盛宴')) {
+                                          detectedType = 'burger_triple';
+                                        } else if (vName.includes('串') || dish.category === 'skewers' || dish.category === 'yakitori') {
+                                          detectedType = 'skewer';
+                                        } else if (vName.includes('排') || vName.includes('steak') || dish.category === 'western') {
+                                          detectedType = 'steak';
+                                        } else if (vName.includes('咖') || vName.includes('饮') || dish.category === 'drinks') {
+                                          detectedType = 'drink';
+                                        } else if (vName.includes('蚝') || dish.category === 'baked') {
+                                          detectedType = 'oyster';
+                                        }
+
+                                        const generated = generateArtisanSvgBlueprint({
+                                          titleZh: variant.name,
+                                          titleEn: variant.enName || 'PRECISION CAD DRAFT',
+                                          category: dish.category,
+                                          sketchType: variant.sketchType || detectedType,
+                                          coreTemp: variant.coreTemp || '56°C',
+                                          specRatio: variant.specRatio || '7:3',
+                                          artisanCode: variant.artisanCode || `ARTISAN #${dish.id.replace(/\D/g, '')}`,
+                                          style: 'blueprint'
+                                        });
+                                        const updated = [...editVariants];
+                                        updated[vIdx] = {
+                                          ...variant,
+                                          blueprintImageUrl: generated,
+                                          coreTemp: variant.coreTemp || '56°C',
+                                          specRatio: variant.specRatio || '7:3',
+                                          artisanCode: variant.artisanCode || `ARTISAN #${dish.id.replace(/\D/g, '')}`
+                                        };
+                                        setEditVariants(updated);
+                                        setRightActiveVariantIndex(vIdx);
+                                        setPreviewStyleMode('spec_modal');
+                                        showToast(`[自动程序] 已为【${variant.name}】生成专属 CAD 工程图！`);
+                                      }}
+                                      className="px-2.5 py-1 bg-[#082846] text-[#00d4ff] border border-[#00d4ff]/40 rounded-lg text-xs font-bold hover:bg-[#0b3c68] transition-colors cursor-pointer flex items-center gap-1"
+                                      title="一键自动生成专属工匠 CAD 工程蓝图"
+                                    >
+                                      <Sparkles className="w-3 h-3 text-[#00d4ff]" />
+                                      <span>生成 CAD 蓝图 AUTO-CAD</span>
+                                    </button>
+
+                                    {/* 2. Auto Generate Pencil Sketch */}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const vName = (variant.name || '').toLowerCase();
+                                        let detectedType = 'burger_single';
+                                        if (vName.includes('双') || vName.includes('double') || vName.includes('两层') || vName.includes('厚切')) {
+                                          detectedType = 'burger_double';
+                                        } else if (vName.includes('三') || vName.includes('triple') || vName.includes('盛宴')) {
+                                          detectedType = 'burger_triple';
+                                        } else if (vName.includes('串') || dish.category === 'skewers' || dish.category === 'yakitori') {
+                                          detectedType = 'skewer';
+                                        } else if (vName.includes('排') || vName.includes('steak') || dish.category === 'western') {
+                                          detectedType = 'steak';
+                                        } else if (vName.includes('咖') || vName.includes('饮') || dish.category === 'drinks') {
+                                          detectedType = 'drink';
+                                        } else if (vName.includes('蚝') || dish.category === 'baked') {
+                                          detectedType = 'oyster';
+                                        }
+
+                                        const generated = generateArtisanSvgBlueprint({
+                                          titleZh: variant.name,
+                                          titleEn: variant.enName || 'PENCIL SKETCH DRAFT',
+                                          category: dish.category,
+                                          sketchType: variant.sketchType || detectedType,
+                                          coreTemp: variant.coreTemp || '56°C',
+                                          specRatio: variant.specRatio || '7:3',
+                                          artisanCode: variant.artisanCode || `ARTISAN #${dish.id.replace(/\D/g, '')}`,
+                                          style: 'pencil_sketch'
+                                        });
+                                        const updated = [...editVariants];
+                                        updated[vIdx] = {
+                                          ...variant,
+                                          blueprintImageUrl: generated,
+                                          coreTemp: variant.coreTemp || '56°C',
+                                          specRatio: variant.specRatio || '7:3',
+                                          artisanCode: variant.artisanCode || `ARTISAN #${dish.id.replace(/\D/g, '')}`
+                                        };
+                                        setEditVariants(updated);
+                                        setRightActiveVariantIndex(vIdx);
+                                        setPreviewStyleMode('spec_modal');
+                                        showToast(`[自动程序] 已为【${variant.name}】生成真实手绘素描！`);
+                                      }}
+                                      className="px-2.5 py-1 bg-[#1a1c1b] text-[#f4f4f2] rounded-lg text-xs font-bold hover:bg-black transition-colors cursor-pointer flex items-center gap-1"
+                                      title="一键自动生成专属工匠真实素描手稿"
+                                    >
+                                      <Sparkles className="w-3 h-3 text-amber-300" />
+                                      <span>生成素描 AUTO-SKETCH</span>
+                                    </button>
+
+                                    {/* 3. Photo to Blueprint/Sketch */}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const photoSrc = variant.imageUrl || dish.imageUrl;
+                                        convertPhotoToBlueprintCanvas(photoSrc, (blueprintDataUrl) => {
+                                          const updated = [...editVariants];
+                                          updated[vIdx] = {
+                                            ...variant,
+                                            blueprintImageUrl: blueprintDataUrl
+                                          };
+                                          setEditVariants(updated);
+                                          setRightActiveVariantIndex(vIdx);
+                                          setPreviewStyleMode('spec_modal');
+                                          showToast(`[Canvas引擎] 实物照片已毫秒级转为手绘素描！`);
+                                        }, { mode: 'pencil_sketch', titleZh: variant.name, titleEn: variant.enName });
+                                      }}
+                                      className="px-2.5 py-1 bg-[#00d4ff]/15 text-[#006a80] border border-[#00d4ff]/40 rounded-lg text-xs font-bold hover:bg-[#00d4ff]/25 transition-colors cursor-pointer flex items-center gap-1"
+                                      title="纯前端 Canvas 滤镜算法：实物照片一键转素描手稿"
+                                    >
+                                      <span>照片转素描 PHOTO TO SKETCH</span>
+                                    </button>
+
+                                    {/* 4. Toggle edit inputs */}
+                                    <button
+                                      type="button"
+                                      onClick={() => setActiveMediaEditingKey(isEditing ? null : `variant_${variant.id}`)}
+                                      className="px-2.5 py-1 bg-white border border-[#c8c7be] text-[#1a1c1b] rounded-lg text-xs font-bold hover:bg-[#f4f4f2] transition-colors cursor-pointer"
+                                    >
+                                      {isEditing ? '收起 COLLAPSE' : '编辑参数 EDIT'}
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Expanded Custom Inputs */}
+                                {isEditing && (
+                                  <div className="p-3 bg-white rounded-lg border border-[#e2e3e1] space-y-2.5 text-xs animate-in fade-in duration-150">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                      <div>
+                                        <label className="text-[10px] text-[#787770] font-mono block">
+                                          英文名称 ENGLISH NAME:
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={variant.enName || ''}
+                                          onChange={(e) => {
+                                            const updated = [...editVariants];
+                                            updated[vIdx].enName = e.target.value;
+                                            setEditVariants(updated);
+                                          }}
+                                          placeholder="如: Double Patty Stack"
+                                          className="w-full p-1.5 border border-[#c8c7be] rounded-lg text-xs font-mono"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="text-[10px] text-[#787770] font-mono block">
+                                          工匠料号 ARTISAN CODE:
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={variant.artisanCode || ''}
+                                          onChange={(e) => {
+                                            const updated = [...editVariants];
+                                            updated[vIdx].artisanCode = e.target.value;
+                                            setEditVariants(updated);
+                                          }}
+                                          placeholder="如: ARTISAN #02"
+                                          className="w-full p-1.5 border border-[#c8c7be] rounded-lg text-xs font-mono"
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                      <div>
+                                        <label className="text-[10px] text-[#787770] font-mono block">
+                                          核心温控 CORE TEMP:
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={variant.coreTemp || ''}
+                                          onChange={(e) => {
+                                            const updated = [...editVariants];
+                                            updated[vIdx].coreTemp = e.target.value;
+                                            setEditVariants(updated);
+                                          }}
+                                          placeholder="如: 56°C / 64°C"
+                                          className="w-full p-1.5 border border-[#c8c7be] rounded-lg text-xs font-mono"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="text-[10px] text-[#787770] font-mono block">
+                                          黄金比例 RATIO SPEC:
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={variant.specRatio || ''}
+                                          onChange={(e) => {
+                                            const updated = [...editVariants];
+                                            updated[vIdx].specRatio = e.target.value;
+                                            setEditVariants(updated);
+                                          }}
+                                          placeholder="如: RATIO 7:3 (双层)"
+                                          className="w-full p-1.5 border border-[#c8c7be] rounded-lg text-xs font-mono"
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div>
+                                      <label className="text-[10px] text-[#787770] font-mono block">
+                                        实物图片 URL (PHOTO URL):
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={variant.imageUrl || ''}
+                                        onChange={(e) => {
+                                          const updated = [...editVariants];
+                                          updated[vIdx].imageUrl = e.target.value;
+                                          setEditVariants(updated);
+                                        }}
+                                        placeholder="https://..."
+                                        className="w-full p-1.5 border border-[#c8c7be] rounded-lg text-xs font-mono"
+                                      />
+                                    </div>
+
+                                    <div>
+                                      <label className="text-[10px] text-[#787770] font-mono block">
+                                        工匠矢量线稿 URL (BLUEPRINT URL / DATA URI):
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={variant.blueprintImageUrl || ''}
+                                        onChange={(e) => {
+                                          const updated = [...editVariants];
+                                          updated[vIdx].blueprintImageUrl = e.target.value;
+                                          setEditVariants(updated);
+                                        }}
+                                        placeholder="data:image/svg+xml;... 或 https://..."
+                                        className="w-full p-1.5 border border-[#c8c7be] rounded-lg text-xs font-mono truncate"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Section 2: 口味风格选择器 (FLAVORS) */}
+                  {(selectorCategoryFilter === 'all' || selectorCategoryFilter === 'flavor') && (
+                    <div className="p-5 bg-[#ffffff] rounded-xl border border-[#e2e3e1] shadow-urban space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 bg-[#d9730d]"></span>
+                          <h5 className="font-bold text-xs text-[#1a1c1b] uppercase font-mono">
+                            口味风格字段选择器图纸 FLAVOR STYLE BLUEPRINTS ({editFlavorOptions.length})
+                          </h5>
+                        </div>
+                        <span className="text-[10px] text-[#787770] font-mono">
+                          食客端点选风味时即时草图响应
+                        </span>
+                      </div>
+
+                      {editFlavorOptions.length === 0 ? (
+                        <p className="text-xs text-[#787770] italic p-3 bg-[#f9f9f7] rounded-lg">
+                          当前未配置多口味选项，可在基础参数中开启。
+                        </p>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {editFlavorOptions.map((flavor, fIdx) => {
+                            const mediaKey = `flavor_${flavor}`;
+                            const mediaItem = editFieldSelectorMediaMap[mediaKey];
+                            const isEditing = activeMediaEditingKey === mediaKey;
+
+                            return (
+                              <div
+                                key={flavor || fIdx}
+                                className="p-3 bg-[#f9f9f7] rounded-xl border border-[#e2e3e1] space-y-2"
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2">
+                                    {/* Blueprint Mini Icon */}
+                                    <div className="w-10 h-10 rounded-lg bg-[#041224] border border-[#00d4ff]/40 overflow-hidden shrink-0 flex items-center justify-center">
+                                      {mediaItem?.blueprintImageUrl ? (
+                                        <img
+                                          src={mediaItem.blueprintImageUrl}
+                                          alt={flavor}
+                                          className="w-full h-full object-contain"
+                                        />
+                                      ) : (
+                                        <span className="text-[7px] text-[#00d4ff]/50 font-mono">
+                                          CAD
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="font-bold text-xs text-[#1a1c1b] truncate">
+                                        {flavor}
+                                      </div>
+                                      <div className="text-[9px] font-mono text-[#787770] truncate">
+                                        {mediaItem?.labelEn || 'FLAVOR OPTION'}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Quick Actions */}
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const presetKey = flavor.includes('松露')
+                                          ? 'flavor_truffle_garlic'
+                                          : flavor.includes('黑椒')
+                                          ? 'flavor_black_pepper'
+                                          : flavor.includes('藤椒')
+                                          ? 'flavor_rattan_pepper'
+                                          : 'flavor_charcoal_salt';
+                                        const preset = PRESET_SELECTOR_MEDIA_BANK[presetKey];
+
+                                        const generated = generateArtisanSvgBlueprint({
+                                          titleZh: flavor,
+                                          titleEn: preset?.labelEn || 'FLAVOR STYLE',
+                                          category: dish.category,
+                                          sketchType: 'sauce',
+                                          coreTemp: preset?.coreTemp || '60°C'
+                                        });
+
+                                        setEditFieldSelectorMediaMap({
+                                          ...editFieldSelectorMediaMap,
+                                          [mediaKey]: {
+                                            id: mediaKey,
+                                            key: mediaKey,
+                                            category: 'flavor',
+                                            fieldCategory: 'flavor',
+                                            targetFieldId: flavor,
+                                            fieldName: flavor,
+                                            labelZh: flavor,
+                                            labelEn: preset?.labelEn || 'FLAVOR STYLE',
+                                            imageUrl: preset?.imageUrl || dish.imageUrl,
+                                            blueprintImageUrl: generated,
+                                            sketchType: 'sauce',
+                                            sketchNoteZh: preset?.noteZh || `${flavor} 秘制工艺标定。`,
+                                            sketchNoteEn: preset?.noteEn || `${flavor} craft calibrated.`
+                                          }
+                                        });
+                                        setPreviewSelectedFlavor(flavor);
+                                        setPreviewStyleMode('spec_modal');
+                                        showToast(`[自动程序] 已生成【${flavor}】工匠线稿图纸！`);
+                                      }}
+                                      className="p-1 bg-[#1a1c1b] text-white rounded hover:bg-black transition-colors cursor-pointer"
+                                      title="自动生成工匠线稿"
+                                    >
+                                      <Sparkles className="w-3 h-3 text-[#00d4ff]" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setActiveMediaEditingKey(isEditing ? null : mediaKey)}
+                                      className="px-2 py-1 bg-white border border-[#c8c7be] rounded text-[10px] font-mono hover:bg-[#f4f4f2] cursor-pointer"
+                                    >
+                                      {isEditing ? '收起 COLLAPSE' : '配置设置 CONFIGURE'}
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {isEditing && (
+                                  <div className="p-2 bg-white rounded border border-[#e2e3e1] space-y-1.5 text-xs animate-in fade-in duration-150">
+                                    <div>
+                                      <span className="text-[9px] text-[#787770] font-mono block">
+                                        英文标签 ENGLISH LABEL:
+                                      </span>
+                                      <input
+                                        type="text"
+                                        value={mediaItem?.labelEn || ''}
+                                        onChange={(e) => {
+                                          setEditFieldSelectorMediaMap({
+                                            ...editFieldSelectorMediaMap,
+                                            [mediaKey]: {
+                                              ...(mediaItem || {
+                                                id: mediaKey,
+                                                key: mediaKey,
+                                                category: 'flavor',
+                                                fieldCategory: 'flavor',
+                                                targetFieldId: flavor,
+                                                fieldName: flavor,
+                                                labelZh: flavor,
+                                                labelEn: 'FLAVOR STYLE'
+                                              }),
+                                              labelEn: e.target.value
+                                            }
+                                          });
+                                        }}
+                                        placeholder="如: Truffle Garlic"
+                                        className="w-full p-1 border border-[#c8c7be] rounded text-xs font-mono"
+                                      />
+                                    </div>
+                                    <div>
+                                      <span className="text-[9px] text-[#787770] font-mono block">
+                                        工艺注释 CRAFT NOTE (ZH):
+                                      </span>
+                                      <input
+                                        type="text"
+                                        value={mediaItem?.sketchNoteZh || ''}
+                                        onChange={(e) => {
+                                          setEditFieldSelectorMediaMap({
+                                            ...editFieldSelectorMediaMap,
+                                            [mediaKey]: {
+                                              ...(mediaItem || {
+                                                id: mediaKey,
+                                                key: mediaKey,
+                                                category: 'flavor',
+                                                fieldCategory: 'flavor',
+                                                targetFieldId: flavor,
+                                                fieldName: flavor,
+                                                labelZh: flavor,
+                                                labelEn: 'FLAVOR STYLE'
+                                              }),
+                                              sketchNoteZh: e.target.value
+                                            }
+                                          });
+                                        }}
+                                        placeholder="如: 手刨黑松露融合蒜香，醇郁回甘。"
+                                        className="w-full p-1 border border-[#c8c7be] rounded text-xs"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Section 3: 定制配菜选项组 (OPTION GROUPS) */}
+                  {(selectorCategoryFilter === 'all' || selectorCategoryFilter === 'option') && (
+                    <div className="p-5 bg-[#ffffff] rounded-xl border border-[#e2e3e1] shadow-urban space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 bg-[#006d36]"></span>
+                          <h5 className="font-bold text-xs text-[#1a1c1b] uppercase font-mono">
+                            定制配菜选择器图纸 OPTION GROUP BLUEPRINTS ({editOptionGroups.length})
+                          </h5>
+                        </div>
+                        <span className="text-[10px] text-[#787770] font-mono">
+                          包含薯条、沙拉、甘薯片等配件线稿
+                        </span>
+                      </div>
+
+                      {editOptionGroups.length === 0 ? (
+                        <p className="text-xs text-[#787770] italic p-3 bg-[#f9f9f7] rounded-lg">
+                          当前菜品暂无定制配菜组。可在主菜品数据中添加选项组（如配菜随心选）。
+                        </p>
+                      ) : (
+                        <div className="space-y-3">
+                          {editOptionGroups.map((group, gIdx) => (
+                            <div
+                              key={group.name || gIdx}
+                              className="p-3 bg-[#f9f9f7] rounded-xl border border-[#e2e3e1] space-y-2"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-xs text-[#1a1c1b]">
+                                  {group.name} {group.enName ? `[${group.enName}]` : ''}
+                                </span>
+                                <span className="text-[10px] text-[#787770] font-mono">
+                                  {group.choices.length} 项可选 CHOICES
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {group.choices.map((choice, cIdx) => {
+                                  const optionKey = `option_${choice.label}`;
+                                  const mediaItem = editFieldSelectorMediaMap[optionKey];
+                                  return (
+                                    <div
+                                      key={choice.label || cIdx}
+                                      className="p-2.5 bg-white rounded-lg border border-[#e2e3e1] flex items-center justify-between gap-2"
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-9 h-9 rounded bg-[#041224] border border-[#00d4ff]/40 overflow-hidden shrink-0 flex items-center justify-center">
+                                          {choice.blueprintImageUrl || mediaItem?.blueprintImageUrl ? (
+                                            <img
+                                              src={choice.blueprintImageUrl || mediaItem?.blueprintImageUrl}
+                                              alt={choice.label}
+                                              className="w-full h-full object-contain"
+                                            />
+                                          ) : (
+                                            <span className="text-[7px] text-[#00d4ff]/50 font-mono">
+                                              CAD
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div>
+                                          <div className="font-bold text-xs text-[#1a1c1b]">
+                                            {choice.label}
+                                          </div>
+                                          <div className="text-[9px] font-mono text-[#006d36]">
+                                            +¥{choice.extraPrice.toFixed(2)}
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const isFries = choice.label.includes('薯条');
+                                          const isSalad = choice.label.includes('沙拉');
+                                          const isCrisps = choice.label.includes('红薯');
+                                          const presetKey = isFries ? 'truffle_fries' : isSalad ? 'garden_salad' : isCrisps ? 'sweet_potato_crisps' : 'truffle_fries';
+                                          const preset = PRESET_SELECTOR_MEDIA_BANK[presetKey];
+
+                                          const generated = generateArtisanSvgBlueprint({
+                                            titleZh: choice.label,
+                                            titleEn: choice.enLabel || preset?.labelEn || 'CUSTOM CHOICE',
+                                            category: 'snacks',
+                                            sketchType: isFries ? 'fries' : isSalad ? 'salad' : isCrisps ? 'crisps' : 'general'
+                                          });
+
+                                          const updatedGroups = [...editOptionGroups];
+                                          updatedGroups[gIdx].choices[cIdx] = {
+                                            ...choice,
+                                            blueprintImageUrl: generated,
+                                            imageUrl: preset?.imageUrl || choice.imageUrl
+                                          };
+                                          setEditOptionGroups(updatedGroups);
+
+                                          setEditFieldSelectorMediaMap({
+                                            ...editFieldSelectorMediaMap,
+                                            [optionKey]: {
+                                              id: optionKey,
+                                              key: optionKey,
+                                              category: 'option',
+                                              fieldCategory: 'option',
+                                              targetFieldId: choice.label,
+                                              fieldName: choice.label,
+                                              labelZh: choice.label,
+                                              labelEn: choice.enLabel || preset?.labelEn || 'CUSTOM CHOICE',
+                                              imageUrl: preset?.imageUrl || choice.imageUrl || dish.imageUrl,
+                                              blueprintImageUrl: generated,
+                                              sketchType: isFries ? 'fries' : isSalad ? 'salad' : isCrisps ? 'crisps' : 'general',
+                                              sketchNoteZh: preset?.noteZh || `${choice.label} 工艺标定`,
+                                              sketchNoteEn: preset?.noteEn || `${choice.label} craft calibrated`
+                                            }
+                                          });
+                                          setPreviewStyleMode('spec_modal');
+                                          showToast(`[自动程序] 已生成【${choice.label}】专属配菜工匠线稿！`);
+                                        }}
+                                        className="p-1.5 bg-[#1a1c1b] text-white rounded hover:bg-black transition-colors cursor-pointer flex items-center gap-1 text-[10px] font-mono"
+                                        title="自动生成配菜线稿"
+                                      >
+                                        <Sparkles className="w-3 h-3 text-[#00d4ff]" />
+                                        <span>生成 CAD</span>
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1577,54 +2477,109 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
 
                   {/* Modal Scrollable Body */}
                   <div className="p-4 space-y-4 max-h-[520px] overflow-y-auto hide-scrollbar">
-                    {/* 1. Hero Product Showcase with Variant Image & Dynamic Price */}
-                    <div className="flex gap-3 items-start pb-3.5 border-b border-[#e2e3e1]">
-                      {/* Product Photo */}
-                      <div className="relative w-22 h-22 sm:w-24 sm:h-24 rounded-xl overflow-hidden shrink-0 border border-[#e2e3e1] bg-[#eeeeec] group">
-                        <img
-                          src={currentVariant?.imageUrl || dish.imageUrl}
-                          alt={dish.name}
-                          className="w-full h-full object-cover"
-                        />
-                        {(currentVariant?.badgeText || editBadgeText) && (
-                          <span className="absolute top-1 left-1 bg-[#000000] text-white text-[8.5px] font-bold px-1.5 py-0.2 rounded-full uppercase tracking-wider">
-                            {currentVariant?.badgeText || editBadgeText}
-                          </span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            onPreviewZoom &&
-                            onPreviewZoom({
-                              ...dish,
-                              imageUrl: currentVariant?.imageUrl || dish.imageUrl,
-                              name: `${dish.name}${currentVariant ? ` - ${currentVariant.name}` : ''}`
-                            })
-                          }
-                          className="absolute bottom-1 right-1 p-1 bg-black/60 text-white rounded text-[10px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center cursor-pointer"
-                          title="查看高清原图"
-                        >
-                          <ZoomIn className="w-3 h-3" />
-                        </button>
-                      </div>
+                    {/* 1. Hero Product Showcase with Variant Image & Dynamic Price & Blueprint Toggle */}
+                    {(() => {
+                      const dynamicDishForPreview = {
+                        ...dish,
+                        fieldSelectorMediaMap: editFieldSelectorMediaMap
+                      };
+                      const resolvedMedia = resolveVariantBlueprint(dynamicDishForPreview, currentVariant);
+                      const currentImage = previewBlueprintMode === 'blueprint'
+                        ? (resolvedMedia.blueprintUrl || currentVariant?.blueprintImageUrl || currentVariant?.imageUrl || dish.imageUrl)
+                        : (currentVariant?.imageUrl || dish.imageUrl);
 
-                      {/* Info & Price Showcase */}
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <div>
-                          <h4 className="font-bold text-sm text-[#1a1c1b] leading-tight flex items-center gap-1.5 flex-wrap">
-                            <span>{dish.name}</span>
-                            {currentVariant && (
-                              <span className="text-[10px] font-bold bg-[#f4f4f2] text-[#1a1c1b] px-1.5 py-0.5 rounded border border-[#e2e3e1]">
-                                {currentVariant.name}
-                              </span>
+                      return (
+                        <div className="flex gap-3 items-start pb-3.5 border-b border-[#e2e3e1]">
+                          {/* Product Photo / Blueprint Window */}
+                          <div className="flex flex-col items-center gap-1.5 shrink-0">
+                            <div className={`relative w-22 h-22 sm:w-24 sm:h-24 rounded-xl overflow-hidden shrink-0 border transition-all ${
+                              previewBlueprintMode === 'blueprint'
+                                ? 'bg-[#041224] border-[#00d4ff]/40 shadow-inner'
+                                : 'bg-[#eeeeec] border-[#e2e3e1]'
+                            } group`}>
+                              <img
+                                src={currentImage}
+                                alt={dish.name}
+                                className={`w-full h-full ${previewBlueprintMode === 'blueprint' ? 'object-contain scale-105 p-1' : 'object-cover'}`}
+                              />
+                              {(currentVariant?.badgeText || editBadgeText) && (
+                                <span className="absolute top-1 left-1 bg-[#000000] text-white text-[8.5px] font-bold px-1.5 py-0.2 rounded-full uppercase tracking-wider">
+                                  {currentVariant?.badgeText || editBadgeText}
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  onPreviewZoom &&
+                                  onPreviewZoom({
+                                    ...dish,
+                                    imageUrl: currentImage,
+                                    name: `${dish.name}${currentVariant ? ` - ${currentVariant.name}` : ''} (${previewBlueprintMode === 'blueprint' ? '工匠蓝图' : '实物'})`
+                                  })
+                                }
+                                className="absolute bottom-1 right-1 p-1 bg-black/60 text-white rounded text-[10px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center cursor-pointer"
+                                title="查看高清"
+                              >
+                                <ZoomIn className="w-3 h-3" />
+                              </button>
+                            </div>
+
+                            {/* Dual-Mode Switcher Pills (中文在前，英文在后) */}
+                            <div className="flex items-center bg-[#f4f4f2] p-0.5 rounded-lg border border-[#e2e3e1] text-[9.5px] font-mono">
+                              <button
+                                type="button"
+                                onClick={() => setPreviewBlueprintMode('photo')}
+                                className={`px-2 py-0.5 rounded transition-all font-bold cursor-pointer ${
+                                  previewBlueprintMode === 'photo'
+                                    ? 'bg-white text-[#1a1c1b] shadow-xs'
+                                    : 'text-[#787770] hover:text-[#1a1c1b]'
+                                }`}
+                              >
+                                实物 PHOTO
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setPreviewBlueprintMode('blueprint')}
+                                className={`px-2 py-0.5 rounded transition-all font-bold cursor-pointer flex items-center gap-0.5 ${
+                                  previewBlueprintMode === 'blueprint'
+                                    ? 'bg-[#041224] text-[#00d4ff] shadow-xs'
+                                    : 'text-[#787770] hover:text-[#1a1c1b]'
+                                }`}
+                              >
+                                <Sparkles className="w-2.5 h-2.5" />
+                                <span>线稿 CAD</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Info & Price Showcase */}
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <div>
+                              <h4 className="font-bold text-sm text-[#1a1c1b] leading-tight flex items-center gap-1.5 flex-wrap">
+                                <span>{dish.name}</span>
+                                {currentVariant && (
+                                  <span className="text-[10px] font-bold bg-[#f4f4f2] text-[#1a1c1b] px-1.5 py-0.5 rounded border border-[#e2e3e1]">
+                                    {currentVariant.name}
+                                  </span>
+                                )}
+                              </h4>
+                              {dish.enName && (
+                                <p className="text-[10px] text-[#787770] font-mono truncate">{dish.enName}</p>
+                              )}
+                            </div>
+
+                            {/* Blueprint Specs Note if in blueprint mode */}
+                            {previewBlueprintMode === 'blueprint' && (
+                              <div className="p-1.5 bg-[#041224]/5 rounded border border-[#041224]/10 text-[9.5px] font-mono text-[#006d36] flex items-center gap-1.5 flex-wrap">
+                                <span>料号: {resolvedMedia.artisanCode}</span>
+                                <span>•</span>
+                                <span>温控: {resolvedMedia.coreTemp}</span>
+                                <span>•</span>
+                                <span>配比: {resolvedMedia.specRatio}</span>
+                              </div>
                             )}
-                          </h4>
-                          {dish.enName && (
-                            <p className="text-[10px] text-[#787770] font-mono truncate">{dish.enName}</p>
-                          )}
-                        </div>
 
-                        {/* Pricing & Discounts */}
+                            {/* Pricing & Discounts */}
                         <div className="flex items-baseline gap-1 flex-wrap">
                           <span className="text-xs font-bold text-[#1a1c1b]">¥</span>
                           <span className="text-lg font-bold font-mono text-[#1a1c1b] tracking-tight">
@@ -1667,6 +2622,8 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                         </div>
                       </div>
                     </div>
+                  );
+                })()}
 
                     {/* Quick Variant Thumbnail Strip (if variants have photos) */}
                     {editVariants.some((v) => v.imageUrl) && (

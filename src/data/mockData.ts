@@ -99,6 +99,20 @@ const RAW_INITIAL_DISHES: DishItem[] = [
         label: 'A5 Miyazaki'
       }
     ],
+    artisanCode: 'ARTISAN #04',
+    refCode: 'REF: SK-2048',
+    specRatio: 'RATIO 7:3',
+    coreTemp: 'TEMP 56°C',
+    specComponents: [
+      { role: 'PATTY / 肉饼', label: '肉饼', detail: 'A5 宫崎和牛 150g (双饼厚切)' },
+      { role: 'BUN / 汉堡胚', label: '汉堡胚', detail: '天然活性炭手作布里欧' },
+      { role: 'SAUCE / 调味', label: '调味', detail: '手刨黑松露艾奥利酱 + 焦糖黑醋' }
+    ],
+    flavorMetrics: [
+      { label: '炙烤焦香', score: 4, maxScore: 5 },
+      { label: '多汁肉感', score: 5, maxScore: 5 },
+      { label: '松露香气', score: 4, maxScore: 5 }
+    ],
     optionGroups: [
       {
         name: 'Side Dish Choice',

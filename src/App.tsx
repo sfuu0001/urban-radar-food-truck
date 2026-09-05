@@ -26,7 +26,6 @@ import { UserCouponsPageView } from './components/UserCouponsPageView';
 import { MerchantSystemView } from './components/merchant/MerchantSystemView';
 import { RiderSystemView } from './components/rider/RiderSystemView';
 import { PlatformSystemView } from './components/platform/PlatformSystemView';
-import { FloatingChatBubbleWidget } from './components/chat/FloatingChatBubbleWidget';
 import { OrderHistoryMessagesModal } from './components/chat/OrderHistoryMessagesModal';
 import { OrderHistoryMessagesView } from './components/chat/OrderHistoryMessagesView';
 import { CloudbaseStatusModal } from './components/CloudbaseStatusModal';

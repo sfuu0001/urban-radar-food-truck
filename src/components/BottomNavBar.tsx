@@ -252,211 +252,237 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
 
   return (
     <>
-      <footer 
+      <footer
         id="bottom-navbar-outer-wrapper"
-        className="w-full shrink-0 z-30 flex flex-col items-center bg-white border-t border-[#e2e3e1] shadow-[0_-2px_12px_rgba(0,0,0,0.04)] py-1.5 px-2.5 relative select-none"
+        className="w-full shrink-0 z-30 flex flex-col bg-paper-card border-t-2 border-pitch select-none"
       >
-        {/* Modern Pill Dock Navigation Bar (Clean White Theme - Docked in Page Flow, Non-Floating) */}
-        <nav 
-          id="bottom-main-dock-nav"
-          style={{
-            paddingTop: '4px',
-            paddingBottom: '3px',
-            paddingLeft: '4px',
-            paddingRight: '4px',
-          }}
-          className="w-full max-w-md bg-white border border-[#D3D1CB] shadow-[0_2px_10px_rgba(0,0,0,0.06)] rounded-none flex items-center justify-between pointer-events-auto relative transition-all duration-300"
-        >
-          
-          {/* Tab 1: 点单 / Menu Icon */}
-          <div className="relative flex items-center justify-center">
-            <motion.button
-              id="bottom-nav-order-tab"
-              whileHover={{ scale: activeTab === 'home' ? 1.05 : 1.1 }}
-              whileTap={{ scale: 0.88 }}
-              onClick={handleOrderTabClick}
-              onTouchStart={handleTouchStart}
-              onTouchEnd={handleTouchEnd}
-              onMouseDown={handleTouchStart}
-              onMouseUp={handleTouchEnd}
-              onMouseLeave={handleTouchEnd}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                if (onOpenPullUpMenu) onOpenPullUpMenu();
-                else setIsDrawerOpen(true);
-              }}
-              title={
-                truckExpandConfig.mode === 'immediate'
-                  ? '点单 (点击直接展开餐车菜单)'
-                  : truckExpandConfig.mode === 'disabled'
-                  ? '点单 (点击切换首页/展开餐车)'
-                  : `点单 (点击${truckExpandConfig.delaySeconds.toFixed(1)}秒后展开餐车菜单，长按直接打开)`
-              }
-              className={`relative flex items-center justify-center w-10 h-10 rounded-none transition-colors cursor-pointer select-none ${
-                activeTab === 'home'
-                  ? 'bg-neutral-200 text-neutral-900 font-medium shadow-2xs border border-neutral-300/60'
-                  : 'text-neutral-500 hover:text-black hover:bg-neutral-100'
-              }`}
+        {/* Floating-feel Industrial Mini Checkout Strip (Visible when cart has items) */}
+        {cartCount > 0 && (
+          <div
+            id="bottom-mini-checkout-strip"
+            className="bg-paper border-b border-line px-3 py-1.5 flex items-center justify-between"
+          >
+            <div
+              ref={cartBtnRef}
+              data-cart-target="true"
+              className="flex items-center gap-2 cursor-pointer group"
+              onClick={onOpenCart}
+              title="查看选购清单"
             >
-              <UtensilsCrossed
-                className={`w-4.5 h-4.5 transition-transform ${
-                  activeTab === 'home' ? 'stroke-[2.2] text-neutral-900' : 'stroke-[1.8]'
-                }`}
-              />
-            </motion.button>
-          </div>
+              <div className="w-7 h-7 bg-pitch text-white flex items-center justify-center relative font-mono text-xs shadow-inner">
+                <ShoppingBag className="w-4 h-4 text-white stroke-[2]" />
+                <span className="absolute -top-1 -right-1 bg-amberAccent text-pitch text-[8px] font-black px-0.5 leading-tight border border-pitch">
+                  {cartCount > 99 ? '99+' : cartCount}
+                </span>
+              </div>
+              <div className="flex items-baseline gap-1 font-mono">
+                <span className="text-[10px] text-stone-500">小计</span>
+                <span className="text-sm font-black text-pitch">¥{cartTotal.toFixed(2)}</span>
+                <span className="text-[9px] text-emerald-700 bg-emeraldAccent/10 px-1 border border-line">
+                  已享专送特惠
+                </span>
+              </div>
+            </div>
 
-          {/* Tab 2: 购物车 / Cart Icon */}
-          <motion.button
-            ref={cartBtnRef}
-            id="bottom-nav-cart-tab"
-            data-cart-target="true"
-            whileHover={{ scale: activeTab === 'cart' ? 1.05 : 1.1 }}
-            whileTap={{ scale: 0.88 }}
-            onClick={onOpenCart}
-            title={cartCount > 0 ? `选购清单 (¥${cartTotal.toFixed(2)})` : '选购清单'}
-            className={`relative flex items-center justify-center min-w-[40px] h-10 px-1.5 rounded-none transition-colors cursor-pointer select-none group ${
-              activeTab === 'cart'
-                ? 'bg-neutral-200 text-neutral-900 font-medium shadow-2xs border border-neutral-300/60'
-                : 'text-neutral-500 hover:text-black hover:bg-neutral-100'
+            <button
+              type="button"
+              onClick={onOpenCart}
+              className="bg-pitch text-white px-3 py-1 text-[11px] font-mono font-bold tracking-wider uppercase border border-pitch flex items-center gap-1 hover:bg-stone-900 cursor-pointer shadow-xs transition-colors"
+            >
+              <span>去结算 CHECKOUT</span>
+              <span className="text-amberAccent text-xs font-black">→</span>
+            </button>
+          </div>
+        )}
+
+        {/* Bottom Industrial Navigation Bar: 5 Equal Columns */}
+        <div
+          id="bottom-main-dock-nav"
+          className="grid grid-cols-5 bg-paper-card py-1 text-center font-mono text-[9px] text-stone-500 border-t border-line"
+        >
+          {/* Tab 1: 点餐 */}
+          <button
+            type="button"
+            id="bottom-nav-order-tab"
+            onClick={handleOrderTabClick}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            onMouseDown={handleTouchStart}
+            onMouseUp={handleTouchEnd}
+            onMouseLeave={handleTouchEnd}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              if (onOpenPullUpMenu) onOpenPullUpMenu();
+              else setIsDrawerOpen(true);
+            }}
+            title={
+              truckExpandConfig.mode === 'immediate'
+                ? '点单 (点击直接展开餐车菜单)'
+                : truckExpandConfig.mode === 'disabled'
+                ? '点单 (点击切换首页/展开餐车)'
+                : `点单 (点击${truckExpandConfig.delaySeconds.toFixed(1)}秒后展开餐车菜单，长按直接打开)`
+            }
+            className={`flex flex-col items-center py-1 relative group cursor-pointer transition-colors ${
+              activeTab === 'home'
+                ? 'text-pitch border-b-2 border-pitch bg-techTag/30 font-bold'
+                : 'text-stone-500 hover:text-pitch'
             }`}
           >
-            <motion.div
-              animate={badgeBounce ? { scale: [1, 1.4, 0.85, 1.15, 1], y: [0, -5, 2, 0] } : { scale: 1, y: 0 }}
-              transition={{ duration: 0.4, ease: 'easeOut' }}
-              className="relative flex items-center justify-center gap-1"
-            >
-              <div className="relative flex items-center justify-center">
-                <ShoppingBag
-                  className={`w-4.5 h-4.5 transition-transform ${
-                    activeTab === 'cart' ? 'stroke-[2.2] text-neutral-900' : 'stroke-[1.8] group-hover:scale-105'
-                  }`}
-                />
-                {cartCount > 0 && (
-                  <motion.span
-                    key={cartCount}
-                    initial={{ scale: 0.4, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="absolute -top-1.5 -right-2 bg-black text-white text-[9.5px] font-black min-w-[15px] h-[15px] px-0.5 rounded-full flex items-center justify-center border-2 border-white shadow-sm leading-none"
-                  >
-                    {cartCount > 99 ? '99+' : cartCount}
-                  </motion.span>
-                )}
-              </div>
+            <div className="w-5 h-5 flex items-center justify-center relative">
+              <svg
+                className={`w-4 h-4 ${activeTab === 'home' ? 'text-pitch' : 'text-stone-700'}`}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="square"
+                strokeLinejoin="miter"
+                viewBox="0 0 24 24"
+              >
+                <path d="M18 2L6 14l-2 6 6-2L22 6l-4-4z" strokeDasharray="20" strokeDashoffset="0"></path>
+                <line x1="15" y1="5" x2="19" y2="9"></line>
+                <line x1="4" y1="20" x2="8" y2="16" strokeDasharray="1 1"></line>
+              </svg>
+              <span className="absolute -top-0.5 -right-0.5 text-[6px] text-stone-400 font-mono">+</span>
+            </div>
+            <span className="mt-0.5 font-bold tracking-tight text-[9px]">点餐</span>
+          </button>
 
-              {/* 当购物车有商品时显示总选购金额 */}
-              {cartCount > 0 && cartTotal > 0 && activeTab !== 'cart' && (
-                <motion.span
-                  initial={{ opacity: 0, x: -4 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="text-[11px] font-black text-black font-mono tracking-tight whitespace-nowrap pl-0.5"
-                >
-                  ¥{cartTotal.toFixed(0)}
-                </motion.span>
-              )}
-            </motion.div>
-          </motion.button>
+          {/* Tab 2: 专送 */}
+          <button
+            type="button"
+            id="bottom-nav-tracking-tab"
+            onClick={() => onSelectTab('tracking')}
+            className={`flex flex-col items-center py-1 relative group cursor-pointer transition-colors ${
+              activeTab === 'tracking'
+                ? 'text-pitch border-b-2 border-pitch bg-techTag/30 font-bold'
+                : 'text-stone-500 hover:text-pitch'
+            }`}
+          >
+            <div className="w-5 h-5 flex items-center justify-center relative">
+              <svg
+                className={`w-4 h-4 ${activeTab === 'tracking' ? 'text-pitch' : 'text-stone-700'}`}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="square"
+                strokeLinejoin="miter"
+                viewBox="0 0 24 24"
+              >
+                <path d="M13 2L4 14h7l-2 8 11-12h-7l2-8z"></path>
+                <line x1="2" y1="14" x2="4" y2="14" strokeDasharray="1 1"></line>
+                <line x1="20" y1="10" x2="22" y2="10" strokeDasharray="1 1"></line>
+              </svg>
+            </div>
+            <span className="mt-0.5 tracking-tight text-[9px]">专送</span>
+          </button>
 
-          {/* Tab: 消息聚合中心 / Message Aggregation Hub */}
-          <motion.button
+          {/* Tab 3: 动态 / 联络室 */}
+          <button
+            type="button"
             id="bottom-nav-messages-tab"
-            whileHover={{ scale: activeTab === 'order_messages' ? 1.05 : 1.1 }}
-            whileTap={{ scale: 0.88 }}
             onClick={() => {
               if (onOpenMessageHub) {
                 onOpenMessageHub();
               }
               onSelectTab('order_messages');
             }}
-            title={totalUnreadMessages > 0 ? `消息中心聚合 (${totalUnreadMessages}条未读)` : '消息中心聚合'}
-            className={`relative flex items-center justify-center w-10 h-10 rounded-none transition-colors cursor-pointer select-none group ${
+            title={totalUnreadMessages > 0 ? `消息中心 (${totalUnreadMessages}条未读)` : '消息中心'}
+            className={`flex flex-col items-center py-1 relative group cursor-pointer transition-colors ${
               activeTab === 'order_messages'
-                ? 'bg-neutral-200 text-neutral-900 font-medium shadow-2xs border border-neutral-300/60'
-                : 'text-neutral-500 hover:text-black hover:bg-neutral-100'
+                ? 'text-pitch border-b-2 border-pitch bg-techTag/30 font-bold'
+                : 'text-stone-500 hover:text-pitch'
             }`}
           >
-            <div className="relative flex items-center justify-center">
-              <MessageSquareText
-                className={`w-4.5 h-4.5 transition-transform ${
-                  activeTab === 'order_messages' ? 'stroke-[2.2] text-neutral-900' : 'stroke-[1.8] group-hover:scale-105'
-                }`}
-              />
+            <div className="w-5 h-5 flex items-center justify-center relative">
+              <svg
+                className={`w-4 h-4 ${activeTab === 'order_messages' ? 'text-pitch' : 'text-stone-700'}`}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="square"
+                strokeLinejoin="miter"
+                viewBox="0 0 24 24"
+              >
+                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                <line x1="8" y1="12" x2="16" y2="12" strokeDasharray="2 2"></line>
+              </svg>
               {totalUnreadMessages > 0 && (
-                <span className="absolute -top-1.5 -right-2 bg-rose-500 text-white text-[8.5px] font-black min-w-[15px] h-[15px] px-0.5 rounded-full flex items-center justify-center border-2 border-white shadow-sm leading-none animate-pulse">
-                  {totalUnreadMessages > 99 ? '99+' : totalUnreadMessages}
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-600 rounded-full border border-white animate-pulse" />
+              )}
+            </div>
+            <span className="mt-0.5 tracking-tight text-[9px]">动态</span>
+          </button>
+
+          {/* Tab 4: 工单 / 订单 */}
+          <button
+            type="button"
+            id="bottom-nav-orders-tab"
+            onClick={() => onSelectTab('orders')}
+            title={activeOrders.length > 0 ? `历史与工单 (${activeOrders.length}笔在制)` : '工单'}
+            className={`flex flex-col items-center py-1 relative group cursor-pointer transition-colors ${
+              activeTab === 'orders'
+                ? 'text-pitch border-b-2 border-pitch bg-techTag/30 font-bold'
+                : 'text-stone-500 hover:text-pitch'
+            }`}
+          >
+            <div className="w-5 h-5 flex items-center justify-center relative">
+              <svg
+                className={`w-4 h-4 ${activeTab === 'orders' ? 'text-pitch' : 'text-stone-700'}`}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="square"
+                strokeLinejoin="miter"
+                viewBox="0 0 24 24"
+              >
+                <rect x="5" y="4" width="14" height="18" strokeDasharray="20"></rect>
+                <path d="M9 4V2h6v2"></path>
+                <line x1="8" y1="9" x2="16" y2="9" strokeDasharray="1 1"></line>
+                <line x1="8" y1="13" x2="16" y2="13" strokeDasharray="1 1"></line>
+                <line x1="8" y1="17" x2="13" y2="17" strokeDasharray="1 1"></line>
+              </svg>
+              {activeOrders.length > 0 && (
+                <span className="absolute -top-0.5 -right-1 bg-amber-500 text-white text-[7px] px-1 font-bold">
+                  {activeOrders.length}
                 </span>
               )}
             </div>
-          </motion.button>
+            <span className="mt-0.5 tracking-tight text-[9px]">工单</span>
+          </button>
 
-          {/* Center Hub / Service Drawer Floating Action Button */}
-          <motion.button
-            id="bottom-nav-drawer-center-trigger"
-            whileHover={{ scale: 1.1, rotate: 6 }}
-            whileTap={{ scale: 0.88 }}
-            onClick={() => setIsDrawerOpen(true)}
-            title="黑曜石综合服务"
-            className="relative flex items-center justify-center w-11 h-11 -my-1.5 rounded-none bg-[#1A1A17] text-white border border-neutral-700/60 shadow-[0_4px_14px_rgba(0,0,0,0.25)] hover:border-neutral-500 hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)] transition-all cursor-pointer select-none group"
-          >
-            <div className="absolute inset-0 rounded-none bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-            <SlidersHorizontal className="w-4.5 h-4.5 stroke-[2] group-hover:rotate-45 transition-transform duration-300" />
-          </motion.button>
-
-          {/* Tab 3: 订单 / Orders Icon */}
-          <div className="relative flex items-center justify-center">
-            <motion.button
-              id="bottom-nav-orders-tab"
-              whileHover={{ scale: activeTab === 'orders' ? 1.05 : 1.1 }}
-              whileTap={{ scale: 0.88 }}
-              onClick={() => onSelectTab('orders')}
-              title={activeOrders.length > 0 ? `历史与进行中订单 (${activeOrders.length}笔进行中)` : '历史与进行中订单'}
-              className={`relative flex items-center justify-center w-10 h-10 rounded-none transition-colors cursor-pointer select-none ${
-                activeTab === 'orders'
-                  ? 'bg-neutral-200 text-neutral-900 font-medium shadow-2xs border border-neutral-300/60'
-                  : 'text-neutral-500 hover:text-black hover:bg-neutral-100'
-              }`}
-            >
-              <div className="relative flex items-center justify-center">
-                <ClipboardList
-                  className={`w-4.5 h-4.5 transition-transform ${
-                    activeTab === 'orders' ? 'stroke-[2.2] text-neutral-900' : 'stroke-[1.8]'
-                  }`}
-                />
-                {/* 当有进行中的订单时显示订单数量 */}
-                {activeOrders.length > 0 && (
-                  <span className="absolute -top-1.5 -right-2 bg-amber-500 text-white text-[8.5px] font-black min-w-[15px] h-[15px] px-0.5 rounded-full flex items-center justify-center border-2 border-white shadow-sm leading-none animate-pulse">
-                    {activeOrders.length}
-                  </span>
-                )}
-              </div>
-            </motion.button>
-          </div>
-
-          {/* Tab 4: 个人中心 / Profile Icon */}
-          <motion.button
+          {/* Tab 5: 工匠档案 / 个人中心 */}
+          <button
+            type="button"
             id="bottom-nav-profile-tab"
-            whileHover={{ scale: activeTab === 'profile' ? 1.05 : 1.1 }}
-            whileTap={{ scale: 0.88 }}
             onClick={() => onSelectTab('profile')}
-            title="会员中心"
-            className={`relative flex items-center justify-center w-10 h-10 rounded-none transition-colors cursor-pointer select-none ${
+            title="工匠档案与会员中心"
+            className={`flex flex-col items-center py-1 relative group cursor-pointer transition-colors ${
               activeTab === 'profile'
-                ? 'bg-neutral-200 text-neutral-900 font-medium shadow-2xs border border-neutral-300/60'
-                : 'text-neutral-500 hover:text-black hover:bg-neutral-100'
+                ? 'text-pitch border-b-2 border-pitch bg-techTag/30 font-bold'
+                : 'text-stone-500 hover:text-pitch'
             }`}
           >
-            <div className="relative flex items-center justify-center">
-              <User
-                className={`w-4.5 h-4.5 transition-transform ${
-                  activeTab === 'profile' ? 'stroke-[2.2] text-neutral-900' : 'stroke-[1.8]'
-                }`}
-              />
+            <div className="w-5 h-5 flex items-center justify-center relative">
+              <svg
+                className={`w-4 h-4 ${activeTab === 'profile' ? 'text-pitch' : 'text-stone-700'}`}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="square"
+                strokeLinejoin="miter"
+                viewBox="0 0 24 24"
+              >
+                <circle cx="12" cy="7" r="4"></circle>
+                <path d="M4 21v-2a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v2"></path>
+                <line x1="10" y1="18" x2="14" y2="18" strokeDasharray="1 1"></line>
+              </svg>
               {isVIPActive && (
-                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500 border-2 border-white" />
+                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500 border border-white" />
               )}
             </div>
-          </motion.button>
-        </nav>
+            <span className="mt-0.5 tracking-tight text-[9px]">工匠档案</span>
+          </button>
+        </div>
       </footer>
 
       {/* Unified Nav Drawer Component */}

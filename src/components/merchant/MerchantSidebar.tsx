@@ -6,12 +6,10 @@ import {
   ChevronRight,
   ChevronDown,
   LayoutGrid,
-  Sparkles,
-  Layers,
   Truck,
-  ShieldAlert,
-  Flame,
-  Check
+  Check,
+  PanelLeftClose,
+  PanelLeft
 } from 'lucide-react';
 import { MerchantTab } from './MerchantSystemView';
 
@@ -35,6 +33,13 @@ interface MerchantSidebarProps {
   onCloseMobile: () => void;
   truckName?: string;
 }
+
+const CATEGORY_STYLES: Record<string, { dot: string; text: string; bg: string; badge: string }> = {
+  '营业管控': { dot: 'bg-emerald-500', text: 'text-emerald-800', bg: 'bg-emerald-50', badge: 'bg-emerald-100 text-emerald-800' },
+  '工艺与标准': { dot: 'bg-amber-500', text: 'text-amber-800', bg: 'bg-amber-50', badge: 'bg-amber-100 text-amber-800' },
+  '损耗与运营': { dot: 'bg-sky-500', text: 'text-sky-800', bg: 'bg-sky-50', badge: 'bg-sky-100 text-sky-800' },
+  '渠道与报表': { dot: 'bg-purple-500', text: 'text-purple-800', bg: 'bg-purple-50', badge: 'bg-purple-100 text-purple-800' },
+};
 
 export const MerchantSidebar: React.FC<MerchantSidebarProps> = ({
   activeTab,
@@ -79,25 +84,25 @@ export const MerchantSidebar: React.FC<MerchantSidebarProps> = ({
   }, [tabsConfig]);
 
   const sidebarContent = (
-    <div className="flex flex-col h-full bg-[#ffffff] border-r border-[#e6e6e4] text-[#37352f] select-none font-sans">
+    <div className="flex flex-col h-full bg-[#ffffff] text-[#37352f] select-none font-sans overflow-hidden">
       {/* 1. Sidebar Header / Title bar */}
-      <div className="p-3 border-b border-[#e6e6e4] flex items-center justify-between bg-[#fafaf9] gap-2">
+      <div className="p-2.5 sm:p-3 border-b border-[#e6e6e4] flex items-center justify-between bg-[#fafaf9] gap-2 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="w-6 h-6 rounded-[3px] bg-[#37352f] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
-            <LayoutGrid className="w-3.5 h-3.5" />
+          <div className="w-7 h-7 rounded-[4px] bg-[#201f1d] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+            <LayoutGrid className="w-4 h-4 text-emerald-400" />
           </div>
           {!isCollapsed && (
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="font-bold text-xs text-[#37352f] tracking-tight">功能导航</span>
-                <span className="text-[10px] font-mono px-1.5 py-0.2 bg-[#efefed] text-[#787774] rounded-[2px] font-bold">
+                <span className="font-bold text-xs text-[#201f1d] tracking-tight">功能导航</span>
+                <span className="text-[10px] font-mono px-1.5 py-0.2 bg-[#efefed] text-[#5a5854] rounded-[3px] font-bold">
                   25模块
                 </span>
               </div>
               {truckName && (
-                <div className="text-[10px] text-[#787774] truncate flex items-center gap-1 mt-0.5">
+                <div className="text-[10px] text-[#787774] truncate flex items-center gap-1 mt-0.5" title={truckName}>
                   <Truck className="w-3 h-3 text-[#2b593f] shrink-0" />
-                  <span className="truncate">{truckName}</span>
+                  <span className="truncate max-w-[130px] xl:max-w-[170px]">{truckName}</span>
                 </div>
               )}
             </div>
@@ -108,17 +113,17 @@ export const MerchantSidebar: React.FC<MerchantSidebarProps> = ({
         <button
           type="button"
           onClick={onToggleCollapse}
-          className="hidden md:flex p-1 hover:bg-[#efefed] rounded-[3px] text-[#787774] hover:text-[#37352f] transition-all cursor-pointer items-center justify-center border border-transparent hover:border-[#d3d1cb]"
-          title={isCollapsed ? '展开完整侧边栏' : '折叠为精简侧边栏'}
+          className="hidden md:flex p-1.5 hover:bg-[#efefed] rounded-[4px] text-[#787774] hover:text-[#201f1d] transition-all cursor-pointer items-center justify-center border border-transparent hover:border-[#d3d1cb]"
+          title={isCollapsed ? '展开完整侧边栏' : '收起为精简图标栏'}
         >
-          {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          {isCollapsed ? <PanelLeft className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
         </button>
 
         {/* Mobile Close Button */}
         <button
           type="button"
           onClick={onCloseMobile}
-          className="md:hidden p-1 hover:bg-[#efefed] rounded-[3px] text-[#787774] hover:text-[#37352f] transition-all cursor-pointer items-center justify-center"
+          className="md:hidden p-1.5 hover:bg-[#efefed] rounded-[4px] text-[#787774] hover:text-[#201f1d] transition-all cursor-pointer items-center justify-center"
           title="关闭导航栏"
         >
           <X className="w-4 h-4" />
@@ -127,35 +132,40 @@ export const MerchantSidebar: React.FC<MerchantSidebarProps> = ({
 
       {/* 2. Search & Filter Bar (Only when expanded) */}
       {!isCollapsed && (
-        <div className="p-2 border-b border-[#efefed] bg-[#ffffff]">
+        <div className="p-2 border-b border-[#efefed] bg-[#ffffff] shrink-0">
           <div className="relative flex items-center">
             <Search className="w-3.5 h-3.5 text-[#9b9a97] absolute left-2.5 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="搜索 25 个功能模块..."
-              className="w-full pl-8 pr-7 py-1.5 bg-[#f7f7f5] hover:bg-[#efefed] focus:bg-[#ffffff] border border-[#e6e6e4] focus:border-[#37352f] rounded-[4px] text-xs text-[#37352f] placeholder:text-[#9b9a97] outline-none transition-all"
+              placeholder="搜索功能模块 (支持名称/拼音)..."
+              className="w-full pl-8 pr-7 py-1.5 bg-[#f7f7f5] hover:bg-[#efefed] focus:bg-[#ffffff] border border-[#e6e6e4] focus:border-[#201f1d] rounded-[4px] text-xs text-[#201f1d] placeholder:text-[#9b9a97] outline-none transition-all"
             />
-            {searchQuery && (
+            {searchQuery ? (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2 text-[#9b9a97] hover:text-[#37352f] p-0.5 cursor-pointer"
+                className="absolute right-2 text-[#9b9a97] hover:text-[#201f1d] p-0.5 cursor-pointer"
               >
                 <X className="w-3 h-3" />
               </button>
+            ) : (
+              <span className="absolute right-2 text-[10px] font-mono text-[#b0afa9] bg-[#efefed] px-1 py-0.2 rounded border border-[#e0dfdb] pointer-events-none">
+                /
+              </span>
             )}
           </div>
         </div>
       )}
 
       {/* 3. Navigation List grouped by categories */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-1.5 space-y-3 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-1.5 space-y-2.5 custom-scrollbar">
         {categories.map((cat) => {
           const catTabs = filteredTabs.filter((t) => t.category === cat);
           if (catTabs.length === 0) return null;
           const isCatCollapsed = !searchQuery && Boolean(collapsedCategories[cat]);
+          const catStyle = CATEGORY_STYLES[cat] || { dot: 'bg-neutral-400', text: 'text-neutral-700', bg: 'bg-neutral-100', badge: 'bg-neutral-100 text-neutral-700' };
 
           return (
             <div key={cat} className="space-y-0.5">
@@ -164,23 +174,25 @@ export const MerchantSidebar: React.FC<MerchantSidebarProps> = ({
                 <button
                   type="button"
                   onClick={() => toggleCategory(cat)}
-                  className="w-full px-2 py-1 flex items-center justify-between text-[11px] font-bold text-[#787774] hover:text-[#37352f] rounded-[3px] transition-colors cursor-pointer group uppercase tracking-wider"
+                  className="w-full px-2 py-1 flex items-center justify-between text-[11px] font-bold text-[#787774] hover:text-[#201f1d] rounded-[3px] transition-colors cursor-pointer group tracking-tight"
                 >
                   <div className="flex items-center gap-1.5">
+                    <span className={`w-1.5 h-1.5 rounded-full ${catStyle.dot}`} />
                     <span>{cat}</span>
-                    <span className="text-[10px] font-normal text-[#9b9a97]">({catTabs.length})</span>
+                    <span className="text-[10px] font-mono font-normal text-[#9b9a97]">({catTabs.length})</span>
                   </div>
                   <ChevronDown
-                    className={`w-3 h-3 text-[#9b9a97] group-hover:text-[#37352f] transition-transform duration-150 ${
+                    className={`w-3 h-3 text-[#9b9a97] group-hover:text-[#201f1d] transition-transform duration-150 ${
                       isCatCollapsed ? '-rotate-90' : ''
                     }`}
                   />
                 </button>
               ) : (
-                <div className="w-full border-t border-[#e6e6e4] my-2 pt-1">
-                  <div className="text-[9px] text-[#9b9a97] text-center font-bold truncate px-1">
+                <div className="w-full border-t border-[#e6e6e4] my-2 pt-1 flex flex-col items-center">
+                  <span className={`w-1.5 h-1.5 rounded-full ${catStyle.dot} mb-0.5`} />
+                  <span className="text-[9px] text-[#9b9a97] text-center font-bold truncate">
                     {cat.slice(0, 2)}
-                  </div>
+                  </span>
                 </div>
               )}
 
@@ -201,18 +213,21 @@ export const MerchantSidebar: React.FC<MerchantSidebarProps> = ({
                             onSelectTab(tab.id);
                             onCloseMobile();
                           }}
-                          title={`${tab.label} (${tab.category})`}
-                          className={`w-full h-9 rounded-[4px] flex items-center justify-center relative transition-all cursor-pointer ${
+                          title={`${tab.label} · ${tab.category}`}
+                          className={`w-full h-10 rounded-[5px] flex items-center justify-center relative transition-all cursor-pointer ${
                             isSelected
-                              ? 'bg-[#37352f] text-white shadow-2xs'
-                              : 'text-[#5a5853] hover:bg-[#f1f1ef] hover:text-[#37352f]'
+                              ? 'bg-[#201f1d] text-white shadow-xs'
+                              : 'text-[#5a5853] hover:bg-[#efefed] hover:text-[#201f1d]'
                           }`}
                         >
-                          <Icon className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-[#787774]'}`} />
+                          <Icon className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-[#6a6864]'}`} />
+                          {isSelected && (
+                            <span className="absolute left-0 top-2 bottom-2 w-0.5 bg-emerald-400 rounded-r" />
+                          )}
                           {tab.badge !== undefined && tab.badge > 0 && (
                             <span
-                              className={`absolute top-1 right-1 w-2 h-2 rounded-full ${
-                                tab.badgeAlert ? 'bg-[#eb5757] animate-pulse' : 'bg-[#2b593f]'
+                              className={`absolute top-1.5 right-1.5 w-2 h-2 rounded-full ${
+                                tab.badgeAlert ? 'bg-rose-500 animate-pulse' : 'bg-emerald-600'
                               }`}
                             />
                           )}
@@ -231,14 +246,14 @@ export const MerchantSidebar: React.FC<MerchantSidebarProps> = ({
                         }}
                         className={`w-full px-2.5 py-1.5 rounded-[4px] text-xs font-medium flex items-center justify-between gap-2 transition-all cursor-pointer text-left ${
                           isSelected
-                            ? 'bg-[#37352f] text-white font-semibold shadow-2xs'
-                            : 'text-[#45433d] hover:bg-[#f1f1ef] hover:text-[#191918]'
+                            ? 'bg-[#201f1d] text-white font-semibold shadow-xs'
+                            : 'text-[#45433d] hover:bg-[#efefed] hover:text-[#191918]'
                         }`}
                       >
                         <div className="flex items-center gap-2 min-w-0 truncate">
                           <Icon
                             className={`w-3.5 h-3.5 shrink-0 transition-colors ${
-                              isSelected ? 'text-white' : 'text-[#787774]'
+                              isSelected ? 'text-emerald-400' : 'text-[#787774]'
                             }`}
                           />
                           <span className="truncate">{tab.label}</span>
@@ -247,18 +262,18 @@ export const MerchantSidebar: React.FC<MerchantSidebarProps> = ({
                         <div className="flex items-center gap-1.5 shrink-0">
                           {tab.badge !== undefined && tab.badge > 0 && (
                             <span
-                              className={`text-[9.5px] font-mono font-bold px-1.5 py-0.2 rounded-[2px] ${
+                              className={`text-[9.5px] font-mono font-bold px-1.5 py-0.2 rounded-[3px] ${
                                 isSelected
                                   ? 'bg-white/20 text-white'
                                   : tab.badgeAlert
-                                  ? 'bg-[#fbe4e4] text-[#eb5757] border border-[#f5c6cb]'
+                                  ? 'bg-rose-50 text-rose-600 border border-rose-200'
                                   : 'bg-[#e6e6e4] text-[#37352f]'
                               }`}
                             >
                               {tab.badge}
                             </span>
                           )}
-                          {isSelected && <Check className="w-3.5 h-3.5 text-white/90 shrink-0" />}
+                          {isSelected && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
                         </div>
                       </button>
                     );
@@ -276,31 +291,44 @@ export const MerchantSidebar: React.FC<MerchantSidebarProps> = ({
         )}
       </div>
 
-      {/* 4. Sidebar Footer - Current Active State Summary */}
-      {!isCollapsed && (
-        <div className="p-2.5 border-t border-[#e6e6e4] bg-[#fafaf9] flex items-center justify-between text-[11px] text-[#787774]">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-            <span className="truncate font-semibold text-[#37352f]">
-              {activeTabConfig.label}
-            </span>
+      {/* 4. Sidebar Footer - Current Active State Summary & Collapse trigger */}
+      <div className="p-2.5 border-t border-[#e6e6e4] bg-[#fafaf9] shrink-0">
+        {!isCollapsed ? (
+          <div className="flex items-center justify-between text-[11px] text-[#787774]">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <span className="truncate font-semibold text-[#201f1d]">
+                {activeTabConfig.label}
+              </span>
+            </div>
+            {totalUrgentBadges > 0 && (
+              <span className="bg-rose-50 text-rose-600 border border-rose-200 font-bold text-[10px] px-1.5 py-0.2 rounded-[2px] font-mono shrink-0">
+                {totalUrgentBadges} 待处理
+              </span>
+            )}
           </div>
-          {totalUrgentBadges > 0 && (
-            <span className="bg-[#fbe4e4] text-[#eb5757] font-bold text-[10px] px-1.5 py-0.2 rounded-[2px] font-mono shrink-0">
-              {totalUrgentBadges} 待处理
-            </span>
-          )}
-        </div>
-      )}
+        ) : (
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              className="p-1 hover:bg-[#efefed] rounded text-[#787774] hover:text-[#201f1d] cursor-pointer"
+              title="展开完整侧边栏"
+            >
+              <PanelLeft className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 
   return (
     <>
-      {/* Desktop Sidebar (Sticky left) */}
+      {/* Desktop Sidebar (Full-height column) */}
       <aside
-        className={`hidden md:block shrink-0 sticky top-[48px] h-[calc(100vh-48px)] z-30 transition-all duration-200 ${
-          isCollapsed ? 'w-14' : 'w-60 xl:w-64'
+        className={`hidden md:flex flex-col shrink-0 h-full z-30 transition-all duration-200 border-r border-[#e6e6e4] bg-white ${
+          isCollapsed ? 'w-16' : 'w-64 xl:w-72'
         }`}
       >
         {sidebarContent}
@@ -315,7 +343,7 @@ export const MerchantSidebar: React.FC<MerchantSidebarProps> = ({
             onClick={onCloseMobile}
           />
           {/* Slide-out Drawer */}
-          <div className="relative w-72 max-w-[85vw] h-full shadow-2xl z-10 animate-in slide-in-from-left duration-200">
+          <div className="relative w-72 max-w-[85vw] h-full shadow-2xl z-10 animate-in slide-in-from-left duration-200 bg-white">
             {sidebarContent}
           </div>
         </div>

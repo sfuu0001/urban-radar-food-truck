@@ -396,15 +396,29 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
           {/* Batch Print Table Stand QR Button */}
           <button
             type="button"
-            onClick={() => setIsBatchPrintModalOpen(true)}
-            className="px-2.5 py-1.5 bg-[#2b593f] hover:bg-[#204430] text-white rounded-[3px] font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs whitespace-nowrap sm:ml-auto"
+            onClick={() => setIsBatchPrintModalOpen((prev) => !prev)}
+            className={`px-2.5 py-1.5 rounded-[3px] font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs whitespace-nowrap sm:ml-auto ${
+              isBatchPrintModalOpen
+                ? 'bg-[#1e3e2b] text-white ring-1 ring-emerald-400'
+                : 'bg-[#2b593f] hover:bg-[#204430] text-white'
+            }`}
             title="生成并打印所有桌台亚克力立牌二维码"
           >
             <QrCode className="w-3.5 h-3.5" />
-            <span>批量打印桌码立牌</span>
+            <span>{isBatchPrintModalOpen ? '收起立牌打印中心' : '批量打印桌码立牌'}</span>
           </button>
         </div>
       </div>
+
+      {/* Embedded Table Batch Print QR Stand Center */}
+      {isBatchPrintModalOpen && (
+        <TableBatchPrintModal
+          isOpen={isBatchPrintModalOpen}
+          onClose={() => setIsBatchPrintModalOpen(false)}
+          tables={tables}
+          isEmbedded={true}
+        />
+      )}
 
       {/* Waitlist Queue & Auto/Manual Transfer Control Hub */}
       {(() => {
@@ -1595,12 +1609,6 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
           </div>
         </div>
       )}
-      {/* 8. Modal: Table Batch Print QR Stand Modal */}
-      <TableBatchPrintModal
-        isOpen={isBatchPrintModalOpen}
-        onClose={() => setIsBatchPrintModalOpen(false)}
-        tables={tables}
-      />
     </div>
   );
 };

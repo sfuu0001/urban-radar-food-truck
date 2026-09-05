@@ -194,7 +194,7 @@ export const FloatingChatBubbleWidget: React.FC<FloatingChatBubbleWidgetProps> =
           }, 150);
         }}
         initial={{ x: 0, y: 0 }}
-        className="fixed bottom-20 sm:bottom-20 right-3 sm:right-4 max-sm:right-auto max-sm:left-1/2 max-sm:-translate-x-1/2 z-40 flex flex-col items-center sm:items-end gap-1.5 select-none touch-none"
+        className="fixed bottom-20 md:bottom-10 right-3 sm:right-5 max-sm:right-auto max-sm:left-1/2 max-sm:-translate-x-1/2 z-40 flex flex-col items-center sm:items-end gap-1.5 select-none touch-none"
       >
         {/* Expanded Quick Drawer / Preview */}
         <AnimatePresence>

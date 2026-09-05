@@ -38,7 +38,10 @@ import {
   Palette,
   Bluetooth,
   Smartphone,
-  Fingerprint
+  Fingerprint,
+  Maximize2,
+  Minimize2,
+  Clock
 } from 'lucide-react';
 import { MerchantSession, maskPhoneNumber } from '../../utils/staffAndRiderAuthEngine';
 import { DishItem, Order, TruckInfo, TableItem, KdsTicket, HeldOrder } from '../../types';
@@ -86,7 +89,6 @@ import { MerchantCategoryBrandSettings } from './MerchantCategoryBrandSettings';
 import { MerchantPaymentChannels } from './MerchantPaymentChannels';
 import { MerchantMenuDesignSystem } from './MerchantMenuDesignSystem';
 import { MerchantSidebar, TabItemConfig } from './MerchantSidebar';
-import { FloatingChatBubbleWidget } from '../chat/FloatingChatBubbleWidget';
 import { OmniAggregatedChatHub } from '../chat/OmniAggregatedChatHub';
 import { BluetoothSpeakerModal } from './BluetoothSpeakerModal';
 import { globalBluetoothAudio } from '../../utils/bluetoothAudioEngine';
@@ -878,12 +880,41 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
     }
   };
 
+  // Desktop workspace full-width toggle
+  const [isFullWidthWorkspace, setIsFullWidthWorkspace] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('obsidian_merchant_fullwidth') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleFullWidthWorkspace = () => {
+    setIsFullWidthWorkspace((prev) => {
+      const next = !prev;
+      safeSetStorage('obsidian_merchant_fullwidth', next);
+      return next;
+    });
+  };
+
+  // Real-time clock for desktop status bar
+  const [currentTime, setCurrentTime] = useState<string>(() =>
+    new Date().toLocaleTimeString('zh-CN', { hour12: false })
+  );
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date().toLocaleTimeString('zh-CN', { hour12: false }));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const isSidebarActive = isMobileSidebarOpen;
 
   return (
-    <div className="min-h-screen bg-[#f7f7f5] text-[#37352f] flex flex-col font-sans selection:bg-[#37352f] selection:text-white">
+    <div className="h-screen w-full bg-[#f7f7f5] text-[#37352f] flex flex-col font-sans overflow-hidden select-none selection:bg-[#37352f] selection:text-white">
       {/* 1. Global Navigation Top Bar */}
-      <header className="sticky top-0 z-40 bg-[#ffffff] border-b border-[#e6e6e4] px-2 sm:px-4 py-1.5 sm:py-2 flex items-center justify-between shadow-2xs gap-1.5 sm:gap-3">
+      <header className="h-12 sm:h-13 shrink-0 bg-[#ffffff] border-b border-[#e6e6e4] px-2 sm:px-4 py-1.5 flex items-center justify-between shadow-2xs gap-1.5 sm:gap-3 z-30">
         {/* Left: Mobile Sidebar Toggle + Back + Store Brand + Truck Selector */}
         <div className="flex items-center gap-1 sm:gap-2.5 min-w-0 shrink">
           {/* Mobile Sidebar Toggle Button */}
@@ -1107,7 +1138,7 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
       </header>
 
       {/* 2. Main Flex Container: Left Sidebar + Right Workspace */}
-      <div className="flex-1 flex flex-row min-h-0 w-full relative">
+      <div className="flex-1 flex flex-row min-h-0 w-full overflow-hidden relative">
         {/* Left Sidebar Navigation */}
         <MerchantSidebar
           activeTab={activeTab}
@@ -1131,9 +1162,9 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
         />
 
         {/* Right Main Dashboard Workspace */}
-        <div className="flex-1 flex flex-col min-w-0 bg-[#f7f7f5]">
+        <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-[#f7f7f5]">
           {/* Subheader: Active Module Breadcrumb & Quick Pill Bar */}
-          <div className="sticky top-[45px] sm:top-[48px] z-20 bg-[#ffffff]/90 backdrop-blur-xs border-b border-[#e6e6e4] px-2.5 sm:px-4 py-1.5 shadow-2xs flex flex-wrap items-center justify-between gap-2">
+          <div className="shrink-0 bg-[#ffffff]/95 backdrop-blur-xs border-b border-[#e6e6e4] px-2.5 sm:px-4 py-1.5 shadow-2xs flex items-center justify-between gap-2 z-20">
             {/* Active Module Indicator */}
             <div className="flex items-center gap-2 min-w-0">
               <button
@@ -1149,16 +1180,16 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
               <div className="hidden md:flex items-center gap-2 min-w-0 text-xs">
                 <span className="text-[#787774] font-medium">{currentTabConfig.category}</span>
                 <span className="text-[#d3d1cb]">/</span>
-                <div className="flex items-center gap-1.5 font-bold text-[#37352f]">
-                  <CurrentIcon className="w-3.5 h-3.5 text-[#2b593f]" />
+                <div className="flex items-center gap-1.5 font-bold text-[#201f1d]">
+                  <CurrentIcon className="w-3.5 h-3.5 text-emerald-700" />
                   <span>{currentTabConfig.label}</span>
                 </div>
                 {currentTabConfig.badge !== undefined && currentTabConfig.badge > 0 && (
                   <span
                     className={`text-[9.5px] font-mono font-bold px-1.5 py-0.2 rounded-[2px] ${
                       currentTabConfig.badgeAlert
-                        ? 'bg-[#fbe4e4] text-[#eb5757] border border-[#f5c6cb]'
-                        : 'bg-[#37352f] text-white'
+                        ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                        : 'bg-[#201f1d] text-white'
                     }`}
                   >
                     {currentTabConfig.badge}
@@ -1167,58 +1198,82 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
               </div>
             </div>
 
-            {/* Quick Frequent Modules (Desktop & Mobile horizontal scrollable pill bar) */}
-            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 max-w-full">
-              {[
-                { id: 'tables', label: '台位', icon: UtensilsCrossed, badge: tables.filter(t => t.status === 'dining').length },
-                { id: 'orders', label: '订单', icon: ShoppingBag, badge: scopedOrders.filter(o => o.status === 'cooking' || o.status === 'pending').length },
-                { id: 'contingency', label: '兜底中枢', icon: ShieldAlert, badge: scopedOrders.filter(o => (o.rejectionCount && o.rejectionCount > 0) || o.refundStatus === 'pending' || o.status === 'refund_pending').length, badgeAlert: true },
-                { id: 'kds', label: 'KDS', icon: ChefHat, badge: tickets.length },
-                { id: 'calling', label: '叫号', icon: BellRing },
-                { id: 'truck_expand', label: '展开与底栏', icon: SlidersHorizontal },
-                { id: 'printing', label: '打印', icon: Printer },
-                { id: 'held', label: '未结', icon: ShieldAlert, badge: heldOrders.length, badgeAlert: true },
-                { id: 'members', label: '会员', icon: Award },
-                { id: 'staff', label: '员工', icon: Users },
-                { id: 'analytics', label: '报表', icon: TrendingUp },
-                { id: 'gps', label: 'GPS', icon: MapPin }
-              ].map((quick) => {
-                const Icon = quick.icon;
-                const isSelected = activeTab === quick.id;
-                return (
-                  <button
-                    key={quick.id}
-                    type="button"
-                    onClick={() => setActiveTab(quick.id as MerchantTab)}
-                    className={`px-2 py-1 rounded-[3px] text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
-                      isSelected
-                        ? 'bg-[#37352f] text-white shadow-2xs'
-                        : 'text-[#787774] hover:bg-[#f1f1ef] hover:text-[#37352f]'
-                    }`}
-                  >
-                    <Icon className="w-3 h-3 shrink-0" />
-                    <span>{quick.label}</span>
-                    {quick.badge !== undefined && quick.badge > 0 && (
-                      <span
-                        className={`text-[9px] font-mono font-bold px-1 rounded-[2px] ${
-                          isSelected
-                            ? 'bg-white/20 text-white'
-                            : quick.badgeAlert
-                            ? 'bg-[#fbe4e4] text-[#eb5757]'
-                            : 'bg-[#e6e6e4] text-[#37352f]'
-                        }`}
-                      >
-                        {quick.badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+            {/* Quick Frequent Modules (Desktop & Mobile horizontal scrollable pill bar) & Width Toggle */}
+            <div className="flex items-center gap-2 max-w-full overflow-hidden">
+              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 max-w-full">
+                {[
+                  { id: 'tables', label: '台位', icon: UtensilsCrossed, badge: tables.filter(t => t.status === 'dining').length },
+                  { id: 'orders', label: '订单', icon: ShoppingBag, badge: scopedOrders.filter(o => o.status === 'cooking' || o.status === 'pending').length },
+                  { id: 'contingency', label: '兜底中枢', icon: ShieldAlert, badge: scopedOrders.filter(o => (o.rejectionCount && o.rejectionCount > 0) || o.refundStatus === 'pending' || o.status === 'refund_pending').length, badgeAlert: true },
+                  { id: 'kds', label: 'KDS', icon: ChefHat, badge: tickets.length },
+                  { id: 'calling', label: '叫号', icon: BellRing },
+                  { id: 'truck_expand', label: '展开与底栏', icon: SlidersHorizontal },
+                  { id: 'printing', label: '打印', icon: Printer },
+                  { id: 'held', label: '未结', icon: ShieldAlert, badge: heldOrders.length, badgeAlert: true },
+                  { id: 'members', label: '会员', icon: Award },
+                  { id: 'staff', label: '员工', icon: Users },
+                  { id: 'analytics', label: '报表', icon: TrendingUp },
+                  { id: 'gps', label: 'GPS', icon: MapPin }
+                ].map((quick) => {
+                  const Icon = quick.icon;
+                  const isSelected = activeTab === quick.id;
+                  return (
+                    <button
+                      key={quick.id}
+                      type="button"
+                      onClick={() => setActiveTab(quick.id as MerchantTab)}
+                      className={`px-2 py-1 rounded-[3px] text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                        isSelected
+                          ? 'bg-[#201f1d] text-white shadow-xs'
+                          : 'text-[#787774] hover:bg-[#efefed] hover:text-[#201f1d]'
+                      }`}
+                    >
+                      <Icon className="w-3 h-3 shrink-0" />
+                      <span>{quick.label}</span>
+                      {quick.badge !== undefined && quick.badge > 0 && (
+                        <span
+                          className={`text-[9px] font-mono font-bold px-1 rounded-[2px] ${
+                            isSelected
+                              ? 'bg-white/20 text-white'
+                              : quick.badgeAlert
+                              ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                              : 'bg-[#e6e6e4] text-[#37352f]'
+                          }`}
+                        >
+                          {quick.badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Desktop Workspace Width Switcher */}
+              <button
+                type="button"
+                onClick={toggleFullWidthWorkspace}
+                className="hidden xl:flex p-1.5 hover:bg-[#efefed] text-[#787774] hover:text-[#201f1d] rounded-[3px] transition-all cursor-pointer items-center gap-1 border border-transparent hover:border-[#d3d1cb] shrink-0 text-xs font-medium"
+                title={isFullWidthWorkspace ? '切换为标准居中工作台 (Max-W-7xl)' : '切换为全宽铺满工作台 (100% Fluid)'}
+              >
+                {isFullWidthWorkspace ? (
+                  <>
+                    <Minimize2 className="w-3.5 h-3.5 text-[#5a5854]" />
+                    <span className="hidden 2xl:inline text-[11px]">居中</span>
+                  </>
+                ) : (
+                  <>
+                    <Maximize2 className="w-3.5 h-3.5 text-[#5a5854]" />
+                    <span className="hidden 2xl:inline text-[11px]">全宽</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
 
           {/* 3. Main Dashboard Workspace Content */}
-          <main className="flex-1 p-2 sm:p-4 max-w-7xl w-full mx-auto pb-28 sm:pb-24">
+          <main className={`flex-1 overflow-y-auto p-2 sm:p-4 lg:p-6 w-full ${
+            isFullWidthWorkspace ? 'max-w-none' : 'max-w-7xl mx-auto'
+          } pb-28 md:pb-8 custom-scrollbar`}>
         {activeTab === 'tables' && (
           <MerchantTables
             tables={scopedTables}
@@ -1446,11 +1501,59 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
           />
         )}
           </main>
+
+          {/* 4. Desktop Workstation Bottom Status Bar (Hidden on Mobile) */}
+          <footer className="hidden md:flex h-7 shrink-0 bg-[#ffffff] border-t border-[#e6e6e4] px-3 lg:px-4 items-center justify-between text-[11px] text-[#787774] font-medium z-10 select-none">
+            {/* Left: System Readiness & Connectivity */}
+            <div className="flex items-center gap-2 lg:gap-3 min-w-0">
+              <div className="flex items-center gap-1 text-emerald-700 font-semibold shrink-0">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>POS 实时联机</span>
+              </div>
+              <span className="text-[#d3d1cb]">|</span>
+              <div className="flex items-center gap-1 text-[#5a5854] shrink-0">
+                <Truck className="w-3 h-3 text-[#2b593f]" />
+                <span className="truncate">{activeTruckConfig?.truckName || '01号·旗舰车'}</span>
+                <span className={`text-[9.5px] px-1 py-0.1 rounded font-mono ${
+                  businessStatus.isOpen ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                }`}>
+                  {businessStatus.isOpen ? '营业中' : '已打烊'}
+                </span>
+              </div>
+              <span className="text-[#d3d1cb] hidden lg:inline">|</span>
+              <div className="hidden lg:flex items-center gap-1 text-[#5a5854] shrink-0">
+                <Cloud className="w-3 h-3 text-sky-600" />
+                <span>腾讯云 CloudBase 已就绪</span>
+              </div>
+              <span className="text-[#d3d1cb] hidden xl:inline">|</span>
+              <div className="hidden xl:flex items-center gap-1 text-[#5a5854] shrink-0">
+                <Barcode className="w-3 h-3 text-emerald-600" />
+                <span>扫码枪即插即用</span>
+              </div>
+            </div>
+
+            {/* Center / Right: Module hint & Operator & Live Clock */}
+            <div className="flex items-center gap-2 lg:gap-3 shrink-0">
+              <span className="hidden xl:inline text-[#9b9a97] font-mono text-[10.5px]">
+                快捷键: Alt+1~4 切换模块组 | Ctrl+Shift+D 调试中枢
+              </span>
+              <span className="text-[#d3d1cb] hidden xl:inline">|</span>
+              <div className="flex items-center gap-1 text-[#37352f]">
+                <Smartphone className="w-3 h-3 text-[#2b593f]" />
+                <span>{merchantSession?.name || '张伟 (店长)'}</span>
+              </div>
+              <span className="text-[#d3d1cb]">|</span>
+              <div className="flex items-center gap-1 font-mono text-[#5a5854] font-bold">
+                <Clock className="w-3 h-3 text-[#787774]" />
+                <span>{currentTime}</span>
+              </div>
+            </div>
+          </footer>
         </div>
       </div>
 
-      {/* Inset Embedded Bottom Navigation Bar - 5 Simplified Buttons (菜单 · 菜品管理 · 订单 · 风控 · 联络) */}
-      <div className="fixed bottom-3 left-0 right-0 z-50 pointer-events-none px-2 sm:px-6">
+      {/* Inset Embedded Bottom Navigation Bar - 5 Simplified Buttons (菜单 · 菜品管理 · 订单 · 风控 · 联络) - Mobile Only */}
+      <div className="fixed bottom-3 left-0 right-0 z-50 pointer-events-none px-2 sm:px-6 md:hidden">
         <nav
           id="merchant-embedded-bottom-nav"
           aria-label="商家端内嵌底部导航栏"
@@ -1590,17 +1693,6 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
           <span>{toastMessage}</span>
         </div>
       )}
-
-      {/* Online Merchant Floating Chat Bubble */}
-      <FloatingChatBubbleWidget
-        role="merchant"
-        orders={localOrders}
-        onAdvanceOrderStatus={onAdvanceOrderStatus}
-        onRejectOrder={onRejectOrder}
-        onAuditRefund={onAuditRefund}
-        showToast={showToast}
-        onOpenAggregatedHub={() => setIsMessageFormModalOpen(true)}
-      />
 
       {/* Cloudbase Sync Modal */}
       <CloudbaseStatusModal

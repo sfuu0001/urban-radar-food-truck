@@ -10,6 +10,46 @@
   --color-subtle-gray: #9e9e98;
   --color-accent: #006d36;
   --color-accent-soft: #ebf7ef;
+
+  --color-paper: #F9F9F7;
+  --color-paper-card: #FFFFFF;
+  --color-pitch: #1A1C1B;
+  --color-line: #D3D1CB;
+  --color-line-dark: #343836;
+  --color-amberAccent: #F59E0B;
+  --color-emeraldAccent: #059669;
+  --color-techTag: #E8E7E1;
+}
+
+/* Architectural Draft & Grid Accent */
+.blueprint-grid {
+  background-size: 8px 8px;
+  background-image: 
+    linear-gradient(to right, rgba(26, 28, 27, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(26, 28, 27, 0.04) 1px, transparent 1px);
+}
+
+.active-blueprint-grid {
+  background-size: 10px 10px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+}
+
+.shadow-draft-active {
+  box-shadow: 3px 3px 0px 0px #1A1C1B;
+}
+
+.shadow-spec-inset {
+  box-shadow: inset 0 0 0 1px #D3D1CB;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 :root {
@@ -58,7 +98,7 @@
     overscroll-behavior-y: none;
   }
   body {
-    font-family: "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
     background-color: #f9f9f7;
     color: #1a1c1b;
     min-height: 100vh;
@@ -68,7 +108,7 @@
 }
 
 .font-hanken {
-  font-family: "Hanken Grotesk", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
 }
 
 .shadow-urban {

@@ -183,236 +183,103 @@ export const DeliveryCategorySidebar: React.FC<DeliveryCategorySidebarProps> = (
   return (
     <aside
       ref={sidebarContainerRef}
-      className="w-[72px] xs:w-[78px] sm:w-[84px] md:w-[88px] shrink-0 self-start sticky top-1 sm:top-1.5 z-20 bg-white rounded-none border border-[#D3D1CB] max-h-[calc(100dvh-125px)] overflow-y-auto overscroll-contain select-none shadow-2xs py-1.5 pb-3 scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden relative"
+      className="w-20 shrink-0 self-start sticky top-0 z-20 bg-paper border-r border-line flex flex-col overflow-y-auto no-scrollbar blueprint-grid max-h-[calc(100dvh-125px)] select-none"
+      data-purpose="artisan-category-navigator"
       style={{
         WebkitOverflowScrolling: 'touch'
       }}
     >
       {/* 顶部极简当前品类索引与轻量音效开关 */}
-      <div className="px-2 py-1 mb-1 border-b border-[#e5e5e7] flex items-center justify-between">
-        <span className="text-[9px] font-mono text-neutral-400 font-bold flex items-center gap-0.5">
-          <span className="text-neutral-900 font-extrabold">{currentActiveIndex >= 0 ? currentActiveIndex + 1 : 1}</span>
-          <span className="text-neutral-300">/</span>
-          <span>{categories.length}</span>
-        </span>
+      <div className="sticky top-0 bg-paper-card z-10 border-b border-line px-1.5 py-1 flex items-center justify-between font-mono text-[10px]">
+        <div className="font-bold tracking-tight text-pitch">
+          <span className="text-pitch">{currentActiveIndex >= 0 ? currentActiveIndex + 1 : 1}</span>
+          <span className="text-stone-400 text-[8px] mx-0.5">/</span>
+          <span className="text-stone-400">{categories.length}</span>
+        </div>
 
         {onToggleSoundFeedback && (
           <button
             type="button"
             onClick={onToggleSoundFeedback}
+            aria-label="广播导览提示"
             title={soundFeedbackEnabled ? '点击静音分类触觉音效' : '点击开启分类触觉音效'}
-            className={`p-0.5 rounded transition-colors cursor-pointer ${
-              soundFeedbackEnabled
-                ? 'text-amber-600 hover:text-amber-700 hover:bg-amber-100/60'
-                : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-200/60'
-            }`}
+            className="text-amberAccent hover:scale-105 transition-transform p-0.5 cursor-pointer"
           >
-            {soundFeedbackEnabled ? (
-              <Volume2 className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-            ) : (
-              <VolumeX className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-            )}
+            <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"></path>
+            </svg>
           </button>
         )}
       </div>
 
-      <div className="flex flex-col gap-1 px-1 relative bg-white">
-        {categories.map((catKey) => {
+      <nav className="flex flex-col w-full divide-y divide-line/70">
+        {categories.map((catKey, idx) => {
           const config: PrimaryCategoryConfig | undefined = CATEGORY_TAXONOMY[catKey];
           if (!config) return null;
 
           const isActive = activeCategory === catKey;
           const cartCount = categoryCartCounts[catKey] || 0;
           const dishCount = categoryCounts[catKey] ?? 0;
-          const isClicked = justClickedCat === catKey;
-
           const displayName = config.sidebarName || config.name;
+          const indexNum = `#${String(idx + 1).padStart(2, '0')}`;
+
+          if (isActive) {
+            return (
+              <div
+                key={catKey}
+                data-sidebar-category={catKey}
+                data-purpose="active-category-card"
+                onClick={() => handleItemClick(catKey)}
+                className="w-full relative bg-pitch text-white p-1.5 flex flex-col items-center border-y-2 border-pitch active-blueprint-grid shadow-draft-active cursor-pointer select-none"
+              >
+                <div className="absolute -left-[1px] top-0 bottom-0 w-[4px] bg-amberAccent"></div>
+                <div className="w-7 h-7 border border-stone-600 bg-stone-900 flex items-center justify-center relative mb-0.5 shadow-inner">
+                  <CategoryThemedIcon catKey={catKey} isActive={true} className="w-4 h-4 text-amberAccent" />
+                  {cartCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-amberAccent text-pitch text-[8px] font-mono font-black min-w-[14px] h-[14px] px-0.5 flex items-center justify-center border border-pitch leading-none">
+                      {cartCount}
+                    </span>
+                  )}
+                </div>
+                <div className="text-[11px] font-black tracking-tight text-white leading-none text-center">
+                  {displayName}
+                </div>
+                <span className="text-[8px] font-mono text-amberAccent mt-0.5">
+                  {dishCount}款
+                </span>
+              </div>
+            );
+          }
 
           return (
-            <motion.button
+            <button
               key={catKey}
               type="button"
               data-sidebar-category={catKey}
-              whileTap={{ scale: 0.94 }}
               onClick={() => handleItemClick(catKey)}
-              onMouseEnter={(e) => handleMouseEnter(e, catKey)}
-              onMouseLeave={handleMouseLeave}
-              className={`relative w-full min-h-[58px] xs:min-h-[62px] px-1 py-2 flex flex-col items-center justify-center text-center cursor-pointer group rounded-none transition-all ${
-                isActive
-                  ? 'text-white'
-                  : 'text-neutral-600 hover:text-neutral-950 hover:bg-neutral-200/60'
-              }`}
+              className="group w-full text-left p-1 relative bg-transparent transition-colors hover:bg-stone-100 flex flex-col items-center cursor-pointer select-none"
             >
-              {/* 高亮背景统一设置炭黑色 (Charcoal Black) */}
-              {isActive && (
-                <motion.div
-                  layoutId="deliverySidebarActiveBackground"
-                  className="absolute inset-0 bg-[#1A1A17] rounded-none shadow-md shadow-black/15 border border-neutral-800 z-0"
-                  transition={{ type: 'spring', stiffness: 460, damping: 34 }}
-                />
-              )}
-
-              {/* 激活状态下的左侧纯净琥珀金细指示条 */}
-              {isActive && (
-                <motion.div
-                  layoutId="deliverySidebarActiveBar"
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[20px] bg-gradient-to-b from-amber-400 to-amber-500 rounded-none shadow-xs z-20"
-                  transition={{ type: 'spring', stiffness: 460, damping: 34 }}
-                />
-              )}
-
-              {/* 细微点击触感波纹 */}
-              <AnimatePresence>
-                {isClicked && (
-                  <motion.div
-                    initial={{ scale: 0.88, opacity: 0.5 }}
-                    animate={{ scale: 1.15, opacity: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.3, ease: 'easeOut' }}
-                    className="absolute inset-0 rounded-none bg-amber-400/20 pointer-events-none z-10"
-                  />
-                )}
-              </AnimatePresence>
-
-              {/* 极简气泡微标签 (如：爆款、现烤) */}
-              {config.bubblePill && (
-                <div className="absolute -top-1 right-0.5 z-20 pointer-events-none">
-                  <span
-                    className={`inline-flex items-center text-[7.5px] font-bold px-1 py-[0.5px] rounded-none leading-none whitespace-nowrap shadow-2xs scale-90 origin-right transition-all ${
-                      isActive
-                        ? 'bg-amber-400 text-neutral-950 font-black'
-                        : 'bg-neutral-200 text-neutral-600 border border-neutral-300/80'
-                    }`}
-                  >
-                    {config.bubblePill}
-                  </span>
-                </div>
-              )}
-
-              {/* 购物车加购数字角标 */}
-              {cartCount > 0 && (
-                <div className="absolute top-0.5 right-0.5 z-20 pointer-events-none">
-                  <motion.span
-                    key={cartCount}
-                    initial={{ scale: 0.5 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: 'spring', stiffness: 600, damping: 20 }}
-                    className="relative inline-flex items-center justify-center min-w-[15px] h-[15px] bg-red-500 text-white text-[9px] font-black px-1 rounded-none shadow-xs ring-1 ring-white"
-                  >
-                    {cartCount > 99 ? '99+' : cartCount}
-                  </motion.span>
-                </div>
-              )}
-
-              {/* 核心内容容器 */}
-              <div className="relative z-10 flex flex-col items-center justify-center w-full">
-                {/* 统一精简图标盒 */}
-                <div
-                  className={`w-7 h-7 rounded-none flex items-center justify-center mb-1 transition-all duration-150 shrink-0 ${getCategoryAvatarStyle(
-                    isActive
-                  )}`}
-                >
-                  <CategoryThemedIcon catKey={catKey} isActive={isActive} className="w-3.5 h-3.5" />
-                </div>
-
-                {/* 分类名称 */}
-                <span
-                  className={`block text-[11px] xs:text-[11.5px] tracking-tight leading-tight transition-colors ${
-                    isActive
-                      ? 'font-bold text-white'
-                      : 'font-medium text-neutral-700 group-hover:text-neutral-950'
-                  }`}
-                >
-                  {displayName}
+              <div className="w-7 h-7 border border-line bg-white flex items-center justify-center relative mb-0.5">
+                <CategoryThemedIcon catKey={catKey} isActive={false} className="w-4 h-4 text-stone-700" />
+                <span className="absolute -bottom-1 -right-0.5 text-[6px] font-mono text-stone-400">
+                  {indexNum}
                 </span>
-
-                {/* 在售款数指示 */}
-                {dishCount > 0 && (
-                  <span
-                    className={`text-[8.5px] font-mono mt-0.5 leading-none transition-colors ${
-                      isActive ? 'text-neutral-400 font-medium' : 'text-neutral-400'
-                    }`}
-                  >
-                    {dishCount}款
+                {cartCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-pitch text-white text-[8px] font-mono font-black min-w-[14px] h-[14px] px-0.5 flex items-center justify-center border border-white leading-none">
+                    {cartCount}
                   </span>
                 )}
               </div>
-            </motion.button>
+              <span className="text-[11px] font-bold tracking-tight text-pitch leading-none text-center">
+                {displayName}
+              </span>
+              <span className="text-[8px] font-mono text-stone-500 mt-0.5">
+                {dishCount}款
+              </span>
+            </button>
           );
         })}
-      </div>
-
-      {/* 桌面端悬浮速览卡片 (Hover Peek Card) */}
-      <AnimatePresence>
-        {hoveredCat && (
-          <motion.div
-            initial={{ opacity: 0, x: -6, scale: 0.95 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={{ opacity: 0, x: -6, scale: 0.95 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
-            style={{
-              top: `${Math.max(10, Math.min(hoveredCat.top - 36, 400))}px`,
-              left: '100%'
-            }}
-            className="hidden md:block absolute ml-2 w-44 bg-neutral-950/95 backdrop-blur-md text-white p-2.5 rounded-none shadow-xl border border-neutral-700/60 z-50 pointer-events-none"
-          >
-            {(() => {
-              const cfg = CATEGORY_TAXONOMY[hoveredCat.key];
-              if (!cfg) return null;
-              const cartCount = categoryCartCounts[hoveredCat.key] || 0;
-              const dishCount = categoryCounts[hoveredCat.key] ?? 0;
-              const isCurrent = activeCategory === hoveredCat.key;
-
-              return (
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between gap-1">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <div className="w-5 h-5 rounded-none bg-neutral-800 flex items-center justify-center shrink-0">
-                        <CategoryThemedIcon
-                          catKey={hoveredCat.key}
-                          isActive={true}
-                          className="w-3 h-3 text-amber-400"
-                        />
-                      </div>
-                      <span className="font-bold text-xs truncate">{cfg.name}</span>
-                    </div>
-                    {isCurrent ? (
-                      <span className="text-[9px] font-bold text-amber-400 bg-amber-400/10 px-1.5 py-0.2 rounded border border-amber-400/20">
-                        浏览中
-                      </span>
-                    ) : (
-                      <span className="text-[9px] text-neutral-400 flex items-center gap-0.5">
-                        <span>点击直达</span>
-                        <ChevronRight className="w-2.5 h-2.5" />
-                      </span>
-                    )}
-                  </div>
-
-                  {cfg.tagline && (
-                    <p className="text-[9.5px] text-neutral-300 leading-tight line-clamp-2">
-                      {cfg.tagline}
-                    </p>
-                  )}
-
-                  <div className="pt-1 border-t border-neutral-800 flex items-center justify-between text-[9px] font-mono text-neutral-400">
-                    <span>在售 {dishCount} 款</span>
-                    {cartCount > 0 ? (
-                      <span className="text-amber-400 font-bold flex items-center gap-0.5">
-                        <ShoppingBag className="w-2.5 h-2.5" />
-                        <span>已选 {cartCount} 份</span>
-                      </span>
-                    ) : (
-                      <span className="text-neutral-500">
-                        {cfg.bubblePill || '现制料理'}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      </nav>
     </aside>
   );
 };

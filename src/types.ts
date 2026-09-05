@@ -34,13 +34,21 @@ export type ViewMode = 'grid2' | 'grid' | 'list';
 
 export type DiningMode = 'delivery' | 'dine_in' | 'pickup';
 
+export interface DishOptionChoice {
+  label: string;
+  enLabel?: string;
+  extraPrice: number;
+  imageUrl?: string; // 选项实物图
+  blueprintImageUrl?: string; // 选项专属工匠线稿图
+  sketchType?: string; // 选项矢量图纸类型
+  description?: string; // 工艺说明
+}
+
 export interface DishOptionGroup {
   name: string;
+  enName?: string;
   required?: boolean;
-  choices: {
-    label: string;
-    extraPrice: number;
-  }[];
+  choices: DishOptionChoice[];
 }
 
 export interface DishVariantImageStyle {
@@ -55,10 +63,13 @@ export interface DishVariantImageStyle {
 export interface DishVariant {
   id: string; // 变体唯一标识
   name: string; // 变体名称 (如: '标准单人份', '豪华加厚双拼', '加料大份')
+  enName?: string; // 英文名称 (如: 'Single Standard', 'Double Thick Stack')
   sku?: string; // 独立变体编码/SKU
   price: number; // 独立价格 (¥)
   originalPrice?: number; // 独立划线原价 (¥)
-  imageUrl?: string; // 单独图片 (支持单独封面图片，未设置时继承主图)
+  imageUrl?: string; // 单独实物图片 (未设置时继承主图)
+  blueprintImageUrl?: string; // 变体专属工匠线稿图 (支持手动上传或自动程序渲染)
+  sketchType?: string; // 变体矢量草图类型 (burger/skewer/doneness/fries/steak/drink等)
   imageStyle?: DishVariantImageStyle; // 单独图片样式 (比例、边框、角标、滤镜)
   description?: string; // 变体专属卖点/规格描述
   isDefault?: boolean; // 是否设为默认选中变体
@@ -68,6 +79,32 @@ export interface DishVariant {
   imageFit?: 'cover' | 'contain'; // 图片适配模式
   borderStyle?: 'none' | 'subtle' | 'purple' | 'amber' | 'emerald' | 'dashed'; // 边框装饰风格
   visualFilter?: 'normal' | 'warm' | 'crisp' | 'lowkey'; // 画面滤镜基调
+  artisanCode?: string; // 专属工匠代号
+  refCode?: string; // 专属料号
+  specRatio?: string; // 核心配比 (如 RATIO 8:2)
+  coreTemp?: string; // 核心温控 (如 TEMP 58°C)
+}
+
+export interface FieldSelectorMediaItem {
+  id: string; // 字段选择项唯一键 (如 'variant_v1' 或 'flavor_黑松露蒜香' 或 'option_Truffle Fries')
+  key?: string; // 兼容键名
+  fieldCategory?: 'variant' | 'flavor' | 'option' | 'spiciness' | 'cooking_style' | string; // 字段类别
+  category?: string; // 兼容别名
+  fieldName?: string; // 选项原名
+  targetFieldId?: string; // 目标字段标识
+  labelZh: string; // 中文显示名
+  labelEn: string; // 英文显示名
+  imageUrl?: string; // 实物图片
+  blueprintImageUrl?: string; // 线稿图纸
+  sketchType?: string; // 矢量草图类型
+  sketchNoteZh?: string; // 线稿工艺说明（中文）
+  sketchNoteEn?: string; // 线稿工艺说明（英文）
+  coreMetricZh?: string; // 核心指标（中文）
+  coreMetricEn?: string; // 核心指标（英文）
+  coreTemp?: string; // 核心温控
+  specRatio?: string; // 配比参数
+  artisanCode?: string; // 工匠代号
+  updatedAt?: string; // 最后更新时间戳
 }
 
 export interface DishItem {
@@ -120,6 +157,22 @@ export interface DishItem {
   barcode?: string; // 商品条形码/EAN-13/69码/自编码 (支持扫码枪快速录入与扫码点单)
   isCloned?: boolean; // 快速复制标识
   variants?: DishVariant[]; // 菜品独立变体与多规格 (支持各变体单独图片样式与独立定价)
+  // --- 工匠蓝图与图纸规格定制扩展 ---
+  artisanCode?: string; // 工匠编号 (如: 'ARTISAN #04')
+  refCode?: string; // 参考料号 (如: 'REF: SK-2048')
+  specRatio?: string; // 核心配比 (如: 'RATIO 7:3')
+  coreTemp?: string; // 核心温控 (如: 'TEMP 56°C')
+  specComponents?: Array<{
+    role: string;
+    label: string;
+    detail: string;
+  }>; // 核心组分规格清单 (如: PATTY / BUN / SAUCE)
+  flavorMetrics?: Array<{
+    label: string;
+    score: number;
+    maxScore: number;
+  }>; // 风味刻度方块指标 (如: 炙烤焦香 4/5)
+  fieldSelectorMediaMap?: Record<string, FieldSelectorMediaItem>; // 口味风格、配菜、变体等字段选择器专属图库与线稿映射池
 }
 
 export interface CartItem {
