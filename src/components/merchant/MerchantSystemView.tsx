@@ -35,7 +35,8 @@ import {
   CreditCard,
   Bike,
   GitBranch,
-  Palette
+  Palette,
+  Bluetooth
 } from 'lucide-react';
 import { DishItem, Order, TruckInfo, TableItem, KdsTicket, HeldOrder } from '../../types';
 import { INITIAL_TABLES, INITIAL_KDS_TICKETS, INITIAL_HELD_ORDERS } from '../../data/posMockData';
@@ -84,6 +85,8 @@ import { MerchantMenuDesignSystem } from './MerchantMenuDesignSystem';
 import { MerchantSidebar, TabItemConfig } from './MerchantSidebar';
 import { FloatingChatBubbleWidget } from '../chat/FloatingChatBubbleWidget';
 import { OmniAggregatedChatHub } from '../chat/OmniAggregatedChatHub';
+import { BluetoothSpeakerModal } from './BluetoothSpeakerModal';
+import { globalBluetoothAudio } from '../../utils/bluetoothAudioEngine';
 
 interface MerchantSystemViewProps {
   dishes: DishItem[];
@@ -176,6 +179,18 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isCloudbaseModalOpen, setIsCloudbaseModalOpen] = useState<boolean>(false);
   const [isMessageFormModalOpen, setIsMessageFormModalOpen] = useState<boolean>(false);
+  const [isBluetoothModalOpen, setIsBluetoothModalOpen] = useState<boolean>(false);
+  const [btConfig, setBtConfig] = useState(() => globalBluetoothAudio.getConfig());
+  const [activeBtDevice, setActiveBtDevice] = useState(() => globalBluetoothAudio.getActiveDevice());
+
+  useEffect(() => {
+    const handleBtUpdate = () => {
+      setBtConfig(globalBluetoothAudio.getConfig());
+      setActiveBtDevice(globalBluetoothAudio.getActiveDevice());
+    };
+    window.addEventListener('obsidian_bluetooth_speaker_changed', handleBtUpdate);
+    return () => window.removeEventListener('obsidian_bluetooth_speaker_changed', handleBtUpdate);
+  }, []);
 
   // Multi-Truck Tenant Scope Isolation State
   const merchantTruckConfigs = useMemo(() => getMerchantCommissionConfigs(), []);
@@ -800,6 +815,37 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
     showToast(`已成功重新匹配全部 ${rematched.length} 道菜品的云端高清实拍美食图！`);
   };
 
+  // 商家底栏 5 大核心入口活跃状态与角标计算
+  const cookingOrdersCount = useMemo(() => {
+    return scopedOrders.filter((o) => o.status === 'cooking' || o.status === 'pending').length;
+  }, [scopedOrders]);
+
+  const riskAlertCount = useMemo(() => {
+    const pendingRefunds = scopedOrders.filter(
+      (o) => (o.rejectionCount && o.rejectionCount > 0) || o.refundStatus === 'pending' || o.status === 'refund_pending'
+    ).length;
+    return heldOrders.length + pendingRefunds;
+  }, [scopedOrders, heldOrders]);
+
+  const isDishActive = ['menu', 'materials', 'craft_standards', 'processing_loss', 'category_brands', 'truck_expand', 'marketing', 'sku_params', 'inventory'].includes(activeTab);
+  const isOrdersActive = ['orders', 'kds', 'tables', 'calling', 'printing', 'scanner'].includes(activeTab);
+  const isRiskActive = ['contingency', 'held', 'shifts', 'loss', 'inventory_close', 'audit', 'payment_channels'].includes(activeTab);
+
+  // 侧边栏打开/关闭切换逻辑 (响应式适配移动端抽屉与桌面端折叠)
+  const handleToggleSidebar = () => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setIsMobileSidebarOpen((prev) => !prev);
+    } else {
+      setIsSidebarCollapsed((prev) => {
+        const next = !prev;
+        safeSetStorage('obsidian_merchant_sidebar_collapsed', next);
+        return next;
+      });
+    }
+  };
+
+  const isSidebarActive = isMobileSidebarOpen;
+
   return (
     <div className="min-h-screen bg-[#f7f7f5] text-[#37352f] flex flex-col font-sans selection:bg-[#37352f] selection:text-white">
       {/* 1. Global Navigation Top Bar */}
@@ -866,6 +912,35 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
         {/* Top Right Quick Switches - Non-wrapping and mobile compact */}
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           <MerchantVoiceControls showToast={showToast} />
+
+          {/* Bluetooth Audio Player Quick Link & Acoustic Routing Indicator */}
+          <button
+            type="button"
+            onClick={() => setIsBluetoothModalOpen(true)}
+            className={`px-1.5 sm:px-2.5 py-1 rounded-[3px] font-bold text-xs transition-all cursor-pointer border flex items-center gap-1 sm:gap-1.5 shadow-2xs shrink-0 ${
+              activeBtDevice && activeBtDevice.status === 'connected'
+                ? 'bg-blue-50 hover:bg-blue-100 text-blue-900 border-blue-200'
+                : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border-neutral-300'
+            }`}
+            title={`流动餐车蓝牙播放器绑定与定向路由管理 · 当前: ${
+              activeBtDevice?.status === 'connected' ? activeBtDevice.name : '未连接'
+            } (${btConfig.routingMode === 'voice_only' ? '仅系统语音' : '统一混合'})`}
+          >
+            <Bluetooth className={`w-3.5 h-3.5 shrink-0 ${
+              activeBtDevice && activeBtDevice.status === 'connected' ? 'text-blue-600' : 'text-neutral-500'
+            }`} />
+            <span className="hidden md:inline">蓝牙音箱</span>
+            <span className={`text-[10px] px-1 py-0.2 rounded font-semibold ${
+              btConfig.routingMode === 'voice_only' 
+                ? 'bg-blue-200/70 text-blue-900' 
+                : 'bg-neutral-200 text-neutral-800'
+            }`}>
+              {btConfig.routingMode === 'voice_only' ? '仅系统语音' : '统一混合'}
+            </span>
+            {activeBtDevice && activeBtDevice.status === 'connected' && (
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            )}
+          </button>
 
           <button
             type="button"
@@ -1263,102 +1338,120 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
         </div>
       </div>
 
-      {/* Fixed Bottom Navigation Bar - Notion Token Theme */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#fbfbfa]/95 backdrop-blur-md border-t border-[#e9e9e7] shadow-lg px-2 sm:px-4 py-2">
-        <div className="max-w-4xl mx-auto flex items-center justify-between gap-1.5 sm:gap-2">
-          {/* Mobile All Modules Drawer Button */}
-          <button
-            type="button"
-            onClick={() => setIsMobileSidebarOpen(true)}
-            className="md:hidden py-1.5 px-2 rounded-[4px] flex flex-col items-center justify-center gap-0.5 text-[#37352f] hover:bg-[#efefed] transition-all cursor-pointer shrink-0"
-            title="全部功能模块"
-          >
-            <MenuIcon className="w-4 h-4 text-[#37352f]" />
-            <span className="text-[10px] font-bold">全部功能</span>
-          </button>
+      {/* Inset Embedded Bottom Navigation Bar - 5 Simplified Buttons (菜单 · 菜品管理 · 订单 · 风控 · 联络) */}
+      <div className="fixed bottom-3 left-0 right-0 z-50 pointer-events-none px-2 sm:px-6">
+        <nav
+          id="merchant-embedded-bottom-nav"
+          aria-label="商家端内嵌底部导航栏"
+          className="pointer-events-auto max-w-lg sm:max-w-xl mx-auto bg-white/95 backdrop-blur-md rounded-2xl border border-[#e4e4e1] shadow-[0_8px_30px_rgba(0,0,0,0.08),0_1px_3px_rgba(0,0,0,0.04)] p-1.5 transition-all"
+        >
+          <div className="grid grid-cols-5 gap-1 sm:gap-1.5 bg-[#f4f4f2] p-1 rounded-xl border border-[#ebebe8]">
+            {/* 0. 菜单 (触发侧边栏打开与关闭) */}
+            <button
+              type="button"
+              id="merchant-nav-tab-menu"
+              onClick={handleToggleSidebar}
+              title={isMobileSidebarOpen || !isSidebarCollapsed ? '关闭侧边栏' : '打开侧边栏'}
+              className={`h-11 sm:h-12 rounded-lg flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 transition-all cursor-pointer font-semibold relative select-none ${
+                isSidebarActive
+                  ? 'bg-[#2b593f] text-white shadow-xs'
+                  : 'text-[#5a5854] hover:text-[#1a1c1b] hover:bg-white/70 active:scale-[0.98]'
+              }`}
+            >
+              <MenuIcon className={`w-4 h-4 shrink-0 ${isSidebarActive ? 'text-white' : 'text-[#6a6864]'}`} />
+              <span className="text-[11px] sm:text-xs tracking-tight whitespace-nowrap">菜单</span>
+            </button>
 
-          {/* 1. 菜品与多渠道管理 */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('menu')}
-            className={`flex-1 py-1.5 px-2 rounded-[4px] flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 transition-all cursor-pointer ${
-              ['menu', 'materials', 'craft_standards', 'processing_loss', 'category_brands', 'truck_expand', 'marketing'].includes(activeTab)
-                ? 'bg-[#2b593f] text-white shadow-2xs'
-                : 'text-[#787774] hover:bg-[#f1f1ef] hover:text-[#37352f]'
-            }`}
-          >
-            <Tag className="w-4 h-4" />
-            <div className="text-center sm:text-left">
-              <div className="text-xs font-bold leading-tight">1. 菜品与多渠道管理</div>
-              <div className={`text-[10px] hidden sm:block ${['menu', 'materials', 'craft_standards', 'processing_loss', 'category_brands', 'truck_expand', 'marketing'].includes(activeTab) ? 'text-white/80' : 'text-[#9b9a97]'}`}>
-                菜品 · 品牌故事 · 原料物料
-              </div>
-            </div>
-          </button>
+            {/* 1. 菜品管理 */}
+            <button
+              type="button"
+              id="merchant-nav-tab-dish"
+              onClick={() => {
+                setActiveTab('menu');
+                setIsMobileSidebarOpen(false);
+              }}
+              className={`h-11 sm:h-12 rounded-lg flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 transition-all cursor-pointer font-semibold relative select-none ${
+                isDishActive && !isSidebarActive
+                  ? 'bg-[#2b593f] text-white shadow-xs'
+                  : 'text-[#5a5854] hover:text-[#1a1c1b] hover:bg-white/70 active:scale-[0.98]'
+              }`}
+            >
+              <UtensilsCrossed className={`w-4 h-4 shrink-0 ${isDishActive && !isSidebarActive ? 'text-white' : 'text-[#6a6864]'}`} />
+              <span className="text-[11px] sm:text-xs tracking-tight whitespace-nowrap">菜品管理</span>
+            </button>
 
-          {/* 2. 全渠道订单中心 */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('orders')}
-            className={`flex-1 py-1.5 px-2 rounded-[4px] flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 transition-all cursor-pointer relative ${
-              ['orders', 'kds', 'tables', 'calling', 'printing', 'scanner'].includes(activeTab)
-                ? 'bg-[#2b593f] text-white shadow-2xs'
-                : 'text-[#787774] hover:bg-[#f1f1ef] hover:text-[#37352f]'
-            }`}
-          >
-            <ShoppingBag className="w-4 h-4" />
-            <div className="text-center sm:text-left">
-              <div className="text-xs font-bold leading-tight flex items-center gap-1 justify-center sm:justify-start">
-                <span>2. 全渠道订单中心</span>
-                {localOrders.filter(o => o.status === 'cooking').length > 0 && (
-                  <span className="bg-[#9f2b2b] text-white font-mono text-[9px] px-1.5 py-0.2 rounded-full font-bold">
-                    {localOrders.filter(o => o.status === 'cooking').length}
+            {/* 2. 订单 */}
+            <button
+              type="button"
+              id="merchant-nav-tab-orders"
+              onClick={() => {
+                setActiveTab('orders');
+                setIsMobileSidebarOpen(false);
+              }}
+              className={`h-11 sm:h-12 rounded-lg flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 transition-all cursor-pointer font-semibold relative select-none ${
+                isOrdersActive && !isSidebarActive
+                  ? 'bg-[#2b593f] text-white shadow-xs'
+                  : 'text-[#5a5854] hover:text-[#1a1c1b] hover:bg-white/70 active:scale-[0.98]'
+              }`}
+            >
+              <div className="relative">
+                <ShoppingBag className={`w-4 h-4 shrink-0 ${isOrdersActive && !isSidebarActive ? 'text-white' : 'text-[#6a6864]'}`} />
+                {cookingOrdersCount > 0 && (
+                  <span className="absolute -top-1.5 -right-2 px-1 min-w-[14px] h-3.5 flex items-center justify-center text-[9px] font-bold font-mono bg-[#eb5757] text-white rounded-full leading-none shadow-2xs">
+                    {cookingOrdersCount}
                   </span>
                 )}
               </div>
-              <div className={`text-[10px] hidden sm:block ${['orders', 'kds', 'tables', 'calling', 'printing', 'scanner'].includes(activeTab) ? 'text-white/80' : 'text-[#9b9a97]'}`}>
-                履约 · KDS出餐 · 堂食台位
-              </div>
-            </div>
-          </button>
+              <span className="text-[11px] sm:text-xs tracking-tight whitespace-nowrap">订单</span>
+            </button>
 
-          {/* 3. 未结账与风控 */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('held')}
-            className={`flex-1 py-1.5 px-2 rounded-[4px] flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 transition-all cursor-pointer relative ${
-              ['held', 'contingency', 'shifts', 'loss', 'inventory_close', 'sku_params', 'audit', 'members', 'analytics'].includes(activeTab)
-                ? 'bg-[#2b593f] text-white shadow-2xs'
-                : 'text-[#787774] hover:bg-[#f1f1ef] hover:text-[#37352f]'
-            }`}
-          >
-            <ShieldAlert className="w-4 h-4 text-[#d97706]" />
-            <div className="text-center sm:text-left">
-              <div className="text-xs font-bold leading-tight flex items-center gap-1 justify-center sm:justify-start">
-                <span>3. 未结账与风控</span>
-                {heldOrders.length > 0 && (
-                  <span className="bg-[#d97706] text-white font-mono text-[9px] px-1.5 py-0.2 rounded-full font-bold">
-                    {heldOrders.length}
+            {/* 3. 风控 */}
+            <button
+              type="button"
+              id="merchant-nav-tab-risk"
+              onClick={() => {
+                setActiveTab('contingency');
+                setIsMobileSidebarOpen(false);
+              }}
+              className={`h-11 sm:h-12 rounded-lg flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 transition-all cursor-pointer font-semibold relative select-none ${
+                isRiskActive && !isSidebarActive
+                  ? 'bg-[#2b593f] text-white shadow-xs'
+                  : 'text-[#5a5854] hover:text-[#1a1c1b] hover:bg-white/70 active:scale-[0.98]'
+              }`}
+            >
+              <div className="relative">
+                <ShieldAlert className={`w-4 h-4 shrink-0 ${isRiskActive && !isSidebarActive ? 'text-white' : 'text-[#d97706]'}`} />
+                {riskAlertCount > 0 && (
+                  <span className="absolute -top-1.5 -right-2 px-1 min-w-[14px] h-3.5 flex items-center justify-center text-[9px] font-bold font-mono bg-[#d97706] text-white rounded-full leading-none shadow-2xs">
+                    {riskAlertCount}
                   </span>
                 )}
               </div>
-              <div className={`text-[10px] hidden sm:block ${['held', 'contingency', 'shifts', 'loss', 'inventory_close', 'sku_params', 'audit', 'members', 'analytics'].includes(activeTab) ? 'text-white/80' : 'text-[#9b9a97]'}`}>
-                挂单挂账 · 兜底应急 · 交接班
-              </div>
-            </div>
-          </button>
+              <span className="text-[11px] sm:text-xs tracking-tight whitespace-nowrap">风控</span>
+            </button>
 
-          {/* Quick Omni Tri-party Chat Hub Access */}
-          <button
-            type="button"
-            onClick={() => setIsOmniChatHubOpen(true)}
-            className="p-2 sm:px-3 sm:py-1.5 rounded-[4px] bg-[#f7f6f3] border border-[#e3e2de] text-[#37352f] hover:bg-[#eef4f0] hover:text-[#2b593f] hover:border-[#d2e4d7] flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
-            title="打开全网三端联络聚合总成 (骑手/商家/客户/平台)"
-          >
-            <Radio className="w-4 h-4 text-[#2b593f] animate-pulse" />
-            <span className="text-xs font-bold hidden md:inline">三端聚合联络</span>
-          </button>
-        </div>
+            {/* 4. 联络 */}
+            <button
+              type="button"
+              id="merchant-nav-tab-chat"
+              onClick={() => {
+                setIsOmniChatHubOpen(true);
+                setIsMobileSidebarOpen(false);
+              }}
+              className={`h-11 sm:h-12 rounded-lg flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 transition-all cursor-pointer font-semibold relative select-none ${
+                isOmniChatHubOpen
+                  ? 'bg-[#2b593f] text-white shadow-xs'
+                  : 'text-[#5a5854] hover:text-[#1a1c1b] hover:bg-white/70 active:scale-[0.98]'
+              }`}
+            >
+              <div className="relative">
+                <MessageSquareText className={`w-4 h-4 shrink-0 ${isOmniChatHubOpen ? 'text-white' : 'text-[#6a6864]'}`} />
+                <span className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-[#4dab63] ring-1.5 ring-white" />
+              </div>
+              <span className="text-[11px] sm:text-xs tracking-tight whitespace-nowrap">联络</span>
+            </button>
+          </div>
+        </nav>
       </div>
 
       {/* Omni Aggregated Chat Hub Modal */}
@@ -1422,6 +1515,13 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
         onAdvanceOrderStatus={onAdvanceOrderStatus}
         onRejectOrder={onRejectOrder}
         onAuditRefund={onAuditRefund}
+        showToast={showToast}
+      />
+
+      {/* Bluetooth Speaker Link & Binding System Modal */}
+      <BluetoothSpeakerModal
+        isOpen={isBluetoothModalOpen}
+        onClose={() => setIsBluetoothModalOpen(false)}
         showToast={showToast}
       />
     </div>

@@ -1,6 +1,8 @@
 // Obsidian Food Truck - Real-Human Style Voice Alert & Web Audio Synthesizer Engine
 // 真人风格语音播报与高保真声学和弦引擎（去人机机械声、智能神经语音优选、自然呼吸节奏）
 
+import { globalBluetoothAudio } from './bluetoothAudioEngine';
+
 export type VoicePersonaId = 
   | 'gentle_female'     // 知性温柔女声 (大堂经理级，温润优雅，天然去机械感)
   | 'steady_male'       // 稳重专业男声 (新闻级播报，浑厚从容，字正腔圆)
@@ -19,9 +21,13 @@ export interface VoicePersonaConfig {
   id: VoicePersonaId;
   name: string;
   title: string;
+  gender: 'female' | 'male';
+  genderLabel: string;
   description: string;
   badge: string;
   avatarIcon: string;
+  audioUrl: string;
+  sampleText: string;
   defaultPitch: number;
   defaultRate: number;
   voiceKeywords: string[];
@@ -31,57 +37,77 @@ export const VOICE_PERSONAS: VoicePersonaConfig[] = [
   {
     id: 'gentle_female',
     name: '知性温润女声',
-    title: '高级大堂经理音色',
-    description: '语调亲切温婉、吐字自然流畅，具有真实人类呼吸感，完全去除低端合成器的机械生硬感。',
+    title: '大堂经理音色',
+    gender: 'female',
+    genderLabel: '真人女声 · 知性大堂',
+    description: '语调亲切温婉、吐字自然流畅，母带级高保真真人女声录音，完全杜绝低端人机电音感。',
     badge: '推荐 · 默认真人体感',
     avatarIcon: '🎙️',
-    defaultPitch: 1.0,
-    defaultRate: 0.98,
-    voiceKeywords: ['Xiaoxiao', 'Tingting', 'Sin-ji', 'Xiaoyi', 'Natural', 'Neural', 'Chinese Female', 'zh-CN-XiaoxiaoNeural']
+    audioUrl: '/audio/audition_gentle_female.wav',
+    sampleText: '您好，欢迎光临流动餐车！真人知性女声为您提供亲切细致的播报服务。',
+    defaultPitch: 1.02,
+    defaultRate: 0.96,
+    voiceKeywords: ['Xiaoxiao', 'Xiaoyi', 'Tingting', 'Sin-ji', 'Mei-Jia', 'Female', '女', 'zh-CN-XiaoxiaoNeural', 'Microsoft Xiaoxiao', 'zh-CN-Xiaoxiao']
   },
   {
     id: 'sweet_frontdesk',
     name: '甜美前台领位',
-    title: '餐车前台与等位专属',
+    title: '迎宾等位专属',
+    gender: 'female',
+    genderLabel: '真人女声 · 甜美迎宾',
     description: '清脆甜美、轻柔亲和，宛如迎宾小姐姐现场呼叫，营造宾至如归的就餐体验。',
     badge: '叫号与等位推荐',
     avatarIcon: '🛎️',
-    defaultPitch: 1.06,
-    defaultRate: 0.96,
-    voiceKeywords: ['Xiaoyan', 'Mei-Jia', 'Xiaohan', 'Xiaoxiao', 'Tingting', 'zh-CN']
+    audioUrl: '/audio/audition_sweet_frontdesk.wav',
+    sampleText: '叮咚！欢迎光临，我是甜美前台领位，请问今天想吃点什么呢？',
+    defaultPitch: 1.22,
+    defaultRate: 0.98,
+    voiceKeywords: ['Xiaoyan', 'Xiaoni', 'Xiaomeng', 'Xiaohan', 'Yu-shu', 'Tingting', 'Mei-Jia', 'Female', '女', 'zh-CN-XiaoyanNeural', 'Microsoft Xiaoyan']
   },
   {
     id: 'steady_male',
     name: '稳重专业男声',
     title: '资深播音员音色',
-    description: '浑厚沉着、从容磁性，字正腔圆，适合大单播报与后厨严谨出餐协同。',
-    badge: '商家后厨推荐',
+    gender: 'male',
+    genderLabel: '真人男声 · 沉稳浑厚',
+    description: '浑厚沉着、雄性磁性，完全脱离机械音，与女声呈现鲜明性别反差，适合后厨大单。',
+    badge: '后厨沉稳男声',
     avatarIcon: '👔',
-    defaultPitch: 0.94,
-    defaultRate: 1.0,
-    voiceKeywords: ['Yunxi', 'Yunjian', 'Yunyang', 'Kangkang', 'Natural', 'Neural', 'Chinese Male', 'zh-CN-YunxiNeural']
+    audioUrl: '/audio/audition_steady_male.wav',
+    sampleText: '您好，这是纯正的真人沉稳男声，专注为后厨制作与安全运营提供清晰指令！',
+    defaultPitch: 0.70,
+    defaultRate: 0.94,
+    voiceKeywords: ['Yunxi', 'Yunjian', 'Yunyang', 'Kangkang', 'Li-mu', 'Haohao', 'Lairong', 'Danny', 'Male', '男', 'zh-CN-YunxiNeural', 'Microsoft Yunxi', 'zh-CN-YunjianNeural']
   },
   {
     id: 'vitality_cheer',
     name: '热情活力客服',
     title: '元气快餐出单音色',
+    gender: 'female',
+    genderLabel: '真人女声 · 元气客服',
     description: '饱满热情、阳光活泼，瞬间唤醒听觉，高峰期出餐不沉闷。',
     badge: '自营爆单推荐',
     avatarIcon: '⚡',
-    defaultPitch: 1.08,
-    defaultRate: 1.06,
-    voiceKeywords: ['Xiaoni', 'Xiaomeng', 'Google 普通话', 'Zhiwei', 'zh-CN']
+    audioUrl: '/audio/audition_energetic_rep.wav',
+    sampleText: '您好，这是纯正的真人元气女声，快速接单出餐！',
+    defaultPitch: 1.14,
+    defaultRate: 1.10,
+    voiceKeywords: ['Xiaoni', 'Xiaomeng', 'Google 普通话', 'HiuGaai', 'Zhiwei', 'zh-CN-XiaoniNeural', 'Natural', 'Neural']
   },
   {
     id: 'rider_speed',
     name: '极速骑士调度',
-    title: '户外专送穿透音色',
-    description: '干脆利落、穿透力强，专门针对户外骑行佩戴耳机或嘈杂街道车载支架调校。',
-    badge: '骑手端推荐',
+    title: '专送穿透男声',
+    gender: 'male',
+    genderLabel: '真人男声 · 极速青年',
+    description: '干脆利落、穿透力强，专门针对户外骑行佩戴耳机或嘈杂街道调校的刚健男声。',
+    badge: '骑手调度男声',
     avatarIcon: '🛵',
-    defaultPitch: 1.02,
-    defaultRate: 1.1,
-    voiceKeywords: ['Yunxi', 'Yunjian', 'Zhiwei', 'Natural', 'Neural', 'zh-CN']
+    audioUrl: '/audio/audition_speedy_rider.wav',
+    sampleText: '骑士您好，这是纯正的真人男声调度，极速专送指令已准备！',
+    defaultPitch: 0.78,
+    defaultRate: 1.12,
+    voiceKeywords: ['Yunyang', 'Yunjian', 'Yunxi', 'Zhiwei', 'Kangkang', 'Li-mu', 'Male', '男', 'zh-CN-YunyangNeural']
   }
 ];
 
@@ -124,28 +150,39 @@ const DEFAULT_CONFIG: VoiceConfig = {
   autoPlayRiderAction: true
 };
 
+let inMemoryVoiceConfig: VoiceConfig | null = null;
+
 export function getVoiceConfig(): VoiceConfig {
+  if (inMemoryVoiceConfig) {
+    return inMemoryVoiceConfig;
+  }
+  if (typeof window === 'undefined') {
+    return DEFAULT_CONFIG;
+  }
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      // Check legacy key if exists
       const legacyRaw = localStorage.getItem('obsidian_merchant_voice_config');
       if (legacyRaw) {
         const legacy = JSON.parse(legacyRaw);
-        return { ...DEFAULT_CONFIG, ...legacy };
+        inMemoryVoiceConfig = { ...DEFAULT_CONFIG, ...legacy };
+        return inMemoryVoiceConfig;
       }
+      inMemoryVoiceConfig = DEFAULT_CONFIG;
       return DEFAULT_CONFIG;
     }
-    return { ...DEFAULT_CONFIG, ...JSON.parse(raw) };
+    inMemoryVoiceConfig = { ...DEFAULT_CONFIG, ...JSON.parse(raw) };
+    return inMemoryVoiceConfig;
   } catch (e) {
-    return DEFAULT_CONFIG;
+    return inMemoryVoiceConfig || DEFAULT_CONFIG;
   }
 }
 
 export function saveVoiceConfig(config: VoiceConfig): void {
+  inMemoryVoiceConfig = config;
+  if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-    // Also sync to legacy key for backwards compatibility
     localStorage.setItem('obsidian_merchant_voice_config', JSON.stringify(config));
   } catch (e) {
     // ignore
@@ -409,20 +446,32 @@ if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
  */
 export function getAvailableSystemVoices(): SpeechSynthesisVoice[] {
   const voices = refreshVoices();
-  return voices.filter(v => 
-    v.lang.includes('zh') || 
-    v.lang.includes('cmn') || 
-    v.name.includes('Chinese') || 
-    v.name.includes('Xiaoxiao') || 
-    v.name.includes('Yunxi') ||
-    v.name.includes('Tingting')
-  );
+  const filtered = voices.filter(v => {
+    const l = (v.lang || '').toLowerCase();
+    const n = (v.name || '').toLowerCase();
+    return (
+      l.includes('zh') || 
+      l.includes('cmn') || 
+      n.includes('chinese') || 
+      n.includes('mandarin') || 
+      n.includes('普通话') || 
+      n.includes('中文') ||
+      n.includes('xiaoxiao') || 
+      n.includes('yunxi') || 
+      n.includes('tingting') ||
+      n.includes('yunjian') ||
+      n.includes('kangkang') ||
+      n.includes('xiaoni') ||
+      n.includes('xiaoyan')
+    );
+  });
+  return filtered.length > 0 ? filtered : voices;
 }
 
 /**
  * 根据角色定位智能挑选最优真人级神经语音
  */
-function findBestPersonaVoice(personaId: VoicePersonaId, selectedVoiceName?: string): SpeechSynthesisVoice | null {
+export function findBestPersonaVoice(personaId: VoicePersonaId, selectedVoiceName?: string): SpeechSynthesisVoice | null {
   const voices = getAvailableSystemVoices();
   if (voices.length === 0) return null;
 
@@ -441,15 +490,174 @@ function findBestPersonaVoice(personaId: VoicePersonaId, selectedVoiceName?: str
     if (matched) return matched;
   }
 
-  // 3. 优选任何标有 Natural / Neural 的高质量中文声音
-  const neuralVoice = voices.find(v => 
-    (v.name.toLowerCase().includes('neural') || v.name.toLowerCase().includes('natural') || v.name.includes('Siri')) &&
-    (v.lang.includes('zh') || v.lang.includes('cmn'))
-  );
+  // 3. 按性别/声线特征做绝对严格的男女声音源隔离区分
+  const isMale = personaMeta.gender === 'male';
+  if (isMale) {
+    const maleVoice = voices.find(v => {
+      const n = v.name.toLowerCase();
+      const hasMale = (
+        n.includes('male') || 
+        n.includes('yunxi') || 
+        n.includes('yunjian') || 
+        n.includes('yunyang') || 
+        n.includes('kangkang') || 
+        n.includes('li-mu') || 
+        n.includes('男') || 
+        n.includes('danny')
+      );
+      const hasFemale = (
+        n.includes('female') || 
+        n.includes('女') || 
+        n.includes('xiaoxiao') || 
+        n.includes('tingting') || 
+        n.includes('xiaoyi') || 
+        n.includes('sin-ji') || 
+        n.includes('mei-jia') ||
+        n.includes('xiaoni') ||
+        n.includes('xiaoyan')
+      );
+      return hasMale && !hasFemale;
+    });
+    if (maleVoice) return maleVoice;
+  } else {
+    const femaleVoice = voices.find(v => {
+      const n = v.name.toLowerCase();
+      return (
+        n.includes('female') || 
+        n.includes('xiaoxiao') || 
+        n.includes('xiaoyi') || 
+        n.includes('xiaoyan') || 
+        n.includes('xiaoni') || 
+        n.includes('tingting') || 
+        n.includes('sin-ji') || 
+        n.includes('mei-jia') || 
+        n.includes('女')
+      );
+    });
+    if (femaleVoice) return femaleVoice;
+  }
+
+  // 4. 优选任何标有 Natural / Neural 的高质量中文声音
+  const neuralVoice = voices.find(v => {
+    const n = v.name.toLowerCase();
+    const isNeural = n.includes('neural') || n.includes('natural') || n.includes('siri');
+    if (!isNeural) return false;
+    if (isMale && (n.includes('female') || n.includes('女') || n.includes('xiaoxiao') || n.includes('tingting'))) {
+      return false;
+    }
+    return true;
+  });
   if (neuralVoice) return neuralVoice;
 
-  // 4. 退回标准中文第一声源
+  // 5. 退回标准中文第一声源
   return voices[0] || null;
+}
+
+// -------------------------------------------------------------
+// 高保真母带级真人原声音频播放引擎 (Real Human Studio Master Player)
+// 包含专属男声母带（浑厚播音男声）与专属女声母带（温润知性/甜美前台）
+// 彻底解决合成器人机机械声、音质平庸与男女声不分问题
+// -------------------------------------------------------------
+let activeAudioElement: HTMLAudioElement | null = null;
+
+export function stopCurrentAudio(): void {
+  if (activeAudioElement) {
+    try {
+      activeAudioElement.pause();
+      activeAudioElement.currentTime = 0;
+    } catch (e) {
+      // ignore
+    }
+    activeAudioElement = null;
+  }
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    try {
+      window.speechSynthesis.cancel();
+    } catch (e) {
+      // ignore
+    }
+  }
+}
+
+/**
+ * 直接播放录制好的母带级真人音频文件 (WAV)，零机械感、真实人类声学共鸣
+ */
+export function playRealAudio(url: string, volume = 1.0, onEnd?: () => void): Promise<boolean> {
+  return new Promise((resolve) => {
+    try {
+      if (typeof window === 'undefined') {
+        onEnd?.();
+        resolve(false);
+        return;
+      }
+      stopCurrentAudio();
+      const audio = new Audio(url);
+      activeAudioElement = audio;
+      audio.volume = Math.max(0, Math.min(1, volume));
+
+      // 自动接入蓝牙音频路由中枢（仅系统语音专属通道 vs 统一混合模式）
+      globalBluetoothAudio.applyRouting(audio, true).catch(() => {});
+
+      audio.onended = () => {
+        if (activeAudioElement === audio) {
+          activeAudioElement = null;
+        }
+        onEnd?.();
+        resolve(true);
+      };
+      audio.onerror = (err) => {
+        console.warn('Real studio audio play failed, falling back to TTS:', err);
+        if (activeAudioElement === audio) {
+          activeAudioElement = null;
+        }
+        onEnd?.();
+        resolve(false);
+      };
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn('Audio play was interrupted or blocked by browser policy:', err);
+          if (activeAudioElement === audio) {
+            activeAudioElement = null;
+          }
+          onEnd?.();
+          resolve(false);
+        });
+      }
+    } catch (err) {
+      console.warn('playRealAudio error:', err);
+      onEnd?.();
+      resolve(false);
+    }
+  });
+}
+
+/**
+ * 试听指定角色的纯正真人母带音频（男声/女声完全独立母带）
+ */
+export async function playPersonaAudition(personaId: VoicePersonaId, volume?: number): Promise<boolean> {
+  const cfg = getVoiceConfig();
+  const personaMeta = VOICE_PERSONAS.find(p => p.id === personaId) || VOICE_PERSONAS[0];
+  const targetVolume = volume ?? cfg.volume;
+
+  // 播放开场前奏和弦
+  if (cfg.soundEffectEnabled) {
+    playChimeSound('order');
+  }
+
+  // 优先播放该风格的纯正真人母带 WAV 文件（绝无人机机械感）
+  const ok = await playRealAudio(personaMeta.audioUrl, targetVolume);
+  if (!ok) {
+    // 降级兜底：使用合成器，强化男女性别区隔
+    speakText(personaMeta.sampleText, {
+      persona: personaId,
+      volume: targetVolume,
+      pitch: personaMeta.defaultPitch,
+      rate: personaMeta.defaultRate,
+      chimeType: 'order'
+    });
+  }
+  return ok;
 }
 
 // -------------------------------------------------------------
@@ -489,8 +697,11 @@ export function speakText(text: string, options?: SpeakOptions): void {
   }
 
   try {
-    // 2. 取消前一条可能未播放完毕的语音堆栈，防止重叠打架
+    // 2. 取消前一条可能未播放完毕的语音堆栈，并确保未被系统挂起
     window.speechSynthesis.cancel();
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+    }
 
     // 3. 运行去人机声算法：标点呼吸与单号自然口语化优化
     const shouldHumanize = options?.overrideHumanCadence !== undefined 
@@ -501,20 +712,36 @@ export function speakText(text: string, options?: SpeakOptions): void {
     const utterance = new SpeechSynthesisUtterance(spokenText);
     utterance.lang = 'zh-CN';
 
-    // 4. 角色音调与语速计算（综合 Persona 默认值与用户滑块）
+    // 4. 角色音调与语速计算（确保 Persona 风格即时生效）
     const effectivePersona = (options?.persona || options?.personaId || cfg.persona) as VoicePersonaId;
     const personaMeta = VOICE_PERSONAS.find(p => p.id === effectivePersona) || VOICE_PERSONAS[0];
     
     const targetVolume = options?.volume ?? cfg.volume;
-    const targetRate = options?.rate ?? (cfg.rate * personaMeta.defaultRate);
-    const targetPitch = options?.pitch ?? (cfg.pitch * personaMeta.defaultPitch);
+    
+    // 优先使用显式指定的 pitch/rate；否则直接采用对应风格基准音调，确保人声风格立竿见影切换
+    let targetPitch = personaMeta.defaultPitch;
+    if (options?.pitch !== undefined) {
+      targetPitch = options.pitch;
+    } else if (cfg.pitch && Math.abs(cfg.pitch - 1.0) > 0.02 && effectivePersona === cfg.persona) {
+      targetPitch = cfg.pitch;
+    }
+
+    let targetRate = personaMeta.defaultRate;
+    if (options?.rate !== undefined) {
+      targetRate = options.rate;
+    } else if (cfg.rate && Math.abs(cfg.rate - 1.0) > 0.02 && effectivePersona === cfg.persona) {
+      targetRate = cfg.rate;
+    }
 
     utterance.volume = Math.min(1.0, Math.max(0.1, targetVolume));
-    utterance.rate = Math.min(1.4, Math.max(0.7, targetRate));
-    utterance.pitch = Math.min(1.3, Math.max(0.7, targetPitch));
+    utterance.rate = Math.min(1.5, Math.max(0.6, targetRate));
+    utterance.pitch = Math.min(1.5, Math.max(0.6, targetPitch));
 
-    // 5. 绑定最优神经真人音色
-    const matchedVoice = findBestPersonaVoice(effectivePersona, cfg.selectedVoiceName);
+    // 5. 绑定最优神经真人音色（若当前播报为指定风格，不带入已锁定的旧角色名称）
+    const voiceNameToMatch = (options?.persona && options.persona !== cfg.persona) 
+      ? undefined 
+      : cfg.selectedVoiceName;
+    const matchedVoice = findBestPersonaVoice(effectivePersona, voiceNameToMatch);
     if (matchedVoice) {
       utterance.voice = matchedVoice;
     }
@@ -525,9 +752,12 @@ export function speakText(text: string, options?: SpeakOptions): void {
     }
 
     // 6. 微延时启动，确保声学前奏和弦自然衰减后无缝切入真人语音，避免声音打架
-    const chimeDelayMs = cfg.soundEffectEnabled ? 320 : 50;
+    const chimeDelayMs = cfg.soundEffectEnabled ? 280 : 30;
     setTimeout(() => {
       try {
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+        }
         window.speechSynthesis.speak(utterance);
       } catch (err) {
         console.warn('Speech synthesis speak execution failed:', err);
@@ -548,15 +778,24 @@ export function speakText(text: string, options?: SpeakOptions): void {
 export const voiceAlerts = {
   /**
    * 1. 商家端：自营新订单到达提醒
-   * 针对自营专送、堂食或自提单，亲切提醒商家接单制作
+   * 优先播放纯正真人男女声母带录音，彻底杜绝人机机械感
    */
   newOrder: (orderNo: string, amount: number, channel: 'delivery' | 'dine_in' | 'pickup' = 'delivery', isDirect: boolean = true) => {
     const cfg = getVoiceConfig();
     if (!cfg.enabled || !cfg.autoPlayNewOrder) return;
 
-    const channelName = channel === 'delivery' ? (isDirect ? '自营专送' : '外卖专送') : channel === 'dine_in' ? '堂食就餐' : '到店自提';
-    const text = `您有新的${channelName}订单，单号 ${orderNo}，实付金额 ${amount.toFixed(1)} 元，请及时接单制作！`;
-    speakText(text, { chimeType: 'order' });
+    const personaMeta = VOICE_PERSONAS.find(p => p.id === cfg.persona) || VOICE_PERSONAS[0];
+    const isMale = personaMeta.gender === 'male';
+    const audioUrl = isMale ? '/audio/alert_order_male.wav' : '/audio/alert_order_female.wav';
+
+    // 优先播放高保真母带级真人音频
+    playRealAudio(audioUrl, cfg.volume).then((played) => {
+      if (!played) {
+        const channelName = channel === 'delivery' ? (isDirect ? '自营专送' : '外卖专送') : channel === 'dine_in' ? '堂食就餐' : '到店自提';
+        const text = `您有新的${channelName}订单，单号 ${orderNo}，实付金额 ${amount.toFixed(1)} 元，请及时接单制作！`;
+        speakText(text, { chimeType: 'order', persona: cfg.persona });
+      }
+    });
   },
 
   /**
@@ -566,21 +805,37 @@ export const voiceAlerts = {
     const cfg = getVoiceConfig();
     if (!cfg.enabled || !cfg.autoPlayNewOrder) return;
 
-    const guestGreeting = customerName ? `食客 ${customerName} ` : '';
-    const text = `叮咚！您有新的自营专送订单，${guestGreeting}单号 ${orderNo}，实付金额 ${amount.toFixed(1)} 元，请商家及时接单处理！`;
-    speakText(text, { chimeType: 'order', persona: 'steady_male' });
+    const personaMeta = VOICE_PERSONAS.find(p => p.id === cfg.persona) || VOICE_PERSONAS[0];
+    const isMale = personaMeta.gender === 'male';
+    const audioUrl = isMale ? '/audio/alert_order_male.wav' : '/audio/alert_order_female.wav';
+
+    playRealAudio(audioUrl, cfg.volume).then((played) => {
+      if (!played) {
+        const guestGreeting = customerName ? `食客 ${customerName} ` : '';
+        const text = `叮咚！您有新的自营专送订单，${guestGreeting}单号 ${orderNo}，实付金额 ${amount.toFixed(1)} 元，请商家及时接单处理！`;
+        speakText(text, { chimeType: 'order', persona: cfg.persona });
+      }
+    });
   },
 
   /**
    * 3. 前台端：叫号取餐广播
-   * 亲切提醒顾客餐品备妥，前往餐车窗口取餐
+   * 专属母带：知性/甜美女声 vs 浑厚磁性男声
    */
   callingGuest: (queueNo: string, tableOrPickup: string = '餐车取餐窗口') => {
     const cfg = getVoiceConfig();
     if (!cfg.enabled || !cfg.autoPlayCalling) return;
 
-    const text = `请——${queueNo} 号顾客，到 ${tableOrPickup} 取餐。您的餐品已新鲜制作完成，祝您用餐愉快！`;
-    speakText(text, { chimeType: 'call', persona: 'sweet_frontdesk' });
+    const personaMeta = VOICE_PERSONAS.find(p => p.id === cfg.persona) || VOICE_PERSONAS[0];
+    const isMale = personaMeta.gender === 'male';
+    const audioUrl = isMale ? '/audio/alert_call_pickup_male.wav' : '/audio/alert_call_pickup_female.wav';
+
+    playRealAudio(audioUrl, cfg.volume).then((played) => {
+      if (!played) {
+        const text = `请——${queueNo} 号顾客，到 ${tableOrPickup} 取餐。您的餐品已新鲜制作完成，祝您用餐愉快！`;
+        speakText(text, { chimeType: 'call', persona: cfg.persona });
+      }
+    });
   },
 
   /**
@@ -590,8 +845,16 @@ export const voiceAlerts = {
     const cfg = getVoiceConfig();
     if (!cfg.enabled || !cfg.autoPlayQueueWait) return;
 
-    const text = `请——${queueNo} 号顾客，${partySize} 人桌位已准备就绪，请移步 ${tableArea} 就餐。过号请重新取号，感谢您的耐心等候！`;
-    speakText(text, { chimeType: 'call', persona: 'sweet_frontdesk' });
+    const personaMeta = VOICE_PERSONAS.find(p => p.id === cfg.persona) || VOICE_PERSONAS[0];
+    const isMale = personaMeta.gender === 'male';
+    const audioUrl = isMale ? '/audio/alert_call_pickup_male.wav' : '/audio/alert_call_pickup_female.wav';
+
+    playRealAudio(audioUrl, cfg.volume).then((played) => {
+      if (!played) {
+        const text = `请——${queueNo} 号顾客，${partySize} 人桌位已准备就绪，请移步 ${tableArea} 就餐。过号请重新取号，感谢您的耐心等候！`;
+        speakText(text, { chimeType: 'call', persona: cfg.persona });
+      }
+    });
   },
 
   /**
@@ -602,7 +865,7 @@ export const voiceAlerts = {
     if (!cfg.enabled || !cfg.autoPlayQueueWait) return;
 
     const text = `等位温馨提醒：请 ${queueNo} 号顾客注意，您前方还有 ${remainingCount} 桌正在就餐，请在候餐区稍作准备！`;
-    speakText(text, { chimeType: 'call', persona: 'gentle_female' });
+    speakText(text, { chimeType: 'call', persona: cfg.persona });
   },
 
   /**
@@ -613,7 +876,7 @@ export const voiceAlerts = {
     if (!cfg.enabled || !cfg.autoPlayQueueWait) return;
 
     const text = `过号提醒：请 ${queueNo} 号顾客注意，您的叫号已顺延，如需就餐请联系餐车前台服务人员重新安排。`;
-    speakText(text, { chimeType: 'call', persona: 'gentle_female' });
+    speakText(text, { chimeType: 'call', persona: cfg.persona });
   },
 
   /**
@@ -625,7 +888,7 @@ export const voiceAlerts = {
 
     const distText = distanceMeters >= 1000 ? `${(distanceMeters / 1000).toFixed(1)}公里` : `${distanceMeters}米`;
     const text = `骑士您好！收到新的顺路自营订单，单号 ${orderNo}，配送费 ${earnings.toFixed(1)} 元，距离 ${distText}，请及时抢单！`;
-    speakText(text, { chimeType: 'rider', persona: 'rider_speed' });
+    speakText(text, { chimeType: 'rider', persona: cfg.persona });
   },
 
   /**
@@ -636,7 +899,7 @@ export const voiceAlerts = {
     if (!cfg.enabled || !cfg.autoPlayRiderAction) return;
 
     const text = `接单成功！单号 ${orderNo}，请前往 ${truckName} 取餐，路上请注意骑行安全！`;
-    speakText(text, { chimeType: 'rider', persona: 'rider_speed' });
+    speakText(text, { chimeType: 'rider', persona: cfg.persona });
   },
 
   riderOrderAccepted: (orderNo: string, truckName: string = '黑曜石流动餐车') => {
@@ -652,7 +915,7 @@ export const voiceAlerts = {
 
     const orderPart = orderNo ? `，单号 ${orderNo}` : '';
     const text = `您已到达 ${truckName}${orderPart}，请与餐车主理人核对取餐码，妥善放入恒温箱！`;
-    speakText(text, { chimeType: 'rider', persona: 'rider_speed' });
+    speakText(text, { chimeType: 'rider', persona: cfg.persona });
   },
 
   riderArrivedPickup: (orderNo: string, truckName: string = '黑曜石流动餐车') => {
@@ -667,7 +930,7 @@ export const voiceAlerts = {
     if (!cfg.enabled || !cfg.autoPlayRiderAction) return;
 
     const text = `订单已确认妥投送达！配送佣金 ${earnings.toFixed(1)} 元已即时入账。感谢您的辛苦付出，请注意返程安全！`;
-    speakText(text, { chimeType: 'success', persona: 'rider_speed' });
+    speakText(text, { chimeType: 'success', persona: cfg.persona });
   },
 
   /**
@@ -678,7 +941,7 @@ export const voiceAlerts = {
     if (!cfg.enabled || !cfg.autoPlayUrgent) return;
 
     const text = `催单提醒！单号 ${orderNo} 已等待 ${waitMinutes} 分钟，顾客发起了催单，请优先出餐配送！`;
-    speakText(text, { chimeType: 'urgent', persona: 'steady_male' });
+    speakText(text, { chimeType: 'urgent', persona: cfg.persona });
   },
 
   /**
@@ -689,7 +952,7 @@ export const voiceAlerts = {
     if (!cfg.enabled) return;
 
     const text = `桌台 ${tableCode} 加菜 ${dishCount} 份，后厨已收到加单，请留意制作！`;
-    speakText(text, { chimeType: 'order', persona: 'steady_male' });
+    speakText(text, { chimeType: 'order', persona: cfg.persona });
   },
 
   /**
@@ -700,6 +963,6 @@ export const voiceAlerts = {
     if (!cfg.enabled) return;
 
     const text = `单号 ${orderNo} 制作完毕，请前台或骑手及时取餐装箱！`;
-    speakText(text, { chimeType: 'success', persona: 'gentle_female' });
+    speakText(text, { chimeType: 'success', persona: cfg.persona });
   }
 };

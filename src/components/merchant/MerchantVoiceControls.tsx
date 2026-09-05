@@ -14,7 +14,10 @@ import {
   Clock,
   Sliders,
   ShieldCheck,
-  ChevronDown
+  ChevronDown,
+  Bluetooth,
+  Speaker,
+  Smartphone
 } from 'lucide-react';
 import { 
   VoiceConfig, 
@@ -22,11 +25,21 @@ import {
   saveVoiceConfig, 
   speakText, 
   playChimeSound, 
+  playPersonaAudition,
+  stopCurrentAudio,
   voiceAlerts,
   VOICE_PERSONAS,
   VoicePersonaId,
-  getAvailableSystemVoices
+  getAvailableSystemVoices,
+  findBestPersonaVoice
 } from '../../utils/voiceAlertEngine';
+import { 
+  globalBluetoothAudio,
+  BluetoothAudioConfig,
+  BluetoothSpeakerDevice,
+  AudioRoutingMode 
+} from '../../utils/bluetoothAudioEngine';
+import { BluetoothSpeakerModal } from './BluetoothSpeakerModal';
 
 interface MerchantVoiceControlsProps {
   showToast: (msg: string) => void;
@@ -35,24 +48,58 @@ interface MerchantVoiceControlsProps {
 export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ showToast }) => {
   const [config, setConfig] = useState<VoiceConfig>(getVoiceConfig());
   const [isOpen, setIsOpen] = useState<boolean>(false);
-  const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [systemVoices, setSystemVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [showVoiceSelect, setShowVoiceSelect] = useState<boolean>(false);
+  const [isBluetoothModalOpen, setIsBluetoothModalOpen] = useState<boolean>(false);
+  const [btConfig, setBtConfig] = useState<BluetoothAudioConfig>(() => globalBluetoothAudio.getConfig());
+  const [activeBtDevice, setActiveBtDevice] = useState<BluetoothSpeakerDevice | null>(() => globalBluetoothAudio.getActiveDevice());
+
+  // 监听外部配置变动事件，保持全局一致
+  useEffect(() => {
+    const handleSync = () => {
+      setConfig(getVoiceConfig());
+    };
+    const handleBtSync = () => {
+      setBtConfig(globalBluetoothAudio.getConfig());
+      setActiveBtDevice(globalBluetoothAudio.getActiveDevice());
+    };
+    window.addEventListener('voiceConfigChanged', handleSync);
+    window.addEventListener('storage', handleSync);
+    window.addEventListener('obsidian_bluetooth_speaker_changed', handleBtSync);
+    return () => {
+      window.removeEventListener('voiceConfigChanged', handleSync);
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('obsidian_bluetooth_speaker_changed', handleBtSync);
+    };
+  }, []);
 
   useEffect(() => {
-    saveVoiceConfig(config);
-  }, [config]);
-
-  useEffect(() => {
-    const voices = getAvailableSystemVoices();
-    setSystemVoices(voices);
+    const updateVoices = () => {
+      const voices = getAvailableSystemVoices();
+      setSystemVoices(voices);
+    };
+    updateVoices();
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = updateVoices;
+    }
   }, [isOpen]);
+
+  const updateConfig = (partial: Partial<VoiceConfig>) => {
+    const updated = { ...config, ...partial };
+    setConfig(updated);
+    saveVoiceConfig(updated);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('voiceConfigChanged', { detail: updated }));
+    }
+  };
 
   const handleToggleMute = () => {
     const nextState = !config.enabled;
     const newCfg = { ...config, enabled: nextState };
     setConfig(newCfg);
     saveVoiceConfig(newCfg);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('voiceConfigChanged', { detail: newCfg }));
+    }
     showToast(nextState ? '🔊 真人语音播报与出餐声学铃声已开启' : '🔇 语音播报已静音');
     if (nextState) {
       playChimeSound('order');
@@ -60,21 +107,26 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
   };
 
   const handleSelectPersona = (personaId: VoicePersonaId) => {
-    const personaMeta = VOICE_PERSONAS.find(p => p.id === personaId);
-    const updated = {
+    const personaMeta = VOICE_PERSONAS.find(p => p.id === personaId) || VOICE_PERSONAS[0];
+    const updated: VoiceConfig = {
       ...config,
       persona: personaId,
-      rate: personaMeta ? personaMeta.defaultRate : config.rate,
-      pitch: personaMeta ? personaMeta.defaultPitch : config.pitch
+      selectedVoiceName: undefined, // 消除旧角色锁定，确保自动匹配当前角色的最佳音源
+      rate: personaMeta.defaultRate,
+      pitch: personaMeta.defaultPitch
     };
+
     setConfig(updated);
-    showToast(`已切换至【${personaMeta?.name}】(${personaMeta?.title})，去除机械人机声`);
+    saveVoiceConfig(updated); // 关键：立即同步写入存储，防止异步延迟读取旧配置
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('voiceConfigChanged', { detail: updated }));
+    }
+
+    showToast(`已切换至【${personaMeta.name}】(${personaMeta.genderLabel})，真人母带原声已即时生效`);
     
-    // Quick preview
-    speakText(`您好，已切换为${personaMeta?.name}。真人风格已生效！`, {
-      persona: personaId,
-      chimeType: 'order'
-    });
+    // 立即播放高保真母带级纯正真人音频（男女声完全独立，杜绝机械人机感）
+    playPersonaAudition(personaId, updated.volume);
   };
 
   const currentPersona = VOICE_PERSONAS.find(p => p.id === config.persona) || VOICE_PERSONAS[0];
@@ -117,6 +169,30 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
           <Settings2 className="w-3.5 h-3.5" />
           <Sparkles className="w-2.5 h-2.5 text-amber-600 shrink-0" />
         </button>
+
+        {/* Quick Bluetooth Speaker Status */}
+        {activeBtDevice && activeBtDevice.status === 'connected' && (
+          <>
+            <span className="text-[#d3d1cb]">|</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsBluetoothModalOpen(true);
+              }}
+              className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-colors ${
+                btConfig.routingMode === 'voice_only'
+                  ? 'bg-blue-100 hover:bg-blue-200 text-blue-900 border border-blue-200'
+                  : 'bg-neutral-200/80 hover:bg-neutral-300 text-neutral-800'
+              }`}
+              title={`已连接蓝牙音箱: ${activeBtDevice.name} · 点击管理声学专属路由`}
+            >
+              <Bluetooth className="w-2.5 h-2.5 text-blue-700 shrink-0" />
+              <span className="hidden lg:inline">{btConfig.routingMode === 'voice_only' ? '仅系统语音' : '统一混合'}</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            </button>
+          </>
+        )}
       </div>
 
       {/* Voice Settings Backdrop on Mobile */}
@@ -168,7 +244,7 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
               </div>
               <button
                 type="button"
-                onClick={() => setConfig(prev => ({ ...prev, enabled: !prev.enabled }))}
+                onClick={() => updateConfig({ enabled: !config.enabled })}
                 className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors cursor-pointer ${
                   config.enabled ? 'bg-emerald-600' : 'bg-[#d3d1cb]'
                 }`}
@@ -181,47 +257,160 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
               </button>
             </div>
 
-            {/* Persona Selection (真人音色选择 - 核心去除人机声) */}
+            {/* Bluetooth Speaker & Dedicated Voice Routing Card */}
+            <div className="p-3 bg-blue-50/50 rounded-xl border border-blue-200/80 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <Bluetooth className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-bold text-xs text-[#37352f]">
+                        {activeBtDevice ? activeBtDevice.name : '流动餐车蓝牙音箱'}
+                      </span>
+                      {activeBtDevice && activeBtDevice.status === 'connected' && (
+                        <span className="text-[9px] px-1 py-0.2 bg-emerald-100 text-emerald-800 rounded font-semibold">
+                          电量 {activeBtDevice.batteryLevel}%
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-[#787774] block">
+                      {activeBtDevice?.status === 'connected' 
+                        ? `${activeBtDevice.brandModel}` 
+                        : '未绑定蓝牙外放广播播放器'}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsBluetoothModalOpen(true)}
+                  className="px-2 py-1 text-[11px] font-bold text-blue-700 bg-white hover:bg-blue-50 rounded-md border border-blue-200 cursor-pointer shadow-2xs"
+                >
+                  管理/绑定
+                </button>
+              </div>
+
+              {/* Quick Routing Switcher */}
+              <div className="grid grid-cols-2 gap-1.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    globalBluetoothAudio.setRoutingMode('voice_only');
+                    showToast('已设为【仅系统语音专属通道】：非语音与手机声音保留源设备');
+                  }}
+                  className={`p-2 rounded-lg border text-left cursor-pointer transition-all ${
+                    btConfig.routingMode === 'voice_only'
+                      ? 'bg-blue-600 text-white border-blue-700 shadow-xs'
+                      : 'bg-white hover:bg-[#f7f7f5] text-[#37352f] border-[#d3d1cb]'
+                  }`}
+                >
+                  <div className="text-[11px] font-bold flex items-center justify-between">
+                    <span>只播系统语音</span>
+                    {btConfig.routingMode === 'voice_only' && <Check className="w-3 h-3" />}
+                  </div>
+                  <div className={`text-[9px] mt-0.5 ${btConfig.routingMode === 'voice_only' ? 'text-blue-100' : 'text-[#787774]'}`}>
+                    手机声音安全留本机
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    globalBluetoothAudio.setRoutingMode('unified');
+                    showToast('已设为【统一混合播放模式】：所有音频混合路由');
+                  }}
+                  className={`p-2 rounded-lg border text-left cursor-pointer transition-all ${
+                    btConfig.routingMode === 'unified'
+                      ? 'bg-blue-600 text-white border-blue-700 shadow-xs'
+                      : 'bg-white hover:bg-[#f7f7f5] text-[#37352f] border-[#d3d1cb]'
+                  }`}
+                >
+                  <div className="text-[11px] font-bold flex items-center justify-between">
+                    <span>统一混合播放</span>
+                    {btConfig.routingMode === 'unified' && <Check className="w-3 h-3" />}
+                  </div>
+                  <div className={`text-[9px] mt-0.5 ${btConfig.routingMode === 'unified' ? 'text-blue-100' : 'text-[#787774]'}`}>
+                    所有声音一并外放
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Persona Selection (真人音色风格选择 - 核心去除人机声) */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="font-bold text-[#37352f] flex items-center gap-1">
                   <UserCheck className="w-3.5 h-3.5 text-amber-600" />
-                  真人音色风格（消除机械电音）
+                  真人音色母带（男女纯正原声 · 绝非机械音）
                 </span>
-                <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                  当前: {currentPersona.name}
+                <span className="text-[10px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 font-medium">
+                  当前生效: {currentPersona.avatarIcon} {currentPersona.name}
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 gap-1.5">
+              <div className="grid grid-cols-1 gap-2">
                 {VOICE_PERSONAS.map(p => {
                   const isSelected = config.persona === p.id;
+                  const isMale = p.gender === 'male';
                   return (
-                    <button
+                    <div
                       key={p.id}
-                      type="button"
                       onClick={() => handleSelectPersona(p.id)}
-                      className={`w-full text-left p-2 rounded-lg border transition-all cursor-pointer flex items-center justify-between ${
+                      className={`w-full text-left p-2.5 rounded-lg border transition-all cursor-pointer flex items-center justify-between ${
                         isSelected 
-                          ? 'border-amber-500 bg-amber-50/60 ring-1 ring-amber-500' 
+                          ? 'border-amber-500 bg-amber-50/70 ring-1 ring-amber-500 shadow-xs' 
                           : 'border-[#e3e2e0] bg-[#fafaf8] hover:bg-[#f1f1ef]'
                       }`}
                     >
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-base">{p.avatarIcon}</span>
+                      <div className="flex items-start gap-2.5">
+                        <span className="text-2xl mt-0.5">{p.avatarIcon}</span>
                         <div>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="font-bold text-[#37352f]">{p.name}</span>
-                            <span className="text-[10px] text-[#787774]">· {p.title}</span>
-                            <span className="text-[9px] px-1 py-0.2 bg-white text-[#787774] rounded border border-[#e3e2e0]">
+                            <span className={`text-[10px] px-1.5 py-0.2 rounded font-semibold ${
+                              isMale 
+                                ? 'bg-sky-100 text-sky-800 border border-sky-200' 
+                                : 'bg-rose-100 text-rose-800 border border-rose-200'
+                            }`}>
+                              {p.genderLabel}
+                            </span>
+                            <span className="text-[9px] px-1.5 py-0.2 bg-white text-[#787774] rounded border border-[#e3e2e0]">
                               {p.badge}
                             </span>
+                            {isSelected && (
+                              <span className="text-[9px] px-1.5 py-0.2 bg-emerald-600 text-white rounded font-medium">
+                                当前已生效
+                              </span>
+                            )}
                           </div>
                           <p className="text-[10px] text-[#787774] line-clamp-1 mt-0.5">{p.description}</p>
+                          <div className="text-[9px] text-[#908e89] flex items-center gap-1 mt-0.5">
+                            <Sparkles className="w-2.5 h-2.5 text-amber-600 shrink-0" />
+                            <span className="text-emerald-700 font-medium">✨ 独立真人录音母带 (WAV高保真)</span>
+                          </div>
                         </div>
                       </div>
-                      {isSelected && <Check className="w-4 h-4 text-amber-600 shrink-0" />}
-                    </button>
+                      <div className="flex items-center gap-2 shrink-0 ml-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectPersona(p.id);
+                          }}
+                          className={`text-[11px] px-2.5 py-1 rounded flex items-center gap-1 transition-colors cursor-pointer font-medium ${
+                            isSelected 
+                              ? 'bg-amber-600 text-white hover:bg-amber-700' 
+                              : 'bg-white hover:bg-[#e3e2e0] text-[#37352f] border border-[#d3d1cb]'
+                          }`}
+                          title="点击试听真人原声并生效"
+                        >
+                          <Volume2 className="w-3 h-3" />
+                          <span>{isSelected ? '已生效 · 试听母带' : '选用并试听'}</span>
+                        </button>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
@@ -242,7 +431,7 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
                 <input
                   type="checkbox"
                   checked={config.humanCadenceEnabled}
-                  onChange={(e) => setConfig(prev => ({ ...prev, humanCadenceEnabled: e.target.checked }))}
+                  onChange={(e) => updateConfig({ humanCadenceEnabled: e.target.checked })}
                   className="rounded text-emerald-600 focus:ring-0 cursor-pointer w-4 h-4"
                 />
               </label>
@@ -261,7 +450,7 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
                   <input
                     type="checkbox"
                     checked={config.autoPlayNewOrder}
-                    onChange={(e) => setConfig(prev => ({ ...prev, autoPlayNewOrder: e.target.checked }))}
+                    onChange={(e) => updateConfig({ autoPlayNewOrder: e.target.checked })}
                     className="rounded text-emerald-600 focus:ring-0 cursor-pointer"
                   />
                 </label>
@@ -274,7 +463,7 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
                   <input
                     type="checkbox"
                     checked={config.autoPlayUrgent}
-                    onChange={(e) => setConfig(prev => ({ ...prev, autoPlayUrgent: e.target.checked }))}
+                    onChange={(e) => updateConfig({ autoPlayUrgent: e.target.checked })}
                     className="rounded text-rose-600 focus:ring-0 cursor-pointer"
                   />
                 </label>
@@ -287,7 +476,7 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
                   <input
                     type="checkbox"
                     checked={config.autoPlayCalling}
-                    onChange={(e) => setConfig(prev => ({ ...prev, autoPlayCalling: e.target.checked }))}
+                    onChange={(e) => updateConfig({ autoPlayCalling: e.target.checked })}
                     className="rounded text-amber-600 focus:ring-0 cursor-pointer"
                   />
                 </label>
@@ -300,7 +489,7 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
                   <input
                     type="checkbox"
                     checked={config.autoPlayQueueWait}
-                    onChange={(e) => setConfig(prev => ({ ...prev, autoPlayQueueWait: e.target.checked }))}
+                    onChange={(e) => updateConfig({ autoPlayQueueWait: e.target.checked })}
                     className="rounded text-blue-600 focus:ring-0 cursor-pointer"
                   />
                 </label>
@@ -313,11 +502,10 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
                   <input
                     type="checkbox"
                     checked={config.autoPlayRiderPool && config.autoPlayRiderAction}
-                    onChange={(e) => setConfig(prev => ({ 
-                      ...prev, 
+                    onChange={(e) => updateConfig({ 
                       autoPlayRiderPool: e.target.checked,
                       autoPlayRiderAction: e.target.checked
-                    }))}
+                    })}
                     className="rounded text-purple-600 focus:ring-0 cursor-pointer"
                   />
                 </label>
@@ -345,7 +533,7 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
                   max="1.0"
                   step="0.05"
                   value={config.volume}
-                  onChange={(e) => setConfig(prev => ({ ...prev, volume: parseFloat(e.target.value) }))}
+                  onChange={(e) => updateConfig({ volume: parseFloat(e.target.value) })}
                   className="w-full h-1.5 bg-[#e3e2e0] rounded-lg appearance-none cursor-pointer accent-amber-600"
                 />
               </div>
@@ -361,7 +549,7 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
                   max="1.3"
                   step="0.05"
                   value={config.rate}
-                  onChange={(e) => setConfig(prev => ({ ...prev, rate: parseFloat(e.target.value) }))}
+                  onChange={(e) => updateConfig({ rate: parseFloat(e.target.value) })}
                   className="w-full h-1.5 bg-[#e3e2e0] rounded-lg appearance-none cursor-pointer accent-emerald-600"
                 />
               </div>
@@ -369,7 +557,12 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
 
             {/* Fast Scene Audition Matrix (全场景快速真人试听) */}
             <div className="pt-2 border-t border-[#e3e2e0] space-y-2">
-              <span className="font-bold text-[#37352f] block">场景语音真人效果试听</span>
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-[#37352f]">场景语音真人效果试听</span>
+                <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                  当前音色：{currentPersona.avatarIcon} {currentPersona.name}
+                </span>
+              </div>
               
               <div className="grid grid-cols-2 gap-1.5">
                 <button
@@ -471,6 +664,13 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
           </div>
         </div>
       )}
+
+      {/* Bluetooth Speaker Management & Isolation Test Modal */}
+      <BluetoothSpeakerModal
+        isOpen={isBluetoothModalOpen}
+        onClose={() => setIsBluetoothModalOpen(false)}
+        showToast={showToast}
+      />
     </div>
   );
 };

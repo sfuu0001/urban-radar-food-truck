@@ -14,7 +14,8 @@ import {
   Sparkles,
   BellRing,
   Send,
-  UserCheck
+  UserCheck,
+  Bluetooth
 } from 'lucide-react';
 import { QueueTicket, QueueType, Order } from '../../types';
 import { INITIAL_QUEUE_TICKETS } from '../../data/merchantExtendedMockData';
@@ -25,8 +26,11 @@ import {
   saveVoiceConfig,
   VOICE_PERSONAS,
   speakText,
+  playPersonaAudition,
   VoicePersonaId
 } from '../../utils/voiceAlertEngine';
+import { BluetoothSpeakerModal } from './BluetoothSpeakerModal';
+import { globalBluetoothAudio } from '../../utils/bluetoothAudioEngine';
 
 interface MerchantCallingHubProps {
   orders?: Order[];
@@ -43,6 +47,28 @@ export const MerchantCallingHub: React.FC<MerchantCallingHubProps> = ({ orders =
   const [isNewModalOpen, setIsNewModalOpen] = useState<boolean>(false);
   const [isTvMode, setIsTvMode] = useState<boolean>(false);
   const [voiceConfig, setVoiceConfigState] = useState(getVoiceConfig());
+  const [isBluetoothModalOpen, setIsBluetoothModalOpen] = useState(false);
+  const [btConfig, setBtConfig] = useState(() => globalBluetoothAudio.getConfig());
+  const [activeBtDevice, setActiveBtDevice] = useState(() => globalBluetoothAudio.getActiveDevice());
+
+  // 监听全局音色变动，保持叫号中心与控制台实时同步
+  React.useEffect(() => {
+    const handleSync = () => {
+      setVoiceConfigState(getVoiceConfig());
+    };
+    const handleBtSync = () => {
+      setBtConfig(globalBluetoothAudio.getConfig());
+      setActiveBtDevice(globalBluetoothAudio.getActiveDevice());
+    };
+    window.addEventListener('voiceConfigChanged', handleSync);
+    window.addEventListener('storage', handleSync);
+    window.addEventListener('obsidian_bluetooth_speaker_changed', handleBtSync);
+    return () => {
+      window.removeEventListener('voiceConfigChanged', handleSync);
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('obsidian_bluetooth_speaker_changed', handleBtSync);
+    };
+  }, []);
 
   // Quick manual callout state
   const [manualCallNumber, setManualCallNumber] = useState<string>('');
@@ -327,39 +353,76 @@ export const MerchantCallingHub: React.FC<MerchantCallingHubProps> = ({ orders =
                   无机械电音 · 真实人声
                 </span>
               </div>
-              <p className="text-[11px] text-[#787774]">
-                当前播报音色：
+              <p className="text-[11px] text-[#787774] flex items-center gap-1.5 flex-wrap">
+                <span>当前播报音色：</span>
                 <span className="font-semibold text-amber-900">
                   {VOICE_PERSONAS.find(p => p.id === voiceConfig.persona)?.avatarIcon}{' '}
                   {VOICE_PERSONAS.find(p => p.id === voiceConfig.persona)?.name}
                 </span>
-                <span className="text-emerald-700 ml-1.5">（含拟真呼吸微停顿与单号口语化）</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded font-semibold ${
+                  VOICE_PERSONAS.find(p => p.id === voiceConfig.persona)?.gender === 'male'
+                    ? 'bg-sky-100 text-sky-800 border border-sky-200'
+                    : 'bg-rose-100 text-rose-800 border border-rose-200'
+                }`}>
+                  {VOICE_PERSONAS.find(p => p.id === voiceConfig.persona)?.genderLabel}
+                </span>
+                <span className="text-emerald-700">（高保真母带原声录音）</span>
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
+            {/* Bluetooth Speaker Dedicated Voice Output Channel Indicator */}
+            <button
+              type="button"
+              onClick={() => setIsBluetoothModalOpen(true)}
+              className={`px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1.5 cursor-pointer border transition-all ${
+                activeBtDevice && activeBtDevice.status === 'connected'
+                  ? 'bg-blue-50 hover:bg-blue-100 text-blue-900 border-blue-200'
+                  : 'bg-white hover:bg-[#f7f7f5] text-[#37352f] border-[#d3d1cb]'
+              }`}
+              title="流动餐车外放蓝牙音箱链接与声学路由"
+            >
+              <Bluetooth className={`w-3.5 h-3.5 ${
+                activeBtDevice && activeBtDevice.status === 'connected' ? 'text-blue-600' : 'text-[#787774]'
+              }`} />
+              <span>
+                {activeBtDevice && activeBtDevice.status === 'connected' 
+                  ? `蓝牙音箱: ${activeBtDevice.name.slice(0, 8)} (${btConfig.routingMode === 'voice_only' ? '仅系统语音' : '统一混合'})`
+                  : '未连接蓝牙音箱'}
+              </span>
+              {activeBtDevice && activeBtDevice.status === 'connected' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              )}
+            </button>
+
             <button
               type="button"
               onClick={() => {
-                const nextPersona: VoicePersonaId = voiceConfig.persona === 'sweet_frontdesk' ? 'gentle_female' : 'sweet_frontdesk';
-                const nextMeta = VOICE_PERSONAS.find(p => p.id === nextPersona);
+                const currentIndex = VOICE_PERSONAS.findIndex(p => p.id === voiceConfig.persona);
+                const nextIndex = (currentIndex + 1) % VOICE_PERSONAS.length;
+                const nextPersona = VOICE_PERSONAS[nextIndex];
                 const updated = {
                   ...voiceConfig,
-                  persona: nextPersona,
-                  rate: nextMeta?.defaultRate ?? 1.0,
-                  pitch: nextMeta?.defaultPitch ?? 1.0
+                  persona: nextPersona.id,
+                  selectedVoiceName: undefined,
+                  rate: nextPersona.defaultRate,
+                  pitch: nextPersona.defaultPitch
                 };
                 setVoiceConfigState(updated);
                 saveVoiceConfig(updated);
-                showToast(`已切换音色为【${nextMeta?.name}】(${nextMeta?.title})`);
-                speakText(`已为您切换为${nextMeta?.name}，叫号声音清晰悦耳！`, { persona: nextPersona, chimeType: 'call' });
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('voiceConfigChanged', { detail: updated }));
+                }
+                showToast(`已切换音色为【${nextPersona.name}】(${nextPersona.genderLabel})`);
+                // 播放真实录制的高保真真人母带（男女纯正原声，0机械音）
+                playPersonaAudition(nextPersona.id);
               }}
               className="px-2.5 py-1 bg-white hover:bg-[#f7f7f5] text-[#37352f] rounded border border-[#d3d1cb] text-xs font-medium flex items-center gap-1 cursor-pointer transition-colors"
-              title="一键切换前台播报音色"
+              title="一键循环切换前台播报真人音色风格"
             >
               <UserCheck className="w-3.5 h-3.5 text-amber-600" />
-              <span>切换音色</span>
+              <span>切换音色风格</span>
             </button>
 
             <button
@@ -701,6 +764,13 @@ export const MerchantCallingHub: React.FC<MerchantCallingHubProps> = ({ orders =
           </div>
         </div>
       )}
+
+      {/* Bluetooth Speaker Link & Binding Modal */}
+      <BluetoothSpeakerModal
+        isOpen={isBluetoothModalOpen}
+        onClose={() => setIsBluetoothModalOpen(false)}
+        showToast={showToast}
+      />
     </div>
   );
 };
