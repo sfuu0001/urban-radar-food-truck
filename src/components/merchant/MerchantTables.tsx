@@ -25,12 +25,14 @@ import {
   RefreshCw,
   ToggleLeft,
   ToggleRight,
-  ListOrdered
+  ListOrdered,
+  QrCode
 } from 'lucide-react';
 import { TableItem, TableStatus, TableZone, DishItem, Order, WaitingTableItem } from '../../types';
 import { globalScannerEngine, playScannerBeep } from '../../utils/barcodeScannerEngine';
 import { resolveOrderChannelType, normalizeOrderKey } from '../../utils/orderNormalizer';
 import { TableDishProgressView } from './TableDishProgressView';
+import { TableBatchPrintModal } from './TableBatchPrintModal';
 import {
   getWaitingQueue,
   saveWaitingQueue,
@@ -77,6 +79,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
 
   // Modals state
   const [activeModal, setActiveModal] = useState<'open' | 'bill' | 'transfer' | 'addWaiting' | 'manualTransfer' | 'cleanPrompt' | null>(null);
+  const [isBatchPrintModalOpen, setIsBatchPrintModalOpen] = useState<boolean>(false);
   const [selectedTable, setSelectedTable] = useState<TableItem | null>(null);
   
   // Waiting Queue & Auto-Transfer State
@@ -387,6 +390,17 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
             <span className="w-2 h-2 rounded-full bg-[#2383e2]" />
             <span>已预订 ({reservedCount})</span>
           </span>
+
+          {/* Batch Print Table Stand QR Button */}
+          <button
+            type="button"
+            onClick={() => setIsBatchPrintModalOpen(true)}
+            className="px-2.5 py-1.5 bg-[#2b593f] hover:bg-[#204430] text-white rounded-[3px] font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs whitespace-nowrap ml-auto"
+            title="生成并打印所有桌台亚克力立牌二维码"
+          >
+            <QrCode className="w-3.5 h-3.5" />
+            <span>批量打印桌码立牌</span>
+          </button>
         </div>
       </div>
 
@@ -680,13 +694,26 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                     <span className="font-semibold text-xs truncate max-w-[120px]">{tbl.name}</span>
                   </div>
 
-                  {/* Status Badge */}
-                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-[2px] bg-white/80 text-black">
-                    {isDining && `就餐 ${tbl.elapsedMinutes || 12}m`}
-                    {isIdle && `空闲 · ${tbl.capacity}座`}
-                    {isCleaning && `保洁中 ${tbl.elapsedMinutes}m`}
-                    {isReserved && `已预订`}
-                  </span>
+                  {/* Status Badge & QR Stand Action */}
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsBatchPrintModalOpen(true);
+                      }}
+                      className="p-1 text-[#5a5854] hover:text-black hover:bg-black/10 rounded-[2px] transition-colors cursor-pointer"
+                      title={`查看/打印 ${tbl.code} 桌点餐二维码`}
+                    >
+                      <QrCode className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-[2px] bg-white/80 text-black">
+                      {isDining && `就餐 ${tbl.elapsedMinutes || 12}m`}
+                      {isIdle && `空闲 · ${tbl.capacity}座`}
+                      {isCleaning && `保洁中 ${tbl.elapsedMinutes}m`}
+                      {isReserved && `已预订`}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Card Body */}
@@ -1566,6 +1593,12 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
           </div>
         </div>
       )}
+      {/* 8. Modal: Table Batch Print QR Stand Modal */}
+      <TableBatchPrintModal
+        isOpen={isBatchPrintModalOpen}
+        onClose={() => setIsBatchPrintModalOpen(false)}
+        tables={tables}
+      />
     </div>
   );
 };

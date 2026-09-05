@@ -15,8 +15,11 @@ import {
   Award,
   Thermometer,
   CloudRain,
-  Menu as MenuIcon
+  Menu as MenuIcon,
+  Smartphone,
+  Fingerprint
 } from 'lucide-react';
+import { RiderSession, maskPhoneNumber } from '../../utils/staffAndRiderAuthEngine';
 import { TruckInfo, Order, PoolDeliveryOrder, ActiveDeliveryOrder } from '../../types';
 import { INITIAL_POOL_ORDERS, INITIAL_ACTIVE_DELIVERY } from '../../data/posMockData';
 import {
@@ -44,6 +47,9 @@ interface RiderSystemViewProps {
   onAdvanceOrderStatus: (orderId: string, targetStatus?: Order['status'], extraDetails?: Partial<Order>) => void;
   onUpdateTruckLocation?: (newLocation: string, radiusKm: number) => void;
   onSwitchRole: (role: 'customer' | 'merchant' | 'rider') => void;
+  riderSession?: RiderSession | null;
+  onOpenPhoneAuth?: () => void;
+  onLogoutRider?: () => void;
 }
 
 export type RiderTab = 'active' | 'pool' | 'radar' | 'earnings';
@@ -273,7 +279,10 @@ export const RiderSystemView: React.FC<RiderSystemViewProps> = ({
   truck,
   orders,
   onAdvanceOrderStatus,
-  onSwitchRole
+  onSwitchRole,
+  riderSession,
+  onOpenPhoneAuth,
+  onLogoutRider
 }) => {
   const [activeTab, setActiveTab] = useState<RiderTab>('active');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() =>
@@ -830,7 +839,45 @@ export const RiderSystemView: React.FC<RiderSystemViewProps> = ({
         </div>
 
         {/* Top Right Controls & Switches */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Verified Phone Rider Badge & Device Fingerprint Invariant Indicator */}
+          <div className="flex items-center gap-1 bg-[#edf3ec] border border-[#c4dcbc] rounded-[4px] px-1.5 py-0.5 shrink-0 text-xs">
+            <Smartphone className="w-3.5 h-3.5 text-[#2b593f] shrink-0" />
+            <span className="font-bold text-[#2b593f] truncate max-w-[80px] xs:max-w-[110px] sm:max-w-none">
+              {riderSession?.name || '陈志远 (R-8821)'}
+            </span>
+            <span className="font-mono text-[10.5px] text-[#2b593f]/80 hidden sm:inline">
+              {riderSession?.phone ? maskPhoneNumber(riderSession.phone) : '138****9201'}
+            </span>
+            <span
+              className="text-[9px] bg-emerald-200/70 text-emerald-900 border border-emerald-300 px-1 py-0.2 rounded font-mono font-bold shrink-0 flex items-center gap-0.5"
+              title={`手机号已实名核验 · 底层硬件指纹 [${riderSession?.hardwareHash || 'HW-INVARIANT'}] 保持绑定不变`}
+            >
+              <Fingerprint className="w-2.5 h-2.5 text-emerald-700" />
+              <span>指纹保活</span>
+            </span>
+            {onOpenPhoneAuth && (
+              <button
+                type="button"
+                onClick={onOpenPhoneAuth}
+                className="text-[10px] text-blue-700 hover:text-blue-900 underline ml-0.5 font-medium cursor-pointer"
+                title="更换登录手机号或切换其他骑手账号"
+              >
+                切换
+              </button>
+            )}
+            {onLogoutRider && (
+              <button
+                type="button"
+                onClick={onLogoutRider}
+                className="text-[10px] text-red-600 hover:text-red-800 underline ml-0.5 font-medium cursor-pointer hidden sm:inline"
+                title="退出骑手端登录"
+              >
+                退出
+              </button>
+            )}
+          </div>
+
           {/* 骑手自动抢单/接单开关 (必须有开关按钮，如果没有则是待取件) */}
           <button
             type="button"
@@ -839,7 +886,7 @@ export const RiderSystemView: React.FC<RiderSystemViewProps> = ({
               setIsAutoAcceptRider(next);
               showToast(next ? '已开启极速自动抢单（新任务自动接单）' : '已关闭自动抢单（新任务将保留在抢单大厅待取件）');
             }}
-            className={`px-2.5 sm:px-3 py-1 rounded-[3px] font-semibold text-xs flex items-center gap-1.5 cursor-pointer border transition-all shadow-2xs ${
+            className={`px-2 sm:px-2.5 py-1 rounded-[3px] font-semibold text-xs flex items-center gap-1 cursor-pointer border transition-all shadow-2xs ${
               isAutoAcceptRider
                 ? 'bg-[#edf3ec] text-[#2b593f] border-[#c4dcbc] hover:bg-[#e1ece0]'
                 : 'bg-[#fbe4e4] text-[#c93b3b] border-[#f0c3c3] hover:bg-[#f8d7d7]'
@@ -847,15 +894,15 @@ export const RiderSystemView: React.FC<RiderSystemViewProps> = ({
             title={isAutoAcceptRider ? '点击关闭自动抢单' : '点击开启自动抢单'}
           >
             <Zap className={`w-3.5 h-3.5 ${isAutoAcceptRider ? 'text-[#4dab63]' : 'text-[#c93b3b]'}`} />
-            <span>自动抢单: <strong>{isAutoAcceptRider ? '开启中' : '已关闭 (待取件)'}</strong></span>
+            <span className="hidden xs:inline">自动抢单: </span><strong>{isAutoAcceptRider ? '开启' : '关闭'}</strong>
           </button>
 
           <button
             type="button"
             onClick={() => onSwitchRole('merchant')}
-            className="px-2 sm:px-2.5 py-1 bg-[#f1f1ef] hover:bg-[#e8e8e6] text-[#37352f] rounded-[3px] font-semibold text-xs transition-all cursor-pointer border border-[#d3d1cb] shrink-0"
+            className="px-2 sm:px-2.5 py-1 bg-[#f1f1ef] hover:bg-[#e8e8e6] text-[#37352f] rounded-[3px] font-semibold text-xs transition-all cursor-pointer border border-[#d3d1cb] shrink-0 hidden sm:inline-block"
           >
-            切换商家端
+            商家端
           </button>
         </div>
       </header>
@@ -874,7 +921,7 @@ export const RiderSystemView: React.FC<RiderSystemViewProps> = ({
           onCloseMobile={() => setIsMobileSidebarOpen(false)}
           iotState={iotState}
           levelInfo={levelInfo}
-          riderName="陈志远 (R-8821)"
+          riderName={riderSession?.name || '陈志远 (R-8821)'}
         />
 
         {/* Right Dynamic Workspace */}

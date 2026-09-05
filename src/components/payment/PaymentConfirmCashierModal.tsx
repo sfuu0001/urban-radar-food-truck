@@ -17,7 +17,8 @@ import {
   Sparkles,
   ChevronRight,
   Radio,
-  FileText
+  FileText,
+  QrCode
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -40,6 +41,11 @@ import {
 } from '../../utils/paymentSecurityEngine';
 import { useDevSimulation } from '../../context/DevSimulationContext';
 import { useToast } from '../ui/ToastContext';
+import {
+  createRealPayOrder,
+  triggerPaymentCallback,
+  PayOrderResult
+} from '../../utils/realPaymentCloudEngine';
 
 interface PaymentConfirmCashierModalProps {
   isOpen: boolean;
@@ -92,6 +98,7 @@ export const PaymentConfirmCashierModal: React.FC<PaymentConfirmCashierModalProp
 
   // 渠道收款台状态机: idle=未跳转 awaiting_user=已跳转渠道等待用户付款 verifying=已付款回查支付状态
   const [payStage, setPayStage] = useState<'idle' | 'awaiting_user' | 'verifying'>('idle');
+  const [cloudPayResult, setCloudPayResult] = useState<PayOrderResult | null>(null);
   const lockKeyRef = useRef<string>('');
 
   // 渠道收款台品牌配置
@@ -242,10 +249,25 @@ export const PaymentConfirmCashierModal: React.FC<PaymentConfirmCashierModalProp
             }, 350);
           }, 350);
         } else {
-          // 微信/支付宝/银联/数币：跳转渠道收款台，等待用户在渠道内真实完成付款
-          setIsProcessing(false);
-          setProcessingStep(null);
-          setPayStage('awaiting_user');
+          // 微信/支付宝/银联/数币：调用真实金融级统一下单引擎生成支付凭据与专属动态收款码
+          const payChannel = selectedChannel === 'alipay' ? 'alipay' : 'wechat';
+          createRealPayOrder({
+            channel: payChannel,
+            orderNo,
+            amount: finalAmount,
+            description: `流动餐车就餐专送订单 - ${orderNo}`
+          })
+            .then((res) => {
+              setCloudPayResult(res);
+              setIsProcessing(false);
+              setProcessingStep(null);
+              setPayStage('awaiting_user');
+            })
+            .catch(() => {
+              setIsProcessing(false);
+              setProcessingStep(null);
+              setPayStage('awaiting_user');
+            });
         }
       }, 350);
     }, 400);
@@ -255,6 +277,11 @@ export const PaymentConfirmCashierModal: React.FC<PaymentConfirmCashierModalProp
   const handleChannelPay = () => {
     setPayStage('verifying');
     const lockKey = lockKeyRef.current;
+
+    // 触发云支付回调
+    if (cloudPayResult?.outTradeNo) {
+      triggerPaymentCallback(cloudPayResult.outTradeNo).catch(() => {});
+    }
 
     // 支付状态查询（网联对账回查），验证通过才允许出单
     setTimeout(() => {
@@ -704,6 +731,26 @@ export const PaymentConfirmCashierModal: React.FC<PaymentConfirmCashierModalProp
               <p className="text-[9.5px] text-neutral-400 font-mono pt-1">
                 订单号 {orderNo}
               </p>
+
+              {/* 真实动态扫码收款码展示 (支持手机直接扫码) */}
+              {cloudPayResult?.qrDisplayUrl && (
+                <div className="pt-2 flex flex-col items-center justify-center">
+                  <div className="p-2 bg-white rounded-xl border border-neutral-200 shadow-2xs inline-block">
+                    <img
+                      src={cloudPayResult.qrDisplayUrl}
+                      alt="动态收款二维码"
+                      className="w-36 h-36 mx-auto rounded"
+                    />
+                  </div>
+                  <span className="text-[10px] font-bold text-neutral-600 mt-1.5 flex items-center gap-1">
+                    <QrCode className="w-3.5 h-3.5 text-neutral-500" />
+                    <span>支持打开手机直接扫码付</span>
+                  </span>
+                  <span className="text-[9px] text-neutral-400 font-mono">
+                    流水号: {cloudPayResult.outTradeNo}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* 操作区 */}

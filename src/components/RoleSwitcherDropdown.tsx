@@ -9,10 +9,18 @@ import {
   Zap,
   Layers,
   SlidersHorizontal,
-  Lock
+  Lock,
+  Fingerprint
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDevSimulation } from '../context/DevSimulationContext';
+import {
+  getMerchantSession,
+  getRiderSession,
+  maskPhoneNumber,
+  EVENT_MERCHANT_AUTH_CHANGED,
+  EVENT_RIDER_AUTH_CHANGED
+} from '../utils/staffAndRiderAuthEngine';
 
 export type UserRole = 'customer' | 'merchant' | 'rider' | 'platform';
 
@@ -34,6 +42,20 @@ export const RoleSwitcherDropdown: React.FC<RoleSwitcherDropdownProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const { isAdminDeveloper, openDevAuthModal, openDevControlCenter } = useDevSimulation();
+
+  const [merchantSession, setMerchantSession] = useState(getMerchantSession());
+  const [riderSession, setRiderSession] = useState(getRiderSession());
+
+  useEffect(() => {
+    const handleMerchantChange = () => setMerchantSession(getMerchantSession());
+    const handleRiderChange = () => setRiderSession(getRiderSession());
+    window.addEventListener(EVENT_MERCHANT_AUTH_CHANGED, handleMerchantChange);
+    window.addEventListener(EVENT_RIDER_AUTH_CHANGED, handleRiderChange);
+    return () => {
+      window.removeEventListener(EVENT_MERCHANT_AUTH_CHANGED, handleMerchantChange);
+      window.removeEventListener(EVENT_RIDER_AUTH_CHANGED, handleRiderChange);
+    };
+  }, []);
 
   // Close on outside click
   useEffect(() => {
@@ -60,20 +82,28 @@ export const RoleSwitcherDropdown: React.FC<RoleSwitcherDropdownProps> = ({
     {
       key: 'merchant' as UserRole,
       title: '商家端',
-      badge: `${pendingOrdersCount}单待制作`,
-      desc: '黑曜石01号店长工作台 · 实时接单出餐与库存管理',
+      badge: merchantSession ? `${maskPhoneNumber(merchantSession.phone)} (已手机验真)` : '需手机号登录',
+      desc: merchantSession
+        ? `${merchantSession.name} · 接单出餐与库存管理`
+        : '黑曜石01号店长工作台 · 须通过手机号验证码登录 (指纹保持绑定)',
       icon: House,
       iconBox: 'bg-[#faf4ec] text-[#b86200] border border-[#f0dfc8]',
-      badgeStyle: 'bg-amber-50 text-amber-800 border border-amber-200/60'
+      badgeStyle: merchantSession
+        ? 'bg-amber-50 text-amber-800 border border-amber-200/60 font-semibold'
+        : 'bg-red-50 text-red-700 border border-red-200/60 font-medium'
     },
     {
       key: 'rider' as UserRole,
       title: '骑手端',
-      badge: `${riderTasksCount}单待取送`,
-      desc: '闪送骑士配送工作台 · 实时导航接单与配送交付',
+      badge: riderSession ? `${maskPhoneNumber(riderSession.phone)} (已手机验真)` : '需手机号登录',
+      desc: riderSession
+        ? `${riderSession.name} · 导航接单与极速配送`
+        : '闪送骑士配送工作台 · 须通过手机号验证码登录 (指纹保持绑定)',
       icon: Bike,
       iconBox: 'bg-[#edf7f1] text-[#1b7a47] border border-[#cbe9d7]',
-      badgeStyle: 'bg-emerald-50 text-emerald-800 border border-emerald-200/60'
+      badgeStyle: riderSession
+        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200/60 font-semibold'
+        : 'bg-red-50 text-red-700 border border-red-200/60 font-medium'
     },
     {
       key: 'platform' as UserRole,

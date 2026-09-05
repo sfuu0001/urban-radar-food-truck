@@ -36,8 +36,11 @@ import {
   Bike,
   GitBranch,
   Palette,
-  Bluetooth
+  Bluetooth,
+  Smartphone,
+  Fingerprint
 } from 'lucide-react';
+import { MerchantSession, maskPhoneNumber } from '../../utils/staffAndRiderAuthEngine';
 import { DishItem, Order, TruckInfo, TableItem, KdsTicket, HeldOrder } from '../../types';
 import { INITIAL_TABLES, INITIAL_KDS_TICKETS, INITIAL_HELD_ORDERS } from '../../data/posMockData';
 import { resolveOrderChannelType, normalizeOrderKey } from '../../utils/orderNormalizer';
@@ -87,6 +90,12 @@ import { FloatingChatBubbleWidget } from '../chat/FloatingChatBubbleWidget';
 import { OmniAggregatedChatHub } from '../chat/OmniAggregatedChatHub';
 import { BluetoothSpeakerModal } from './BluetoothSpeakerModal';
 import { globalBluetoothAudio } from '../../utils/bluetoothAudioEngine';
+import { BusinessStatusModal } from './BusinessStatusModal';
+import {
+  BusinessStatusConfig,
+  getBusinessStatus,
+  toggleBusinessOperating
+} from '../../utils/businessStatusEngine';
 
 interface MerchantSystemViewProps {
   dishes: DishItem[];
@@ -100,6 +109,9 @@ interface MerchantSystemViewProps {
   onToggleNonRefundable?: (orderId: string, nonRefundable: boolean) => void;
   onUpdateTruckLocation?: (newLocation: string, radiusKm: number) => void;
   onSwitchRole: (role: 'customer' | 'merchant' | 'rider') => void;
+  merchantSession?: MerchantSession | null;
+  onOpenPhoneAuth?: () => void;
+  onLogoutMerchant?: () => void;
 }
 
 export type MerchantTab =
@@ -163,7 +175,10 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
   onAuditRefund,
   onToggleNonRefundable,
   onUpdateTruckLocation,
-  onSwitchRole
+  onSwitchRole,
+  merchantSession,
+  onOpenPhoneAuth,
+  onLogoutMerchant
 }) => {
   const [activeTab, setActiveTab] = useState<MerchantTab>(initialTab || 'tables');
 
@@ -245,6 +260,23 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
   );
   const [localOrders, setLocalOrders] = useState<Order[]>(orders);
   const [isOmniChatHubOpen, setIsOmniChatHubOpen] = useState(false);
+
+  // Business Status (Open / Closed) Master Switch State
+  const [businessStatus, setBusinessStatusState] = useState<BusinessStatusConfig>(() => getBusinessStatus());
+  const [isBusinessStatusModalOpen, setIsBusinessStatusModalOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleStatusChanged = (e: Event) => {
+      const custom = e as CustomEvent<BusinessStatusConfig>;
+      if (custom.detail) {
+        setBusinessStatusState(custom.detail);
+      } else {
+        setBusinessStatusState(getBusinessStatus());
+      }
+    };
+    window.addEventListener('obsidian_business_status_changed', handleStatusChanged);
+    return () => window.removeEventListener('obsidian_business_status_changed', handleStatusChanged);
+  }, []);
   // 桌台首帧标记:挂载初期先以云端为准，避免本地初始快照直接覆盖云端更新
   const skipFirstTableSyncRef = useRef(true);
 
@@ -907,10 +939,68 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
               ))}
             </select>
           </div>
+
+          <div className="h-4 w-[1px] bg-[#e6e6e4] shrink-0 hidden md:block" />
+
+          {/* Verified Phone Staff Badge & Device Fingerprint Invariant Indicator */}
+          <div className="flex items-center gap-1 bg-[#f1f1ef] border border-[#d3d1cb] rounded-[4px] px-1.5 py-0.5 shrink-0 text-xs">
+            <Smartphone className="w-3.5 h-3.5 text-[#2b593f] shrink-0" />
+            <span className="font-bold text-[#37352f] truncate max-w-[80px] xs:max-w-[110px] sm:max-w-none">
+              {merchantSession?.name || '张伟 (店长)'}
+            </span>
+            <span className="font-mono text-[10.5px] text-[#787774] hidden sm:inline">
+              {merchantSession?.phone ? maskPhoneNumber(merchantSession.phone) : '138****8000'}
+            </span>
+            <span
+              className="text-[9px] bg-emerald-100 text-emerald-800 border border-emerald-300/60 px-1 py-0.2 rounded font-mono font-bold shrink-0 flex items-center gap-0.5"
+              title={`手机号已验证 · 底层硬件指纹 [${merchantSession?.hardwareHash || 'HW-INVARIANT'}] 保持绑定不变`}
+            >
+              <Fingerprint className="w-2.5 h-2.5 text-emerald-700" />
+              <span>指纹保活</span>
+            </span>
+            {onOpenPhoneAuth && (
+              <button
+                type="button"
+                onClick={onOpenPhoneAuth}
+                className="text-[10px] text-blue-700 hover:text-blue-900 underline ml-0.5 font-medium cursor-pointer"
+                title="更换登录手机号或切换其他员工账号"
+              >
+                切换
+              </button>
+            )}
+            {onLogoutMerchant && (
+              <button
+                type="button"
+                onClick={onLogoutMerchant}
+                className="text-[10px] text-red-600 hover:text-red-800 underline ml-0.5 font-medium cursor-pointer hidden sm:inline"
+                title="退出商家端登录"
+              >
+                退出
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Top Right Quick Switches - Non-wrapping and mobile compact */}
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+          {/* 营业状态总开关 (一键打烊/恢复接单) */}
+          <button
+            type="button"
+            onClick={() => setIsBusinessStatusModalOpen(true)}
+            className={`px-2 sm:px-2.5 py-1 rounded-[3px] font-bold text-xs transition-all cursor-pointer border flex items-center gap-1.5 shadow-2xs shrink-0 ${
+              businessStatus.isOpen
+                ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-300'
+                : 'bg-rose-50 hover:bg-rose-100 text-rose-900 border-rose-300 animate-pulse'
+            }`}
+            title="流动餐车营业状态总控中心（一键打烊/恢复接单、前台公示）"
+          >
+            <span className={`w-2 h-2 rounded-full shrink-0 ${businessStatus.isOpen ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+            <span>{businessStatus.isOpen ? '营业中' : '已打烊'}</span>
+            <span className="text-[10px] opacity-75 font-normal hidden lg:inline">
+              {businessStatus.isOpen ? '接单中' : businessStatus.reopenTime}
+            </span>
+          </button>
+
           <MerchantVoiceControls showToast={showToast} />
 
           {/* Bluetooth Audio Player Quick Link & Acoustic Routing Indicator */}
@@ -1231,6 +1321,8 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
         {activeTab === 'shifts' && (
           <MerchantShiftRefund
             showToast={showToast}
+            orders={localOrders}
+            onAuditRefund={onAuditRefund}
           />
         )}
 
@@ -1523,6 +1615,16 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
         isOpen={isBluetoothModalOpen}
         onClose={() => setIsBluetoothModalOpen(false)}
         showToast={showToast}
+      />
+
+      {/* Business Status Master Toggle & Setting Modal */}
+      <BusinessStatusModal
+        isOpen={isBusinessStatusModalOpen}
+        onClose={() => setIsBusinessStatusModalOpen(false)}
+        truckName={truck.name}
+        onStatusChanged={(newStatus) => {
+          setBusinessStatusState(newStatus);
+        }}
       />
     </div>
   );

@@ -58,6 +58,7 @@ import {
   reconcileUnsettledPayments
 } from '../../utils/paymentSecurityEngine';
 import { ElectronicPaymentVoucherModal } from '../payment/ElectronicPaymentVoucherModal';
+import { verifyPaymentChannelCredentials } from '../../utils/realPaymentCloudEngine';
 
 interface MerchantPaymentChannelsProps {
   showToast: (msg: string) => void;
@@ -132,6 +133,18 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
 
     setTimeout(() => {
       setTestingChannel(null);
+
+      // 如果是微信或支付宝，先核查商户号/AppId/私钥等商户资质
+      if (channel === 'wechat' || channel === 'alipay') {
+        const check = verifyPaymentChannelCredentials(channel);
+        if (!check.valid) {
+          const warnMsg = `【资质提醒】${check.errors.join('；')}`;
+          setTestSuccessNotice(warnMsg);
+          showToast(`⚠️ ${warnMsg}`);
+          return;
+        }
+      }
+
       const pingMs = Math.floor(22 + Math.random() * 25);
       const timeStr = `刚刚 (响应 ${pingMs}ms · 握手成功)`;
 
@@ -150,7 +163,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
         return next;
       });
 
-      const notice = `【${channelNames[channel]}】网络连通性探测正常，证书与签名有效，延迟 ${pingMs}ms`;
+      const notice = `【${channelNames[channel]}】网络连通性探测正常，商户号与证书签名有效，延迟 ${pingMs}ms`;
       setTestSuccessNotice(notice);
       showToast(`🟢 连通性测试通过：${channelNames[channel]} 在线运行正常`);
     }, 1100);

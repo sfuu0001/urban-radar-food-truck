@@ -47,6 +47,19 @@ import { getCurrentBoundTable, bindOrderToMerchantTable } from './utils/tableSto
 import { sendOrderChatMessage } from './utils/chatHub';
 import { rematchAllDishImages } from './utils/dishImageMatcher';
 import { performAutoLogin } from './utils/autoAuthEngine';
+import { StaffRiderPhoneAuthModal } from './components/auth/StaffRiderPhoneAuthModal';
+import {
+  isMerchantLoggedIn,
+  isRiderLoggedIn,
+  getMerchantSession,
+  getRiderSession,
+  logoutMerchant,
+  logoutRider,
+  MerchantSession,
+  RiderSession,
+  EVENT_MERCHANT_AUTH_CHANGED,
+  EVENT_RIDER_AUTH_CHANGED
+} from './utils/staffAndRiderAuthEngine';
 import { playCategoryLinkSound, playCategorySnapSound } from './utils/hapticAudio';
 import { 
   ensureCloudbaseAuth, 
@@ -165,6 +178,27 @@ function MainAppContent() {
   const [diningMode, setDiningMode] = useState<DiningMode>('delivery');
   const [currentRole, setCurrentRole] = useState<UserRole>('customer');
   const [activeTrackingOrderId, setActiveTrackingOrderId] = useState<string | null>(null);
+
+  // Staff & Rider Phone Authentication Gating States (强制手机号实名登录，设备硬件指纹保持绑定不变)
+  const [isStaffRiderAuthModalOpen, setIsStaffRiderAuthModalOpen] = useState(false);
+  const [targetAuthRole, setTargetAuthRole] = useState<'merchant' | 'rider'>('merchant');
+  const [merchantSession, setMerchantSession] = useState<MerchantSession | null>(() => getMerchantSession());
+  const [riderSession, setRiderSession] = useState<RiderSession | null>(() => getRiderSession());
+
+  useEffect(() => {
+    const handleMerchantChange = (e: any) => {
+      setMerchantSession(e.detail !== undefined ? e.detail : getMerchantSession());
+    };
+    const handleRiderChange = (e: any) => {
+      setRiderSession(e.detail !== undefined ? e.detail : getRiderSession());
+    };
+    window.addEventListener(EVENT_MERCHANT_AUTH_CHANGED, handleMerchantChange);
+    window.addEventListener(EVENT_RIDER_AUTH_CHANGED, handleRiderChange);
+    return () => {
+      window.removeEventListener(EVENT_MERCHANT_AUTH_CHANGED, handleMerchantChange);
+      window.removeEventListener(EVENT_RIDER_AUTH_CHANGED, handleRiderChange);
+    };
+  }, []);
 
   // Delivery Range Evaluation & Multi-Truck Engine
   const [truckConfigVersion, setTruckConfigVersion] = useState(0);
@@ -588,9 +622,33 @@ function MainAppContent() {
     };
   }, [dishes, orders, currentRole, toast]);
 
-  // Role selection handler
+  // Role selection handler: 骑手端和商家端账号登录必须通过手机号，设备绑定的指纹信息不变
   const handleSelectRole = (role: UserRole) => {
+    if (role === 'merchant') {
+      if (!isMerchantLoggedIn()) {
+        setTargetAuthRole('merchant');
+        setIsStaffRiderAuthModalOpen(true);
+        return;
+      }
+    } else if (role === 'rider') {
+      if (!isRiderLoggedIn()) {
+        setTargetAuthRole('rider');
+        setIsStaffRiderAuthModalOpen(true);
+        return;
+      }
+    }
     setCurrentRole(role);
+  };
+
+  const handleStaffRiderAuthSuccess = (session: MerchantSession | RiderSession) => {
+    if (targetAuthRole === 'merchant') {
+      setMerchantSession(session as MerchantSession);
+      setCurrentRole('merchant');
+    } else {
+      setRiderSession(session as RiderSession);
+      setCurrentRole('rider');
+    }
+    setIsStaffRiderAuthModalOpen(false);
   };
 
   // Toggle dish available state for merchant portal
@@ -1716,6 +1774,17 @@ function MainAppContent() {
           orders={orders}
           truck={truck}
           initialTab={merchantInitialTab as any}
+          merchantSession={merchantSession}
+          onOpenPhoneAuth={() => {
+            setTargetAuthRole('merchant');
+            setIsStaffRiderAuthModalOpen(true);
+          }}
+          onLogoutMerchant={() => {
+            logoutMerchant();
+            setMerchantSession(null);
+            setCurrentRole('customer');
+            toast.info('已退出商家工作台');
+          }}
           onUpdateDishes={setDishes}
           onAdvanceOrderStatus={handleAdvanceOrderStatus}
           onRejectOrder={handleRejectOrder}
@@ -1733,6 +1802,12 @@ function MainAppContent() {
           isConnected={isCloudbaseConnected}
           authUserId={cloudbaseAuthUserId}
         />
+        <StaffRiderPhoneAuthModal
+          isOpen={isStaffRiderAuthModalOpen}
+          role={targetAuthRole}
+          onClose={() => setIsStaffRiderAuthModalOpen(false)}
+          onSuccess={handleStaffRiderAuthSuccess}
+        />
       </>
     );
   }
@@ -1743,6 +1818,17 @@ function MainAppContent() {
         <RiderSystemView
           orders={orders}
           truck={truck}
+          riderSession={riderSession}
+          onOpenPhoneAuth={() => {
+            setTargetAuthRole('rider');
+            setIsStaffRiderAuthModalOpen(true);
+          }}
+          onLogoutRider={() => {
+            logoutRider();
+            setRiderSession(null);
+            setCurrentRole('customer');
+            toast.info('已退出骑士专送工作台');
+          }}
           onAdvanceOrderStatus={handleAdvanceOrderStatus}
           onUpdateTruckLocation={handleUpdateTruckLocation}
           onSwitchRole={handleSelectRole}
@@ -1755,6 +1841,12 @@ function MainAppContent() {
           onDishesUpdated={setDishes}
           isConnected={isCloudbaseConnected}
           authUserId={cloudbaseAuthUserId}
+        />
+        <StaffRiderPhoneAuthModal
+          isOpen={isStaffRiderAuthModalOpen}
+          role={targetAuthRole}
+          onClose={() => setIsStaffRiderAuthModalOpen(false)}
+          onSuccess={handleStaffRiderAuthSuccess}
         />
       </>
     );
@@ -2675,6 +2767,14 @@ function MainAppContent() {
           toast.success(`已注入仿真订单【${newOrder.orderNo}】并进入状态流水！`);
         }}
         onNavigateToTracking={() => navigateTo('tracking')}
+      />
+
+      {/* Staff & Rider Phone Login Modal (Mandatory phone verification while preserving hardware fingerprint) */}
+      <StaffRiderPhoneAuthModal
+        isOpen={isStaffRiderAuthModalOpen}
+        role={targetAuthRole}
+        onClose={() => setIsStaffRiderAuthModalOpen(false)}
+        onSuccess={handleStaffRiderAuthSuccess}
       />
     </div>
   );
