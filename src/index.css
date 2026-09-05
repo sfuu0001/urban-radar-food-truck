@@ -1,0 +1,256 @@
+@import "tailwindcss";
+
+@theme {
+  --color-surface: #f9f9f7;
+  --color-surface-card: #ffffff;
+  --color-border-subtle: #e8e8e6;
+  --color-border-light: #f0f0ee;
+  --color-charcoal: #1a1c1b;
+  --color-muted-text: #7e7e7a;
+  --color-subtle-gray: #9e9e98;
+  --color-accent: #006d36;
+  --color-accent-soft: #ebf7ef;
+}
+
+:root {
+  --notion-bg: #f7f7f5;
+  --notion-surface: #ffffff;
+  --notion-border: #e6e6e4;
+  --notion-border-strong: #d3d1cb;
+  --notion-text: #37352f;
+  --notion-text-muted: #787774;
+  --notion-text-sub: #5a5854;
+  --notion-hover: #efefed;
+  --notion-active: #e8e8e6;
+  
+  --notion-green: #2b593f;
+  --notion-green-bg: #edf3ec;
+  --notion-green-border: #c4dcbc;
+  --notion-green-dot: #4dab63;
+  
+  --notion-amber: #8f6412;
+  --notion-amber-bg: #fbf3db;
+  --notion-amber-border: #ecd9a8;
+  --notion-amber-strong: #d9730d;
+  
+  --notion-red: #eb5757;
+  --notion-red-bg: #fbe4e4;
+  --notion-red-border: #f0c3c3;
+  
+  --notion-blue: #2383e2;
+  --notion-blue-bg: #edf3f8;
+  --notion-blue-border: #c4d6ec;
+  --notion-blue-text: #1c5598;
+  
+  --notion-purple: #6941c6;
+  --notion-purple-bg: #f4edf8;
+  --notion-purple-border: #d8b4fe;
+  
+  --notion-ink: #37352f;
+  --notion-ink-2: #201f1d;
+}
+
+@layer base {
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    overscroll-behavior-y: none;
+  }
+  body {
+    font-family: "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background-color: #f9f9f7;
+    color: #1a1c1b;
+    min-height: 100vh;
+    overflow-x: hidden;
+    letter-spacing: -0.01em;
+  }
+}
+
+.font-hanken {
+  font-family: "Hanken Grotesk", sans-serif;
+}
+
+.shadow-urban {
+  box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.shadow-urban-modal {
+  box-shadow: 0px 16px 40px rgba(0, 0, 0, 0.12);
+}
+
+.notion-card {
+  background-color: #ffffff;
+  border: 1px solid #e6e6e4;
+  border-radius: 3px;
+}
+
+.notion-btn-primary {
+  background-color: #37352f;
+  color: #ffffff;
+  border-radius: 3px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+.notion-btn-primary:hover {
+  background-color: #201f1d;
+}
+
+.notion-btn-secondary {
+  background-color: #ffffff;
+  color: #37352f;
+  border: 1px solid #d3d1cb;
+  border-radius: 3px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+.notion-btn-secondary:hover {
+  background-color: #efefed;
+}
+
+/* Global Scrollbar Hiding & Optimization - 完全隐藏滚动条并保持平滑滚动 */
+* {
+  -ms-overflow-style: none !important; /* IE and Edge */
+  scrollbar-width: none !important; /* Firefox */
+}
+
+*::-webkit-scrollbar {
+  display: none !important; /* Chrome, Safari, Opera */
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+.hide-scrollbar,
+.no-scrollbar,
+.notion-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+.hide-scrollbar::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar,
+.notion-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.pb-safe {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+@keyframes dishBannerFadeInOut {
+  0% {
+    opacity: 0;
+    transform: translateY(3px) scale(0.97);
+  }
+  12% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  85% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-2px) scale(0.97);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes skeletonPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.animate-skeleton {
+  animation: skeletonPulse 1.8s ease-in-out infinite;
+}
+
+/* Bottom Navigation Bar Precision Padding */
+#bottom-main-dock-nav,
+nav[id^="bottom-main"] {
+  padding-top: 6px !important;
+  padding-bottom: 4px !important;
+  padding-left: 5px !important;
+  padding-right: 5px !important;
+}
+
+@keyframes glassReflect {
+  0% {
+    transform: translateX(-150%) skewX(-20deg);
+  }
+  35%, 100% {
+    transform: translateX(250%) skewX(-20deg);
+  }
+}
+
+.glass-reflection {
+  position: relative;
+  overflow: hidden;
+}
+
+.glass-reflection::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.05) 20%,
+    rgba(255, 255, 255, 0.6) 50%,
+    rgba(255, 255, 255, 0.05) 80%,
+    transparent 100%
+  );
+  animation: glassReflect 3.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  pointer-events: none;
+}
+
+.subtle-rounded {
+  border-radius: 6px !important;
+}
+
+.subtle-rounded-inner {
+  border-radius: 4px !important;
+}
+
+.rotate-icon {
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.accordion-content {
+  transition: max-height 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-4px); }
+  40%, 80% { transform: translateX(4px); }
+}
+
+.shake-animate {
+  animation: shake 0.4s ease-in-out;
+}
+
+

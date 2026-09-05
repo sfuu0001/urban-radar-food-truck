@@ -1,0 +1,12 @@
+{
+  "name": "Urban Radar - Food Truck Menu",
+  "description": "Mobile Food Truck POS & Merchant Operations System featuring yakitori & baked gratin menu channels, multi-tier tag filtering, cloud database synchronization, Bluetooth & hardware split printing, real-human style voice broadcast for queue/orders/riders, and loss & stocktake accounting.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

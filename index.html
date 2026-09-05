@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Urban Radar - Food Truck Menu</title>
+    <meta name="description" content="Mobile Food Truck POS & Merchant Operations System featuring yakitori & baked gratin menu channels, multi-tier tag filtering, cloud database synchronization, Bluetooth & hardware split printing, real-human style voice broadcast for queue/orders/riders, and loss & stocktake accounting." />
+    <meta property="og:title" content="Urban Radar - Food Truck Menu" />
+    <meta property="og:description" content="Mobile Food Truck POS & Merchant Operations System featuring yakitori & baked gratin menu channels, multi-tier tag filtering, cloud database synchronization, Bluetooth & hardware split printing, real-human style voice broadcast for queue/orders/riders, and loss & stocktake accounting." />
+    <script>
+      // Global uncaught error guard for iframe preview stability
+      window.addEventListener('error', function(event) {
+        if (!event.message || event.message === 'Script error.' || event.message.indexOf('Script error') !== -1) {
+          if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+          if (typeof event.preventDefault === 'function') event.preventDefault();
+          return true;
+        }
+      }, true);
+      window.addEventListener('unhandledrejection', function(event) {
+        if (!event.reason || event.reason === 'Script error.' || (event.reason && event.reason.message === 'Script error.')) {
+          if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+          if (typeof event.preventDefault === 'function') event.preventDefault();
+        }
+      }, true);
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300..900;1,300..900&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-[#f9f9f7] text-[#1a1c1b] antialiased selection:bg-neutral-900 selection:text-white">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
