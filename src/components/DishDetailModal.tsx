@@ -110,27 +110,27 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
     const list: Array<{ role: string; label: string; detail: string }> = [];
     if (dish.category === 'western') {
       list.push(
-        { role: '肉饼主料 PATTY', label: '主料', detail: 'A5 宫崎和牛 150g (手工原切厚饼)' },
-        { role: '烘焙胚底 BUN', label: '麦香胚', detail: '天然活性炭发酵手作布里欧' },
-        { role: '调味基底 SAUCE', label: '酱汁', detail: '手刨黑松露艾奥利酱 + 焦糖黑醋' }
+        { role: '肉饼主料', label: '主料', detail: 'A5 宫崎和牛 150g (手工原切厚饼)' },
+        { role: '烘焙胚底', label: '麦香胚', detail: '天然活性炭发酵手作布里欧' },
+        { role: '调味基底', label: '酱汁', detail: '手刨黑松露艾奥利酱 + 焦糖黑醋' }
       );
     } else if (dish.category === 'skewers' || dish.category === 'yakitori') {
       list.push(
-        { role: '原切签料 SKEWER', label: '签料', detail: '精选冷鲜部位 · 3:7 黄金肥瘦比' },
-        { role: '炙烤火候 FIRE', label: '热源', detail: '备长炭与果木炭 850°C 瞬时锁鲜' },
-        { role: '秘制撒料 SEASON', label: '调味', detail: '先锋特调低钠香料与天然海盐' }
+        { role: '原切签料', label: '签料', detail: '精选冷鲜部位 · 3:7 黄金肥瘦比' },
+        { role: '炙烤火候', label: '热源', detail: '备长炭与果木炭 850°C 瞬时锁鲜' },
+        { role: '秘制撒料', label: '调味', detail: '先锋特调低钠香料与天然海盐' }
       );
     } else if (dish.category === 'drinks') {
       list.push(
-        { role: '萃取工艺 EXTRACTION', label: '冷萃', detail: '低温 4°C 慢速滴滤 18 小时深层释香' },
-        { role: '原产豆种 BEAN ORIGIN', label: '豆种', detail: '埃塞俄比亚耶加雪菲日晒 G1 浅中烘焙' },
-        { role: '风味修饰 FINISH', label: '回甘', detail: '微气泡注入与柑橘精油冷压喷雾' }
+        { role: '萃取工艺', label: '冷萃', detail: '低温 4°C 慢速滴滤 18 小时深层释香' },
+        { role: '原产豆种', label: '豆种', detail: '埃塞俄比亚耶加雪菲日晒 G1 浅中烘焙' },
+        { role: '风味修饰', label: '回甘', detail: '微气泡注入与柑橘精油冷压喷雾' }
       );
     } else {
       list.push(
-        { role: '核心食材 PRIMARY', label: '主料', detail: dish.originSource || '原产地直采高标准冷鲜直供' },
-        { role: '工法工艺 CRAFT', label: '工法', detail: dish.cookingStyle || '餐车现场炭火明档现点现制' },
-        { role: '风味定调 FLAVOR', label: '调味', detail: dish.flavor || '主厨特调秘传复合香料' }
+        { role: '核心食材', label: '主料', detail: dish.originSource || '原产地直采高标准冷鲜直供' },
+        { role: '工法工艺', label: '工法', detail: dish.cookingStyle || '餐车现场炭火明档现点现制' },
+        { role: '风味定调', label: '调味', detail: dish.flavor || '主厨特调秘传复合香料' }
       );
     }
     return list;
@@ -144,29 +144,29 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
     }
     if (dish.category === 'western') {
       return [
-        { label: '炙烤焦香 CHARRED', score: 4, maxScore: 5 },
-        { label: '多汁肉感 JUICY', score: 5, maxScore: 5 },
-        { label: '松露香气 TRUFFLE', score: 4, maxScore: 5 }
+        { label: '炙烤焦香', score: 4, maxScore: 5 },
+        { label: '多汁肉感', score: 5, maxScore: 5 },
+        { label: '松露香气', score: 4, maxScore: 5 }
       ];
     }
     if (dish.category === 'skewers' || dish.category === 'yakitori') {
       return [
-        { label: '炭火熏香 SMOKY', score: 5, maxScore: 5 },
-        { label: '外脆内嫩 CRISPY', score: 4, maxScore: 5 },
-        { label: '香辛回甘 SAVORY', score: 4, maxScore: 5 }
+        { label: '炭火熏香', score: 5, maxScore: 5 },
+        { label: '外脆内嫩', score: 4, maxScore: 5 },
+        { label: '香辛回甘', score: 4, maxScore: 5 }
       ];
     }
     if (dish.category === 'drinks') {
       return [
-        { label: '花果香气 FLORAL', score: 5, maxScore: 5 },
-        { label: '清润回甘 SWEET', score: 4, maxScore: 5 },
-        { label: '气泡张力 FIZZ', score: 4, maxScore: 5 }
+        { label: '花果香气', score: 5, maxScore: 5 },
+        { label: '清润回甘', score: 4, maxScore: 5 },
+        { label: '气泡张力', score: 4, maxScore: 5 }
       ];
     }
     return [
-      { label: '风味层次 LAYERS', score: 4, maxScore: 5 },
-      { label: '原料鲜度 FRESH', score: 5, maxScore: 5 },
-      { label: '工匠手工 ARTISAN', score: 5, maxScore: 5 }
+      { label: '风味层次', score: 4, maxScore: 5 },
+      { label: '原料鲜度', score: 5, maxScore: 5 },
+      { label: '工匠手工', score: 5, maxScore: 5 }
     ];
   }, [dish]);
 
@@ -284,16 +284,16 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
         className="artisan-spec-modal w-full max-w-md bg-[#F9F9F7] border border-[#D3D1CB] flex flex-col max-h-[94vh] sm:max-h-[890px] shadow-2xl relative overflow-hidden z-10 select-none [&_*]:rounded-none!"
         style={{ borderRadius: '0px' }}
       >
-        {/* BEGIN: HeaderBar (中文在前，英文在后) */}
+        {/* BEGIN: HeaderBar */}
         <header className="bg-white border-b border-[#D3D1CB] px-4 py-3 flex items-center justify-between z-10 shrink-0">
           <div className="flex items-center space-x-2">
             <span className="w-2 h-2 bg-[#006D36] inline-block"></span>
-            <span className="text-[11px] font-mono tracking-wider text-[#1A1A17] font-bold">
-              规格配置详情 SPECIFICATION
+            <span className="text-xs font-mono tracking-wider text-[#1A1A17] font-bold">
+              规格配置详情
             </span>
           </div>
           <button
-            aria-label="关闭定制面板 CLOSE SPECIFICATION"
+            aria-label="关闭规格配置面板"
             onClick={onClose}
             className="w-7 h-7 flex items-center justify-center border border-[#D3D1CB] hover:border-[#1A1A17] hover:bg-[#F9F9F7] bg-white text-[#1A1A17] text-xs font-mono transition-colors duration-150 cursor-pointer"
             type="button"
@@ -303,13 +303,13 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
         </header>
         {/* END: HeaderBar */}
 
-        {/* Out-Of-Range Warning notice inside Modal (中文在前，英文在后) */}
+        {/* Out-Of-Range Warning notice inside Modal */}
         {isOutOfRange && (
           <div className="bg-[#FAF3E0] border-b border-[#D9730D] px-3.5 py-2.5 text-[#1A1A17] flex items-start gap-2 shrink-0">
             <AlertCircle className="w-4 h-4 text-[#D9730D] shrink-0 mt-0.5" />
             <div className="text-[11px] leading-snug">
               <span className="font-bold text-[#D9730D] block font-mono">
-                超出外卖专送范围 OUT OF DELIVERY RADIUS
+                超出外卖专送范围
               </span>
               当前地址距餐车 <span className="font-bold">{currentDistanceKm.toFixed(2)}km</span>，已超出该餐车 <span className="font-bold">{deliveryRadiusKm.toFixed(1)}km</span> 外卖极速专送半径。
             </div>
@@ -349,18 +349,18 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
               />
             )}
 
-            {/* HUD / Photometric Overlay (中文在前，英文在后) */}
+            {/* HUD / Photometric Overlay */}
             <div className="absolute inset-0 pointer-events-none border border-white/10 flex flex-col justify-between p-2">
-              <div className="flex justify-between items-start">
-                <div className="bg-[#1A1A17]/90 backdrop-blur-xs border border-white/20 text-white px-2 py-0.5 text-[9px] font-mono tracking-wider">
+              <div className="flex justify-between items-start gap-1">
+                <div className="bg-[#1A1A17]/90 backdrop-blur-xs border border-white/20 text-white px-2 py-0.5 text-[9px] font-mono tracking-wider shrink-0">
                   {viewMode === 'photo'
-                    ? '[实物测光视角 VIEW: LIVE PHOTOMETRIC] 1:1 照片'
+                    ? '[ 实物实拍 ] 1:1 照片'
                     : viewMode === 'sketch'
-                    ? '[手绘素描视角 VIEW: PENCIL SKETCH] 真实排线'
-                    : '[矢量工程蓝图 VIEW: VECTOR BLUEPRINT] CAD 图纸'}
+                    ? '[ 手绘素描 ] 真实排线'
+                    : '[ 矢量工程图 ] CAD 图纸'}
                 </div>
-                {/* Photo vs Blueprint vs Sketch Switcher (中文在前，英文在后) */}
-                <div className="pointer-events-auto inline-flex items-center border border-white/40 bg-[#1A1A17]/90 font-mono text-[9px]">
+                {/* Photo vs Blueprint vs Sketch Switcher */}
+                <div className="pointer-events-auto inline-flex items-center border border-white/40 bg-[#1A1A17]/90 font-mono text-[9px] shrink-0">
                   <button
                     onClick={() => setViewMode('photo')}
                     className={`px-2 py-0.5 cursor-pointer font-bold transition-colors ${
@@ -370,7 +370,7 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                     }`}
                     type="button"
                   >
-                    实物 PHOTO
+                    实物
                   </button>
                   <span className="text-white/30">|</span>
                   <button
@@ -382,7 +382,7 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                     }`}
                     type="button"
                   >
-                    蓝图 CAD
+                    蓝图
                   </button>
                   <span className="text-white/30">|</span>
                   <button
@@ -394,7 +394,7 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                     }`}
                     type="button"
                   >
-                    素描 SKETCH
+                    素描
                   </button>
                 </div>
               </div>
@@ -409,23 +409,23 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                   <span>{variantBlueprintMedia.specRatio}</span>
                 </div>
                 <div className="bg-[#1A1A17]/85 px-1.5 py-0.5 border border-white/15">
-                  坐标 COORD X:104.2 Y:88.0
+                  定位坐标 X:104.2 Y:88.0
                 </div>
               </div>
             </div>
           </div>
           {/* END: HeroVisual */}
 
-          {/* BEGIN: TitleAndPriceBlock (中文在前，英文在后) */}
+          {/* BEGIN: TitleAndPriceBlock */}
           <div className="bg-white border border-[#D3D1CB] p-3 space-y-2.5 shrink-0">
             <div className="flex items-start justify-between gap-2">
-              <div className="space-y-0.5">
+              <div className="space-y-0.5 flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="px-1 py-0.2 bg-[#1A1A17] text-white font-mono text-[9px] font-bold tracking-wider">
                     {variantBlueprintMedia.artisanCode}
                   </span>
                   <span className="font-mono text-[10px] text-gray-500 tracking-wider">
-                    料号 REF: {dish.refCode || dish.id.toUpperCase()}
+                    品号: {dish.refCode || dish.id.toUpperCase()}
                   </span>
                 </div>
                 <h1 className="text-base font-bold text-[#1A1A17] leading-tight tracking-tight">
@@ -437,7 +437,7 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                   )}
                 </h1>
                 {dish.enName && (
-                  <p className="text-[11px] font-mono text-gray-500 uppercase tracking-tight">
+                  <p className="text-[11px] font-mono text-gray-400 uppercase tracking-tight truncate">
                     {dish.enName}
                   </p>
                 )}
@@ -456,29 +456,29 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                   </span>
                 </div>
                 {discountAmount > 0 && (
-                  <span className="mt-1 px-1 py-0.2 font-mono text-[9px] bg-[#E8F7ED] text-[#006D36] border border-[#006D36]/40 font-semibold">
-                    立减后 DISCOUNTED -¥{discountAmount.toFixed(2)}
+                  <span className="mt-1 px-1 py-0.2 font-mono text-[9px] bg-[#E8F7ED] text-[#006D36] border border-[#006D36]/40 font-semibold whitespace-nowrap">
+                    立减 -¥{discountAmount.toFixed(2)}
                   </span>
                 )}
               </div>
             </div>
 
-            {/* Three Column Matrix Table (中文在前，英文在后) */}
+            {/* Three Column Matrix Table */}
             <div className="grid grid-cols-3 gap-1 py-1.5 px-2 bg-[#F9F9F7] border border-[#E2E0D8] font-mono text-[10px]">
               <div>
-                <div className="text-gray-400 text-[9px]">基础原价 BASE</div>
+                <div className="text-gray-400 text-[9px]">基础原价</div>
                 <div className="text-[#1A1A17] font-semibold">¥{originalPrice.toFixed(2)}</div>
               </div>
               <div className="border-l border-[#E2E0D8] pl-2">
-                <div className="text-gray-400 text-[9px]">立减优惠 PROMO</div>
+                <div className="text-gray-400 text-[9px]">立减优惠</div>
                 <div className="text-[#006D36] font-semibold">
-                  {discountAmount > 0 ? `-¥${discountAmount.toFixed(2)} (${discountPercent}折)` : '官方标配'}
+                  {discountAmount > 0 ? `-¥${discountAmount.toFixed(2)} (${discountPercent}折)` : '官方原价'}
                 </div>
               </div>
               <div className="border-l border-[#E2E0D8] pl-2">
-                <div className="text-gray-400 text-[9px]">状态标识 STATUS</div>
-                <div className="text-[#D9730D] font-semibold">
-                  {dish.badgeText ? `${dish.badgeText} SPECIAL` : '工匠特供 ARTISAN'}
+                <div className="text-gray-400 text-[9px]">状态标识</div>
+                <div className="text-[#D9730D] font-semibold truncate">
+                  {dish.badgeText || '工匠特供'}
                 </div>
               </div>
             </div>
@@ -490,46 +490,49 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
               </p>
             )}
 
-            {/* Component Specification (中文在前，英文在后) */}
+            {/* Component Specification */}
             <div className="space-y-1 pt-0.5 border-t border-[#E2E0D8]">
               <div className="text-[10px] font-mono tracking-wider text-gray-500 font-bold flex items-center justify-between">
-                <span>[ 核心组分规格 COMPONENT SPECIFICATION ]</span>
-                <span className="text-[9px] text-gray-400">
-                  指标 METRIC / {componentsList.length} 项 ITEMS
+                <span>[ 核心组分规格 ]</span>
+                <span className="text-[9px] text-gray-400 font-normal">
+                  指标 / {componentsList.length} 项
                 </span>
               </div>
               <div className="grid grid-cols-1 border border-[#D3D1CB] text-[11px]">
-                {componentsList.map((comp, idx) => (
-                  <div
-                    key={idx}
-                    className={`flex items-center justify-between px-2 py-1 ${
-                      idx % 2 === 1 ? 'bg-[#FAF8F3]' : 'bg-white'
-                    } ${idx !== componentsList.length - 1 ? 'border-b border-[#E2E0D8]' : ''}`}
-                  >
-                    <span className="font-mono text-[10px] text-gray-500 uppercase">
-                      {comp.role}
-                    </span>
-                    <span className="font-medium text-[#1A1A17] truncate max-w-[210px]">
-                      {comp.detail}
-                    </span>
-                  </div>
-                ))}
+                {componentsList.map((comp, idx) => {
+                  const cleanRole = comp.role.replace(/[A-Z\s\/]+/g, '').trim() || comp.role;
+                  return (
+                    <div
+                      key={idx}
+                      className={`flex items-center justify-between px-2.5 py-1.5 gap-2 ${
+                        idx % 2 === 1 ? 'bg-[#FAF8F3]' : 'bg-white'
+                      } ${idx !== componentsList.length - 1 ? 'border-b border-[#E2E0D8]' : ''}`}
+                    >
+                      <span className="font-mono text-[10px] text-gray-500 shrink-0">
+                        {cleanRole}
+                      </span>
+                      <span className="font-medium text-[#1A1A17] text-right flex-1 min-w-0 break-words leading-tight">
+                        {comp.detail}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Flavor Metrics Bars (中文在前，英文在后) */}
-            <div className="flex items-center justify-between pt-1 border-t border-[#E2E0D8] font-mono text-[10px] overflow-x-auto no-scrollbar py-0.5">
-              {flavorMetricsList.map((m, idx) => (
-                <React.Fragment key={idx}>
-                  {idx > 0 && <div className="h-2.5 w-px bg-[#D3D1CB] shrink-0 mx-1"></div>}
-                  <div className="flex items-center gap-1 shrink-0">
-                    <span className="text-gray-500">{m.label}:</span>
+            {/* Flavor Metrics Bars (自适应防溢出，纯中文标签) */}
+            <div className="flex flex-wrap items-center justify-between gap-y-1.5 gap-x-2 pt-1.5 border-t border-[#E2E0D8] font-mono text-[10px] py-1">
+              {flavorMetricsList.map((m, idx) => {
+                const cleanLabel = m.label.replace(/[A-Z\s\/]+/g, '').trim() || m.label;
+                return (
+                  <div key={idx} className="flex items-center gap-1 shrink-0">
+                    <span className="text-gray-600">{cleanLabel}:</span>
                     <span className="text-[#1A1A17] font-bold tracking-tighter">
                       {renderSquareBlocks(m.score, m.maxScore)}
                     </span>
                   </div>
-                </React.Fragment>
-              ))}
+                );
+              })}
             </div>
           </div>
           {/* END: TitleAndPriceBlock */}
@@ -540,12 +543,12 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-1.5">
                   <span className="w-1.5 h-1.5 bg-[#1A1A17]"></span>
-                  <span className="text-xs font-bold text-[#1A1A17] uppercase tracking-wide">
-                    规格变体版本 VARIANT SPECS
+                  <span className="text-xs font-bold text-[#1A1A17] tracking-wide">
+                    规格版本
                   </span>
                 </div>
                 <span className="text-[10px] font-mono text-gray-500">
-                  {dish.variants.length} 个版本可选 AVAILABLE
+                  {dish.variants.length} 种规格可选
                 </span>
               </div>
 
@@ -583,8 +586,8 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                         <div className="flex items-center gap-1">
                           <span className="font-bold text-[#1A1A17] truncate">{v.name}</span>
                           {v.isDefault && (
-                            <span className="text-[8.5px] bg-neutral-100 text-neutral-700 px-1 border border-neutral-300 font-mono">
-                              默认 DEFAULT
+                            <span className="text-[8.5px] bg-neutral-100 text-neutral-700 px-1 border border-neutral-300 font-mono shrink-0">
+                              默认
                             </span>
                           )}
                         </div>
@@ -593,7 +596,7 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                         )}
                         {/* Blueprint indicator badge */}
                         <div className="flex items-center gap-1 mt-1 text-[9px] font-mono text-[#006D36]">
-                          <span>● 工匠线稿已联动 BLUEPRINT SYNCED</span>
+                          <span>● 工匠线稿已联动</span>
                           {v.coreTemp && <span className="text-gray-400">· {v.coreTemp}</span>}
                         </div>
                       </div>
@@ -626,14 +629,14 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                   <fieldset key={group.name} className="bg-white border border-[#D3D1CB] p-3 space-y-2">
                     <legend className="sr-only">{group.name}</legend>
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-1.5">
-                        <span className="w-1.5 h-1.5 bg-[#1A1A17]"></span>
-                        <span className="text-xs font-bold text-[#1A1A17] uppercase tracking-wide">
-                          {group.name} {group.enName ? `/ ${group.enName}` : ''}
+                      <div className="flex items-center space-x-1.5 min-w-0">
+                        <span className="w-1.5 h-1.5 bg-[#1A1A17] shrink-0"></span>
+                        <span className="text-xs font-bold text-[#1A1A17] truncate">
+                          {group.name}
                         </span>
                       </div>
-                      <span className="text-[10px] font-mono text-gray-500 uppercase tracking-tight">
-                        单选定制 SELECT 1 OPTION
+                      <span className="text-[10px] font-mono text-gray-500 shrink-0 ml-2">
+                        {group.required !== false ? '单选定制' : '可选定制'}
                       </span>
                     </div>
 
@@ -641,28 +644,26 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                       {/* Active Selected Choice Card with Automated Blueprint Sketch */}
                       {selectedChoice && (
                         <div className="p-2.5 bg-[#E8F7ED]/20 border-2 border-[#006D36] relative transition-all">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2">
-                              <span className="w-3.5 h-3.5 border-2 border-[#006D36] flex items-center justify-center bg-white">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center space-x-1.5 min-w-0 flex-1">
+                              <span className="w-3.5 h-3.5 border-2 border-[#006D36] flex items-center justify-center bg-white shrink-0">
                                 <span className="w-1.5 h-1.5 bg-[#006D36]"></span>
                               </span>
-                              <span className="text-xs font-bold text-[#1A1A17]">{selectedChoice.label}</span>
-                              <span className="px-1 py-0.5 text-[9px] font-mono font-semibold bg-[#006D36] text-white">
-                                {selectedChoice.extraPrice > 0
-                                  ? '已选定制 SELECTED · CUSTOM'
-                                  : '已选包含 SELECTED · INCLUDED'}
+                              <span className="text-xs font-bold text-[#1A1A17] truncate">{selectedChoice.label}</span>
+                              <span className="px-1.5 py-0.5 text-[9px] font-bold bg-[#006D36] text-white shrink-0 whitespace-nowrap">
+                                {selectedChoice.extraPrice > 0 ? '已选定制' : '已选包含'}
                               </span>
                             </div>
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xs font-mono font-semibold text-[#006D36]">
+                            <div className="shrink-0">
+                              <span className="text-xs font-mono font-bold text-[#006D36] whitespace-nowrap">
                                 +¥{selectedChoice.extraPrice.toFixed(2)}
                               </span>
                             </div>
                           </div>
 
-                          {/* Automated Blueprint Drawing Sketch Panel (中文在前，英文在后) */}
+                          {/* Automated Blueprint Drawing Sketch Panel */}
                           <div className="mt-2 pt-2 border-t border-[#006D36]/40 flex items-center gap-2.5 bg-[#FAF8F3] border border-[#D3D1CB] p-2">
-                            <div className="w-16 h-12 bg-[#041224] border border-[#1A1A17]/30 relative flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
+                            <div className="w-14 h-11 sm:w-16 sm:h-12 bg-[#041224] border border-[#1A1A17]/30 relative flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
                               {/* 自动化矢量线稿渲染 */}
                               <img
                                 alt={`${selectedChoice.label} 线稿`}
@@ -676,38 +677,35 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                             </div>
 
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-mono tracking-wider text-[#1A1A17] font-bold flex items-center gap-1">
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="text-[10px] font-mono text-[#1A1A17] font-bold flex items-center gap-1 shrink-0">
                                   <span className="w-1 h-1 bg-[#1A1A17]"></span>
-                                  草图线稿 SKETCH DRAFT
+                                  草图线稿
                                 </span>
-                                <span className="text-[9px] font-mono text-[#006D36] font-bold">
+                                <span className="text-[9px] font-mono text-[#006D36] font-bold shrink-0 bg-[#E8F7ED] px-1.5 py-0.2 border border-[#006D36]/30">
                                   {optionMedia.coreMetricZh}
                                 </span>
                               </div>
-                              <p className="text-[10px] text-gray-600 mt-0.5 leading-tight font-serif truncate">
+                              <p className="text-[10px] text-gray-700 mt-1 leading-snug break-words">
                                 {optionMedia.noteZh}
-                              </p>
-                              <p className="text-[8.5px] text-gray-400 font-mono tracking-tight uppercase truncate">
-                                {optionMedia.noteEn}
                               </p>
                             </div>
                           </div>
                         </div>
                       )}
 
-                      {/* Collapsible Details for Other Options (中文在前，英文在后) */}
+                      {/* Collapsible Details for Other Options */}
                       {otherChoices.length > 0 && (
                         <details className="group border border-[#D3D1CB] bg-[#F9F9F7]">
                           <summary className="flex items-center justify-between p-2.5 bg-white hover:bg-[#F9F9F7] cursor-pointer list-none transition-colors select-none">
-                            <div className="flex items-center space-x-2">
-                              <span className="text-[11px] font-mono font-bold text-[#1A1A17] flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 bg-[#1A1A17] inline-block"></span>
-                                更换选项 / 展开备选项 CHANGE OPTION ({otherChoices.length} 项 ITEMS)
+                            <div className="flex items-center space-x-1.5 min-w-0">
+                              <span className="w-1.5 h-1.5 bg-[#1A1A17] inline-block shrink-0"></span>
+                              <span className="text-[11px] font-mono font-bold text-[#1A1A17] truncate">
+                                更换选项 (备选 {otherChoices.length} 项)
                               </span>
                             </div>
-                            <div className="flex items-center space-x-1.5 text-gray-500 font-mono text-[10px]">
-                              <span>展开 EXPAND</span>
+                            <div className="flex items-center space-x-1 text-gray-500 font-mono text-[10px] shrink-0 ml-2">
+                              <span>展开</span>
                               <span className="text-xs group-open:rotate-180 transition-transform duration-150 inline-block font-sans">
                                 ▼
                               </span>
@@ -721,11 +719,11 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                                 onClick={() => handleOptionSelect(group.name, choice.label)}
                                 className="flex items-center justify-between p-2 bg-white border border-[#D3D1CB] hover:border-gray-500 cursor-pointer transition-all"
                               >
-                                <div className="flex items-center space-x-2">
-                                  <span className="w-3.5 h-3.5 border border-[#D3D1CB] flex items-center justify-center bg-white"></span>
-                                  <span className="text-xs text-gray-800">{choice.label}</span>
+                                <div className="flex items-center space-x-2 min-w-0">
+                                  <span className="w-3.5 h-3.5 border border-[#D3D1CB] flex items-center justify-center bg-white shrink-0"></span>
+                                  <span className="text-xs text-gray-800 truncate">{choice.label}</span>
                                 </div>
-                                <span className="text-xs font-mono text-gray-600 font-medium">
+                                <span className="text-xs font-mono text-gray-600 font-medium shrink-0 ml-2">
                                   +¥{choice.extraPrice.toFixed(2)}
                                 </span>
                               </label>
@@ -740,18 +738,18 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
             </div>
           )}
 
-          {/* BEGIN: Spiciness & Flavor Options (中文在前，英文在后) */}
+          {/* BEGIN: Spiciness & Flavor Options */}
           {dish.available && dish.spicinessOptions && dish.spicinessOptions.length > 0 && (
             <fieldset className="bg-white border border-[#D3D1CB] p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-1.5">
                   <span className="w-1.5 h-1.5 bg-[#1A1A17]"></span>
                   <span className="text-xs font-bold text-[#1A1A17] tracking-wide">
-                    辣度调教 SPICINESS LEVEL
+                    辣度调节
                   </span>
                 </div>
                 <span className="text-[10px] font-mono text-rose-600 font-semibold">
-                  选择辣度 SELECT LEVEL
+                  按需调节
                 </span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-0.5">
@@ -781,18 +779,18 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
             </fieldset>
           )}
 
-          {/* BEGIN: Flavor Customization (中文在前，英文在后) */}
+          {/* BEGIN: Flavor Customization */}
           {dish.available && dish.flavorOptions && dish.flavorOptions.length > 0 && (
             <fieldset className="bg-white border border-[#D3D1CB] p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-1.5">
                   <span className="w-1.5 h-1.5 bg-[#1A1A17]"></span>
                   <span className="text-xs font-bold text-[#1A1A17] tracking-wide">
-                    口味定制 FLAVOR STYLE
+                    口味风格
                   </span>
                 </div>
                 <span className="text-[10px] font-mono text-[#006D36] font-semibold">
-                  精选风味 SELECT FLAVOR
+                  精选风味
                 </span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-0.5">
@@ -822,14 +820,14 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
             </fieldset>
           )}
 
-          {/* BEGIN: Artisan Notes & Sourcing Section (中文在前，英文在后) */}
-          <section aria-label="食材溯源与手记 SOURCING & NOTES" className="space-y-2">
+          {/* BEGIN: Artisan Notes & Sourcing Section */}
+          <section aria-label="食材溯源与手记" className="space-y-2">
             {/* Sourcing card */}
             {(dish.originSource || dish.id === 'dish-1') && (
               <div className="bg-white border border-[#D3D1CB] p-3 space-y-1">
                 <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-[#1A1A17] tracking-wider">
                   <MapPin className="w-3 h-3 text-[#1A1A17]" />
-                  <span>食材原产地溯源 SOURCING</span>
+                  <span>食材原产地溯源</span>
                 </div>
                 <p className="text-xs text-gray-700 leading-relaxed font-sans">
                   {dish.originSource || '日本宫崎县牧场直供和牛，雪花纹理达A5级标准，严选原切。'}
@@ -842,7 +840,7 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
               <div className="bg-white border border-[#D3D1CB] p-3 space-y-1">
                 <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-[#1A1A17] tracking-wider">
                   <UtensilsCrossed className="w-3 h-3 text-[#1A1A17]" />
-                  <span>主厨主理手记 CHEF NOTE</span>
+                  <span>主厨主理手记</span>
                 </div>
                 <p className="text-xs text-gray-700 leading-relaxed font-serif italic">
                   {dish.chefNotes ||
@@ -856,7 +854,7 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
               <div className="flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-gray-500" />
                 <div>
-                  <span className="text-[9px] text-gray-400 block">备餐耗时 PREP TIME</span>
+                  <span className="text-[9px] text-gray-400 block">备餐耗时</span>
                   <span className="font-semibold text-[#1A1A17]">
                     {dish.prepTime
                       ? `约 ${dish.prepTime.replace('约', '').replace('Approx.', '').trim()}`
@@ -867,7 +865,7 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
               <div className="flex items-center gap-1.5 border-l border-[#E2E0D8] pl-2.5">
                 <Flame className="w-3.5 h-3.5 text-gray-500" />
                 <div>
-                  <span className="text-[9px] text-gray-400 block">营养能量 ENERGY</span>
+                  <span className="text-[9px] text-gray-400 block">营养能量</span>
                   <span className="font-semibold text-[#1A1A17]">
                     {dish.nutrition?.calories || '420 kcal'}
                   </span>
@@ -879,7 +877,7 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
         </section>
         {/* END: ScrollableContent */}
 
-        {/* BEGIN: FixedBottomDock (中文在前，英文在后) */}
+        {/* BEGIN: FixedBottomDock */}
         <footer className="bg-white border-t border-[#D3D1CB] px-4 py-3 flex items-center justify-between gap-3 shrink-0 z-20">
           {isOutOfRange ? (
             <div className="w-full space-y-1.5">
@@ -894,7 +892,7 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                     className="flex-1 h-10 bg-[#1A1A17] hover:bg-black text-white px-3 font-mono text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-[#1A1A17]"
                   >
                     <ShoppingBag className="w-3.5 h-3.5 text-[#E8F7ED]" />
-                    <span>改用到车自提点单 SWITCH TO PICKUP</span>
+                    <span>改用车载自提</span>
                   </button>
                 )}
                 {onChangeAddress && (
@@ -907,7 +905,7 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                     className="h-10 px-3 border border-[#D3D1CB] hover:border-[#1A1A17] text-[#1A1A17] text-xs font-mono font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer"
                   >
                     <MapPin className="w-3 h-3 text-[#D9730D]" />
-                    <span>修改地址 CHANGE ADDRESS</span>
+                    <span>修改地址</span>
                   </button>
                 )}
               </div>
@@ -923,7 +921,7 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                 data-purpose="quantity-stepper"
               >
                 <button
-                  aria-label="减少数量 DECREASE QUANTITY"
+                  aria-label="减少数量"
                   disabled={quantity <= 1}
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                   className="w-8 h-full flex items-center justify-center text-[#1A1A17] hover:bg-gray-200 active:bg-[#1A1A17] active:text-white border-r border-[#D3D1CB] text-sm transition-colors cursor-pointer disabled:opacity-40"
@@ -935,7 +933,7 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                   {quantity}
                 </span>
                 <button
-                  aria-label="增加数量 INCREASE QUANTITY"
+                  aria-label="增加数量"
                   onClick={() => setQuantity((q) => q + 1)}
                   className="w-8 h-full flex items-center justify-center text-[#1A1A17] hover:bg-gray-200 active:bg-[#1A1A17] active:text-white border-l border-[#D3D1CB] text-sm transition-colors cursor-pointer"
                   type="button"
@@ -944,13 +942,13 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                 </button>
               </div>
 
-              {/* Add to Bag Master Action Button (中文在前，英文在后) */}
+              {/* Add to Bag Master Action Button */}
               <button
                 onClick={handleConfirm}
                 className="flex-1 h-10 bg-[#1A1A17] hover:bg-black active:bg-gray-800 text-white flex items-center justify-between px-4 border border-[#1A1A17] text-xs font-semibold tracking-wide transition-all shadow-sm cursor-pointer"
                 type="button"
               >
-                <span className="font-sans font-bold">加入购物车 ADD TO CART</span>
+                <span className="font-sans font-bold">加入购物车</span>
                 <div className="flex items-center space-x-1">
                   <span className="text-white/40 font-mono">|</span>
                   <span className="font-mono text-sm tracking-tight font-bold">
@@ -966,7 +964,7 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                 className="w-full h-10 bg-[#F1F1EF] text-gray-400 border border-[#D3D1CB] text-xs font-mono font-semibold flex items-center justify-center gap-1.5 cursor-not-allowed"
                 type="button"
               >
-                <span>堂食现烤限定 · 外卖不可选购 DINE-IN EXCLUSIVE · DELIVERY UNAVAILABLE</span>
+                <span>堂食现烤限定 · 外卖不可选购</span>
               </button>
             </div>
           )}

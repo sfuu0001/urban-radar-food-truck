@@ -183,14 +183,14 @@ export const DeliveryCategorySidebar: React.FC<DeliveryCategorySidebarProps> = (
   return (
     <aside
       ref={sidebarContainerRef}
-      className="w-20 shrink-0 self-start sticky top-0 z-20 bg-paper border-r border-line flex flex-col overflow-y-auto no-scrollbar blueprint-grid max-h-[calc(100dvh-125px)] select-none"
+      className="w-[66px] sm:w-20 shrink-0 self-start sticky top-0 z-20 bg-paper border-r border-line flex flex-col overflow-y-auto no-scrollbar blueprint-grid max-h-[calc(100dvh-165px)] sm:max-h-[calc(100dvh-125px)] select-none"
       data-purpose="artisan-category-navigator"
       style={{
         WebkitOverflowScrolling: 'touch'
       }}
     >
       {/* 顶部极简当前品类索引与轻量音效开关 */}
-      <div className="sticky top-0 bg-paper-card z-10 border-b border-line px-1.5 py-1 flex items-center justify-between font-mono text-[10px]">
+      <div className="sticky top-0 bg-paper-card z-10 border-b border-line px-1 sm:px-1.5 py-1 flex items-center justify-between font-mono text-[9px] sm:text-[10px]">
         <div className="font-bold tracking-tight text-pitch">
           <span className="text-pitch">{currentActiveIndex >= 0 ? currentActiveIndex + 1 : 1}</span>
           <span className="text-stone-400 text-[8px] mx-0.5">/</span>
@@ -230,21 +230,21 @@ export const DeliveryCategorySidebar: React.FC<DeliveryCategorySidebarProps> = (
                 data-sidebar-category={catKey}
                 data-purpose="active-category-card"
                 onClick={() => handleItemClick(catKey)}
-                className="w-full relative bg-pitch text-white p-1.5 flex flex-col items-center border-y-2 border-pitch active-blueprint-grid shadow-draft-active cursor-pointer select-none"
+                className="w-full relative bg-pitch text-white pt-[2px] pb-1 sm:pb-1.5 px-1 sm:px-1.5 flex flex-col items-center justify-center text-center border-y-2 border-pitch active-blueprint-grid shadow-draft-active cursor-pointer select-none"
               >
-                <div className="absolute -left-[1px] top-0 bottom-0 w-[4px] bg-amberAccent"></div>
-                <div className="w-7 h-7 border border-stone-600 bg-stone-900 flex items-center justify-center relative mb-0.5 shadow-inner">
-                  <CategoryThemedIcon catKey={catKey} isActive={true} className="w-4 h-4 text-amberAccent" />
+                <div className="absolute -left-[1px] top-0 bottom-0 w-[3px] sm:w-[4px] bg-amberAccent"></div>
+                <div className="w-6 h-6 sm:w-7 sm:h-7 border border-stone-600 bg-stone-900 flex items-center justify-center relative mb-0.5 shadow-inner shrink-0">
+                  <CategoryThemedIcon catKey={catKey} isActive={true} className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amberAccent" />
                   {cartCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 bg-amberAccent text-pitch text-[8px] font-mono font-black min-w-[14px] h-[14px] px-0.5 flex items-center justify-center border border-pitch leading-none">
+                    <span className="absolute -top-1.5 -right-1.5 bg-amberAccent text-pitch text-[7.5px] sm:text-[8px] font-mono font-black min-w-[13px] h-[13px] px-0.5 flex items-center justify-center border border-pitch leading-none">
                       {cartCount}
                     </span>
                   )}
                 </div>
-                <div className="text-[11px] font-black tracking-tight text-white leading-none text-center">
+                <div className="text-[10px] sm:text-[11px] font-black tracking-tight text-white leading-tight text-center truncate w-full px-0.5 flex items-center justify-center">
                   {displayName}
                 </div>
-                <span className="text-[8px] font-mono text-amberAccent mt-0.5">
+                <span className="text-[7.5px] sm:text-[8px] font-mono text-amberAccent mt-0.5 text-center w-full flex items-center justify-center">
                   {dishCount}款
                 </span>
               </div>
@@ -257,23 +257,23 @@ export const DeliveryCategorySidebar: React.FC<DeliveryCategorySidebarProps> = (
               type="button"
               data-sidebar-category={catKey}
               onClick={() => handleItemClick(catKey)}
-              className="group w-full text-left p-1 relative bg-transparent transition-colors hover:bg-stone-100 flex flex-col items-center cursor-pointer select-none"
+              className="group w-full p-1 sm:p-1.5 relative bg-transparent transition-colors hover:bg-stone-100 flex flex-col items-center justify-center text-center cursor-pointer select-none"
             >
-              <div className="w-7 h-7 border border-line bg-white flex items-center justify-center relative mb-0.5">
-                <CategoryThemedIcon catKey={catKey} isActive={false} className="w-4 h-4 text-stone-700" />
+              <div className="w-6 h-6 sm:w-7 sm:h-7 border border-line bg-white flex items-center justify-center relative mb-0.5 shrink-0">
+                <CategoryThemedIcon catKey={catKey} isActive={false} className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-stone-700" />
                 <span className="absolute -bottom-1 -right-0.5 text-[6px] font-mono text-stone-400">
                   {indexNum}
                 </span>
                 {cartCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-pitch text-white text-[8px] font-mono font-black min-w-[14px] h-[14px] px-0.5 flex items-center justify-center border border-white leading-none">
+                  <span className="absolute -top-1.5 -right-1.5 bg-pitch text-white text-[7.5px] sm:text-[8px] font-mono font-black min-w-[13px] h-[13px] px-0.5 flex items-center justify-center border border-white leading-none">
                     {cartCount}
                   </span>
                 )}
               </div>
-              <span className="text-[11px] font-bold tracking-tight text-pitch leading-none text-center">
+              <span className="text-[10px] sm:text-[11px] font-bold tracking-tight text-pitch leading-tight text-center truncate w-full px-0.5 flex items-center justify-center">
                 {displayName}
               </span>
-              <span className="text-[8px] font-mono text-stone-500 mt-0.5">
+              <span className="text-[7.5px] sm:text-[8px] font-mono text-stone-500 mt-0.5 text-center w-full flex items-center justify-center">
                 {dishCount}款
               </span>
             </button>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, Ticket, ShoppingBag, ClipboardList, User, Compass, Cloud, MessageSquareText } from 'lucide-react';
+import { ArrowLeft, Ticket, ShoppingBag, ClipboardList, User, Compass, Cloud, MessageSquareText, Bike, Utensils, ChevronDown } from 'lucide-react';
 import { motion } from 'motion/react';
 import { DiningModeSelector, DiningMode } from './DiningModeSelector';
 import { RoleSwitcherDropdown, UserRole } from './RoleSwitcherDropdown';
@@ -160,10 +160,10 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Top Nav: Artisan Architectural Header */}
       <header
         id="main-unified-header"
-        className="bg-paper-card border-b border-line px-3 pt-2 pb-2 z-20 flex-shrink-0"
+        className="bg-paper-card border-b border-line px-3 pt-[6px] pb-0 z-20 flex-shrink-0 h-[77.6px]"
       >
         {/* Top Live Status Row */}
-        <div className="flex items-center justify-between text-[10px] font-mono tracking-wider text-pitch border-b border-line pb-1.5 mb-2">
+        <div className="flex items-center justify-between text-[10px] font-mono tracking-wider text-pitch border-b border-line pb-[5px] mb-[3px]">
           <div className="flex items-center gap-1.5">
             <span className="inline-block w-2 h-2 bg-pitch shrink-0"></span>
             <span className="font-black uppercase tracking-tight">URBAN RADAR / TOKYO CRAFT</span>
@@ -202,39 +202,42 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* 3-Mode Selector & Table Spec Status */}
         <div className="flex items-center justify-between gap-1.5 mb-2">
-          <div className="flex items-center border border-pitch bg-white p-0 m-0 shrink-0">
+          <div className="flex items-center border border-[#1a1c1b] bg-white h-7.5 sm:h-8 rounded-none overflow-hidden shrink-0 select-none shadow-2xs">
             <button
               type="button"
               onClick={() => onDiningModeChange('delivery')}
-              className={`text-[10px] font-mono font-bold px-2 py-0.5 tracking-tight uppercase m-0 border-r border-pitch cursor-pointer transition-colors ${
+              className={`h-full px-2.5 sm:px-3 flex items-center gap-1.5 cursor-pointer transition-colors text-xs font-medium tracking-tight ${
                 diningMode === 'delivery'
-                  ? 'bg-pitch text-white'
-                  : 'text-stone-600 hover:text-pitch bg-white'
+                  ? 'bg-[#1a1c1b] text-white font-bold'
+                  : 'text-[#2d3139] hover:bg-neutral-50'
               }`}
             >
-              外卖
+              <Bike className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span>外卖</span>
             </button>
             <button
               type="button"
               onClick={() => onDiningModeChange('dine_in')}
-              className={`text-[10px] font-mono font-bold px-2 py-0.5 tracking-tight uppercase m-0 border-r border-line cursor-pointer transition-colors ${
+              className={`h-full px-2.5 sm:px-3 flex items-center gap-1.5 cursor-pointer transition-colors text-xs font-medium tracking-tight border-l border-[#d3d1cb] ${
                 diningMode === 'dine_in'
-                  ? 'bg-pitch text-white'
-                  : 'text-stone-600 hover:text-pitch bg-white'
+                  ? 'bg-[#1a1c1b] text-white font-bold'
+                  : 'text-[#2d3139] hover:bg-neutral-50'
               }`}
             >
-              堂食 · 点单
+              <Utensils className="w-3.5 h-3.5 shrink-0" />
+              <span>堂食</span>
             </button>
             <button
               type="button"
               onClick={() => onDiningModeChange('pickup')}
-              className={`text-[10px] font-mono px-2 py-0.5 tracking-tight uppercase m-0 flex items-center gap-0.5 cursor-pointer transition-colors ${
+              className={`h-full px-2.5 sm:px-3 flex items-center gap-0.5 sm:gap-1 cursor-pointer transition-colors text-xs font-medium tracking-tight border-l border-[#d3d1cb] ${
                 diningMode === 'pickup'
-                  ? 'bg-pitch text-white font-bold'
-                  : 'text-stone-500 hover:text-pitch bg-white'
+                  ? 'bg-[#1a1c1b] text-white font-bold'
+                  : 'text-[#2d3139] hover:bg-neutral-50'
               }`}
             >
-              自提▾
+              <span>自提</span>
+              <ChevronDown className="w-3.5 h-3.5 shrink-0 text-inherit" />
             </button>
           </div>
 
@@ -346,46 +349,6 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         )}
       </header>
-
-      {/* BEGIN: Obsidian Delivery Craft Banner (SCREEN_2 signature) */}
-      <div
-        className="bg-pitch text-white px-3 py-1.5 border-b border-pitch flex-shrink-0 active-blueprint-grid shadow-draft-active cursor-pointer"
-        onClick={onOpenRadar}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-amberAccent animate-ping shrink-0"></span>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-[11px] font-black tracking-wider text-amberAccent font-mono">
-                黑曜极速专送
-              </span>
-              <span className="text-[9px] font-mono text-stone-300">
-                {diningMode === 'delivery'
-                  ? deliveryEvaluation?.isOutOfRange
-                    ? '超配送范围 · 点击查看'
-                    : '30MIN 免配'
-                  : '800°C 炭火现烤 · 随叫随到'}
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            <span className="text-[8px] font-mono text-stone-400 border border-stone-600 px-1 py-px">
-              {diningMode === 'delivery' ? '专送模式' : diningMode === 'dine_in' ? '堂食模式' : '自提模式'}
-            </span>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenRadar();
-              }}
-              className="text-[9px] font-mono font-bold bg-amberAccent text-pitch px-1.5 py-0.5 uppercase tracking-wider flex items-center gap-0.5 hover:bg-amber-400 transition-colors cursor-pointer"
-            >
-              <span>选项</span>
-              <span className="text-[8px]">▼</span>
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

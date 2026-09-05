@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Plus, Tag, Clock, Check, Bike, Utensils, ShoppingBag, Flame, ChefHat, Sparkles, TrendingDown, TrendingUp } from 'lucide-react';
+import { Plus, Check, ChevronDown, Camera, PenTool } from 'lucide-react';
 import { motion } from 'motion/react';
 import { DishItem, DiningMode } from '../types';
 import { useFlyingCart } from '../utils/FlyingCartContext';
-import { DishPriceCalculator } from './DishPriceCalculator';
+import { DishArtisanSketch } from './DishArtisanSketch';
+import { useDevSimulation } from '../context/DevSimulationContext';
 
 interface DishListRowProps {
   dish: DishItem;
@@ -18,6 +19,8 @@ interface DishListRowProps {
   deliveryRadiusKm?: number;
   currentDistanceKm?: number;
   onOutOfRangeClick?: () => void;
+  className?: string;
+  style?: React.CSSProperties;
 }
 
 export const DishListRow: React.FC<DishListRowProps> = ({
@@ -30,54 +33,84 @@ export const DishListRow: React.FC<DishListRowProps> = ({
   isSelected = false,
   onToggleSelect,
   isOutOfRange = false,
-  deliveryRadiusKm = 3.0,
-  currentDistanceKm = 0.65,
-  onOutOfRangeClick
+  onOutOfRangeClick,
+  className,
+  style
 }) => {
-  const isAvailable = dish.available && !isOutOfRange;
+  const { simulatedOutOfStockDishIds } = useDevSimulation();
+  const isSimulatedStockOut = simulatedOutOfStockDishIds.includes(dish.id);
+  const isAvailable = dish.available && !isOutOfRange && !isSimulatedStockOut;
   const { triggerFlyToCart } = useFlyingCart();
+  
+  // 支持工匠矢量草图(Blueprint/Sketch)与实物摄影(Photo)双模切换，默认呈现真实美食实拍图
+  const [viewThumbnailMode, setViewThumbnailMode] = useState<'sketch' | 'photo'>('photo');
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
 
-  // 价格变动与优惠折扣计算
-  const baselinePrice =
-    typeof dish.prevPrice === 'number'
-      ? dish.prevPrice
-      : typeof dish.originalPrice === 'number'
-      ? dish.originalPrice
-      : dish.price;
-  const momDiff = Number((dish.price - baselinePrice).toFixed(2));
+  // 1. 编号与工匠代码生成 (Format Artisan Code & Ref Code)
+  const hash = dish.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const artisanLabel = dish.artisanCode || `ARTISAN #${String((hash % 20) + 1).padStart(2, '0')}`;
+  
+  let refLabel = dish.refCode;
+  if (!refLabel) {
+    refLabel = `· SK-${1000 + (hash % 1500)}`;
+  } else if (!refLabel.startsWith('REF:') && !refLabel.startsWith('·')) {
+    refLabel = refLabel.startsWith('SK-') ? `· ${refLabel}` : `REF: ${refLabel}`;
+  }
+
+  // 2. 右侧高亮属性标签 (Status Highlight Tag)
+  const getStatusHighlight = () => {
+    if (isOutOfRange) {
+      return <span className="text-amber-700 font-mono text-xs font-bold">超送达范围</span>;
+    }
+    if (dish.badgeText?.includes('招牌') || dish.isChefSpecial || dish.badgeText === '已入选招牌') {
+      return <span className="text-[#00875a] text-xs font-semibold tracking-tight">已入选招牌</span>;
+    }
+    if (dish.coreTemp) {
+      return <span className="text-[#d9730d] font-mono text-xs font-semibold">{dish.coreTemp}</span>;
+    }
+    if (dish.category === 'skewers' || dish.category === 'yakitori') {
+      return <span className="text-[#d9730d] font-mono text-xs font-semibold">备长炭 800°C</span>;
+    }
+    if (dish.badgeText?.includes('仅剩') || dish.badgeText?.includes('份')) {
+      return <span className="text-neutral-500 font-mono text-xs font-medium">{dish.badgeText}</span>;
+    }
+    if (dish.badgeText) {
+      return <span className="text-neutral-600 font-mono text-xs font-medium">{dish.badgeText}</span>;
+    }
+    return <span className="text-neutral-500 font-mono text-xs font-medium">仅剩 14 份</span>;
+  };
+
+  // 3. 左下角规格标尺标签 (Spec / Portion Ratio Tag, e.g. 150G DUAL, 3串入, M9 WAGYU)
+  const getSpecRatioLabel = () => {
+    if (dish.specRatio) return dish.specRatio;
+    const name = dish.name.toLowerCase();
+    if (name.includes('汉堡') || name.includes('slider')) return '150G DUAL';
+    if (name.includes('m9') || name.includes('肋条') || name.includes('牛排')) return 'M9 WAGYU';
+    if (name.includes('串') || name.includes('烧鸟') || dish.category === 'skewers') return '3串入';
+    if (dish.nutrition?.protein) return dish.nutrition.protein;
+    return 'ARTISAN';
+  };
+
+  // 4. 折扣与原价计算 (Pricing & Discounts)
   const hasOriginalPrice = typeof dish.originalPrice === 'number' && dish.originalPrice > dish.price;
-  const isMomDrop = momDiff < -0.01;
-  const isMomRise = momDiff > 0.01;
-  const hasSpecialDiscount =
-    hasOriginalPrice ||
-    isMomDrop ||
-    Boolean(dish.deliveryDiscount && dish.deliveryDiscount > 0) ||
-    Boolean(dish.dineInDiscount && dish.dineInDiscount > 0);
-  const isDiscountState = hasSpecialDiscount && !isMomRise;
-  const isRiseState = isMomRise && !hasOriginalPrice;
+  const deliveryDiscount = dish.deliveryDiscount || 0;
   const discountAmount = hasOriginalPrice
     ? Number((dish.originalPrice! - dish.price).toFixed(2))
-    : isMomDrop
-    ? Math.abs(momDiff)
+    : deliveryDiscount > 0
+    ? deliveryDiscount
     : 0;
 
   const handleClick = (e: React.MouseEvent) => {
     if (isOutOfRange) {
-      if (onOutOfRangeClick) {
-        onOutOfRangeClick();
-      } else {
-        onSelect(dish);
-      }
+      if (onOutOfRangeClick) onOutOfRangeClick();
+      else onSelect(dish);
       return;
     }
 
     if (isMultiSelectMode) {
-      if (isAvailable && onToggleSelect) {
-        onToggleSelect(dish, e);
-      }
+      if (isAvailable && onToggleSelect) onToggleSelect(dish, e);
     } else {
       onSelect(dish);
     }
@@ -97,284 +130,199 @@ export const DishListRow: React.FC<DishListRowProps> = ({
     }, 450);
   };
 
-  const cardBorderClass = isSelected
-    ? 'ring-2 ring-black border-black bg-neutral-50/50'
-    : isOutOfRange
-    ? 'border-amber-300/80 bg-amber-50/20 hover:border-amber-400'
-    : 'border-[#e8e8e6] hover:border-neutral-700/30';
+  const hasOptions = Boolean(dish.optionGroups && dish.optionGroups.length > 0);
 
   return (
     <motion.div
-      whileHover={isAvailable ? { y: -1.5 } : {}}
-      whileTap={{ scale: 0.985 }}
+      whileHover={isAvailable ? { y: -1 } : {}}
+      whileTap={{ scale: 0.995 }}
       onClick={handleClick}
-      className={`bg-white rounded-none overflow-hidden shadow-2xs border flex flex-row items-stretch group transition-all duration-300 cursor-pointer relative ${cardBorderClass} ${
-        isAvailable ? 'hover:shadow-md' : isOutOfRange ? 'hover:shadow-sm' : 'opacity-70 bg-neutral-50/60'
-      }`}
+      className={`bg-white border border-[#1a1c1b] p-2.5 sm:p-4 mb-2.5 sm:mb-3.5 transition-all duration-200 cursor-pointer relative rounded-none select-none ${
+        isSelected ? 'ring-2 ring-black bg-neutral-50/40' : 'hover:shadow-sm'
+      } ${!isAvailable ? 'opacity-75' : ''} ${className || ''}`}
+      style={style}
     >
-      {/* Multi-Select Checkbox overlay for List View */}
-      {!isOutOfRange && (
+      {/* Multi-Select Checkbox overlay */}
+      {!isOutOfRange && (isMultiSelectMode || isSelected) && (
         <div
           onClick={(e) => {
             e.stopPropagation();
-            if (isAvailable && onToggleSelect) {
-              onToggleSelect(dish, e);
-            }
+            if (isAvailable && onToggleSelect) onToggleSelect(dish, e);
           }}
-          className={`absolute top-2 right-2 z-30 transition-all active:scale-90 cursor-pointer ${
-            isMultiSelectMode || isSelected
-              ? 'opacity-100 scale-100'
-              : 'opacity-0 group-hover:opacity-85 hover:!opacity-100 scale-95 hover:scale-105'
-          }`}
-          title={isSelected ? '取消勾选此菜品' : '勾选此菜品卡片 (支持批量加购)'}
+          className="absolute top-2.5 right-2.5 z-30 transition-all cursor-pointer"
         >
           {isSelected ? (
-            <div className="w-5 h-5 rounded-md bg-black text-white border border-white shadow-md flex items-center justify-center transition-all scale-105 ring-2 ring-black/20">
-              <Check className="w-3 h-3 stroke-[3]" />
+            <div className="w-5 h-5 rounded-none bg-black text-white flex items-center justify-center">
+              <Check className="w-3.5 h-3.5 stroke-[3]" />
             </div>
           ) : (
-            <div className="w-5 h-5 rounded-md bg-white/90 backdrop-blur-md border border-neutral-400 hover:border-black shadow-xs flex items-center justify-center transition-all" />
+            <div className="w-5 h-5 rounded-none bg-white border border-neutral-400 hover:border-black" />
           )}
         </div>
       )}
 
-      {/* Thumbnail with lazy loading shimmer */}
-      <div className="relative w-24 sm:w-32 min-h-[88px] sm:min-h-[102px] overflow-hidden bg-[#161616] shrink-0">
-        {/* Lazy Loading Skeleton Shimmer */}
-        {!imageLoaded && !imageError && (
-          <div className="absolute inset-0 bg-neutral-900 animate-skeleton z-0 flex items-center justify-center">
-            <div className="w-full h-full relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.08] to-transparent -translate-x-full animate-shimmer" />
-              <div className="absolute inset-0 flex items-center justify-center text-neutral-500">
-                <ChefHat className="w-4 h-4 text-neutral-500/60" />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {imageError ? (
-          <div className="w-full h-full bg-neutral-900 flex flex-col items-center justify-center p-1 text-center text-neutral-400">
-            <ChefHat className="w-4 h-4 text-neutral-600 mb-0.5" />
-            <span className="text-[8.5px] font-bold text-neutral-400 line-clamp-1">{dish.name}</span>
-          </div>
-        ) : (
-          <img
-            src={dish.imageUrl}
-            alt={dish.name}
-            onLoad={() => setImageLoaded(true)}
-            onError={() => {
-              setImageError(true);
-              setImageLoaded(true);
-            }}
-            className={`w-full h-full object-cover transition-all duration-500 ${
-              imageLoaded ? 'opacity-100' : 'opacity-0'
-            } ${
-              isAvailable ? 'group-hover:scale-106' : isOutOfRange ? 'grayscale-[35%] opacity-90' : 'grayscale-[20%]'
-            }`}
-            referrerPolicy="no-referrer"
-            loading="lazy"
-            decoding="async"
-          />
-        )}
-
-        {/* Top & Bottom Subtle Vignettes */}
-        <div className="absolute inset-x-0 top-0 h-6 bg-gradient-to-b from-black/55 to-transparent pointer-events-none z-10" />
-        <div className="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/65 to-transparent pointer-events-none z-10" />
-
-        {/* Out-Of-Range Thumbnail Tag */}
-        {isOutOfRange && (
-          <div className="absolute inset-x-0 bottom-0 z-20 bg-amber-950/90 text-amber-300 text-[8px] font-bold px-1 py-0.5 text-center leading-tight backdrop-blur-2xs border-t border-amber-400/40">
-            超 {deliveryRadiusKm.toFixed(1)}km
-          </div>
-        )}
-
-        {/* Top Left: Cohesive Dining Mode Glass Badge */}
-        <div className="absolute top-1.5 left-1.5 flex gap-0.5 items-center z-20 pointer-events-none">
-          {(() => {
-            if (isOutOfRange) {
-              return (
-                <span className="bg-black/65 backdrop-blur-md text-amber-300 border border-amber-400/40 text-[8.5px] font-bold px-1.5 py-0.2 rounded-none shadow-2xs flex items-center gap-0.5 leading-none">
-                  <span>⚠️ 超范围</span>
-                </span>
-              );
-            }
-
-            const effectiveMode =
-              dish.orderType === 'both'
-                ? diningMode
-                : dish.orderType === 'dine_in'
-                ? 'dine_in'
-                : dish.orderType === 'delivery'
-                ? (diningMode === 'pickup' ? 'pickup' : 'delivery')
-                : diningMode;
-
-            if (effectiveMode === 'dine_in') {
-              return (
-                <span className="bg-black/65 backdrop-blur-md text-amber-300 border border-amber-400/25 text-[8.5px] font-semibold px-1.5 py-0.2 rounded-none shadow-2xs flex items-center gap-0.5 leading-none">
-                  <Utensils className="w-2 h-2 text-amber-400" />
-                  <span>堂食</span>
-                </span>
-              );
-            } else if (effectiveMode === 'pickup') {
-              return (
-                <span className="bg-black/65 backdrop-blur-md text-white border border-white/20 text-[8.5px] font-semibold px-1.5 py-0.2 rounded-none shadow-2xs flex items-center gap-0.5 leading-none">
-                  <ShoppingBag className="w-2 h-2 text-neutral-200" />
-                  <span>自提</span>
-                </span>
-              );
-            } else {
-              return (
-                <span className="bg-black/65 backdrop-blur-md text-white border border-white/20 text-[8.5px] font-semibold px-1.5 py-0.2 rounded-none shadow-2xs flex items-center gap-0.5 leading-none">
-                  <Bike className="w-2 h-2 text-neutral-200" />
-                  <span>外卖</span>
-                </span>
-              );
-            }
-          })()}
+      {/* 1. Top Metadata Strip (Header Bar) */}
+      <div className="flex items-center justify-between pb-1.5 sm:pb-2 mb-2 sm:mb-3 border-b border-neutral-200 text-xs">
+        <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
+          <span className="bg-[#1a1c1b] text-white text-[8.5px] sm:text-[10px] font-mono font-bold px-1 sm:px-1.5 py-0.5 tracking-wider uppercase inline-block shrink-0">
+            {artisanLabel}
+          </span>
+          <span className="text-neutral-500 text-[9px] sm:text-[11px] font-mono tracking-wider truncate">
+            {refLabel}
+          </span>
         </div>
 
-        {/* Feature Tag */}
-        {dish.badgeText && (
-          <div className="absolute bottom-1.5 left-1.5 z-20 pointer-events-none">
-            <span className="bg-black/65 backdrop-blur-md text-amber-300 border border-amber-400/25 text-[8.5px] font-semibold px-1.5 py-0.2 rounded-none shadow-2xs flex items-center gap-0.5 leading-none">
-              <Flame className="w-2 h-2 text-amber-400" />
-              <span>{dish.badgeText}</span>
-            </span>
-          </div>
-        )}
+        <div className="shrink-0 ml-1.5">
+          {getStatusHighlight()}
+        </div>
       </div>
 
-      {/* Info Container: Clean Modern Layout */}
-      <div className="p-2 sm:p-2.5 flex-1 min-w-0 flex flex-col justify-between relative bg-white">
-        <div>
-          <div className="flex items-start justify-between gap-1">
-            <div className="min-w-0 flex-1">
-              <h3
-                title={dish.name}
-                className="text-[13px] sm:text-[14px] font-bold text-[#141413] group-hover:text-black transition-colors line-clamp-2 leading-[1.35] tracking-tight break-words"
-              >
-                <span>{dish.name}</span>
-                {isDiscountState && (
-                  <span className="inline-flex items-center gap-0.5 ml-1 px-1.5 py-0.2 rounded-none text-[8.5px] font-extrabold text-rose-700 bg-rose-50 border border-rose-200/90 align-middle leading-none shadow-2xs whitespace-nowrap">
-                    特惠
-                  </span>
-                )}
-                {isRiseState && (
-                  <span className="inline-flex items-center gap-0.5 ml-1 px-1.5 py-0.2 rounded-none text-[8.5px] font-extrabold text-rose-700 bg-rose-50 border border-rose-200/90 align-middle leading-none shadow-2xs whitespace-nowrap">
-                    微调
-                  </span>
-                )}
-              </h3>
-              <p
-                title={dish.enName}
-                className="text-[9.5px] sm:text-[10px] text-[#807f78] font-medium truncate leading-tight mt-0.5"
-              >
-                {dish.enName}
-              </p>
+      {/* 2. Main Body: Horizontal Flex (Left Thumbnail, Right Information) */}
+      <div className="flex items-start gap-2.5 sm:gap-4">
+        {/* Left Thumbnail: Clean Paper Ground with Black Ink Sketch / Photo */}
+        <div className="relative w-20 h-20 sm:w-28 sm:h-28 shrink-0 bg-[#f7f7f5] border border-neutral-200 overflow-hidden flex items-center justify-center p-1.5 sm:p-2 group/thumb">
+          {viewThumbnailMode === 'sketch' || imageError ? (
+            <DishArtisanSketch dish={dish} className="w-full h-full p-0.5 sm:p-1 transition-transform duration-300 group-hover/thumb:scale-105" />
+          ) : (
+            <img
+              src={dish.imageUrl}
+              alt={dish.name}
+              onLoad={() => setImageLoaded(true)}
+              onError={() => setImageError(true)}
+              className={`w-full h-full object-cover transition-all duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+              loading="lazy"
+              referrerPolicy="no-referrer"
+            />
+          )}
 
-              {/* Flavor Tags */}
-              {dish.flavorTags && dish.flavorTags.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1 mt-1">
-                  {dish.flavorTags.slice(0, 2).map((tag) => (
-                    <span
-                      key={tag}
-                      className="text-[8.5px] font-semibold px-1.5 py-0.2 rounded-md bg-[#f6f6f4] text-[#4d4c46] border border-[#e5e5e2] leading-none truncate max-w-[80px]"
-                    >
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
+          {/* Quick toggle between Photo & Vector Sketch */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setViewThumbnailMode(prev => prev === 'sketch' ? 'photo' : 'sketch');
+            }}
+            title={viewThumbnailMode === 'sketch' ? '点击查看菜品实拍照片' : '点击查看工匠矢量设计草图'}
+            className="absolute top-1 left-1 bg-white/90 hover:bg-black hover:text-white border border-neutral-200 text-neutral-600 p-0.5 sm:p-1 text-[8px] transition-colors rounded-none opacity-80 sm:opacity-0 sm:group-hover/thumb:opacity-100 z-10 cursor-pointer"
+          >
+            {viewThumbnailMode === 'sketch' ? <Camera className="w-2.5 h-2.5" /> : <PenTool className="w-2.5 h-2.5" />}
+          </button>
+
+          {/* Bottom-right Spec Label (e.g. 150G DUAL, 3串入, M9 WAGYU) */}
+          <span className="text-[8px] sm:text-[9px] font-mono font-bold text-neutral-400 uppercase tracking-wider absolute bottom-0.5 right-1 sm:bottom-1 sm:right-1.5 bg-[#f7f7f5]/90 px-0.5 sm:px-1 leading-tight select-none">
+            {getSpecRatioLabel()}
+          </span>
+        </div>
+
+        {/* Right Info Section */}
+        <div className="flex-1 min-w-0 flex flex-col justify-between self-stretch">
+          <div>
+            {/* Dish Chinese Title */}
+            <h3 className="text-sm sm:text-base md:text-[17px] font-bold text-[#1a1c1b] tracking-tight leading-snug line-clamp-1 group-hover:text-black">
+              {dish.name}
+            </h3>
+
+            {/* Dish English Subtitle */}
+            <p className="text-[9.5px] sm:text-[11px] font-mono text-neutral-400 uppercase tracking-widest mt-0.5 truncate">
+              {dish.enName.toUpperCase()}
+            </p>
+
+            {/* Middle Feature Tags / Description */}
+            {dish.customTags && dish.customTags.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 mt-1 sm:mt-2">
+                {dish.customTags.slice(0, 2).map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center text-[9px] sm:text-[10.5px] font-mono text-neutral-600 border border-neutral-300 border-dashed bg-neutral-50/70 px-1 sm:px-1.5 py-0.5 leading-none"
+                  >
+                    [{tag}]
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] sm:text-xs text-neutral-500 line-clamp-1 sm:line-clamp-2 mt-1 sm:mt-1.5 leading-relaxed">
+                {dish.description}
+              </p>
+            )}
+          </div>
+
+          {/* Dashed Separator */}
+          <div className="border-b border-dashed border-neutral-200 my-1 sm:my-2" />
+
+          {/* Bottom Row: Price & Action */}
+          <div className="flex items-center justify-between gap-1 sm:gap-2">
+            {/* Left: Price and Discount */}
+            <div className="flex items-baseline gap-0.5 sm:gap-1 min-w-0 flex-wrap">
+              <span className="text-sm sm:text-base md:text-lg font-black font-mono text-[#1a1c1b] tracking-tight">
+                ¥{dish.price.toFixed(2)}
+              </span>
+
+              {hasOriginalPrice && (
+                <span className="text-[10px] sm:text-xs text-neutral-400 font-mono line-through ml-0.5 sm:ml-1">
+                  ¥{dish.originalPrice!.toFixed(2)}
+                </span>
+              )}
+
+              {discountAmount > 0 && (
+                <span className="text-[8.5px] sm:text-[10px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-1 py-0.2 ml-0.5 sm:ml-1 shrink-0">
+                  立减¥{discountAmount.toFixed(0)}
+                </span>
               )}
             </div>
 
-            {/* Prep Time */}
-            <span className="text-[9px] text-[#787770] font-mono flex items-center gap-0.5 shrink-0 bg-neutral-100 px-1.5 py-0.5 rounded-md">
-              <Clock className="w-2.5 h-2.5 text-neutral-400" />
-              <span>{dish.prepTime}</span>
-            </span>
-          </div>
-
-          {/* Pricing Rules & Discounts */}
-          <div className="mt-1">
-            <DishPriceCalculator dish={dish} diningMode={diningMode} layout="horizontal" />
-          </div>
-        </div>
-
-        {/* Price & Action Row */}
-        <div className="flex items-center justify-between pt-1 border-t border-[#f0f0ee] gap-1 mt-1 min-w-0">
-          <div className="flex items-baseline gap-0.5 sm:gap-1 flex-wrap min-w-0 overflow-hidden">
-            <span
-              className={`text-[13px] sm:text-[15px] font-black tracking-tight shrink-0 ${
-                isAvailable ? 'text-[#141413]' : 'text-[#787770]'
-              }`}
-            >
-              ¥{dish.price.toFixed(2)}
-            </span>
-            {dish.originalPrice && (
-              <span className="text-[9.5px] sm:text-[10px] text-[#a3a29b] line-through shrink-0">
-                ¥{dish.originalPrice.toFixed(0)}
-              </span>
-            )}
-            {isDiscountState && discountAmount > 0 && (
-              <span className="text-[8px] sm:text-[8.5px] font-bold text-amber-900 bg-amber-50/90 px-1 sm:px-1.5 py-0.2 rounded-md border border-amber-200/90 leading-none shrink-0 truncate">
-                省¥{discountAmount.toFixed(0)}
-              </span>
-            )}
-          </div>
-
-          {/* Action Button */}
-          <div className="flex items-center gap-1 shrink-0">
-            {isOutOfRange ? (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onOutOfRangeClick) onOutOfRangeClick();
-                  else onSelect(dish);
-                }}
-                className="text-[9px] sm:text-[9.5px] font-extrabold px-1.5 sm:px-2 py-0.5 rounded-none bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 transition-all flex items-center gap-0.5 cursor-pointer shadow-2xs shrink-0"
-              >
-                <span>改自提</span>
-              </button>
-            ) : isAvailable ? (
-              <button
-                type="button"
-                onClick={handleQuickAddClick}
-                className={`text-[10px] sm:text-[11px] font-bold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-none transition-all flex items-center gap-0.5 cursor-pointer shadow-2xs select-none shrink-0 relative ${
-                  isAdding
-                    ? 'bg-black text-white scale-95'
-                    : isMultiSelectMode
-                    ? isSelected
-                      ? 'bg-black text-white'
-                      : 'bg-neutral-100 text-black hover:bg-neutral-200'
-                    : 'bg-[#18181b] hover:bg-black text-white'
-                }`}
-              >
-                {isAdding ? (
-                  <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 animate-in zoom-in-50" />
-                ) : dish.optionGroups && dish.optionGroups.length > 0 && !isMultiSelectMode ? null : (
-                  <Plus className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                )}
-                <span>
-                  {isAdding
-                    ? '已加'
-                    : isMultiSelectMode
-                    ? (isSelected ? '已选' : '选择')
-                    : dish.optionGroups && dish.optionGroups.length > 0
-                    ? '选规格'
-                    : '选购'}
-                </span>
-                {!isMultiSelectMode && cartQuantity > 0 && dish.optionGroups && dish.optionGroups.length > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-rose-600 text-white text-[8.5px] font-black w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full flex items-center justify-center shadow-xs border border-white leading-none">
-                    {cartQuantity}
-                  </span>
-                )}
-              </button>
-            ) : (
-              <span className="text-[9px] sm:text-[9.5px] text-neutral-400 bg-neutral-100 px-1.5 py-0.5 rounded font-medium inline-block shrink-0">
-                不可选
-              </span>
-            )}
+            {/* Right: Action Button */}
+            <div className="shrink-0">
+              {isOutOfRange ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onOutOfRangeClick) onOutOfRangeClick();
+                    else onSelect(dish);
+                  }}
+                  className="bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-[9.5px] sm:text-[10px] font-mono font-bold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-none cursor-pointer transition shadow-2xs"
+                >
+                  改自提
+                </button>
+              ) : hasOptions && !isMultiSelectMode ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelect(dish);
+                  }}
+                  className="bg-[#1a1c1b] hover:bg-neutral-800 text-white text-[10.5px] sm:text-xs font-mono font-medium px-2 sm:px-3 py-1 sm:py-1.5 rounded-none flex items-center gap-0.5 sm:gap-1 shadow-xs transition cursor-pointer select-none active:scale-98 relative"
+                >
+                  <span>选规格</span>
+                  <ChevronDown className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-neutral-300" />
+                  {cartQuantity > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-neutral-900 text-white border border-white text-[8px] sm:text-[9px] font-bold w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full flex items-center justify-center leading-none">
+                      {cartQuantity}
+                    </span>
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleQuickAddClick}
+                  className={`bg-[#1a1c1b] hover:bg-neutral-800 text-white w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-none shadow-xs transition cursor-pointer select-none active:scale-95 relative ${
+                    isAdding ? 'scale-90 bg-black' : ''
+                  }`}
+                  title="快速添加至点单盘"
+                >
+                  {isAdding ? (
+                    <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.5]" />
+                  ) : (
+                    <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.5]" />
+                  )}
+                  {cartQuantity > 0 && !isAdding && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-neutral-900 text-white border border-white text-[8px] sm:text-[9px] font-bold w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full flex items-center justify-center leading-none">
+                      {cartQuantity}
+                    </span>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

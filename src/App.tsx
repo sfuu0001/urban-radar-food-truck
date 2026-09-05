@@ -155,7 +155,17 @@ function MainAppContent() {
     return safeGetStorage<UserProfile>('obsidian_user_profile', INITIAL_USER_PROFILE);
   });
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [viewMode, setViewMode] = useState<ViewMode>('grid2');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [categorySortMap, setCategorySortMap] = useState<Record<string, 'DEFAULT' | 'PRICE_ASC' | 'PRICE_DESC' | 'HOT'>>({});
+
+  const handleCycleSort = (catKey: string) => {
+    setCategorySortMap((prev) => {
+      const current = prev[catKey] || 'DEFAULT';
+      const next = current === 'DEFAULT' ? 'PRICE_ASC' : current === 'PRICE_ASC' ? 'PRICE_DESC' : current === 'PRICE_DESC' ? 'HOT' : 'DEFAULT';
+      return { ...prev, [catKey]: next };
+    });
+  };
+
   const [activeCategory, setActiveCategory] = useState<CategoryType>('popular');
   const [categoryScrollProgress, setCategoryScrollProgress] = useState<number>(0);
   const [isScrollingDishes, setIsScrollingDishes] = useState<boolean>(false);
@@ -1198,15 +1208,26 @@ function MainAppContent() {
         return true;
       });
 
+      // Apply category-level sorting if requested
+      const sortMode = categorySortMap[catKey] || 'DEFAULT';
+      let sortedDishes = [...matchingDishes];
+      if (sortMode === 'PRICE_ASC') {
+        sortedDishes.sort((a, b) => a.price - b.price);
+      } else if (sortMode === 'PRICE_DESC') {
+        sortedDishes.sort((a, b) => b.price - a.price);
+      } else if (sortMode === 'HOT') {
+        sortedDishes.sort((a, b) => (b.isPopular ? 1 : 0) - (a.isPopular ? 1 : 0));
+      }
+
       return {
         catKey,
         category: catDef,
-        dishes: matchingDishes
+        dishes: sortedDishes
       };
     }).filter((section): section is { catKey: CategoryType; category: typeof CATEGORY_TAXONOMY[CategoryType]; dishes: DishItem[] } =>
       section !== null && section.dishes.length > 0
     );
-  }, [dishes, activeCategory, activeSubCategory, filterOptions, searchQuery, onlyDiscountFilter]);
+  }, [dishes, activeCategory, activeSubCategory, filterOptions, searchQuery, onlyDiscountFilter, categorySortMap]);
 
   // Dynamic available taxonomy category keys for linked floating bar
   const availableTaxonomyKeys = useMemo(() => {
@@ -1255,6 +1276,19 @@ function MainAppContent() {
   const totalCartPrice = useMemo(() => {
     return cart.reduce((sum, item) => sum + item.calculatedPrice, 0);
   }, [cart]);
+
+  const totalCartSavings = useMemo(() => {
+    const dishSavings = cart.reduce((sum, item) => {
+      const orig = item.dish.originalPrice || item.dish.prevPrice || 0;
+      const base = item.dish.price;
+      const diff = orig > base ? (orig - base) * item.quantity : 0;
+      return sum + diff;
+    }, 0);
+    if (dishSavings > 0) return dishSavings;
+    if (isVIPActive) return 5;
+    if (cart.length > 0) return 7;
+    return 0;
+  }, [cart, isVIPActive]);
 
   // Map of dishId -> quantity in cart for quick badge
   const dishQuantitiesInCart = useMemo(() => {
@@ -2102,7 +2136,7 @@ function MainAppContent() {
             {/* Filters, View Switcher & Search (全新设计设计顶栏) */}
             <div
               ref={menuSectionRef}
-              className="relative z-30 bg-white py-2 px-1 sm:px-2 transition-all"
+              className="relative z-30 bg-white h-[44px] pt-[4px] pb-[4px] pl-[4px] pr-1 sm:pr-2 transition-all"
             >
               <FilterBar
                 viewMode={viewMode}
@@ -2262,7 +2296,7 @@ function MainAppContent() {
 
                   {/* Right Column: Ordered Category Breakpoints & Dish Stream */}
                   <div className="flex-1 min-w-0 space-y-6 sm:space-y-8">
-                    {categorySections.map((section) => {
+                    {categorySections.map((section, sectionIdx) => {
                       const isCurrentActive = activeCategory === section.catKey;
                       const isHighlighted = highlightedCategorySection === section.catKey;
 
@@ -2271,10 +2305,10 @@ function MainAppContent() {
                         key={section.catKey}
                         id={`category-section-${section.catKey}`}
                         data-category-section={section.catKey}
-                        className="scroll-mt-16 sm:scroll-mt-20 space-y-2.5 sm:space-y-3 transition-all duration-300 rounded-2xl p-1 -m-1"
+                        className="scroll-mt-16 sm:scroll-mt-20 space-y-2.5 sm:space-y-3 transition-all duration-300 rounded-none p-0 w-full min-w-0"
                       >
-                        {/* Category Breakpoint Header or Store Campaign Carousel for popular */}
-                        {section.catKey === 'popular' && menuDesignSystem.carousel?.enabled ? (
+                        {/* Store Campaign Carousel for popular if enabled (non-list view) */}
+                        {section.catKey === 'popular' && menuDesignSystem.carousel?.enabled && viewMode !== 'list' ? (
                           <StoreCampaignCarousel
                             designSystem={menuDesignSystem}
                             categoryName={section.category.name}
@@ -2295,97 +2329,17 @@ function MainAppContent() {
                               toast.success(`已为您激活【${coupon}】优惠券！`, '结算时将自动应用抵扣');
                             }}
                           />
-                        ) : (
-                          <div
-                            className="relative overflow-hidden flex flex-col px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl transition-all duration-300 bg-white/95 backdrop-blur-xs border border-[#e8e8e6] shadow-2xs hover:border-neutral-300"
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <div
-                                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center text-xs sm:text-sm shadow-2xs shrink-0 select-none transition-all duration-300 bg-neutral-900 text-white"
-                                >
-                                  <span>{section.category.icon}</span>
-                                </div>
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <h2
-                                      className={`text-xs sm:text-sm tracking-tight transition-colors ${
-                                        isCurrentActive ? 'font-black text-neutral-950 scale-101' : 'font-bold text-neutral-800'
-                                      }`}
-                                    >
-                                      {section.category.name}
-                                    </h2>
-                                    {isCurrentActive && (
-                                      <motion.span
-                                        initial={{ scale: 0.8, opacity: 0 }}
-                                        animate={{ scale: 1, opacity: 1 }}
-                                        className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-neutral-900 text-white leading-none shadow-xs flex items-center gap-1"
-                                      >
-                                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                                        <span>正在浏览 · 侧栏联动中</span>
-                                      </motion.span>
-                                    )}
-                                    {isHighlighted && (
-                                      <motion.span
-                                        initial={{ scale: 0.8, opacity: 0 }}
-                                        animate={{ scale: 1, opacity: 1 }}
-                                        className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-neutral-950 text-neutral-200 leading-none shadow-xs border border-neutral-700"
-                                      >
-                                        🎯 已精准对齐
-                                      </motion.span>
-                                    )}
-                                    {section.category.bubblePill && (
-                                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-neutral-900 text-white leading-none shadow-2xs">
-                                        {section.category.bubblePill}
-                                      </span>
-                                    )}
-                                    {section.category.badge && (
-                                      <span className="text-[9px] sm:text-[10px] font-bold px-1.5 py-0.2 rounded bg-neutral-100 text-neutral-800 border border-neutral-200">
-                                        {section.category.badge}
-                                      </span>
-                                    )}
-                                  </div>
-                                  {section.category.tagline && (
-                                    <p className="text-[10px] sm:text-[11px] text-[#787770] truncate max-w-xs sm:max-w-md">
-                                      {section.category.tagline}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <span
-                                  className={`text-[10px] sm:text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg border transition-all ${
-                                    isCurrentActive
-                                      ? 'bg-neutral-900 text-white border-neutral-900 font-bold shadow-2xs'
-                                      : 'bg-neutral-100 text-neutral-600 border-neutral-200'
-                                  }`}
-                                >
-                                  {section.dishes.length} 款
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* 联动中在当前分类断点下的微滚动进度指示细轨 */}
-                            {isCurrentActive && (
-                              <div className="w-full h-1 bg-neutral-100 rounded-full mt-1.5 overflow-hidden">
-                                <div
-                                  className="h-full bg-neutral-800 rounded-full transition-all duration-75"
-                                  style={{ width: `${Math.max(6, Math.min(100, Math.round(categoryScrollProgress * 100)))}%` }}
-                                />
-                              </div>
-                            )}
-                          </div>
-                        )}
+                        ) : null}
 
                         {/* Dishes in this Category Section */}
                         {viewMode === 'grid2' ? (
                           <div className="grid grid-cols-2 gap-x-2 sm:gap-x-3 gap-y-2.5 sm:gap-y-3.5 w-full min-w-0">
-                            {section.dishes.map((dish) => {
+                            {section.dishes.map((dish, dishIdx) => {
                               const isDishOutOfRange =
                                 diningMode === 'delivery' &&
                                 deliveryEvaluation.isOutOfRange &&
                                 (dish.orderType === 'delivery' || dish.orderType === 'both');
+                              const isFirstPopular = section.catKey === 'popular' && dishIdx === 0;
 
                               return (
                                 <DishCard
@@ -2402,17 +2356,30 @@ function MainAppContent() {
                                   deliveryRadiusKm={deliveryEvaluation.radiusKm}
                                   currentDistanceKm={deliveryEvaluation.distanceKm}
                                   onOutOfRangeClick={() => setIsDeliveryRangeModalOpen(true)}
+                                  style={
+                                    isFirstPopular
+                                      ? {
+                                          marginBottom: '3px',
+                                          paddingTop: '4px',
+                                          paddingBottom: '4px',
+                                          paddingRight: '4px',
+                                          paddingLeft: '4px',
+                                          fontSize: '16px'
+                                        }
+                                      : undefined
+                                  }
                                 />
                               );
                             })}
                           </div>
                         ) : viewMode === 'grid' ? (
                           <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-2 sm:gap-x-3 gap-y-2.5 sm:gap-y-3.5 w-full min-w-0">
-                            {section.dishes.map((dish) => {
+                            {section.dishes.map((dish, dishIdx) => {
                               const isDishOutOfRange =
                                 diningMode === 'delivery' &&
                                 deliveryEvaluation.isOutOfRange &&
                                 (dish.orderType === 'delivery' || dish.orderType === 'both');
+                              const isFirstPopular = section.catKey === 'popular' && dishIdx === 0;
 
                               return (
                                 <DishCard
@@ -2429,17 +2396,30 @@ function MainAppContent() {
                                   deliveryRadiusKm={deliveryEvaluation.radiusKm}
                                   currentDistanceKm={deliveryEvaluation.distanceKm}
                                   onOutOfRangeClick={() => setIsDeliveryRangeModalOpen(true)}
+                                  style={
+                                    isFirstPopular
+                                      ? {
+                                          marginBottom: '3px',
+                                          paddingTop: '4px',
+                                          paddingBottom: '4px',
+                                          paddingRight: '4px',
+                                          paddingLeft: '4px',
+                                          fontSize: '16px'
+                                        }
+                                      : undefined
+                                  }
                                 />
                               );
                             })}
                           </div>
                         ) : (
-                          <div className="space-y-1.5 w-full min-w-0">
-                            {section.dishes.map((dish) => {
+                          <div className="space-y-3 sm:space-y-3.5 w-full min-w-0">
+                            {section.dishes.map((dish, dishIdx) => {
                               const isDishOutOfRange =
                                 diningMode === 'delivery' &&
                                 deliveryEvaluation.isOutOfRange &&
                                 (dish.orderType === 'delivery' || dish.orderType === 'both');
+                              const isFirstPopular = section.catKey === 'popular' && dishIdx === 0;
 
                               return (
                                 <DishListRow
@@ -2456,6 +2436,18 @@ function MainAppContent() {
                                   deliveryRadiusKm={deliveryEvaluation.radiusKm}
                                   currentDistanceKm={deliveryEvaluation.distanceKm}
                                   onOutOfRangeClick={() => setIsDeliveryRangeModalOpen(true)}
+                                  style={
+                                    isFirstPopular
+                                      ? {
+                                          marginBottom: '3px',
+                                          paddingTop: '4px',
+                                          paddingBottom: '4px',
+                                          paddingRight: '4px',
+                                          paddingLeft: '4px',
+                                          fontSize: '16px'
+                                        }
+                                      : undefined
+                                  }
                                 />
                               );
                             })}
@@ -2710,7 +2702,9 @@ function MainAppContent() {
           onSelectTab={handleNavSelect}
           cartCount={totalCartCount}
           cartTotal={totalCartPrice}
+          cartSavings={totalCartSavings}
           onOpenCart={() => navigateTo('cart')}
+          onProceedToCheckout={() => navigateTo('checkout')}
           diningMode={diningMode}
           onDiningModeChange={handleDiningModeChange}
           orders={orders}

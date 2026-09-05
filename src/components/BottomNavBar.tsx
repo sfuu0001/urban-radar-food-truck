@@ -26,6 +26,7 @@ import {
   subscribeOrderChat,
   getUnreadCountForRole
 } from '../utils/chatHub';
+import { BottomCartBar } from './BottomCartBar';
 
 export type NavTabType = 'home' | 'orders' | 'tracking' | 'profile' | 'checkout' | 'coupons' | 'cart' | 'order_messages';
 
@@ -34,7 +35,9 @@ interface BottomNavBarProps {
   onSelectTab: (tab: NavTabType) => void;
   cartCount: number;
   cartTotal: number;
+  cartSavings?: number;
   onOpenCart: () => void;
+  onProceedToCheckout?: () => void;
   diningMode: DiningMode;
   onDiningModeChange: (mode: DiningMode) => void;
   orders?: Order[];
@@ -57,7 +60,9 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
   onSelectTab,
   cartCount,
   cartTotal,
+  cartSavings,
   onOpenCart,
+  onProceedToCheckout,
   diningMode,
   onDiningModeChange,
   orders = [],
@@ -82,7 +87,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isLongPressRef = useRef(false);
-  const cartBtnRef = useRef<HTMLButtonElement | null>(null);
+  const cartBtnRef = useRef<HTMLDivElement | null>(null);
   const { registerCartTarget, badgeBounce } = useFlyingCart();
   const [chatTick, setChatTick] = useState(0);
 
@@ -256,49 +261,22 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
         id="bottom-navbar-outer-wrapper"
         className="w-full shrink-0 z-30 flex flex-col bg-paper-card border-t-2 border-pitch select-none"
       >
-        {/* Floating-feel Industrial Mini Checkout Strip (Visible when cart has items) */}
-        {cartCount > 0 && (
-          <div
-            id="bottom-mini-checkout-strip"
-            className="bg-paper border-b border-line px-3 py-1.5 flex items-center justify-between"
-          >
-            <div
-              ref={cartBtnRef}
-              data-cart-target="true"
-              className="flex items-center gap-2 cursor-pointer group"
-              onClick={onOpenCart}
-              title="查看选购清单"
-            >
-              <div className="w-7 h-7 bg-pitch text-white flex items-center justify-center relative font-mono text-xs shadow-inner">
-                <ShoppingBag className="w-4 h-4 text-white stroke-[2]" />
-                <span className="absolute -top-1 -right-1 bg-amberAccent text-pitch text-[8px] font-black px-0.5 leading-tight border border-pitch">
-                  {cartCount > 99 ? '99+' : cartCount}
-                </span>
-              </div>
-              <div className="flex items-baseline gap-1 font-mono">
-                <span className="text-[10px] text-stone-500">小计</span>
-                <span className="text-sm font-black text-pitch">¥{cartTotal.toFixed(2)}</span>
-                <span className="text-[9px] text-emerald-700 bg-emeraldAccent/10 px-1 border border-line">
-                  已享专送特惠
-                </span>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={onOpenCart}
-              className="bg-pitch text-white px-3 py-1 text-[11px] font-mono font-bold tracking-wider uppercase border border-pitch flex items-center gap-1 hover:bg-stone-900 cursor-pointer shadow-xs transition-colors"
-            >
-              <span>去结算 CHECKOUT</span>
-              <span className="text-amberAccent text-xs font-black">→</span>
-            </button>
-          </div>
+        {/* New Shopping Cart Component directly above the 5-tab Navigation Bar (Faithfully matching image.png) */}
+        {(activeTab === 'home' || cartCount > 0) && (
+          <BottomCartBar
+            cartCount={cartCount}
+            cartTotal={cartTotal}
+            cartSavings={cartSavings}
+            onOpenCart={onOpenCart}
+            onProceedToCheckout={onProceedToCheckout}
+            cartTargetRef={cartBtnRef}
+          />
         )}
 
         {/* Bottom Industrial Navigation Bar: 5 Equal Columns */}
         <div
           id="bottom-main-dock-nav"
-          className="grid grid-cols-5 bg-paper-card py-1 text-center font-mono text-[9px] text-stone-500 border-t border-line"
+          className="grid grid-cols-5 bg-paper-card pt-0 pb-[2px] px-0 h-[45.9px] text-center font-mono text-[9px] text-stone-500 border-t border-line"
         >
           {/* Tab 1: 点餐 */}
           <button

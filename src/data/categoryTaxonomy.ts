@@ -75,7 +75,7 @@ export const CATEGORY_TAXONOMY: Record<string, PrimaryCategoryConfig> = {
     id: 'skewers',
     name: '炭烤串串',
     sidebarName: '炭烤串串',
-    enName: 'Skewer Grill',
+    enName: 'Bichotan Charred Skewers',
     icon: '🍢',
     badge: '果木炭烤',
     bubblePill: '原木炭火',

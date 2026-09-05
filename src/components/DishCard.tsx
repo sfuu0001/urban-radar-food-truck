@@ -20,6 +20,8 @@ interface DishCardProps {
   deliveryRadiusKm?: number;
   currentDistanceKm?: number;
   onOutOfRangeClick?: () => void;
+  className?: string;
+  style?: React.CSSProperties;
 }
 
 export const DishCard: React.FC<DishCardProps> = ({
@@ -34,7 +36,9 @@ export const DishCard: React.FC<DishCardProps> = ({
   isOutOfRange = false,
   deliveryRadiusKm = 3.0,
   currentDistanceKm = 0.65,
-  onOutOfRangeClick
+  onOutOfRangeClick,
+  className,
+  style
 }) => {
   const { simulatedOutOfStockDishIds } = useDevSimulation();
   const isSimulatedStockOut = simulatedOutOfStockDishIds.includes(dish.id);
@@ -127,7 +131,8 @@ export const DishCard: React.FC<DishCardProps> = ({
           : isOutOfRange
           ? 'hover:shadow-sm'
           : 'opacity-70 bg-neutral-50/70'
-      }`}
+      } ${className || ''}`}
+      style={style}
     >
       {/* Multi-Select Checkbox overlay */}
       {!isOutOfRange && (

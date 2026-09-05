@@ -12,6 +12,7 @@ import {
   LayoutGrid,
   Grid2X2,
   List,
+  Menu,
   ChevronDown,
   ChevronUp,
   Tag,
@@ -818,76 +819,51 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         )}
       </AnimatePresence>
 
-      {/* 4. Search & Action Bar (全新设计: 左侧圆角四方格按钮 + 右侧胶囊圆角搜索栏) */}
+      {/* 4. Search & Action Bar (新设计: 左侧双联视图切换 [网格/列表] + 右侧带星标推杆搜索栏) */}
       <section className="flex items-center gap-2 sm:gap-2.5 relative w-full">
-        {/* View Mode Switcher Button (左侧独立圆角微投影方块按钮) */}
+        {/* View Mode Segmented Box: [ ⊞ | ☰ ] */}
         {onViewModeChange && (
-          <motion.button
-            type="button"
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => {
-              if (viewMode === 'grid2') {
-                onViewModeChange('grid');
-              } else if (viewMode === 'grid') {
-                onViewModeChange('list');
-              } else {
-                onViewModeChange('grid2');
-              }
-            }}
-            className="w-10 h-10 sm:w-11 sm:h-11 rounded-none bg-white border border-[#D3D1CB] shadow-2xs flex items-center justify-center transition-all cursor-pointer shrink-0 select-none hover:bg-neutral-50 active:bg-neutral-100"
-            title={
-              viewMode === 'grid2'
-                ? '当前：双列网格(一行2个) - 点击切换为大图'
-                : viewMode === 'grid'
-                ? '当前：大图卡片 - 点击切换为单列列表'
-                : '当前：单列列表 - 点击切换为双列网格'
-            }
-          >
-            <LayoutGrid className="w-5 h-5 text-[#2d3139]" />
-          </motion.button>
+          <div className="flex items-center border border-[#D3D1CB] bg-white h-9 sm:h-9.5 rounded-none overflow-hidden shrink-0 shadow-2xs">
+            {/* Grid View (⊞) */}
+            <button
+              type="button"
+              onClick={() => {
+                if (viewMode === 'list') {
+                  onViewModeChange('grid2');
+                } else if (viewMode === 'grid2') {
+                  onViewModeChange('grid');
+                } else {
+                  onViewModeChange('grid2');
+                }
+              }}
+              className={`w-9 h-9 sm:w-9.5 sm:h-9.5 flex items-center justify-center transition-colors cursor-pointer select-none border-r border-[#D3D1CB] ${
+                viewMode !== 'list'
+                  ? 'bg-[#1a1c1b] text-white'
+                  : 'bg-white text-[#2d3139] hover:bg-neutral-50'
+              }`}
+              title={viewMode === 'grid' ? '当前：大图卡片 (点击切换双列网格)' : '网格视图'}
+            >
+              <LayoutGrid className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+            </button>
+
+            {/* List View (☰) */}
+            <button
+              type="button"
+              onClick={() => onViewModeChange('list')}
+              className={`w-9 h-9 sm:w-9.5 sm:h-9.5 flex items-center justify-center transition-colors cursor-pointer select-none ${
+                viewMode === 'list'
+                  ? 'bg-[#1a1c1b] text-white'
+                  : 'bg-white text-[#2d3139] hover:bg-neutral-50'
+              }`}
+              title="单列列表视图"
+            >
+              <Menu className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+            </button>
+          </div>
         )}
 
-        {/* 菜品多选/批量自选按钮 (不自动全选，让用户自己挑选) */}
-        <motion.button
-          type="button"
-          id="btn-dish-cards-select-all"
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => {
-            onToggleMultiSelectMode();
-          }}
-          className={`h-10 sm:h-11 px-2.5 sm:px-3 rounded-none border shadow-2xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0 select-none ${
-            isMultiSelectMode
-              ? selectedCount > 0
-                ? 'bg-neutral-950 text-white border-neutral-900 ring-1 ring-neutral-900/30'
-                : 'bg-neutral-100 text-neutral-900 border-neutral-300 ring-1 ring-neutral-300/40'
-              : 'bg-white text-[#2d3139] border-[#e2e4e8] hover:bg-neutral-50 hover:border-neutral-300'
-          }`}
-          title={
-            isMultiSelectMode
-              ? selectedCount > 0
-                ? `已自选 ${selectedCount} 款菜品，点击退出并清空自选`
-                : '已进入多选模式，请在菜品卡片上自主点击勾选'
-              : '开启多选自选模式，由您自主勾选菜品卡片'
-          }
-        >
-          {isMultiSelectMode ? (
-            <CheckSquare className={`w-4 h-4 sm:w-4.5 sm:h-4.5 ${selectedCount > 0 ? 'text-white' : 'text-amber-800'}`} />
-          ) : (
-            <SquareCheck className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-[#2d3139]" />
-          )}
-          <span className="text-xs font-bold whitespace-nowrap hidden xs:inline">
-            {isMultiSelectMode
-              ? selectedCount > 0
-                ? `已自选(${selectedCount})`
-                : '自选模式'
-              : '多选菜品'}
-          </span>
-        </motion.button>
-
-        {/* Pill Search Bar (右侧圆角胶囊搜索框) */}
-        <div className="relative flex-1 flex items-center h-10 sm:h-11 rounded-none bg-white border border-[#D3D1CB] px-3.5 sm:px-4 min-w-0 transition-all focus-within:border-neutral-500">
+        {/* Search Bar matching Image 2 */}
+        <div className="relative flex-1 flex items-center h-9 sm:h-9.5 rounded-none bg-white border border-[#D3D1CB] px-2.5 sm:px-3 min-w-0 transition-all focus-within:border-neutral-700 shadow-2xs">
           <Search className="w-4 h-4 text-[#9ca3af] shrink-0 pointer-events-none" />
           <input
             type="text"
@@ -898,54 +874,47 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               setIsSearchDropdownOpen(true);
             }}
             placeholder="搜索菜品、食材、炭烤、和牛..."
-            className="w-full pl-2.5 pr-2 bg-transparent text-[13px] sm:text-sm outline-none transition-all placeholder:text-[#9ca3af] text-[#1f2937] font-normal"
+            className="w-full pl-2 sm:pl-2.5 pr-2 bg-transparent text-[13px] sm:text-sm outline-none transition-all placeholder:text-[#9ca3af] text-[#1f2937] font-normal"
           />
 
           {/* Right Action Cluster inside Search Bar: Star | Sliders */}
-          <div className="flex items-center gap-2 shrink-0 select-none">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 select-none">
             {searchQuery && (
-              <motion.button
+              <button
                 type="button"
-                whileTap={{ scale: 0.85 }}
                 onClick={() => onSearchChange('')}
                 className="text-neutral-400 hover:text-black p-0.5 rounded-full transition-colors cursor-pointer"
                 title="清空搜索"
               >
                 <X className="w-3.5 h-3.5" />
-              </motion.button>
+              </button>
             )}
 
             {/* Star Icon Button (热门推荐与风向榜) */}
-            <motion.button
+            <button
               type="button"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
               onClick={() => setIsSearchDropdownOpen(!isSearchDropdownOpen)}
-              className={`transition-all cursor-pointer flex items-center justify-center p-1 rounded-full ${
-                isSearchDropdownOpen ? 'bg-neutral-200 text-neutral-900 ring-1 ring-neutral-300' : 'text-neutral-500 hover:text-neutral-800'
-              }`}
+              className="transition-transform cursor-pointer flex items-center justify-center p-0.5 hover:scale-110"
               title="查看热门榜单与精选"
             >
               <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-            </motion.button>
+            </button>
 
             {/* Vertical Divider */}
             <div className="w-[1px] h-3.5 bg-[#d1d5db]" />
 
             {/* Filter Sliders Button (垂直调节推杆图标) */}
-            <motion.button
+            <button
               type="button"
-              whileHover={{ scale: 1.08 }}
-              whileTap={{ scale: 0.92 }}
               onClick={onOpenFilterModal}
-              className="text-[#4b5563] hover:text-black transition-colors cursor-pointer flex items-center justify-center relative"
+              className="text-[#4b5563] hover:text-black transition-colors cursor-pointer flex items-center justify-center relative p-0.5"
               title="高级筛选器"
             >
               <Sliders className="w-4 h-4 text-[#4b5563]" />
               {activeFilterCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 border border-white shadow-xs" />
+                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500 border border-white" />
               )}
-            </motion.button>
+            </button>
           </div>
         </div>
 
