@@ -101,12 +101,12 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="bg-white rounded-lg border border-[#e3e2e0] p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white rounded-lg border border-[#e3e2e0] p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <UserCheck className="w-5 h-5 text-amber-600" />
-            <h2 className="text-lg font-bold text-[#37352f]">员工花名册与岗位权限矩阵 (RBAC)</h2>
-            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold rounded">
+          <div className="flex items-center gap-2 flex-wrap">
+            <UserCheck className="w-5 h-5 text-amber-600 shrink-0" />
+            <h2 className="text-base sm:text-lg font-bold text-[#37352f]">员工花名册与岗位权限矩阵 (RBAC)</h2>
+            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold rounded shrink-0">
               在职员工 {staffList.length} 人 ({staffList.filter(s => s.status === 'active').length} 人在岗)
             </span>
           </div>
@@ -115,7 +115,7 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={() => setIsAddModalOpen(true)}
@@ -170,7 +170,7 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
 
       {/* Sub Tabs */}
       <div className="bg-white rounded-lg border border-[#e3e2e0] p-3.5 sm:p-4 space-y-4">
-        <div className="flex items-center gap-1 pb-3 border-b border-[#e3e2e0] overflow-x-auto no-scrollbar flex-nowrap max-w-full">
+        <div className="flex items-center gap-1 pb-3 border-b border-[#e3e2e0] overflow-x-auto no-scrollbar flex-wrap">
           <button
             type="button"
             onClick={() => setActiveTab('roster')}
@@ -178,7 +178,8 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
               activeTab === 'roster' ? 'bg-[#37352f] text-white' : 'text-[#787774] hover:bg-[#f7f7f5]'
             }`}
           >
-            员工档案与考勤 ({staffList.length})
+            <span className="hidden sm:inline">员工档案与考勤 ({staffList.length})</span>
+            <span className="sm:hidden">员工考勤 ({staffList.length})</span>
           </button>
           <button
             type="button"
@@ -187,83 +188,160 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
               activeTab === 'rbac' ? 'bg-[#37352f] text-white' : 'text-[#787774] hover:bg-[#f7f7f5]'
             }`}
           >
-            岗位角色权限矩阵 (RBAC)
+            <span className="hidden sm:inline">岗位角色权限矩阵 (RBAC)</span>
+            <span className="sm:hidden">权限矩阵</span>
           </button>
         </div>
 
-        {/* 1. Staff Roster Table */}
+        {/* 1. Staff Roster Table & Responsive Cards */}
         {activeTab === 'roster' && (
-          <div className="overflow-x-auto -mx-3.5 px-3.5 sm:mx-0 sm:px-0">
-            <table className="w-full text-xs text-left min-w-[640px]">
-              <thead className="bg-[#f7f7f5] text-[#787774] font-medium border-y border-[#e3e2e0]">
-                <tr>
-                  <th className="py-2.5 px-3">工号 / 姓名</th>
-                  <th className="py-2.5 px-3">岗位角色</th>
-                  <th className="py-2.5 px-3">联系电话</th>
-                  <th className="py-2.5 px-3">考勤状态</th>
-                  <th className="py-2.5 px-3">今日工时</th>
-                  <th className="py-2.5 px-3 text-right">本月业绩</th>
-                  <th className="py-2.5 px-3 text-right">本月提成</th>
-                  <th className="py-2.5 px-3 text-right">考勤操作</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#f1f1ef]">
-                {staffList.map(staff => (
-                  <tr key={staff.id} className="hover:bg-[#fbfbfa]">
-                    <td className="py-3 px-3">
-                      <div className="font-bold text-[#37352f]">{staff.name}</div>
-                      <span className="text-[11px] font-mono text-[#787774]">{staff.staffNo}</span>
-                    </td>
-                    <td className="py-3 px-3">
-                      <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${
-                        staff.role === 'manager'
-                          ? 'bg-purple-50 text-purple-900 border-purple-200'
-                          : staff.role === 'cashier'
-                          ? 'bg-blue-50 text-blue-900 border-blue-200'
-                          : staff.role === 'grill_chef'
-                          ? 'bg-amber-50 text-amber-900 border-amber-200'
-                          : staff.role === 'barista'
-                          ? 'bg-cyan-50 text-cyan-900 border-cyan-200'
-                          : 'bg-emerald-50 text-emerald-900 border-emerald-200'
-                      }`}>
-                        {staff.roleTitle}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 font-mono text-[#37352f]">{staff.phone}</td>
-                    <td className="py-3 px-3">
-                      <span className={`px-2 py-0.5 rounded text-[11px] font-semibold inline-flex items-center gap-1 ${
+          <div>
+            {/* Mobile / Tablet Cards (< md) */}
+            <div className="md:hidden space-y-2.5">
+              {staffList.map(staff => (
+                <div
+                  key={staff.id}
+                  className="p-3 bg-white border border-[#e3e2e0] rounded-lg space-y-2.5 shadow-2xs"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-sm text-[#37352f]">{staff.name}</span>
+                        <span className={`px-1.5 py-0.2 rounded text-[10px] font-semibold border ${
+                          staff.role === 'manager'
+                            ? 'bg-purple-50 text-purple-900 border-purple-200'
+                            : staff.role === 'cashier'
+                            ? 'bg-blue-50 text-blue-900 border-blue-200'
+                            : staff.role === 'grill_chef'
+                            ? 'bg-amber-50 text-amber-900 border-amber-200'
+                            : staff.role === 'barista'
+                            ? 'bg-cyan-50 text-cyan-900 border-cyan-200'
+                            : 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                        }`}>
+                          {staff.roleTitle}
+                        </span>
+                      </div>
+                      <div className="text-[11px] font-mono text-[#787774] mt-0.5">
+                        工号: {staff.staffNo} · 手机: {staff.phone}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleToggleClockIn(staff.id)}
+                      className={`px-2.5 py-1 rounded text-xs font-semibold cursor-pointer border transition-colors shrink-0 ${
                         staff.status === 'active'
-                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                          : 'bg-neutral-100 text-neutral-600 border border-neutral-300'
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${staff.status === 'active' ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-400'}`}></span>
-                        {staff.status === 'active' ? `在岗 (${staff.shiftStart} 上班)` : '已打烊/休假'}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 font-mono text-[#37352f]">{staff.workHoursToday} 小时</td>
-                    <td className="py-3 px-3 text-right font-mono text-[#37352f]">
-                      {staff.monthlySales > 0 ? `¥${staff.monthlySales.toLocaleString()}` : '-'}
-                    </td>
-                    <td className="py-3 px-3 text-right font-bold text-amber-700 font-mono">
-                      ¥{staff.monthlyCommission.toLocaleString()}
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleClockIn(staff.id)}
-                        className={`px-2.5 py-1 rounded text-xs font-semibold cursor-pointer border transition-colors ${
-                          staff.status === 'active'
-                            ? 'bg-[#f7f7f5] hover:bg-[#e3e2e0] text-[#787774] border-[#d3d1cb]'
-                            : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
-                        }`}
-                      >
-                        {staff.status === 'active' ? '签退下班' : '打卡上班'}
-                      </button>
-                    </td>
+                          ? 'bg-[#f7f7f5] hover:bg-[#e3e2e0] text-[#787774] border-[#d3d1cb]'
+                          : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
+                      }`}
+                    >
+                      {staff.status === 'active' ? '签退下班' : '打卡上班'}
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-1.5 p-2 bg-[#fafaf8] rounded border border-neutral-100 text-center">
+                    <div>
+                      <div className="text-[10px] text-[#787774]">考勤状态</div>
+                      <div className="text-xs font-bold text-neutral-800 mt-0.5">
+                        {staff.status === 'active' ? '在岗' : '已打烊'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-[#787774]">今日工时</div>
+                      <div className="font-mono text-xs text-[#37352f] font-semibold mt-0.5">
+                        {staff.workHoursToday}h
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-[#787774]">本月业绩</div>
+                      <div className="font-mono text-xs text-[#787774] mt-0.5">
+                        {staff.monthlySales > 0 ? `¥${(staff.monthlySales / 1000).toFixed(1)}k` : '-'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-[#787774]">本月提成</div>
+                      <div className="font-mono text-xs font-bold text-amber-700 mt-0.5">
+                        ¥{staff.monthlyCommission}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table (>= md) */}
+            <div className="hidden md:block overflow-x-auto -mx-3.5 px-3.5 sm:mx-0 sm:px-0">
+              <table className="w-full text-xs text-left min-w-[640px]">
+                <thead className="bg-[#f7f7f5] text-[#787774] font-medium border-y border-[#e3e2e0]">
+                  <tr>
+                    <th className="py-2.5 px-3">工号 / 姓名</th>
+                    <th className="py-2.5 px-3">岗位角色</th>
+                    <th className="py-2.5 px-3">联系电话</th>
+                    <th className="py-2.5 px-3">考勤状态</th>
+                    <th className="py-2.5 px-3">今日工时</th>
+                    <th className="py-2.5 px-3 text-right">本月业绩</th>
+                    <th className="py-2.5 px-3 text-right">本月提成</th>
+                    <th className="py-2.5 px-3 text-right">考勤操作</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-[#f1f1ef]">
+                  {staffList.map(staff => (
+                    <tr key={staff.id} className="hover:bg-[#fbfbfa]">
+                      <td className="py-3 px-3">
+                        <div className="font-bold text-[#37352f]">{staff.name}</div>
+                        <span className="text-[11px] font-mono text-[#787774]">{staff.staffNo}</span>
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${
+                          staff.role === 'manager'
+                            ? 'bg-purple-50 text-purple-900 border-purple-200'
+                            : staff.role === 'cashier'
+                            ? 'bg-blue-50 text-blue-900 border-blue-200'
+                            : staff.role === 'grill_chef'
+                            ? 'bg-amber-50 text-amber-900 border-amber-200'
+                            : staff.role === 'barista'
+                            ? 'bg-cyan-50 text-cyan-900 border-cyan-200'
+                            : 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                        }`}>
+                          {staff.roleTitle}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 font-mono text-[#37352f]">{staff.phone}</td>
+                      <td className="py-3 px-3">
+                        <span className={`px-2 py-0.5 rounded text-[11px] font-semibold inline-flex items-center gap-1 ${
+                          staff.status === 'active'
+                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                            : 'bg-neutral-100 text-neutral-600 border border-neutral-300'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${staff.status === 'active' ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-400'}`}></span>
+                          {staff.status === 'active' ? `在岗 (${staff.shiftStart} 上班)` : '已打烊/休假'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 font-mono text-[#37352f]">{staff.workHoursToday} 小时</td>
+                      <td className="py-3 px-3 text-right font-mono text-[#37352f]">
+                        {staff.monthlySales > 0 ? `¥${staff.monthlySales.toLocaleString()}` : '-'}
+                      </td>
+                      <td className="py-3 px-3 text-right font-bold text-amber-700 font-mono">
+                        ¥{staff.monthlyCommission.toLocaleString()}
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleClockIn(staff.id)}
+                          className={`px-2.5 py-1 rounded text-xs font-semibold cursor-pointer border transition-colors ${
+                            staff.status === 'active'
+                              ? 'bg-[#f7f7f5] hover:bg-[#e3e2e0] text-[#787774] border-[#d3d1cb]'
+                              : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
+                          }`}
+                        >
+                          {staff.status === 'active' ? '签退下班' : '打卡上班'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -274,7 +352,44 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
               精细化权限矩阵：不同角色仅可访问授权范围内的功能模块，敏感财务数据（如毛利成本、折扣审批、退款审核）仅店长可支配。
             </p>
 
-            <div className="overflow-x-auto border border-[#e3e2e0] rounded-lg -mx-3.5 sm:mx-0">
+            {/* Mobile / Tablet Accordion Card View (< md) */}
+            <div className="md:hidden space-y-2">
+              {[
+                { name: '堂食台位开台 / 加菜点单', mgr: true, pos: true, grill: false, bar: false, rider: false },
+                { name: '收银结账 / 储值扣减 / 小票打印', mgr: true, pos: true, grill: false, bar: false, rider: false },
+                { name: 'KDS 后厨出品看板与划单', mgr: true, pos: false, grill: true, bar: true, rider: false },
+                { name: '菜品价格与外卖折扣调整', mgr: true, pos: false, grill: false, bar: false, rider: false },
+                { name: '整单退款与非退款风控审批', mgr: true, pos: false, grill: false, bar: false, rider: false },
+                { name: '配方标准 SOP 与物料初加工', mgr: true, pos: false, grill: true, bar: true, rider: false },
+                { name: '每日打烊盘点与损耗登记', mgr: true, pos: true, grill: true, bar: false, rider: false },
+                { name: '查看经营净利润与数据报表导出', mgr: true, pos: false, grill: false, bar: false, rider: false },
+                { name: '专送骑手接单与配送轨迹同步', mgr: true, pos: false, grill: false, bar: false, rider: true }
+              ].map((row, idx) => (
+                <div key={idx} className="p-3 bg-white border border-[#e3e2e0] rounded-lg space-y-2 shadow-2xs">
+                  <div className="font-bold text-xs text-[#37352f]">{row.name}</div>
+                  <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                    <span className={`px-1.5 py-0.5 rounded border font-medium ${row.mgr ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-neutral-50 text-neutral-400 border-neutral-200 line-through'}`}>
+                      店长
+                    </span>
+                    <span className={`px-1.5 py-0.5 rounded border font-medium ${row.pos ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-neutral-50 text-neutral-400 border-neutral-200 line-through'}`}>
+                      前台收银
+                    </span>
+                    <span className={`px-1.5 py-0.5 rounded border font-medium ${row.grill ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-neutral-50 text-neutral-400 border-neutral-200 line-through'}`}>
+                      炭烤主厨
+                    </span>
+                    <span className={`px-1.5 py-0.5 rounded border font-medium ${row.bar ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-neutral-50 text-neutral-400 border-neutral-200 line-through'}`}>
+                      水吧
+                    </span>
+                    <span className={`px-1.5 py-0.5 rounded border font-medium ${row.rider ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-neutral-50 text-neutral-400 border-neutral-200 line-through'}`}>
+                      专送骑手
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table (>= md) */}
+            <div className="hidden md:block overflow-x-auto border border-[#e3e2e0] rounded-lg -mx-3.5 sm:mx-0">
               <table className="w-full text-xs text-left min-w-[580px]">
                 <thead className="bg-[#f7f7f5] text-[#37352f] font-bold border-b border-[#e3e2e0]">
                   <tr>

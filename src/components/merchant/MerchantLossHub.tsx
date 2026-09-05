@@ -196,18 +196,21 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
 
       {/* 2. Sub-tab Controller */}
       <div className="bg-white p-2 rounded-[3px] border border-[#e6e6e4] flex items-center justify-between gap-2 flex-wrap shadow-2xs">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <button
             type="button"
             onClick={() => setSubTab('processing')}
-            className={`px-3 py-1.5 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
               subTab === 'processing'
                 ? 'bg-[#37352f] text-white shadow-xs'
                 : 'bg-[#f1f1ef] text-[#5a5854] hover:bg-[#e8e8e6]'
             }`}
           >
             <Scissors className="w-3.5 h-3.5" />
-            <span>初加工出成率核算 (Processing Loss)</span>
+            <span>
+              <span className="sm:hidden">初加工核算</span>
+              <span className="hidden sm:inline">初加工出成率核算 (Processing)</span>
+            </span>
             <span className="font-mono text-[10px] bg-black/20 px-1 rounded">
               {processingRecords.length}
             </span>
@@ -216,14 +219,17 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
           <button
             type="button"
             onClick={() => setSubTab('tracking')}
-            className={`px-3 py-1.5 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
               subTab === 'tracking'
                 ? 'bg-[#37352f] text-white shadow-xs'
                 : 'bg-[#f1f1ef] text-[#5a5854] hover:bg-[#e8e8e6]'
             }`}
           >
             <Flame className="w-3.5 h-3.5 text-[#d9730d]" />
-            <span>全维度报损登记 (Loss Tracking)</span>
+            <span>
+              <span className="sm:hidden">报损登记</span>
+              <span className="hidden sm:inline">全维度报损登记 (Tracking)</span>
+            </span>
             <span className="font-mono text-[10px] bg-black/20 px-1 rounded">
               {lossRecords.length}
             </span>
@@ -238,7 +244,7 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
               className="px-3 py-1.5 bg-[#2b593f] hover:bg-[#204430] text-white rounded-[3px] font-semibold text-xs flex items-center gap-1 cursor-pointer shadow-2xs"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>录入初加工记录</span>
+              <span>录入记录</span>
             </button>
           ) : (
             <button
@@ -247,7 +253,7 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
               className="px-3 py-1.5 bg-[#d9730d] hover:bg-[#b55f0a] text-white rounded-[3px] font-semibold text-xs flex items-center gap-1 cursor-pointer shadow-2xs"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>登记报损单</span>
+              <span>登记报损</span>
             </button>
           )}
         </div>
@@ -518,7 +524,96 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
             </span>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Mobile Card List (< md) */}
+          <div className="md:hidden divide-y divide-[#efefed]">
+            {processingRecords.map((r) => {
+              const yieldPct = (r.yieldRate * 100).toFixed(1);
+              const stdPct = (r.standardRate * 100).toFixed(1);
+              const diffPct = ((r.yieldRate - r.standardRate) * 100).toFixed(1);
+
+              return (
+                <div key={r.id} className="p-3 space-y-2 hover:bg-[#fbfbfa]">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <span className="font-semibold text-xs text-[#37352f] block">{r.materialName}</span>
+                      <div className="flex items-center gap-1.5 text-[10px] text-[#787774]">
+                        <span className="font-mono">{r.id}</span>
+                        <span>·</span>
+                        <span>{r.date}</span>
+                        <span>·</span>
+                        <span>{r.category}</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span
+                        className={`font-mono font-bold text-sm block ${
+                          r.status === 'critical'
+                            ? 'text-[#d44333]'
+                            : r.status === 'warning'
+                            ? 'text-[#d9730d]'
+                            : 'text-[#2b593f]'
+                        }`}
+                      >
+                        {yieldPct}%
+                      </span>
+                      <span
+                        className={`text-[9.5px] font-mono ${
+                          parseFloat(diffPct) < 0 ? 'text-[#d44333]' : 'text-[#2b593f]'
+                        }`}
+                      >
+                        {parseFloat(diffPct) > 0 ? `+${diffPct}` : diffPct}% (标:{stdPct}%)
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-[#f7f7f5] rounded p-2 text-[11px] flex items-center justify-between font-mono">
+                    <div>
+                      <span className="text-[#787774]">毛料 {r.grossWeight}kg</span>
+                      <span className="text-[#37352f] font-bold mx-1">$\to$</span>
+                      <span className="text-[#2b593f] font-bold">净料 {r.netWeight}kg</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[#37352f] font-bold">- {r.lossKg}kg</span>
+                      <span className="text-[#d9730d] ml-1">(-¥{r.lossAmount.toFixed(1)})</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[10.5px]">
+                    <span className="text-[#5a5854] flex items-center gap-1">
+                      <User className="w-3 h-3 text-[#787774]" />
+                      <span>{r.operator}</span>
+                    </span>
+                    <div>
+                      {r.status === 'normal' && (
+                        <span className="text-[10px] bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc] px-1.5 py-0.2 rounded font-bold">
+                          合格
+                        </span>
+                      )}
+                      {r.status === 'warning' && (
+                        <span className="text-[10px] bg-[#fbf3db] text-[#8f6412] border border-[#ecd9a8] px-1.5 py-0.2 rounded font-bold">
+                          关注
+                        </span>
+                      )}
+                      {r.status === 'critical' && (
+                        <span className="text-[10px] bg-[#fde8e8] text-[#d44333] border border-[#f8b4b4] px-1.5 py-0.2 rounded font-bold">
+                          超标预警
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {r.lossReason && (
+                    <p className="text-[10.5px] text-[#787774] bg-white border border-[#efefed] rounded p-1.5">
+                      {r.lossReason}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Desktop Table (>= md) */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b border-[#e6e6e4] bg-[#fbfbfa] text-[#787774] text-[10.5px]">
@@ -641,7 +736,57 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
             </span>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Mobile Card List (< md) */}
+          <div className="md:hidden divide-y divide-[#efefed]">
+            {lossRecords.map((l) => (
+              <div key={l.id} className="p-3 space-y-2 hover:bg-[#fbfbfa]">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-1">
+                      <span className="font-semibold text-xs text-[#37352f]">{l.itemName}</span>
+                      {l.isFromRefund && (
+                        <span className="text-[9px] bg-[#fde8e8] text-[#d44333] px-1 rounded">
+                          退菜联动
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[10px] text-[#787774] mt-0.5">
+                      <span className="font-mono">{l.id}</span>
+                      <span>·</span>
+                      <span>{l.date}</span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-mono font-bold text-sm text-[#d44333] block">
+                      ¥{l.estimatedCost.toFixed(2)}
+                    </span>
+                    <span className="font-mono text-[10.5px] text-[#37352f]">
+                      {l.quantity} {l.unit}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[10.5px]">
+                  <span className="bg-[#f1f1ef] text-[#37352f] px-1.5 py-0.5 rounded border border-[#e6e6e4] font-medium">
+                    {l.categoryLabel} ({l.station === 'grill' ? '烧烤档' : l.station === 'cold' ? '生鲜档' : '水吧小吃'})
+                  </span>
+                  <span className="flex items-center gap-1 text-[#37352f]">
+                    <User className="w-3 h-3 text-[#787774]" />
+                    <span>{l.responsiblePerson}</span>
+                  </span>
+                </div>
+
+                {l.reason && (
+                  <p className="text-[10.5px] text-[#5a5854] bg-[#f7f7f5] rounded p-2">
+                    {l.reason}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Table (>= md) */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b border-[#e6e6e4] bg-[#fbfbfa] text-[#787774] text-[10.5px]">

@@ -285,9 +285,9 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
     <div className="space-y-3.5 text-xs">
       {/* Top Filter & Search Bar */}
       <div className="bg-white p-2.5 sm:p-3 rounded-[3px] border border-[#e6e6e4] flex items-center justify-between gap-3 flex-wrap lg:flex-nowrap shadow-2xs">
-        <div className="flex items-center gap-2.5 flex-1 min-w-[280px] flex-wrap sm:flex-nowrap">
+        <div className="flex items-center gap-2 sm:gap-2.5 flex-1 w-full sm:w-auto min-w-0 flex-wrap sm:flex-nowrap">
           {/* Zone Dropdown Selector */}
-          <div className="relative" ref={zoneDropdownRef}>
+          <div className="relative shrink-0" ref={zoneDropdownRef}>
             <div className="flex items-center gap-1.5">
               <span className="font-semibold text-[#787774] shrink-0 text-xs">台区:</span>
               <button
@@ -350,7 +350,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
           </div>
 
           {/* Search Input for OrderNo, Table Code, Dish Name */}
-          <div className="relative flex-1 min-w-[200px] max-w-md">
+          <div className="relative flex-1 min-w-0 w-full sm:w-auto max-w-md">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#787774]" />
             <input
               type="text"
@@ -372,30 +372,32 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
           </div>
         </div>
 
-        {/* 4 Status Legends */}
-        <div className="flex items-center gap-2.5 sm:gap-3 text-[11px] text-[#787774] overflow-x-auto hide-scrollbar flex-nowrap shrink-0">
-          <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-            <span className="w-2 h-2 rounded-full bg-[#4dab63]" />
-            <span>空闲 ({idleCount})</span>
-          </span>
-          <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-            <span className="w-2 h-2 rounded-full bg-[#37352f]" />
-            <span>就餐中 ({diningCount})</span>
-          </span>
-          <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-            <span className="w-2 h-2 rounded-full bg-[#d9730d]" />
-            <span>清洁中 ({cleaningCount})</span>
-          </span>
-          <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-            <span className="w-2 h-2 rounded-full bg-[#2383e2]" />
-            <span>已预订 ({reservedCount})</span>
-          </span>
+        {/* 4 Status Legends & Batch Print Button */}
+        <div className="flex items-center gap-2 sm:gap-3 text-[11px] text-[#787774] flex-wrap sm:flex-nowrap w-full lg:w-auto justify-between sm:justify-start">
+          <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap overflow-x-auto hide-scrollbar">
+            <span className="flex items-center gap-1 whitespace-nowrap">
+              <span className="w-2 h-2 rounded-full bg-[#4dab63]" />
+              <span>空闲 ({idleCount})</span>
+            </span>
+            <span className="flex items-center gap-1 whitespace-nowrap">
+              <span className="w-2 h-2 rounded-full bg-[#37352f]" />
+              <span>就餐中 ({diningCount})</span>
+            </span>
+            <span className="flex items-center gap-1 whitespace-nowrap">
+              <span className="w-2 h-2 rounded-full bg-[#d9730d]" />
+              <span>清洁中 ({cleaningCount})</span>
+            </span>
+            <span className="flex items-center gap-1 whitespace-nowrap">
+              <span className="w-2 h-2 rounded-full bg-[#2383e2]" />
+              <span>已预订 ({reservedCount})</span>
+            </span>
+          </div>
 
           {/* Batch Print Table Stand QR Button */}
           <button
             type="button"
             onClick={() => setIsBatchPrintModalOpen(true)}
-            className="px-2.5 py-1.5 bg-[#2b593f] hover:bg-[#204430] text-white rounded-[3px] font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs whitespace-nowrap ml-auto"
+            className="px-2.5 py-1.5 bg-[#2b593f] hover:bg-[#204430] text-white rounded-[3px] font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs whitespace-nowrap sm:ml-auto"
             title="生成并打印所有桌台亚克力立牌二维码"
           >
             <QrCode className="w-3.5 h-3.5" />
@@ -437,7 +439,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
               </div>
 
               {/* Center & Right: Auto-Transfer Toggle & Add Button */}
-              <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap shrink-0">
+              <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap sm:flex-nowrap w-full sm:w-auto justify-between sm:justify-end">
                 {/* Auto Transfer Toggle */}
                 <div
                   className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#f7f7f5] hover:bg-[#efefed] border border-[#d3d1cb] rounded-[3px] cursor-pointer transition-colors"

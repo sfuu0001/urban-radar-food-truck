@@ -824,9 +824,77 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
           })}
         </div>
       ) : (
-        /* Mode B: Full 10-Column Purchase Flow Table */
+        /* Mode B: Full 10-Column Purchase Flow Table with Mobile Cards */
         <div className="bg-white rounded-[3px] border border-[#e2e8f0] shadow-2xs overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Mobile Card Layout (< md) */}
+          <div className="md:hidden divide-y divide-[#e2e8f0]">
+            {purchaseRecords.map((rec) => (
+              <div key={rec.id} className="p-3 space-y-2 hover:bg-[#f8fafc]/70 transition-colors">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-mono text-[10px] text-[#64748b] bg-[#f1f5f9] px-1.5 py-0.2 rounded-[2px]">
+                        {rec.purchaseNo}
+                      </span>
+                      <span className="px-1.5 py-0.2 rounded-[2px] bg-blue-50 text-blue-700 text-[10px] font-medium">
+                        {rec.category}
+                      </span>
+                    </div>
+                    <h4 className="font-bold text-xs text-[#0f172a] mt-1">{rec.itemName}</h4>
+                  </div>
+                  <div>
+                    {rec.status === 'completed' && (
+                      <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-[2px] text-[10px] font-semibold">
+                        已入库
+                      </span>
+                    )}
+                    {rec.status === 'in_transit' && (
+                      <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-[2px] text-[10px] font-semibold flex items-center gap-1">
+                        <Truck className="w-2.5 h-2.5" />
+                        <span>在途冷链</span>
+                      </span>
+                    )}
+                    {rec.status === 'pending_approval' && (
+                      <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-[2px] text-[10px] font-semibold">
+                        待审核
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 bg-[#f8fafc] p-2 rounded-[2px] border border-[#f1f5f9] text-[11px]">
+                  <div>
+                    <span className="text-[#64748b]">采购数量: </span>
+                    <strong className="font-mono text-[#0f172a]">{rec.quantity} {rec.unit}</strong>
+                    <span className="text-[#64748b] text-[10px] block">单价: ¥{rec.unitPrice.toFixed(2)}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[#64748b]">订单总额: </span>
+                    <div className="font-mono font-bold text-xs text-[#16a34a]">
+                      ¥{rec.totalAmount.toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] text-[#64748b] pt-0.5">
+                  <div className="truncate max-w-[170px]">供应商: {rec.supplier}</div>
+                  <div>采买: {rec.buyer} · {rec.timestamp}</div>
+                </div>
+              </div>
+            ))}
+
+            {/* Mobile Footer Total */}
+            <div className="p-3 bg-[#f8fafc] border-t border-[#e2e8f0] flex items-center justify-between text-xs font-bold text-[#0f172a]">
+              <span>全量共 {purchaseRecords.length} 笔订单</span>
+              <div className="text-right">
+                <span className="text-[11px] text-[#64748b] font-normal mr-1.5">总采购支出:</span>
+                <span className="font-mono text-sm text-[#16a34a]">¥{totalSpend.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop Table (>= md) */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-[#f8fafc] text-[#64748b] border-b border-[#e2e8f0] font-semibold">
                 <tr>

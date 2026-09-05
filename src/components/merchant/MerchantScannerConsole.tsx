@@ -188,54 +188,58 @@ export const MerchantScannerConsole: React.FC<MerchantScannerConsoleProps> = ({
       {/* Main Container with Sub Tabs */}
       <div className="bg-white rounded-[4px] border border-[#e6e6e4] shadow-xs overflow-hidden">
         {/* Navigation Tabs */}
-        <div className="flex items-center gap-2 px-4 pt-3 bg-[#fafaf8] border-b border-[#e6e6e4] text-xs font-semibold overflow-x-auto">
+        <div className="flex items-center gap-1.5 px-3 sm:px-4 pt-2.5 sm:pt-3 bg-[#fafaf8] border-b border-[#e6e6e4] text-xs font-semibold overflow-x-auto no-scrollbar flex-wrap sm:flex-nowrap">
           <button
             type="button"
             onClick={() => setActiveTab('live')}
-            className={`px-4 py-2 border-b-2 transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+            className={`px-3 sm:px-4 py-1.5 sm:py-2 border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
               activeTab === 'live'
                 ? 'border-[#2b593f] text-[#2b593f] bg-white font-bold rounded-t-[3px]'
                 : 'border-transparent text-[#787774] hover:text-[#37352f]'
             }`}
           >
             <Scan className="w-4 h-4" />
-            <span>实时测试与业务联动</span>
+            <span className="hidden sm:inline">实时测试与业务联动</span>
+            <span className="sm:hidden">测试联动</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('sku_list')}
-            className={`px-4 py-2 border-b-2 transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+            className={`px-3 sm:px-4 py-1.5 sm:py-2 border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
               activeTab === 'sku_list'
                 ? 'border-[#2b593f] text-[#2b593f] bg-white font-bold rounded-t-[3px]'
                 : 'border-transparent text-[#787774] hover:text-[#37352f]'
             }`}
           >
             <ShoppingBag className="w-4 h-4" />
-            <span>商品 69 码与条码目录 ({dishes.length})</span>
+            <span className="hidden sm:inline">商品 69 码与条码目录 ({dishes.length})</span>
+            <span className="sm:hidden">条码目录 ({dishes.length})</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('history')}
-            className={`px-4 py-2 border-b-2 transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+            className={`px-3 sm:px-4 py-1.5 sm:py-2 border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
               activeTab === 'history'
                 ? 'border-[#2b593f] text-[#2b593f] bg-white font-bold rounded-t-[3px]'
                 : 'border-transparent text-[#787774] hover:text-[#37352f]'
             }`}
           >
             <RotateCcw className="w-4 h-4" />
-            <span>扫描实时流水 ({history.length})</span>
+            <span className="hidden sm:inline">扫描实时流水 ({history.length})</span>
+            <span className="sm:hidden">流水 ({history.length})</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('settings')}
-            className={`px-4 py-2 border-b-2 transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+            className={`px-3 sm:px-4 py-1.5 sm:py-2 border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
               activeTab === 'settings'
                 ? 'border-[#2b593f] text-[#2b593f] bg-white font-bold rounded-t-[3px]'
                 : 'border-transparent text-[#787774] hover:text-[#37352f]'
             }`}
           >
             <Sliders className="w-4 h-4" />
-            <span>硬件参数与音效配置</span>
+            <span className="hidden sm:inline">硬件参数与音效配置</span>
+            <span className="sm:hidden">硬件参数</span>
           </button>
         </div>
 
@@ -431,7 +435,71 @@ export const MerchantScannerConsole: React.FC<MerchantScannerConsoleProps> = ({
                 </div>
               </div>
 
-              <div className="border border-[#e6e6e4] rounded-[3px] overflow-hidden overflow-x-auto">
+              {/* Mobile / Tablet Responsive Matrix Cards (< md) */}
+              <div className="md:hidden space-y-2.5">
+                {filteredDishes.map((dish, idx) => {
+                  const code = dish.barcode || generateEan13Barcode(idx + 1);
+                  return (
+                    <div
+                      key={dish.id}
+                      className="p-3 bg-white border border-[#e6e6e4] rounded-lg space-y-2.5 shadow-2xs hover:border-[#37352f]/30 transition-all"
+                    >
+                      <div className="flex items-start justify-between gap-2.5">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <img
+                            src={dish.imageUrl}
+                            alt={dish.name}
+                            className="w-11 h-11 rounded-md object-cover border border-[#e6e6e4] shrink-0"
+                          />
+                          <div className="min-w-0">
+                            <div className="font-bold text-xs text-[#37352f] truncate">{dish.name}</div>
+                            <div className="text-[11px] text-[#787774] truncate">{dish.enName}</div>
+                            <span className="inline-block mt-0.5 bg-neutral-100 px-1.5 py-0.2 rounded text-[10px] text-neutral-700 font-medium">
+                              {dish.category}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="font-mono font-bold text-emerald-700 text-sm">
+                            ¥{dish.price.toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-neutral-100 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 bg-neutral-50 px-2 py-1 rounded border border-neutral-200 min-w-0">
+                          <span className="font-mono text-[11px] font-bold tracking-wider text-neutral-800 truncate">
+                            {code}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(code)}
+                            className="p-0.5 text-neutral-400 hover:text-neutral-700 cursor-pointer rounded shrink-0"
+                            title="复制条码"
+                          >
+                            {copiedCode === code ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleSimulate(code)}
+                          className="px-3 py-1 bg-[#2b593f]/10 hover:bg-[#2b593f] text-[#2b593f] hover:text-white rounded text-xs font-semibold transition-colors cursor-pointer shrink-0 shadow-2xs"
+                        >
+                          测试扫码
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop Table (>= md) */}
+              <div className="hidden md:block border border-[#e6e6e4] rounded-[3px] overflow-hidden overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-[600px]">
                   <thead className="bg-[#f7f7f5] text-[#787774] text-xs border-b border-[#e6e6e4]">
                     <tr>
@@ -534,16 +602,16 @@ export const MerchantScannerConsole: React.FC<MerchantScannerConsoleProps> = ({
               ) : (
                 <div className="border border-[#e6e6e4] rounded-[3px] divide-y divide-[#f1f1ef] max-h-[480px] overflow-y-auto">
                   {history.map((item, idx) => (
-                    <div key={idx} className="p-3 flex items-center justify-between gap-3 hover:bg-[#fbfbfa] transition-colors">
-                      <div className="flex items-start gap-3 min-w-0">
-                        <span className="font-mono text-xs text-[#9b9a97] mt-0.5 shrink-0">{item.timestamp}</span>
+                    <div key={idx} className="p-2.5 sm:p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 hover:bg-[#fbfbfa] transition-colors">
+                      <div className="flex items-start gap-2.5 min-w-0">
+                        <span className="font-mono text-[11px] sm:text-xs text-[#9b9a97] mt-0.5 shrink-0">{item.timestamp}</span>
                         <div className="min-w-0">
                           <div className="font-bold text-xs text-[#37352f] truncate">{item.title}</div>
-                          <div className="text-xs text-[#787774] truncate">{item.subtitle}</div>
+                          <div className="text-[11px] sm:text-xs text-[#787774] truncate">{item.subtitle}</div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        <span className="font-mono text-xs bg-neutral-100 px-2 py-0.5 rounded text-neutral-700 font-semibold border border-neutral-200">
+                      <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-neutral-100">
+                        <span className="font-mono text-[11px] sm:text-xs bg-neutral-100 px-2 py-0.5 rounded text-neutral-700 font-semibold border border-neutral-200">
                           {item.code}
                         </span>
                         <button

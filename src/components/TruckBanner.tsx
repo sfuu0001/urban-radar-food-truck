@@ -247,21 +247,21 @@ export const TruckBanner: React.FC<TruckBannerProps> = ({
         {/* Main Status & Distance Row */}
         <div className="flex items-center justify-between gap-2">
           {/* Left: Truck Icon, Name & Status Badge */}
-          <div className="flex items-center gap-2 shrink-0 select-none min-w-0">
+          <div className="flex items-center gap-2 flex-1 min-w-0 select-none">
             <div
               onClick={() => setIsExpanded((prev) => !prev)}
               className="p-1.5 bg-emerald-50 hover:bg-emerald-100 rounded-lg text-[#006d36] shrink-0 transition-colors shadow-2xs cursor-pointer"
             >
               <Truck className="w-4 h-4" />
             </div>
-            <div className="flex items-center gap-1.5 shrink-0 min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0 flex-wrap sm:flex-nowrap">
               <h2
                 onClick={() => setIsTruckPickerOpen((prev) => !prev)}
-                className="text-xs sm:text-sm font-black text-[#1a1c1b] hover:text-emerald-800 tracking-tight transition-colors truncate cursor-pointer flex items-center gap-1"
+                className="text-xs sm:text-sm font-black text-[#1a1c1b] hover:text-emerald-800 tracking-tight transition-colors truncate cursor-pointer flex items-center gap-1 max-w-[140px] xs:max-w-[180px] sm:max-w-none"
                 title="点击切换当前选购餐车"
               >
-                <span>{truck.name}</span>
-                <span className="text-[10px] text-neutral-500 font-normal bg-neutral-100 px-1 py-0.2 rounded hover:bg-neutral-200">
+                <span className="truncate">{truck.name}</span>
+                <span className="text-[10px] text-neutral-500 font-normal bg-neutral-100 px-1 py-0.2 rounded hover:bg-neutral-200 shrink-0">
                   [换车]
                 </span>
               </h2>

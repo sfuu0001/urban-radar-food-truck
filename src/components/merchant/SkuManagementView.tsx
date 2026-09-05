@@ -452,19 +452,21 @@ export const SkuManagementView: React.FC<SkuManagementViewProps> = ({ showToast 
           <button
             type="button"
             onClick={() => setIsYieldCalcOpen(true)}
-            className="px-3 py-1.5 rounded-[3px] bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
+            className="px-2.5 sm:px-3 py-1.5 rounded-[3px] bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs text-xs"
           >
             <Calculator className="w-3.5 h-3.5 text-emerald-600" />
-            <span>出肉与成本测算器</span>
+            <span className="hidden sm:inline">出肉与成本测算器</span>
+            <span className="sm:hidden">测算器</span>
           </button>
 
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="px-3 py-1.5 rounded-[3px] bg-white text-[#475569] border border-[#cbd5e1] hover:bg-[#f8fafc] font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
+            className="px-2.5 sm:px-3 py-1.5 rounded-[3px] bg-white text-[#475569] border border-[#cbd5e1] hover:bg-[#f8fafc] font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs text-xs"
           >
             <Upload className="w-3.5 h-3.5" />
-            <span>导入标准</span>
+            <span className="hidden sm:inline">导入标准</span>
+            <span className="sm:hidden">导入</span>
           </button>
 
           <button
@@ -485,20 +487,22 @@ export const SkuManagementView: React.FC<SkuManagementViewProps> = ({ showToast 
                 showToast('导出配置失败');
               }
             }}
-            className="px-3 py-1.5 rounded-[3px] bg-white text-[#475569] border border-[#cbd5e1] hover:bg-[#f8fafc] font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
+            className="px-2.5 sm:px-3 py-1.5 rounded-[3px] bg-white text-[#475569] border border-[#cbd5e1] hover:bg-[#f8fafc] font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs text-xs"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>导出标准</span>
+            <span className="hidden sm:inline">导出标准</span>
+            <span className="sm:hidden">导出</span>
           </button>
 
           <button
             id="btn-add-new-sku-material"
             type="button"
             onClick={() => setIsNewSkuModalOpen(true)}
-            className="px-3.5 py-1.5 rounded-[3px] bg-[#0f172a] text-white hover:bg-black font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
+            className="px-3 sm:px-3.5 py-1.5 rounded-[3px] bg-[#0f172a] text-white hover:bg-black font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs text-xs"
           >
             <Plus className="w-4 h-4 text-emerald-400" />
-            <span>新增原材料 SKU / 库存录入</span>
+            <span className="hidden sm:inline">新增原材料 SKU / 库存录入</span>
+            <span className="sm:hidden">新增 SKU</span>
           </button>
         </div>
       </div>
@@ -580,7 +584,7 @@ export const SkuManagementView: React.FC<SkuManagementViewProps> = ({ showToast 
           </div>
 
           {/* 4 Views Toggle */}
-          <div className="flex items-center border border-[#cbd5e1] rounded-[2px] overflow-hidden bg-white">
+          <div className="flex items-center border border-[#cbd5e1] rounded-[2px] overflow-hidden bg-white shrink-0">
             <button
               type="button"
               onClick={() => setActiveView('label')}
@@ -590,7 +594,8 @@ export const SkuManagementView: React.FC<SkuManagementViewProps> = ({ showToast 
               title="码表标签视图"
             >
               <Barcode className="w-3.5 h-3.5" />
-              <span>码表标签</span>
+              <span className="hidden sm:inline">码表标签</span>
+              <span className="sm:hidden">标签</span>
             </button>
             <button
               type="button"
@@ -612,7 +617,8 @@ export const SkuManagementView: React.FC<SkuManagementViewProps> = ({ showToast 
               title="表格迷你图视图"
             >
               <List className="w-3.5 h-3.5" />
-              <span>表格走势</span>
+              <span className="hidden sm:inline">表格走势</span>
+              <span className="sm:hidden">走势</span>
             </button>
             <button
               type="button"
@@ -623,7 +629,8 @@ export const SkuManagementView: React.FC<SkuManagementViewProps> = ({ showToast 
               title="四象限分析视图"
             >
               <Grid2X2 className="w-3.5 h-3.5" />
-              <span>四象限</span>
+              <span className="hidden sm:inline">四象限</span>
+              <span className="sm:hidden">象限</span>
             </button>
           </div>
         </div>
@@ -1021,7 +1028,107 @@ export const SkuManagementView: React.FC<SkuManagementViewProps> = ({ showToast 
       {/* VIEW 3: 表格迷你图 (Table with Sparkline) */}
       {activeView === 'sparkline' && (
         <div className="bg-white rounded-[3px] border border-[#e2e8f0] shadow-2xs overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Mobile Card View (< md) */}
+          <div className="md:hidden divide-y divide-[#e2e8f0]">
+            {filteredSkus.map((sku) => (
+              <div key={sku.id} className="p-3 space-y-2.5 hover:bg-[#f8fafc]/60 transition-colors">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2">
+                    {isMultiSelectMode && (
+                      <input
+                        type="checkbox"
+                        checked={selectedSkuIds.has(sku.id)}
+                        onChange={() => toggleSelectSku(sku.id)}
+                        className="mt-1 rounded text-blue-600 focus:ring-0 cursor-pointer"
+                      />
+                    )}
+                    <div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-bold text-sm text-[#0f172a]">{sku.name}</span>
+                        <span className="px-1.5 py-0.2 bg-[#eff6ff] text-[#2563eb] rounded-[2px] text-[10px] font-semibold">
+                          {sku.category}
+                        </span>
+                      </div>
+                      <div className="font-mono text-[10px] text-[#64748b] mt-0.5">{sku.sku}</div>
+                    </div>
+                  </div>
+                  <div>{renderStatusBadge(sku)}</div>
+                </div>
+
+                {/* 3 Metric Mini Boxes */}
+                <div className="grid grid-cols-3 gap-1.5 bg-[#f8fafc] p-2 rounded-[2px] border border-[#e2e8f0] text-center">
+                  <div>
+                    <span className="text-[10px] text-[#64748b] block">采购单价</span>
+                    <div className="font-mono font-bold text-xs text-[#0f172a] mt-0.5">
+                      ¥{sku.purchasePrice.toFixed(1)}
+                    </div>
+                    <div className="text-[9px] text-[#64748b]">/{sku.unit}</div>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#166534] block">标杆出肉率</span>
+                    <div className="font-mono font-bold text-xs text-[#16a34a] mt-0.5">
+                      {(sku.standardYieldRate * 100).toFixed(0)}%
+                    </div>
+                    <div className="flex justify-center mt-0.5">{renderSparkline(sku.sparklineHistory)}</div>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#64748b] block">在库现量</span>
+                    <div className="font-mono font-bold text-xs text-[#0f172a] mt-0.5">
+                      {sku.currentStock} {sku.unit}
+                    </div>
+                    <div className="text-[9px] text-[#64748b]">¥{sku.stockValue.toFixed(0)}</div>
+                  </div>
+                </div>
+
+                {/* Traceability & Actions */}
+                <div className="flex items-center justify-between text-[11px] text-[#64748b] pt-1">
+                  <div className="flex items-center gap-2">
+                    <span>保质: {sku.shelfLifeDays}天</span>
+                    <span>·</span>
+                    <span className="truncate max-w-[110px]">{sku.storageLocation}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {sku.stockStatus !== 'in_stock' ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedSkuForStockIn(sku);
+                          setIsStockInModalOpen(true);
+                        }}
+                        className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-[2px] font-semibold text-xs cursor-pointer hover:bg-emerald-100"
+                      >
+                        入库
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedSkuForStockOut(sku);
+                          setIsStockOutModalOpen(true);
+                        }}
+                        className="px-2 py-0.5 bg-white text-[#475569] border border-[#cbd5e1] rounded-[2px] font-semibold text-xs cursor-pointer hover:bg-[#f1f5f9]"
+                      >
+                        出库
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedSkuForEdit(sku);
+                        setIsEditModalOpen(true);
+                      }}
+                      className="px-2.5 py-0.5 bg-[#0f172a] text-white rounded-[2px] font-semibold text-xs cursor-pointer hover:bg-black"
+                    >
+                      编辑
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Table (>= md) */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-[#f8fafc] text-[#64748b] border-b border-[#e2e8f0] font-semibold">
                 <tr>

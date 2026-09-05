@@ -91,6 +91,7 @@ import { OmniAggregatedChatHub } from '../chat/OmniAggregatedChatHub';
 import { BluetoothSpeakerModal } from './BluetoothSpeakerModal';
 import { globalBluetoothAudio } from '../../utils/bluetoothAudioEngine';
 import { BusinessStatusModal } from './BusinessStatusModal';
+import { MerchantHardwareHubModal } from './MerchantHardwareHubModal';
 import {
   BusinessStatusConfig,
   getBusinessStatus,
@@ -195,6 +196,7 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
   const [isCloudbaseModalOpen, setIsCloudbaseModalOpen] = useState<boolean>(false);
   const [isMessageFormModalOpen, setIsMessageFormModalOpen] = useState<boolean>(false);
   const [isBluetoothModalOpen, setIsBluetoothModalOpen] = useState<boolean>(false);
+  const [isHardwareHubOpen, setIsHardwareHubOpen] = useState<boolean>(false);
   const [btConfig, setBtConfig] = useState(() => globalBluetoothAudio.getConfig());
   const [activeBtDevice, setActiveBtDevice] = useState(() => globalBluetoothAudio.getActiveDevice());
 
@@ -940,12 +942,12 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
             </select>
           </div>
 
-          <div className="h-4 w-[1px] bg-[#e6e6e4] shrink-0 hidden md:block" />
+          <div className="h-4 w-[1px] bg-[#e6e6e4] shrink-0 hidden lg:block" />
 
-          {/* Verified Phone Staff Badge & Device Fingerprint Invariant Indicator */}
-          <div className="flex items-center gap-1 bg-[#f1f1ef] border border-[#d3d1cb] rounded-[4px] px-1.5 py-0.5 shrink-0 text-xs">
+          {/* Verified Phone Staff Badge & Device Fingerprint Invariant Indicator (Visible on lg+, consolidated into Hardware Hub on smaller screens) */}
+          <div className="hidden lg:flex items-center gap-1 bg-[#f1f1ef] border border-[#d3d1cb] rounded-[4px] px-1.5 py-0.5 shrink-0 text-xs">
             <Smartphone className="w-3.5 h-3.5 text-[#2b593f] shrink-0" />
-            <span className="font-bold text-[#37352f] truncate max-w-[80px] xs:max-w-[110px] sm:max-w-none">
+            <span className="font-bold text-[#37352f] truncate max-w-[110px] sm:max-w-none">
               {merchantSession?.name || '张伟 (店长)'}
             </span>
             <span className="font-mono text-[10.5px] text-[#787774] hidden sm:inline">
@@ -981,7 +983,7 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
           </div>
         </div>
 
-        {/* Top Right Quick Switches - Non-wrapping and mobile compact */}
+        {/* Top Right Quick Switches - Non-wrapping and mobile compact with Hardware Hub aggregation */}
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           {/* 营业状态总开关 (一键打烊/恢复接单) */}
           <button
@@ -1001,88 +1003,105 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
             </span>
           </button>
 
-          <MerchantVoiceControls showToast={showToast} />
-
-          {/* Bluetooth Audio Player Quick Link & Acoustic Routing Indicator */}
+          {/* 硬件与协同中枢聚合胶囊 (Mobile & Tablet Aggregation Pill - Always visible or primary on small screens) */}
           <button
             type="button"
-            onClick={() => setIsBluetoothModalOpen(true)}
-            className={`px-1.5 sm:px-2.5 py-1 rounded-[3px] font-bold text-xs transition-all cursor-pointer border flex items-center gap-1 sm:gap-1.5 shadow-2xs shrink-0 ${
-              activeBtDevice && activeBtDevice.status === 'connected'
-                ? 'bg-blue-50 hover:bg-blue-100 text-blue-900 border-blue-200'
-                : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border-neutral-300'
-            }`}
-            title={`流动餐车蓝牙播放器绑定与定向路由管理 · 当前: ${
-              activeBtDevice?.status === 'connected' ? activeBtDevice.name : '未连接'
-            } (${btConfig.routingMode === 'voice_only' ? '仅系统语音' : '统一混合'})`}
+            onClick={() => setIsHardwareHubOpen(true)}
+            className="px-2 sm:px-2.5 py-1 bg-[#2b593f]/10 hover:bg-[#2b593f]/20 text-[#2b593f] rounded-[3px] font-bold text-xs transition-all cursor-pointer border border-[#2b593f]/30 flex items-center gap-1.5 shadow-2xs shrink-0 xl:hidden"
+            title="打开硬件与协同中枢 (蓝牙音箱/扫码枪/云同步/语音/历史消息/切换骑手)"
           >
-            <Bluetooth className={`w-3.5 h-3.5 shrink-0 ${
-              activeBtDevice && activeBtDevice.status === 'connected' ? 'text-blue-600' : 'text-neutral-500'
-            }`} />
-            <span className="hidden md:inline">蓝牙音箱</span>
-            <span className={`text-[10px] px-1 py-0.2 rounded font-semibold ${
-              btConfig.routingMode === 'voice_only' 
-                ? 'bg-blue-200/70 text-blue-900' 
-                : 'bg-neutral-200 text-neutral-800'
-            }`}>
-              {btConfig.routingMode === 'voice_only' ? '仅系统语音' : '统一混合'}
-            </span>
-            {activeBtDevice && activeBtDevice.status === 'connected' && (
+            <SlidersHorizontal className="w-3.5 h-3.5 text-[#2b593f] shrink-0" />
+            <span className="hidden xs:inline">硬件协同</span>
+            <span className="xs:hidden">协同</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+          </button>
+
+          {/* Desktop Expanded Buttons: Only visible on >= xl screens */}
+          <div className="hidden xl:flex items-center gap-1 sm:gap-1.5 shrink-0">
+            <MerchantVoiceControls showToast={showToast} />
+
+            {/* Bluetooth Audio Player Quick Link & Acoustic Routing Indicator */}
+            <button
+              type="button"
+              onClick={() => setIsBluetoothModalOpen(true)}
+              className={`px-1.5 sm:px-2.5 py-1 rounded-[3px] font-bold text-xs transition-all cursor-pointer border flex items-center gap-1 sm:gap-1.5 shadow-2xs shrink-0 ${
+                activeBtDevice && activeBtDevice.status === 'connected'
+                  ? 'bg-blue-50 hover:bg-blue-100 text-blue-900 border-blue-200'
+                  : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border-neutral-300'
+              }`}
+              title={`流动餐车蓝牙播放器绑定与定向路由管理 · 当前: ${
+                activeBtDevice?.status === 'connected' ? activeBtDevice.name : '未连接'
+              } (${btConfig.routingMode === 'voice_only' ? '仅系统语音' : '统一混合'})`}
+            >
+              <Bluetooth className={`w-3.5 h-3.5 shrink-0 ${
+                activeBtDevice && activeBtDevice.status === 'connected' ? 'text-blue-600' : 'text-neutral-500'
+              }`} />
+              <span className="hidden md:inline">蓝牙音箱</span>
+              <span className={`text-[10px] px-1 py-0.2 rounded font-semibold ${
+                btConfig.routingMode === 'voice_only' 
+                  ? 'bg-blue-200/70 text-blue-900' 
+                  : 'bg-neutral-200 text-neutral-800'
+              }`}>
+                {btConfig.routingMode === 'voice_only' ? '仅系统语音' : '统一混合'}
+              </span>
+              {activeBtDevice && activeBtDevice.status === 'connected' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('scanner');
+                showToast('已切换至智能扫码枪硬件控制台');
+              }}
+              className={`px-1.5 sm:px-2.5 py-1 rounded-[3px] font-bold text-xs transition-all cursor-pointer border flex items-center gap-1 sm:gap-1.5 shadow-2xs shrink-0 ${
+                activeTab === 'scanner'
+                  ? 'bg-[#2b593f] text-white border-[#2b593f]'
+                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
+              }`}
+              title="智能扫码枪硬件控制台与测试"
+            >
+              <Barcode className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'scanner' ? 'text-white' : 'text-emerald-700'}`} />
+              <span className="hidden md:inline">扫码枪</span>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-            )}
-          </button>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('scanner');
-              showToast('已切换至智能扫码枪硬件控制台');
-            }}
-            className={`px-1.5 sm:px-2.5 py-1 rounded-[3px] font-bold text-xs transition-all cursor-pointer border flex items-center gap-1 sm:gap-1.5 shadow-2xs shrink-0 ${
-              activeTab === 'scanner'
-                ? 'bg-[#2b593f] text-white border-[#2b593f]'
-                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
-            }`}
-            title="智能扫码枪硬件控制台与测试"
-          >
-            <Barcode className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'scanner' ? 'text-white' : 'text-emerald-700'}`} />
-            <span className="hidden md:inline">扫码枪</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-          </button>
+            <button
+              type="button"
+              onClick={() => setIsMessageFormModalOpen(true)}
+              className="px-1.5 sm:px-2.5 py-1 bg-white hover:bg-neutral-50 text-neutral-800 rounded-[3px] font-bold text-xs transition-all cursor-pointer border border-neutral-300 flex items-center gap-1 sm:gap-1.5 shadow-2xs group shrink-0"
+              title="查看历史订单表单 (支持打开各订单在线消息界面)"
+            >
+              <div className="relative shrink-0">
+                <MessageSquareText className="w-3.5 h-3.5 text-emerald-700 shrink-0 group-hover:scale-110 transition-transform" />
+                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              </div>
+              <span className="hidden md:inline">历史订单表单</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setIsMessageFormModalOpen(true)}
-            className="px-1.5 sm:px-2.5 py-1 bg-white hover:bg-neutral-50 text-neutral-800 rounded-[3px] font-bold text-xs transition-all cursor-pointer border border-neutral-300 flex items-center gap-1 sm:gap-1.5 shadow-2xs group shrink-0"
-            title="查看历史订单表单 (支持打开各订单在线消息界面)"
-          >
-            <div className="relative shrink-0">
-              <MessageSquareText className="w-3.5 h-3.5 text-emerald-700 shrink-0 group-hover:scale-110 transition-transform" />
-              <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            </div>
-            <span className="hidden md:inline">历史订单表单</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setIsCloudbaseModalOpen(true)}
+              className="px-1.5 sm:px-2.5 py-1 bg-sky-50 hover:bg-sky-100 text-sky-800 rounded-[3px] font-bold text-xs transition-all cursor-pointer border border-sky-200 flex items-center gap-1 sm:gap-1.5 shadow-2xs shrink-0"
+              title="腾讯云数据同步 (Env: tc100-d9gz0e2ko5929e360)"
+            >
+              <Cloud className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+              <span className="hidden md:inline">腾讯云同步</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            </button>
+          </div>
 
-          <button
-            type="button"
-            onClick={() => setIsCloudbaseModalOpen(true)}
-            className="px-1.5 sm:px-2.5 py-1 bg-sky-50 hover:bg-sky-100 text-sky-800 rounded-[3px] font-bold text-xs transition-all cursor-pointer border border-sky-200 flex items-center gap-1 sm:gap-1.5 shadow-2xs shrink-0"
-            title="腾讯云数据同步 (Env: tc100-d9gz0e2ko5929e360)"
-          >
-            <Cloud className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-            <span className="hidden md:inline">腾讯云同步</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-          </button>
-
+          {/* 切换骑手端 (hidden on mobile where it is in Hardware Hub, visible on sm+) */}
           <button
             type="button"
             onClick={() => onSwitchRole('rider')}
-            className="px-1.5 sm:px-2.5 py-1 bg-[#f1f1ef] hover:bg-[#e8e8e6] text-[#37352f] rounded-[3px] font-semibold text-xs transition-all cursor-pointer border border-[#d3d1cb] flex items-center gap-1 shrink-0"
+            className="hidden sm:flex px-1.5 sm:px-2.5 py-1 bg-[#f1f1ef] hover:bg-[#e8e8e6] text-[#37352f] rounded-[3px] font-semibold text-xs transition-all cursor-pointer border border-[#d3d1cb] items-center gap-1 shrink-0"
             title="切换至骑手端配送界面"
           >
             <Bike className="w-3.5 h-3.5 text-[#2b593f] shrink-0" />
-            <span className="hidden sm:inline">切换骑手端</span>
-            <span className="sm:hidden font-bold">骑手</span>
+            <span className="hidden md:inline">切换骑手端</span>
+            <span className="md:hidden font-bold">骑手</span>
           </button>
         </div>
       </header>
@@ -1625,6 +1644,27 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
         onStatusChanged={(newStatus) => {
           setBusinessStatusState(newStatus);
         }}
+      />
+
+      {/* Merchant Hardware & Multi-Terminal Hub Modal */}
+      <MerchantHardwareHubModal
+        isOpen={isHardwareHubOpen}
+        onClose={() => setIsHardwareHubOpen(false)}
+        activeBtDevice={activeBtDevice}
+        btConfig={btConfig}
+        onOpenBluetoothModal={() => setIsBluetoothModalOpen(true)}
+        onOpenScanner={() => {
+          setActiveTab('scanner');
+          showToast('已切换至智能扫码枪硬件控制台');
+        }}
+        onOpenMessageForm={() => setIsMessageFormModalOpen(true)}
+        onOpenCloudbaseModal={() => setIsCloudbaseModalOpen(true)}
+        onSwitchToRider={() => onSwitchRole('rider')}
+        merchantSession={merchantSession}
+        onOpenPhoneAuth={onOpenPhoneAuth}
+        onLogoutMerchant={onLogoutMerchant}
+        showToast={showToast}
+        maskPhoneNumber={maskPhoneNumber}
       />
     </div>
   );

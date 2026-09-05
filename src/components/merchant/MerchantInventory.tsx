@@ -170,31 +170,37 @@ export const MerchantInventory: React.FC<MerchantInventoryProps> = ({ showToast 
 
       {/* 2. Sub-tab Controller & Action Toolbar */}
       <div className="bg-white p-2.5 rounded-[3px] border border-[#e6e6e4] flex items-center justify-between gap-2 flex-wrap shadow-2xs">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <button
             type="button"
             onClick={() => setActiveTab('stocktake')}
-            className={`px-3 py-1.5 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'stocktake'
                 ? 'bg-[#37352f] text-white shadow-xs'
                 : 'bg-[#f1f1ef] text-[#5a5854] hover:bg-[#e8e8e6]'
             }`}
           >
             <Package className="w-3.5 h-3.5" />
-            <span>库存闭环盘点 (Stocktaking Ledger)</span>
+            <span>
+              <span className="sm:hidden">库存盘点</span>
+              <span className="hidden sm:inline">库存闭环盘点 (Stocktaking)</span>
+            </span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('transfers')}
-            className={`px-3 py-1.5 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'transfers'
                 ? 'bg-[#37352f] text-white shadow-xs'
                 : 'bg-[#f1f1ef] text-[#5a5854] hover:bg-[#e8e8e6]'
             }`}
           >
             <ArrowRightLeft className="w-3.5 h-3.5" />
-            <span>跨餐车物料调拨 (Store Transfers)</span>
+            <span>
+              <span className="sm:hidden">跨车调拨</span>
+              <span className="hidden sm:inline">跨餐车物料调拨 (Transfers)</span>
+            </span>
             <span className="font-mono text-[10px] bg-black/20 px-1 rounded">
               {transfers.length}
             </span>
@@ -206,23 +212,26 @@ export const MerchantInventory: React.FC<MerchantInventoryProps> = ({ showToast 
             <button
               type="button"
               onClick={handleToggleLock}
-              className={`px-3.5 py-1.5 rounded-[3px] font-semibold text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all ${
+              className={`px-3 py-1.5 rounded-[3px] font-semibold text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all ${
                 isLocked
                   ? 'bg-[#f1f1ef] text-[#37352f] hover:bg-[#e8e8e6] border border-[#d3d1cb]'
                   : 'bg-[#2b593f] hover:bg-[#204430] text-white'
               }`}
             >
               {isLocked ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-              <span>{isLocked ? '解除锁账以供修改' : '一键打烊全锁账 (Lock)'}</span>
+              <span>
+                <span className="sm:hidden">{isLocked ? '解锁' : '锁账'}</span>
+                <span className="hidden sm:inline">{isLocked ? '解除锁账以供修改' : '一键打烊全锁账 (Lock)'}</span>
+              </span>
             </button>
           ) : (
             <button
               type="button"
               onClick={() => setIsAddingTransfer(!isAddingTransfer)}
-              className="px-3.5 py-1.5 bg-[#1c5598] hover:bg-[#143e70] text-white rounded-[3px] font-semibold text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              className="px-3 py-1.5 bg-[#1c5598] hover:bg-[#143e70] text-white rounded-[3px] font-semibold text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>新建调拨下发单</span>
+              <span>新建调拨单</span>
             </button>
           )}
         </div>
@@ -345,7 +354,90 @@ export const MerchantInventory: React.FC<MerchantInventoryProps> = ({ showToast 
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Mobile Card List (< md) */}
+          <div className="md:hidden divide-y divide-[#efefed]">
+            {filteredItems.map((item) => (
+              <div key={item.id} className="p-3 space-y-2 hover:bg-[#fbfbfa]">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <span className="font-bold text-xs text-[#37352f] block">{item.name}</span>
+                    <div className="flex items-center gap-1.5 text-[10px] text-[#787774] mt-0.5">
+                      <span className="font-mono">{item.sku}</span>
+                      <span>·</span>
+                      <span>{item.category}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className={`text-[9.5px] font-bold font-mono px-1.5 py-0.5 rounded ${
+                        item.abcClass === 'A'
+                          ? 'bg-[#fde8e8] text-[#d44333]'
+                          : item.abcClass === 'B'
+                          ? 'bg-[#fbf3db] text-[#8f6412]'
+                          : 'bg-[#edf3ec] text-[#2b593f]'
+                      }`}
+                    >
+                      {item.abcClass} 类
+                    </span>
+                    {item.status === 'ok' ? (
+                      <span className="text-[10px] bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc] px-1.5 py-0.2 rounded font-bold">
+                        吻合
+                      </span>
+                    ) : (
+                      <span className="text-[10px] bg-[#fde8e8] text-[#d44333] border border-[#f8b4b4] px-1.5 py-0.2 rounded font-bold">
+                        超差
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-[#f7f7f5] rounded p-2 text-xs grid grid-cols-3 gap-2 text-center font-mono">
+                  <div>
+                    <span className="text-[10px] text-[#787774] block">理论数</span>
+                    <span className="font-bold text-[#37352f]">{item.systemQty} {item.unit}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#787774] block">实盘数</span>
+                    {isLocked ? (
+                      <span className="font-bold text-[#37352f]">{item.actualQty} {item.unit}</span>
+                    ) : (
+                      <div className="flex items-center justify-center gap-0.5 mt-0.5">
+                        <input
+                          type="number"
+                          step="0.5"
+                          value={item.actualQty}
+                          onChange={(e) =>
+                            handleUpdateActualQty(item.id, parseFloat(e.target.value) || 0)
+                          }
+                          className="w-16 bg-white border border-[#37352f] rounded px-1 py-0.5 text-xs text-[#37352f] font-mono font-bold text-center"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#787774] block">差异 / 盈亏</span>
+                    <span
+                      className={`font-bold block ${
+                        item.variance < 0
+                          ? 'text-[#d44333]'
+                          : item.variance > 0
+                          ? 'text-[#2b593f]'
+                          : 'text-[#787774]'
+                      }`}
+                    >
+                      {item.variance > 0 ? `+${item.variance}` : item.variance}{item.unit}
+                    </span>
+                    <span className="text-[9.5px] text-[#787774]">
+                      {item.varianceCost > 0 ? `+¥${item.varianceCost.toFixed(1)}` : `¥${item.varianceCost.toFixed(1)}`}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Table (>= md) */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b border-[#e6e6e4] bg-[#fbfbfa] text-[#787774] text-[10.5px]">
@@ -471,7 +563,60 @@ export const MerchantInventory: React.FC<MerchantInventoryProps> = ({ showToast 
             <span className="text-[10px] text-[#787774]">支持中心冷库补货与餐车间紧急借料</span>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Mobile Card List (< md) */}
+          <div className="md:hidden divide-y divide-[#efefed]">
+            {transfers.map((tr) => (
+              <div key={tr.id} className="p-3 space-y-2 hover:bg-[#fbfbfa]">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <span className="font-bold text-xs text-[#37352f] block">{tr.itemName}</span>
+                    <div className="flex items-center gap-1.5 text-[10px] text-[#787774] mt-0.5">
+                      <span className="font-mono">{tr.transferNo}</span>
+                      <span>·</span>
+                      <span>{tr.date}</span>
+                    </div>
+                  </div>
+                  <div className="text-right font-mono">
+                    <span className="font-bold text-xs text-[#37352f] block">
+                      {tr.quantity} {tr.unit}
+                    </span>
+                    <span className="text-[10px] text-[#787774]">{tr.operator}</span>
+                  </div>
+                </div>
+
+                <div className="bg-[#f7f7f5] rounded p-2 text-xs flex items-center justify-between">
+                  <div className="text-[11px] truncate flex-1 mr-2">
+                    <span className="text-[#5a5854]">{tr.fromStore}</span>
+                    <span className="text-[#37352f] font-bold mx-1">$\to$</span>
+                    <span className="text-[#2b593f] font-bold">{tr.toStore}</span>
+                  </div>
+                  <div>
+                    {tr.status === 'completed' ? (
+                      <span className="text-[10px] bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc] px-1.5 py-0.5 rounded font-bold whitespace-nowrap">
+                        已入库
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTransfers((prev) =>
+                            prev.map((t) => (t.id === tr.id ? { ...t, status: 'completed' } : t))
+                          );
+                          showToast(`调拨单 ${tr.transferNo} 已确认签收并入库！`);
+                        }}
+                        className="text-[10px] bg-[#fbf3db] hover:bg-[#ecd9a8] text-[#8f6412] border border-[#ecd9a8] px-2 py-0.5 rounded font-bold cursor-pointer whitespace-nowrap"
+                      >
+                        确认签收 $\to$
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Table (>= md) */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b border-[#e6e6e4] bg-[#fbfbfa] text-[#787774] text-[10.5px]">

@@ -345,116 +345,227 @@ export const MerchantMemberCRM: React.FC<MerchantMemberCRMProps> = ({ showToast 
           )}
         </div>
 
-        {/* 1. Member Roster Table */}
+        {/* 1. Member Roster Table & Responsive Cards */}
         {activeTab === 'members' && (
-          <div className="overflow-x-auto -mx-3.5 px-3.5 sm:mx-0 sm:px-0">
-            <table className="w-full text-xs text-left min-w-[620px]">
-              <thead className="bg-[#f7f7f5] text-[#787774] font-medium border-y border-[#e3e2e0]">
-                <tr>
-                  <th className="py-2.5 px-3">会员卡号 / 姓名</th>
-                  <th className="py-2.5 px-3">手机号</th>
-                  <th className="py-2.5 px-3">会员等级与折扣</th>
-                  <th className="py-2.5 px-3 text-right">储值余额</th>
-                  <th className="py-2.5 px-3 text-right">积分</th>
-                  <th className="py-2.5 px-3 text-right">累计消费</th>
-                  <th className="py-2.5 px-3">最近光顾</th>
-                  <th className="py-2.5 px-3 text-right">操作</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#f1f1ef]">
-                {filteredMembers.map(m => (
-                  <tr key={m.id} className="hover:bg-[#fbfbfa]">
-                    <td className="py-3 px-3">
-                      <div className="font-bold text-[#37352f]">{m.name}</div>
-                      <span className="text-[11px] font-mono text-[#787774]">{m.memberNo}</span>
-                    </td>
-                    <td className="py-3 px-3 font-mono text-[#37352f]">{m.phone}</td>
-                    <td className="py-3 px-3">
-                      <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border inline-flex items-center gap-1 ${
-                        m.tier === 'diamond'
-                          ? 'bg-neutral-900 text-amber-300 border-neutral-800'
-                          : m.tier === 'gold'
-                          ? 'bg-amber-100 text-amber-900 border-amber-300'
-                          : m.tier === 'silver'
-                          ? 'bg-slate-100 text-slate-800 border-slate-300'
-                          : 'bg-neutral-100 text-neutral-600 border-neutral-300'
-                      }`}>
-                        {m.tier === 'diamond' && '💎 '}
-                        {m.tier === 'gold' && '🥇 '}
-                        {m.tier === 'silver' && '🥈 '}
-                        {m.tierName} · {Math.round(m.discountRate * 100)}折
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-right font-bold text-amber-700">
-                      ¥{m.balance.toFixed(2)}
-                    </td>
-                    <td className="py-3 px-3 text-right font-mono text-[#37352f]">
-                      {m.points}
-                    </td>
-                    <td className="py-3 px-3 text-right font-mono text-[#787774]">
-                      ¥{m.totalSpent.toFixed(2)}
-                    </td>
-                    <td className="py-3 px-3 text-[#787774]">{m.lastVisit}</td>
-                    <td className="py-3 px-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenRecharge(m)}
-                        className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded text-xs font-semibold cursor-pointer transition-colors"
-                      >
-                        充值赠送 💳
-                      </button>
-                    </td>
+          <div>
+            {/* Mobile / Tablet Cards (< md) */}
+            <div className="md:hidden space-y-2.5">
+              {filteredMembers.map(m => (
+                <div
+                  key={m.id}
+                  className="p-3 bg-white border border-[#e3e2e0] rounded-lg space-y-2.5 shadow-2xs"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-sm text-[#37352f]">{m.name}</span>
+                        <span className={`px-1.5 py-0.2 rounded text-[10px] font-semibold border inline-flex items-center gap-0.5 ${
+                          m.tier === 'diamond'
+                            ? 'bg-neutral-900 text-amber-300 border-neutral-800'
+                            : m.tier === 'gold'
+                            ? 'bg-amber-100 text-amber-900 border-amber-300'
+                            : m.tier === 'silver'
+                            ? 'bg-slate-100 text-slate-800 border-slate-300'
+                            : 'bg-neutral-100 text-neutral-600 border-neutral-300'
+                        }`}>
+                          {m.tier === 'diamond' && '💎 '}
+                          {m.tier === 'gold' && '🥇 '}
+                          {m.tier === 'silver' && '🥈 '}
+                          {m.tierName} · {Math.round(m.discountRate * 100)}折
+                        </span>
+                      </div>
+                      <div className="text-[11px] font-mono text-[#787774] mt-0.5">
+                        卡号: {m.memberNo} · 手机: {m.phone}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleOpenRecharge(m)}
+                      className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded text-xs font-semibold cursor-pointer transition-colors shrink-0"
+                    >
+                      充值 💳
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-1.5 p-2 bg-[#fafaf8] rounded border border-neutral-100 text-center">
+                    <div>
+                      <div className="text-[10px] text-[#787774]">储值余额</div>
+                      <div className="font-bold text-xs text-amber-700 font-mono mt-0.5">
+                        ¥{m.balance.toFixed(0)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-[#787774]">当前积分</div>
+                      <div className="font-mono text-xs text-[#37352f] font-semibold mt-0.5">
+                        {m.points}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-[#787774]">累计消费</div>
+                      <div className="font-mono text-xs text-[#787774] mt-0.5">
+                        ¥{m.totalSpent.toFixed(0)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-[#787774]">最近光顾</div>
+                      <div className="text-[10px] text-[#787774] truncate mt-0.5">
+                        {m.lastVisit}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table (>= md) */}
+            <div className="hidden md:block overflow-x-auto -mx-3.5 px-3.5 sm:mx-0 sm:px-0">
+              <table className="w-full text-xs text-left min-w-[620px]">
+                <thead className="bg-[#f7f7f5] text-[#787774] font-medium border-y border-[#e3e2e0]">
+                  <tr>
+                    <th className="py-2.5 px-3">会员卡号 / 姓名</th>
+                    <th className="py-2.5 px-3">手机号</th>
+                    <th className="py-2.5 px-3">会员等级与折扣</th>
+                    <th className="py-2.5 px-3 text-right">储值余额</th>
+                    <th className="py-2.5 px-3 text-right">积分</th>
+                    <th className="py-2.5 px-3 text-right">累计消费</th>
+                    <th className="py-2.5 px-3">最近光顾</th>
+                    <th className="py-2.5 px-3 text-right">操作</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-[#f1f1ef]">
+                  {filteredMembers.map(m => (
+                    <tr key={m.id} className="hover:bg-[#fbfbfa]">
+                      <td className="py-3 px-3">
+                        <div className="font-bold text-[#37352f]">{m.name}</div>
+                        <span className="text-[11px] font-mono text-[#787774]">{m.memberNo}</span>
+                      </td>
+                      <td className="py-3 px-3 font-mono text-[#37352f]">{m.phone}</td>
+                      <td className="py-3 px-3">
+                        <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border inline-flex items-center gap-1 ${
+                          m.tier === 'diamond'
+                            ? 'bg-neutral-900 text-amber-300 border-neutral-800'
+                            : m.tier === 'gold'
+                            ? 'bg-amber-100 text-amber-900 border-amber-300'
+                            : m.tier === 'silver'
+                            ? 'bg-slate-100 text-slate-800 border-slate-300'
+                            : 'bg-neutral-100 text-neutral-600 border-neutral-300'
+                        }`}>
+                          {m.tier === 'diamond' && '💎 '}
+                          {m.tier === 'gold' && '🥇 '}
+                          {m.tier === 'silver' && '🥈 '}
+                          {m.tierName} · {Math.round(m.discountRate * 100)}折
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-right font-bold text-amber-700">
+                        ¥{m.balance.toFixed(2)}
+                      </td>
+                      <td className="py-3 px-3 text-right font-mono text-[#37352f]">
+                        {m.points}
+                      </td>
+                      <td className="py-3 px-3 text-right font-mono text-[#787774]">
+                        ¥{m.totalSpent.toFixed(2)}
+                      </td>
+                      <td className="py-3 px-3 text-[#787774]">{m.lastVisit}</td>
+                      <td className="py-3 px-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenRecharge(m)}
+                          className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded text-xs font-semibold cursor-pointer transition-colors"
+                        >
+                          充值赠送 💳
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
         {/* 2. Recharge Records Table */}
         {activeTab === 'recharges' && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left">
-              <thead className="bg-[#f7f7f5] text-[#787774] font-medium border-y border-[#e3e2e0]">
-                <tr>
-                  <th className="py-2.5 px-3">流水号</th>
-                  <th className="py-2.5 px-3">会员姓名 / 手机号</th>
-                  <th className="py-2.5 px-3 text-right">充值本金</th>
-                  <th className="py-2.5 px-3 text-right">赠送金额</th>
-                  <th className="py-2.5 px-3 text-right">实际到账</th>
-                  <th className="py-2.5 px-3">支付渠道</th>
-                  <th className="py-2.5 px-3">经手操作员</th>
-                  <th className="py-2.5 px-3">充值时间</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#f1f1ef]">
-                {recharges.map(r => (
-                  <tr key={r.id} className="hover:bg-[#fbfbfa]">
-                    <td className="py-3 px-3 font-mono text-[#787774]">{r.recordNo}</td>
-                    <td className="py-3 px-3">
-                      <div className="font-bold text-[#37352f]">{r.memberName}</div>
-                      <span className="text-[11px] font-mono text-[#787774]">{r.phone}</span>
-                    </td>
-                    <td className="py-3 px-3 text-right font-bold text-emerald-700">
-                      ¥{r.rechargeAmount.toFixed(2)}
-                    </td>
-                    <td className="py-3 px-3 text-right text-amber-700 font-medium">
-                      +¥{r.bonusAmount.toFixed(2)}
-                    </td>
-                    <td className="py-3 px-3 text-right font-bold text-[#37352f]">
-                      ¥{r.totalReceived.toFixed(2)}
-                    </td>
-                    <td className="py-3 px-3">
-                      <span className="px-2 py-0.5 bg-[#f1f1ef] rounded text-[11px] font-medium text-[#37352f]">
-                        {r.paymentMethod === 'wechat' ? '微信支付' : r.paymentMethod === 'alipay' ? '支付宝' : '现金/POS'}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-[#787774]">{r.operator}</td>
-                    <td className="py-3 px-3 text-[#787774] font-mono">{r.timestamp}</td>
+          <div>
+            {/* Mobile / Tablet Cards (< md) */}
+            <div className="md:hidden space-y-2.5">
+              {recharges.map(r => (
+                <div
+                  key={r.id}
+                  className="p-3 bg-white border border-[#e3e2e0] rounded-lg space-y-2.5 shadow-2xs"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-bold text-sm text-[#37352f]">{r.memberName}</div>
+                      <div className="text-[11px] font-mono text-[#787774] mt-0.5">
+                        {r.phone} · <span className="text-[#787774]">{r.recordNo}</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold text-sm text-[#37352f] font-mono">
+                        到账 ¥{r.totalReceived.toFixed(2)}
+                      </div>
+                      <div className="text-[10.5px] text-[#787774]">
+                        实付 ¥{r.rechargeAmount.toFixed(0)} + 赠 ¥{r.bonusAmount.toFixed(0)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-[#f1f1ef] text-[11px]">
+                    <span className="px-2 py-0.5 bg-[#f1f1ef] rounded text-[10.5px] font-medium text-[#37352f]">
+                      {r.paymentMethod === 'wechat' ? '微信支付' : r.paymentMethod === 'alipay' ? '支付宝' : '现金/POS'}
+                    </span>
+                    <span className="text-[#787774]">经手: {r.operator}</span>
+                    <span className="text-[#787774] font-mono text-[10px]">{r.timestamp}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table (>= md) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-xs text-left min-w-[640px]">
+                <thead className="bg-[#f7f7f5] text-[#787774] font-medium border-y border-[#e3e2e0]">
+                  <tr>
+                    <th className="py-2.5 px-3">流水号</th>
+                    <th className="py-2.5 px-3">会员姓名 / 手机号</th>
+                    <th className="py-2.5 px-3 text-right">充值本金</th>
+                    <th className="py-2.5 px-3 text-right">赠送金额</th>
+                    <th className="py-2.5 px-3 text-right">实际到账</th>
+                    <th className="py-2.5 px-3">支付渠道</th>
+                    <th className="py-2.5 px-3">经手操作员</th>
+                    <th className="py-2.5 px-3">充值时间</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-[#f1f1ef]">
+                  {recharges.map(r => (
+                    <tr key={r.id} className="hover:bg-[#fbfbfa]">
+                      <td className="py-3 px-3 font-mono text-[#787774]">{r.recordNo}</td>
+                      <td className="py-3 px-3">
+                        <div className="font-bold text-[#37352f]">{r.memberName}</div>
+                        <span className="text-[11px] font-mono text-[#787774]">{r.phone}</span>
+                      </td>
+                      <td className="py-3 px-3 text-right font-bold text-emerald-700">
+                        ¥{r.rechargeAmount.toFixed(2)}
+                      </td>
+                      <td className="py-3 px-3 text-right text-amber-700 font-medium">
+                        +¥{r.bonusAmount.toFixed(2)}
+                      </td>
+                      <td className="py-3 px-3 text-right font-bold text-[#37352f]">
+                        ¥{r.totalReceived.toFixed(2)}
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className="px-2 py-0.5 bg-[#f1f1ef] rounded text-[11px] font-medium text-[#37352f]">
+                          {r.paymentMethod === 'wechat' ? '微信支付' : r.paymentMethod === 'alipay' ? '支付宝' : '现金/POS'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-[#787774]">{r.operator}</td>
+                      <td className="py-3 px-3 text-[#787774] font-mono">{r.timestamp}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 

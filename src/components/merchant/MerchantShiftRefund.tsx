@@ -310,19 +310,20 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
   return (
     <div className="space-y-4 text-xs">
       {/* 1. Header Sub-tab Controller */}
-      <div className="bg-white p-3 rounded-[3px] border border-[#e6e6e4] flex items-center justify-between gap-3 flex-wrap shadow-2xs">
+      <div className="bg-white p-2.5 sm:p-3 rounded-[3px] border border-[#e6e6e4] flex items-center justify-between gap-2.5 sm:gap-3 flex-wrap shadow-2xs">
         <div className="flex items-center gap-1.5 flex-wrap">
           <button
             type="button"
             onClick={() => setSubTab('shift')}
-            className={`px-3 py-1.5 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
               subTab === 'shift'
                 ? 'bg-[#37352f] text-white shadow-xs'
                 : 'bg-[#f1f1ef] text-[#5a5854] hover:bg-[#e8e8e6]'
             }`}
           >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>收银交接班与钱箱对账 (Shift Handover)</span>
+            <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden sm:inline">收银交接班与钱箱对账 (Shift Handover)</span>
+            <span className="sm:hidden">交接班对账</span>
             <span className="font-mono text-[10px] bg-black/20 px-1 rounded">
               {shifts.length}
             </span>
@@ -331,14 +332,15 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
           <button
             type="button"
             onClick={() => setSubTab('refund')}
-            className={`px-3 py-1.5 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
               subTab === 'refund'
                 ? 'bg-[#37352f] text-white shadow-xs'
                 : 'bg-[#f1f1ef] text-[#5a5854] hover:bg-[#e8e8e6]'
             }`}
           >
-            <CreditCard className="w-3.5 h-3.5 text-[#d44333]" />
-            <span>POS 内部退款台账</span>
+            <CreditCard className="w-3.5 h-3.5 text-[#d44333] shrink-0" />
+            <span className="hidden sm:inline">POS 内部退款台账</span>
+            <span className="sm:hidden">POS退款</span>
             <span className="font-mono text-[10px] bg-black/20 px-1 rounded">
               {refunds.length}
             </span>
@@ -347,14 +349,15 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
           <button
             type="button"
             onClick={() => setSubTab('customer_refund')}
-            className={`px-3 py-1.5 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
               subTab === 'customer_refund'
                 ? 'bg-[#37352f] text-white shadow-xs'
                 : 'bg-[#f1f1ef] text-[#5a5854] hover:bg-[#e8e8e6]'
             }`}
           >
-            <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
-            <span>顾客线上退款申请流</span>
+            <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+            <span className="hidden sm:inline">顾客线上退款申请流</span>
+            <span className="sm:hidden">线上退款流</span>
             {pendingCustomerRefunds.length > 0 ? (
               <span className="font-mono text-[10px] bg-rose-500 text-white px-1.5 py-0.2 rounded-full font-bold animate-pulse">
                 {pendingCustomerRefunds.length} 待审
@@ -369,21 +372,22 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
           <button
             type="button"
             onClick={() => setSubTab('reservation')}
-            className={`px-3 py-1.5 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
               subTab === 'reservation'
                 ? 'bg-[#37352f] text-white shadow-xs'
                 : 'bg-[#f1f1ef] text-[#5a5854] hover:bg-[#e8e8e6]'
             }`}
           >
-            <CalendarCheck className="w-3.5 h-3.5 text-[#1c5598]" />
-            <span>桌台预定 Pipeline (Reservations)</span>
+            <CalendarCheck className="w-3.5 h-3.5 text-[#1c5598] shrink-0" />
+            <span className="hidden sm:inline">桌台预定 Pipeline (Reservations)</span>
+            <span className="sm:hidden">桌台预定</span>
             <span className="font-mono text-[10px] bg-black/20 px-1 rounded">
               {reservations.length}
             </span>
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto justify-end">
           {/* CSV / Excel Export Trigger */}
           <button
             type="button"
@@ -783,7 +787,47 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
             <span className="text-[10px] text-[#787774]">T+0 实时结交 · 差异自动入账</span>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Mobile Card List (< md) */}
+          <div className="md:hidden divide-y divide-[#efefed]">
+            {shifts.map((s) => (
+              <div key={s.id} className="p-3 space-y-2 hover:bg-[#fbfbfa]">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono font-bold text-xs text-[#37352f]">{s.shiftNo}</span>
+                  <span className="font-mono font-bold text-sm text-[#2b593f]">¥{s.grossSales.toFixed(2)}</span>
+                </div>
+                <div className="text-[11px] text-[#787774] flex items-center justify-between">
+                  <span>{s.startTime} - {s.endTime} ({s.orderCount}单)</span>
+                  <span className="text-[#37352f] font-semibold">{s.closedBy} → 接班: {s.successor}</span>
+                </div>
+                <div className="bg-[#f7f7f5] rounded p-2 text-[10.5px] space-y-1 font-mono">
+                  <div className="flex justify-between text-[#5a5854]">
+                    <span>微: ¥{s.wechatSales.toFixed(1)} / 支: ¥{s.alipaySales.toFixed(1)}</span>
+                    <span>现: ¥{s.cashSales.toFixed(1)}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-[#e6e6e4] pt-1">
+                    <span className="text-[#37352f]">实点现金: ¥{s.actualCash.toFixed(1)}</span>
+                    <span className={`font-bold ${s.cashDiff === 0 ? 'text-[#2b593f]' : 'text-[#d44333]'}`}>
+                      {s.cashDiff === 0 ? '平账 0.0' : `差异 ¥${s.cashDiff.toFixed(1)}`}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-[10.5px] text-[#5a5854] flex items-center justify-between gap-2">
+                  <span className="truncate">{s.diffReasonText} {s.note ? `(${s.note})` : ''}</span>
+                  <button
+                    type="button"
+                    onClick={() => showToast(`已重新补打班次 ${s.shiftNo} 交班小票！`)}
+                    className="px-2 py-1 bg-[#f1f1ef] hover:bg-[#e8e8e6] text-[#37352f] rounded-[2px] font-semibold text-[10.5px] flex items-center gap-1 cursor-pointer shrink-0"
+                  >
+                    <Printer className="w-3 h-3" />
+                    <span>补打小票</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Table (>= md) */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b border-[#e6e6e4] bg-[#fbfbfa] text-[#787774] text-[10.5px]">
@@ -873,7 +917,48 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
             <span className="text-[10px] text-[#787774]">已制作退菜自动记入损耗</span>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Mobile Card List (< md) */}
+          <div className="md:hidden divide-y divide-[#efefed]">
+            {refunds.map((r) => (
+              <div key={r.id} className="p-3 space-y-2 hover:bg-[#fbfbfa]">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono font-bold text-xs text-[#37352f]">{r.refundNo}</span>
+                    <span className="text-[10px] text-[#787774]">{r.date}</span>
+                  </div>
+                  <span className="font-mono font-bold text-sm text-[#d44333]">¥{r.amount.toFixed(2)}</span>
+                </div>
+                <div className="text-[11px] text-[#5a5854] flex items-center justify-between">
+                  <span>订单: <span className="font-mono font-semibold text-[#37352f]">{r.orderNo}</span></span>
+                  <span className="text-[10px] bg-[#f1f1ef] px-1.5 py-0.5 rounded">{r.method}</span>
+                </div>
+                <div className="bg-[#f7f7f5] rounded p-2 text-[10.5px] space-y-1">
+                  <div className="font-semibold text-[#37352f]">
+                    原因: {r.reasonCategory === 'taste_dislike' ? '口味不适' : r.reasonCategory === 'customer_cancel' ? '顾客取消' : '其他原因'}
+                  </div>
+                  <div className="text-[#787774]">{r.reasonNote}</div>
+                </div>
+                <div className="flex items-center justify-between text-[10px]">
+                  <span className="flex items-center gap-1 text-[#37352f] font-medium">
+                    <ShieldCheck className="w-3 h-3 text-[#2b593f]" />
+                    <span>主管: {r.authorizedBy}</span>
+                  </span>
+                  {r.cookedIsLoss ? (
+                    <span className="text-[10px] bg-[#fde8e8] text-[#d44333] border border-[#f8b4b4] px-1.5 py-0.5 rounded font-bold">
+                      已记厨房报损
+                    </span>
+                  ) : (
+                    <span className="text-[10px] bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc] px-1.5 py-0.5 rounded font-bold">
+                      未制作免报损
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Table (>= md) */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b border-[#e6e6e4] bg-[#fbfbfa] text-[#787774] text-[10.5px]">
@@ -952,7 +1037,62 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
             <span className="text-[10px] text-[#787774]">支持提前锁定与到店提醒</span>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Mobile Card List (< md) */}
+          <div className="md:hidden divide-y divide-[#efefed]">
+            {reservations.map((res) => (
+              <div key={res.id} className="p-3 space-y-2 hover:bg-[#fbfbfa]">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-xs text-[#37352f]">{res.guestName}</span>
+                    <span className="text-[10.5px] text-[#787774]">({res.guestCount} 位)</span>
+                  </div>
+                  <span className="font-mono font-bold text-xs bg-[#37352f] text-white px-2 py-0.5 rounded-[2px]">
+                    桌台 {res.tableCode}
+                  </span>
+                </div>
+                <div className="text-[11px] text-[#5a5854] flex items-center justify-between">
+                  <span>电话: <span className="font-mono">{res.phone}</span></span>
+                  <span className="text-[#2b593f] font-mono font-bold">已付定金 ¥{res.depositAmount.toFixed(1)}</span>
+                </div>
+                <div className="bg-[#f7f7f5] rounded p-2 text-[10.5px] flex items-center justify-between">
+                  <div>
+                    <span className="font-mono font-semibold text-[#37352f]">{res.reservationTime}</span>
+                    {res.status === 'confirmed' && (
+                      <span className="ml-2 text-[10px] font-mono text-[#d9730d] font-bold">
+                        距到店 {res.countdownMin}m
+                      </span>
+                    )}
+                  </div>
+                  {res.note && <span className="text-[#787774] truncate max-w-[150px]">{res.note}</span>}
+                </div>
+                <div className="flex justify-end pt-0.5">
+                  {res.status === 'confirmed' ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReservations((prev) =>
+                          prev.map((item) =>
+                            item.id === res.id ? { ...item, status: 'arrived' } : item
+                          )
+                        );
+                        showToast(`顾客 ${res.guestName} 已到店！桌台 ${res.tableCode} 已自动转为就餐中。`);
+                      }}
+                      className="px-3 py-1 bg-[#2b593f] hover:bg-[#204430] text-white rounded-[2px] font-semibold text-xs cursor-pointer shadow-2xs"
+                    >
+                      确认到店开台
+                    </button>
+                  ) : (
+                    <span className="text-[10px] bg-[#edf3ec] text-[#2b593f] px-2 py-0.5 rounded font-bold">
+                      已入座消费
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Table (>= md) */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b border-[#e6e6e4] bg-[#fbfbfa] text-[#787774] text-[10.5px]">
@@ -1078,134 +1218,246 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                 <p className="text-[11px] text-neutral-400 mt-0.5">当顾客在客户端申请取消订单时将自动显示在此处</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="border-b border-[#e6e6e4] bg-[#fbfbfa] text-[#787774] text-[10.5px]">
-                      <th className="p-2.5 font-bold">订单流水 / 顾客</th>
-                      <th className="p-2.5 font-bold">下单时间</th>
-                      <th className="p-2.5 font-bold">退款金额 &amp; 支付原路</th>
-                      <th className="p-2.5 font-bold">购买菜品</th>
-                      <th className="p-2.5 font-bold">顾客退款申请理由</th>
-                      <th className="p-2.5 font-bold text-right">审核操作</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#efefed]">
-                    {pendingCustomerRefunds.map((o) => (
-                      <tr key={o.id} className="hover:bg-amber-50/40 transition-colors">
-                        <td className="p-2.5">
+              <>
+                {/* Mobile Card List (< md) */}
+                <div className="md:hidden divide-y divide-[#efefed]">
+                  {pendingCustomerRefunds.map((o) => (
+                    <div key={o.id} className="p-3 space-y-2.5 hover:bg-amber-50/40">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
                           <span className="font-mono font-bold text-xs text-[#37352f] block">{o.orderNo}</span>
-                          <span className="text-[10.5px] text-neutral-600 flex items-center gap-1 mt-0.5">
-                            <User className="w-3 h-3 text-neutral-400" />
-                            <span>{o.customerName || '先锋食客'}</span>
-                            <span className="font-mono text-[10px] text-neutral-400">({o.userPhone || '到店客'})</span>
-                          </span>
-                        </td>
-
-                        <td className="p-2.5 text-neutral-600 font-mono text-[11px]">
-                          {o.createdTime}
-                        </td>
-
-                        <td className="p-2.5">
+                          <span className="text-[10px] text-neutral-500">{o.createdTime}</span>
+                        </div>
+                        <div className="text-right">
                           <span className="font-mono font-bold text-sm text-rose-600 block">
                             ¥{o.totalAmount.toFixed(2)}
                           </span>
-                          <span className={`text-[10px] px-1 py-0.2 rounded font-semibold inline-block mt-0.5 ${
+                          <span className={`text-[9.5px] px-1 py-0.2 rounded font-semibold inline-block ${
                             o.paymentMethod === 'alipay'
                               ? 'bg-blue-50 text-blue-800 border border-blue-200'
                               : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                           }`}>
                             {o.paymentMethod === 'alipay' ? '支付宝' : '微信支付'}
                           </span>
-                        </td>
+                        </div>
+                      </div>
 
-                        <td className="p-2.5 max-w-[200px]">
-                          <div className="space-y-0.5">
-                            {o.items?.map((item, idx) => (
-                              <div key={idx} className="text-[11px] text-neutral-700 flex justify-between gap-1">
-                                <span className="truncate">{item.name}</span>
-                                <span className="font-mono text-neutral-500 shrink-0">x{item.quantity}</span>
-                              </div>
-                            ))}
+                      <div className="text-[11px] text-neutral-600 flex items-center gap-1">
+                        <User className="w-3 h-3 text-neutral-400" />
+                        <span>{o.customerName || '先锋食客'}</span>
+                        <span className="font-mono text-[10px] text-neutral-400">({o.userPhone || '到店客'})</span>
+                      </div>
+
+                      {/* Items */}
+                      <div className="bg-[#f7f7f5] rounded p-2 text-[10.5px] space-y-0.5">
+                        {o.items?.map((item, idx) => (
+                          <div key={idx} className="text-neutral-700 flex justify-between gap-1">
+                            <span className="truncate">{item.name}</span>
+                            <span className="font-mono text-neutral-500 shrink-0">x{item.quantity}</span>
                           </div>
-                        </td>
+                        ))}
+                      </div>
 
-                        <td className="p-2.5 max-w-[220px]">
-                          <div className="bg-rose-50/80 border border-rose-200 rounded p-1.5 text-xs">
-                            <span className="text-rose-900 font-semibold block text-[11px]">
-                              {o.refundReason || '未说明退款原因'}
-                            </span>
-                            <span className="text-[10px] text-rose-600 block mt-0.5">
-                              申请状态: {o.status === 'cancel_requested' ? '顾客主动申请取消' : '售后退单审核'}
-                            </span>
-                          </div>
-                        </td>
+                      {/* Reason */}
+                      <div className="bg-rose-50/80 border border-rose-200 rounded p-2 text-[11px]">
+                        <span className="text-rose-900 font-semibold block">
+                          退款原因: {o.refundReason || '未说明退款原因'}
+                        </span>
+                        <span className="text-[10px] text-rose-600 block mt-0.5">
+                          申请状态: {o.status === 'cancel_requested' ? '顾客主动申请取消' : '售后退单审核'}
+                        </span>
+                      </div>
 
-                        <td className="p-2.5 text-right space-x-1.5 whitespace-nowrap">
-                          {/* 批准退款 */}
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              try {
-                                showToast(`正在向支付网关申请原路退款...`);
-                                // 1. 调用真实支付网关原路退款
-                                await executeRealPayRefund({
-                                  orderNo: o.orderNo,
-                                  refundAmount: o.totalAmount,
-                                  totalAmount: o.totalAmount,
-                                  reason: o.refundReason || '顾客线上申请极速退款'
-                                });
+                      {/* Actions */}
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              showToast(`正在向支付网关申请原路退款...`);
+                              await executeRealPayRefund({
+                                orderNo: o.orderNo,
+                                refundAmount: o.totalAmount,
+                                totalAmount: o.totalAmount,
+                                reason: o.refundReason || '顾客线上申请极速退款'
+                              });
 
-                                // 2. 调用 App 核心退款审核回调
-                                onAuditRefund?.(o.id, true);
+                              onAuditRefund?.(o.id, true);
 
-                                // 3. 记录进本地 POS 退款流水台账
-                                const newRefundRecord: RefundRecord = {
-                                  id: `ref-online-${Date.now()}`,
-                                  refundNo: `RF-ON-${Date.now().toString().slice(-6)}`,
-                                  orderNo: o.orderNo,
-                                  amount: o.totalAmount,
-                                  date: new Date().toLocaleTimeString('zh-CN', { hour12: false }),
-                                  method: (o as any).paymentMethod === 'alipay' ? '支付宝原路退款' : '微信原路退款',
-                                  reasonCategory: 'customer_cancel',
-                                  reasonNote: `【线上退款闭环】理由: ${o.refundReason || '顾客在线申请'}`,
-                                  authorizedBy: '店长审核 (线上原路返还)',
-                                  cookedIsLoss: false,
-                                  notifyKitchen: true,
-                                  items: (o.items || []).map((i) => ({ name: i.name, quantity: i.quantity, price: i.price })),
-                                  status: 'approved'
-                                };
-                                setRefunds((prev) => [newRefundRecord, ...prev]);
+                              const newRefundRecord: RefundRecord = {
+                                id: `ref-online-${Date.now()}`,
+                                refundNo: `RF-ON-${Date.now().toString().slice(-6)}`,
+                                orderNo: o.orderNo,
+                                amount: o.totalAmount,
+                                date: new Date().toLocaleTimeString('zh-CN', { hour12: false }),
+                                method: (o as any).paymentMethod === 'alipay' ? '支付宝原路退款' : '微信原路退款',
+                                reasonCategory: 'customer_cancel',
+                                reasonNote: `【线上退款闭环】理由: ${o.refundReason || '顾客在线申请'}`,
+                                authorizedBy: '店长审核 (线上原路返还)',
+                                cookedIsLoss: false,
+                                notifyKitchen: true,
+                                items: (o.items || []).map((i) => ({ name: i.name, quantity: i.quantity, price: i.price })),
+                                status: 'approved'
+                              };
+                              setRefunds((prev) => [newRefundRecord, ...prev]);
 
-                                showToast(`【原路退款成功】订单 ${o.orderNo} 款项 ¥${o.totalAmount.toFixed(2)} 已原路退还至顾客 ${(o as any).paymentMethod === 'alipay' ? '支付宝' : '微信'} 账户！`);
-                              } catch (err: any) {
-                                showToast(`退款处理失败: ${err.message || '网络异常'}`);
-                              }
-                            }}
-                            className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[2px] font-bold text-xs cursor-pointer shadow-2xs inline-flex items-center gap-1"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                            <span>同意退款 (原路返还)</span>
-                          </button>
+                              showToast(`【原路退款成功】订单 ${o.orderNo} 款项 ¥${o.totalAmount.toFixed(2)} 已原路退还至顾客 ${(o as any).paymentMethod === 'alipay' ? '支付宝' : '微信'} 账户！`);
+                            } catch (err: any) {
+                              showToast(`退款处理失败: ${err.message || '网络异常'}`);
+                            }
+                          }}
+                          className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[2px] font-bold text-xs cursor-pointer shadow-2xs flex items-center justify-center gap-1"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          <span>同意原路退款</span>
+                        </button>
 
-                          {/* 驳回退款 */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setRejectModalOrder(o);
-                              setRejectReasonInput('餐品已新鲜现制出炉，骑手正专送中，无法取消退单');
-                            }}
-                            className="px-2.5 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border border-neutral-300 rounded-[2px] font-semibold text-xs cursor-pointer shadow-2xs inline-flex items-center gap-1"
-                          >
-                            <X className="w-3.5 h-3.5 text-rose-500" />
-                            <span>驳回申请</span>
-                          </button>
-                        </td>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRejectModalOrder(o);
+                            setRejectReasonInput('餐品已新鲜现制出炉，骑手正专送中，无法取消退单');
+                          }}
+                          className="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border border-neutral-300 rounded-[2px] font-semibold text-xs cursor-pointer shadow-2xs flex items-center justify-center gap-1"
+                        >
+                          <X className="w-3.5 h-3.5 text-rose-500" />
+                          <span>驳回</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop Table (>= md) */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-[#e6e6e4] bg-[#fbfbfa] text-[#787774] text-[10.5px]">
+                        <th className="p-2.5 font-bold">订单流水 / 顾客</th>
+                        <th className="p-2.5 font-bold">下单时间</th>
+                        <th className="p-2.5 font-bold">退款金额 &amp; 支付原路</th>
+                        <th className="p-2.5 font-bold">购买菜品</th>
+                        <th className="p-2.5 font-bold">顾客退款申请理由</th>
+                        <th className="p-2.5 font-bold text-right">审核操作</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-[#efefed]">
+                      {pendingCustomerRefunds.map((o) => (
+                        <tr key={o.id} className="hover:bg-amber-50/40 transition-colors">
+                          <td className="p-2.5">
+                            <span className="font-mono font-bold text-xs text-[#37352f] block">{o.orderNo}</span>
+                            <span className="text-[10.5px] text-neutral-600 flex items-center gap-1 mt-0.5">
+                              <User className="w-3 h-3 text-neutral-400" />
+                              <span>{o.customerName || '先锋食客'}</span>
+                              <span className="font-mono text-[10px] text-neutral-400">({o.userPhone || '到店客'})</span>
+                            </span>
+                          </td>
+
+                          <td className="p-2.5 text-neutral-600 font-mono text-[11px]">
+                            {o.createdTime}
+                          </td>
+
+                          <td className="p-2.5">
+                            <span className="font-mono font-bold text-sm text-rose-600 block">
+                              ¥{o.totalAmount.toFixed(2)}
+                            </span>
+                            <span className={`text-[10px] px-1 py-0.2 rounded font-semibold inline-block mt-0.5 ${
+                              o.paymentMethod === 'alipay'
+                                ? 'bg-blue-50 text-blue-800 border border-blue-200'
+                                : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                            }`}>
+                              {o.paymentMethod === 'alipay' ? '支付宝' : '微信支付'}
+                            </span>
+                          </td>
+
+                          <td className="p-2.5 max-w-[200px]">
+                            <div className="space-y-0.5">
+                              {o.items?.map((item, idx) => (
+                                <div key={idx} className="text-[11px] text-neutral-700 flex justify-between gap-1">
+                                  <span className="truncate">{item.name}</span>
+                                  <span className="font-mono text-neutral-500 shrink-0">x{item.quantity}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </td>
+
+                          <td className="p-2.5 max-w-[220px]">
+                            <div className="bg-rose-50/80 border border-rose-200 rounded p-1.5 text-xs">
+                              <span className="text-rose-900 font-semibold block text-[11px]">
+                                {o.refundReason || '未说明退款原因'}
+                              </span>
+                              <span className="text-[10px] text-rose-600 block mt-0.5">
+                                申请状态: {o.status === 'cancel_requested' ? '顾客主动申请取消' : '售后退单审核'}
+                              </span>
+                            </div>
+                          </td>
+
+                          <td className="p-2.5 text-right space-x-1.5 whitespace-nowrap">
+                            {/* 批准退款 */}
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  showToast(`正在向支付网关申请原路退款...`);
+                                  // 1. 调用真实支付网关原路退款
+                                  await executeRealPayRefund({
+                                    orderNo: o.orderNo,
+                                    refundAmount: o.totalAmount,
+                                    totalAmount: o.totalAmount,
+                                    reason: o.refundReason || '顾客线上申请极速退款'
+                                  });
+
+                                  // 2. 调用 App 核心退款审核回调
+                                  onAuditRefund?.(o.id, true);
+
+                                  // 3. 记录进本地 POS 退款流水台账
+                                  const newRefundRecord: RefundRecord = {
+                                    id: `ref-online-${Date.now()}`,
+                                    refundNo: `RF-ON-${Date.now().toString().slice(-6)}`,
+                                    orderNo: o.orderNo,
+                                    amount: o.totalAmount,
+                                    date: new Date().toLocaleTimeString('zh-CN', { hour12: false }),
+                                    method: (o as any).paymentMethod === 'alipay' ? '支付宝原路退款' : '微信原路退款',
+                                    reasonCategory: 'customer_cancel',
+                                    reasonNote: `【线上退款闭环】理由: ${o.refundReason || '顾客在线申请'}`,
+                                    authorizedBy: '店长审核 (线上原路返还)',
+                                    cookedIsLoss: false,
+                                    notifyKitchen: true,
+                                    items: (o.items || []).map((i) => ({ name: i.name, quantity: i.quantity, price: i.price })),
+                                    status: 'approved'
+                                  };
+                                  setRefunds((prev) => [newRefundRecord, ...prev]);
+
+                                  showToast(`【原路退款成功】订单 ${o.orderNo} 款项 ¥${o.totalAmount.toFixed(2)} 已原路退还至顾客 ${(o as any).paymentMethod === 'alipay' ? '支付宝' : '微信'} 账户！`);
+                                } catch (err: any) {
+                                  showToast(`退款处理失败: ${err.message || '网络异常'}`);
+                                }
+                              }}
+                              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[2px] font-bold text-xs cursor-pointer shadow-2xs inline-flex items-center gap-1"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>同意退款 (原路返还)</span>
+                            </button>
+
+                            {/* 驳回退款 */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRejectModalOrder(o);
+                                setRejectReasonInput('餐品已新鲜现制出炉，骑手正专送中，无法取消退单');
+                              }}
+                              className="px-2.5 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border border-neutral-300 rounded-[2px] font-semibold text-xs cursor-pointer shadow-2xs inline-flex items-center gap-1"
+                            >
+                              <X className="w-3.5 h-3.5 text-rose-500" />
+                              <span>驳回申请</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
 
@@ -1219,7 +1471,60 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
               <span className="text-[10px] text-neutral-500">双向对账数据 · 已存档</span>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* Mobile Card List (< md) */}
+            <div className="md:hidden divide-y divide-[#efefed]">
+              {allRefundOrders.map((o) => (
+                <div key={o.id} className="p-3 space-y-2 hover:bg-[#fbfbfa]">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <span className="font-mono font-bold text-xs text-[#37352f] block">{o.orderNo}</span>
+                      <span className="text-[10px] text-neutral-500">
+                        {o.customerName || '顾客'} ({o.userPhone || '到店客'})
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-mono font-bold text-sm text-neutral-800 block">
+                        ¥{o.totalAmount.toFixed(2)}
+                      </span>
+                      <span className="text-[9.5px] text-neutral-600">
+                        {o.paymentMethod === 'alipay' ? '支付宝' : '微信支付'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[10.5px]">
+                    <span className="text-neutral-500">处理状态:</span>
+                    {o.refundStatus === 'approved' ? (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        已原路全额退款
+                      </span>
+                    ) : o.refundStatus === 'rejected' ? (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                        已驳回退款
+                      </span>
+                    ) : (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                        待商家审核
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="bg-[#f7f7f5] rounded p-2 text-[10.5px] space-y-1">
+                    <p className="text-neutral-700">
+                      <strong>顾客申请:</strong> {o.refundReason || '未填写'}
+                    </p>
+                    {o.refundRejectReason && (
+                      <p className="text-rose-600 border-t border-[#e6e6e4] pt-1">
+                        <strong>驳回说明:</strong> {o.refundRejectReason}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table (>= md) */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-[#e6e6e4] bg-[#fbfbfa] text-[#787774] text-[10.5px]">
