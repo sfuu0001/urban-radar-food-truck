@@ -193,6 +193,11 @@ export interface DeliveryAddressItem {
   longitude: number;
   tag: string;
   isDefault?: boolean;
+  receiverName?: string; // 收货人姓名
+  receiverPhone?: string; // 联系电话
+  houseNumber?: string; // 小区几幢几楼几室 / 详细门牌
+  remarks?: string; // 配送备注 (如: 放门口、敲门等)
+  createdAt?: string;
 }
 
 export interface DeliveryRangeEvaluation {
@@ -278,12 +283,16 @@ export const DEFAULT_TRUCK_CONFIGS: TruckLocationConfig[] = [
 export const PRESET_DELIVERY_ADDRESSES: DeliveryAddressItem[] = [
   {
     id: 'addr-1',
-    title: '大悦城商务座 (常用办公)',
+    title: '大悦城商务座',
     detail: '西藏北路 166 号大悦城商务座 1204 室',
     latitude: 31.2435,
     longitude: 121.4690,
-    tag: '默认',
-    isDefault: true
+    tag: '公司',
+    isDefault: true,
+    receiverName: '张先生',
+    receiverPhone: '138-8888-9201',
+    houseNumber: '商务座 12 楼 1204 室 (前台转交)',
+    remarks: '放前台即可，无需敲门'
   },
   {
     id: 'addr-2',
@@ -291,7 +300,11 @@ export const PRESET_DELIVERY_ADDRESSES: DeliveryAddressItem[] = [
     detail: '西藏北路 198 号大悦城北座 801 室',
     latitude: 31.2450,
     longitude: 121.4680,
-    tag: '朋友'
+    tag: '公司',
+    receiverName: '李女士',
+    receiverPhone: '139-6688-2345',
+    houseNumber: '北座 8 楼 801 室',
+    remarks: '请送至前台'
   },
   {
     id: 'addr-3',
@@ -299,7 +312,11 @@ export const PRESET_DELIVERY_ADDRESSES: DeliveryAddressItem[] = [
     detail: '福建北路 100 号西里 3 层 302',
     latitude: 31.2465,
     longitude: 121.4780,
-    tag: '公司'
+    tag: '其他',
+    receiverName: '张先生',
+    receiverPhone: '138-8888-9201',
+    houseNumber: '西里 3 层 302 休闲区',
+    remarks: '到店请电话联系'
   },
   {
     id: 'addr-4',
@@ -307,7 +324,11 @@ export const PRESET_DELIVERY_ADDRESSES: DeliveryAddressItem[] = [
     detail: '光复路 1 号智慧园 A 座 101',
     latitude: 31.2390,
     longitude: 121.4510,
-    tag: '分部'
+    tag: '公司',
+    receiverName: '王经理',
+    receiverPhone: '137-1234-5678',
+    houseNumber: 'A 座 1 楼 101 室',
+    remarks: '门禁直接按 101'
   },
   {
     id: 'addr-5',
@@ -315,7 +336,11 @@ export const PRESET_DELIVERY_ADDRESSES: DeliveryAddressItem[] = [
     detail: '浦东新区世纪大道 8 号国金中心二期 22 层',
     latitude: 31.2372,
     longitude: 121.5038,
-    tag: '远距测试 (3.5km+)'
+    tag: '公司',
+    receiverName: '陈总监',
+    receiverPhone: '138-0000-8888',
+    houseNumber: '二期 22 层行政区',
+    remarks: '物业大堂刷卡入内'
   },
   {
     id: 'addr-6',
@@ -323,7 +348,11 @@ export const PRESET_DELIVERY_ADDRESSES: DeliveryAddressItem[] = [
     detail: '龙腾大道 2380 号油罐艺术中心 1 号馆',
     latitude: 31.1712,
     longitude: 121.4610,
-    tag: '超距测试 (8.0km+)'
+    tag: '其他',
+    receiverName: '张先生',
+    receiverPhone: '138-8888-9201',
+    houseNumber: '1 号馆外围展厅',
+    remarks: '到了打我电话'
   },
   {
     id: 'addr-7',
@@ -331,7 +360,11 @@ export const PRESET_DELIVERY_ADDRESSES: DeliveryAddressItem[] = [
     detail: '闵行区申长路 688 号虹桥天地南区 L2',
     latitude: 31.1945,
     longitude: 121.3160,
-    tag: '超距测试 (15.0km+)'
+    tag: '其他',
+    receiverName: '先锋食客',
+    receiverPhone: '138-8888-9201',
+    houseNumber: '南区 L2 连廊休闲座椅',
+    remarks: '现场自取'
   }
 ];
 

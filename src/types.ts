@@ -557,7 +557,7 @@ export interface MaterialItem {
   id: string;
   sku: string;
   name: string;
-  category: '肉类原料' | '海鲜水产' | '蔬菜品类' | '豆制品类' | '饮品辅料' | '消耗包材' | '主食面点';
+  category: '肉类原料' | '海鲜水产' | '蔬菜品类' | '豆制品类' | '饮品辅料' | '消耗包材' | '主食面点' | '调料调味';
   currentStock: number;
   safetyStock: number;
   reorderSuggestion: number;
@@ -616,7 +616,7 @@ export interface SkuParamItem {
   id: string;
   sku: string;
   name: string;
-  category: '肉类原料' | '海鲜水产' | '蔬菜品类' | '豆制品类' | '饮品辅料' | '消耗包材' | '主食面点';
+  category: '肉类原料' | '海鲜水产' | '蔬菜品类' | '豆制品类' | '饮品辅料' | '消耗包材' | '主食面点' | '调料调味';
   purchasePrice: number; // 采购单价 (元/单位)
   safetyStock: number; // 安全库存警戒线
   reorderSuggestion: number; // 建议补货量

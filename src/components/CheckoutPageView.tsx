@@ -35,11 +35,13 @@ import { PaymentChannelId, PaymentVoucher } from '../types/payment';
 import { ElectronicPaymentVoucherModal } from './payment/ElectronicPaymentVoucherModal';
 import { PaymentConfirmCashierModal } from './payment/PaymentConfirmCashierModal';
 import { matchDishImageUrl } from '../utils/dishImageMatcher';
+import { getSavedAddresses, DeliveryAddressItem } from '../utils/truckLocationEngine';
 
 export interface CheckoutPageViewProps {
   items: CartItem[];
   deliveryAddress: string;
   onChangeAddress: (newAddress: string) => void;
+  onOpenAddressModal?: () => void;
   diningMode: DiningMode;
   onDiningModeChange: (mode: DiningMode) => void;
   isVIPActive: boolean;
@@ -62,6 +64,7 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
   items,
   deliveryAddress,
   onChangeAddress,
+  onOpenAddressModal,
   diningMode,
   onDiningModeChange,
   isVIPActive,
@@ -105,9 +108,36 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
   const [boundTable, setBoundTable] = useState<BoundTableInfo | null>(() => getCurrentBoundTable());
   const [isTableBindModalOpen, setIsTableBindModalOpen] = useState(false);
 
-  // 地址内联快速切换
+  // 地址内联快速切换与已保存地址匹配
   const [isAddressPromptOpen, setIsAddressPromptOpen] = useState(false);
   const [newAddressInput, setNewAddressInput] = useState('');
+  const savedAddresses = useMemo(() => getSavedAddresses(), [deliveryAddress, isAddressPromptOpen]);
+  const matchedSaved = useMemo(() => {
+    return (
+      savedAddresses.find(
+        (a) =>
+          a.detail === deliveryAddress ||
+          deliveryAddress.includes(a.detail) ||
+          deliveryAddress.includes(a.title)
+      ) || savedAddresses[0]
+    );
+  }, [savedAddresses, deliveryAddress]);
+
+  const [inlineHouseNo, setInlineHouseNo] = useState('');
+  const [inlineReceiverName, setInlineReceiverName] = useState('');
+  const [inlineReceiverPhone, setInlineReceiverPhone] = useState('');
+  const [inlineRemarks, setInlineRemarks] = useState('');
+
+  // 打开内联编辑时同步当前数据
+  useEffect(() => {
+    if (isAddressPromptOpen) {
+      setNewAddressInput(deliveryAddress || matchedSaved?.title || '');
+      setInlineHouseNo(matchedSaved?.houseNumber || '');
+      setInlineReceiverName(matchedSaved?.receiverName || '张先生');
+      setInlineReceiverPhone(matchedSaved?.receiverPhone || '138-8888-9201');
+      setInlineRemarks(matchedSaved?.remarks || '');
+    }
+  }, [isAddressPromptOpen, deliveryAddress, matchedSaved]);
 
   // 支付结果与凭证
   const [isPaidSuccess, setIsPaidSuccess] = useState(false);
@@ -553,17 +583,30 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
               </button>
             </div>
 
-            {/* 地址与履约时效单行展示 */}
-            <div className="flex items-center justify-between gap-2.5 pt-0.5 px-0.5">
-              <div className="min-w-0 flex-1 flex items-start gap-2">
-                <div className="w-7 h-7 bg-[#F9F9F7] border border-[#F0F0EE] flex items-center justify-center shrink-0 mt-0.5">
+            {/* 地址与履约时效展示 */}
+            <div className="flex items-start justify-between gap-2.5 pt-0.5 px-0.5">
+              <div
+                className={`min-w-0 flex-1 flex items-start gap-2 ${diningMode === 'delivery' ? 'cursor-pointer' : ''}`}
+                onClick={() => {
+                  if (diningMode === 'delivery') {
+                    if (onOpenAddressModal) {
+                      onOpenAddressModal();
+                    } else {
+                      setIsAddressPromptOpen((v) => !v);
+                    }
+                  } else if (diningMode === 'dine_in') {
+                    setIsTableBindModalOpen(true);
+                  }
+                }}
+              >
+                <div className="w-7 h-7 bg-[#F9F9F7] border border-[#F0F0EE] flex items-center justify-center shrink-0 mt-0.5 rounded-lg">
                   <MapPin className="w-4 h-4 text-[#1A1C1B]" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <span
                       id="delivery-tag"
-                      className="text-[10px] font-semibold text-[#006D36] bg-[#EBF7EF] px-1.5 py-0.5 leading-none flex items-center gap-1 shrink-0"
+                      className="text-[10px] font-semibold text-[#006D36] bg-[#EBF7EF] px-1.5 py-0.5 leading-none flex items-center gap-1 shrink-0 rounded"
                     >
                       <Clock className="w-2.5 h-2.5" />
                       {diningMode === 'delivery'
@@ -572,7 +615,7 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                         ? '免配送费'
                         : '即刻自提'}
                     </span>
-                    <p id="location-text" className="text-xs font-semibold text-[#1A1C1B] truncate">
+                    <p id="location-text" className="text-xs font-bold text-[#1A1C1B] truncate">
                       {diningMode === 'delivery'
                         ? deliveryAddress || '静安大悦城北座 1F 中庭黑曜石餐车站'
                         : diningMode === 'dine_in'
@@ -582,14 +625,36 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                         : '静安大悦城北座 1F 中庭黑曜石餐车专用取餐口'}
                     </p>
                   </div>
-                  <p id="location-sub" className="text-[11px] text-[#7E7E7A] mt-1 truncate flex items-center gap-1">
-                    <ShieldCheck className="w-3 h-3 text-[#006D36] shrink-0" />
-                    {diningMode === 'delivery'
-                      ? '专人送至工位前台 · 保温锁鲜'
-                      : diningMode === 'dine_in'
-                      ? '中庭露营外摆位 · 扫码入座 · 现烹传菜'
-                      : '黑曜石餐车专用取餐口取餐 · 提货码秒取'}
-                  </p>
+
+                  {diningMode === 'delivery' ? (
+                    <div className="text-[11px] text-[#7E7E7A] mt-1 space-y-0.5">
+                      <p className="flex items-center gap-1.5 text-neutral-800 font-medium flex-wrap">
+                        <span>{matchedSaved?.receiverName || '张先生'}</span>
+                        <span className="font-mono text-neutral-500">{matchedSaved?.receiverPhone || '138-8888-9201'}</span>
+                        {matchedSaved?.tag && (
+                          <span className="text-[9.5px] px-1.5 py-0.2 bg-neutral-100 text-neutral-600 rounded font-bold">
+                            {matchedSaved.tag}
+                          </span>
+                        )}
+                        {matchedSaved?.remarks && (
+                          <span className="text-[9.5px] text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded truncate max-w-[150px]">
+                            备注: {matchedSaved.remarks}
+                          </span>
+                        )}
+                      </p>
+                      <p className="flex items-center gap-1 text-[10.5px]">
+                        <ShieldCheck className="w-3 h-3 text-[#006D36] shrink-0" />
+                        <span>极速骑手直配 · 保温锁鲜送达</span>
+                      </p>
+                    </div>
+                  ) : (
+                    <p id="location-sub" className="text-[11px] text-[#7E7E7A] mt-1 truncate flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3 text-[#006D36] shrink-0" />
+                      {diningMode === 'dine_in'
+                        ? '中庭露营外摆位 · 扫码入座 · 现烹传菜'
+                        : '黑曜石餐车专用取餐口取餐 · 提货码秒取'}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -599,7 +664,11 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                   if (diningMode === 'dine_in') {
                     setIsTableBindModalOpen(true);
                   } else if (diningMode === 'delivery') {
-                    setIsAddressPromptOpen(true);
+                    if (onOpenAddressModal) {
+                      onOpenAddressModal();
+                    } else {
+                      setIsAddressPromptOpen((v) => !v);
+                    }
                   } else {
                     toast.info('自提点固定为黑曜石 01 号餐车车窗取餐口');
                   }
@@ -611,36 +680,168 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
               </button>
             </div>
 
-            {/* 内联修改地址抽屉 */}
+            {/* 内联修改地址与表单抽屉 */}
             {isAddressPromptOpen && (
-              <div className="pt-2 border-t border-[#F0F0EE] flex gap-2 animate-in fade-in duration-150">
-                <input
-                  type="text"
-                  value={newAddressInput}
-                  onChange={(e) => setNewAddressInput(e.target.value)}
-                  placeholder="输入详细配送地址（如：大悦城商务座 1204 室）"
-                  className="flex-1 text-xs border border-[#E8E8E6] bg-white p-2 outline-none focus:border-[#1A1C1B]"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (newAddressInput.trim()) {
-                      onChangeAddress(newAddressInput.trim());
-                      setIsAddressPromptOpen(false);
-                      toast.success('配送地址已更新');
-                    }
-                  }}
-                  className="px-3 py-1.5 bg-[#1A1C1B] text-white text-xs font-semibold cursor-pointer"
-                >
-                  确定
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsAddressPromptOpen(false)}
-                  className="px-2 py-1.5 text-xs text-[#7E7E7A] hover:text-[#1A1C1B] cursor-pointer"
-                >
-                  取消
-                </button>
+              <div className="pt-3 border-t border-[#F0F0EE] space-y-2.5 animate-in fade-in duration-150">
+                {/* 快捷历史地址列表 */}
+                {savedAddresses.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between text-[10px] text-[#787770] mb-1">
+                      <span>常用地址簿快速切换:</span>
+                      {onOpenAddressModal && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAddressPromptOpen(false);
+                            onOpenAddressModal();
+                          }}
+                          className="text-emerald-700 font-bold hover:underline cursor-pointer"
+                        >
+                          管理与GPS选点 &rarr;
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pb-1">
+                      {savedAddresses.map((addr) => (
+                        <button
+                          key={addr.id}
+                          type="button"
+                          onClick={() => {
+                            onChangeAddress(addr.detail);
+                            setNewAddressInput(addr.detail);
+                            setInlineHouseNo(addr.houseNumber || '');
+                            setInlineReceiverName(addr.receiverName || '张先生');
+                            setInlineReceiverPhone(addr.receiverPhone || '138-8888-9201');
+                            setInlineRemarks(addr.remarks || '');
+                            toast.success(`已切换至: ${addr.title}`);
+                          }}
+                          className={`px-2 py-1 rounded text-xs shrink-0 border text-left transition-colors cursor-pointer ${
+                            deliveryAddress === addr.detail
+                              ? 'bg-emerald-50 text-emerald-900 border-emerald-300 font-bold'
+                              : 'bg-white text-neutral-700 border-neutral-200 hover:bg-neutral-50'
+                          }`}
+                        >
+                          <span className="font-bold block text-[11px] truncate max-w-[120px]">{addr.title}</span>
+                          <span className="text-[9.5px] text-[#787770] block truncate max-w-[120px]">
+                            {addr.houseNumber || addr.receiverName || '常用'}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 详细门牌号、联系人、电话、备注微表单 */}
+                <div className="space-y-2 bg-[#fbfbfa] p-2.5 rounded-xl border border-[#e2e3e1]">
+                  <div>
+                    <label className="text-[10px] font-bold text-neutral-700 block mb-0.5">
+                      小区/道路地址
+                    </label>
+                    <input
+                      type="text"
+                      value={newAddressInput}
+                      onChange={(e) => setNewAddressInput(e.target.value)}
+                      placeholder="基础位置（如：西藏北路166号大悦城）"
+                      className="w-full text-xs border border-[#d3d1cb] bg-white p-1.5 rounded-lg outline-none focus:border-[#1A1C1B]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-bold text-neutral-700 block mb-0.5">
+                        门牌号 / 几幢几室
+                      </label>
+                      <input
+                        type="text"
+                        value={inlineHouseNo}
+                        onChange={(e) => setInlineHouseNo(e.target.value)}
+                        placeholder="例：3号楼1204室"
+                        className="w-full text-xs border border-[#d3d1cb] bg-white p-1.5 rounded-lg outline-none focus:border-[#1A1C1B]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-neutral-700 block mb-0.5">
+                        配送备注
+                      </label>
+                      <input
+                        type="text"
+                        value={inlineRemarks}
+                        onChange={(e) => setInlineRemarks(e.target.value)}
+                        placeholder="例：放门口即可"
+                        className="w-full text-xs border border-[#d3d1cb] bg-white p-1.5 rounded-lg outline-none focus:border-[#1A1C1B]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-bold text-neutral-700 block mb-0.5">
+                        收货人姓名
+                      </label>
+                      <input
+                        type="text"
+                        value={inlineReceiverName}
+                        onChange={(e) => setInlineReceiverName(e.target.value)}
+                        placeholder="例：张先生"
+                        className="w-full text-xs border border-[#d3d1cb] bg-white p-1.5 rounded-lg outline-none focus:border-[#1A1C1B]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-neutral-700 block mb-0.5">
+                        联系电话
+                      </label>
+                      <input
+                        type="tel"
+                        value={inlineReceiverPhone}
+                        onChange={(e) => setInlineReceiverPhone(e.target.value)}
+                        placeholder="例：138-8888-9201"
+                        className="w-full text-xs border border-[#d3d1cb] bg-white p-1.5 rounded-lg outline-none focus:border-[#1A1C1B] font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    {onOpenAddressModal && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAddressPromptOpen(false);
+                          onOpenAddressModal();
+                        }}
+                        className="text-xs text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-1 cursor-pointer"
+                      >
+                        <MapPin className="w-3 h-3" />
+                        <span>完整地图与地址管理</span>
+                      </button>
+                    )}
+                    <div className="flex items-center gap-1.5 ml-auto">
+                      <button
+                        type="button"
+                        onClick={() => setIsAddressPromptOpen(false)}
+                        className="px-2.5 py-1 text-xs text-[#7E7E7A] hover:text-[#1A1C1B] cursor-pointer"
+                      >
+                        取消
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const base = newAddressInput.trim() || deliveryAddress;
+                          const full = inlineHouseNo.trim()
+                            ? `${base.replace(inlineHouseNo.trim(), '').trim()} ${inlineHouseNo.trim()}`.trim()
+                            : base;
+                          if (full) {
+                            onChangeAddress(full);
+                            setIsAddressPromptOpen(false);
+                            toast.success('配送地址与收件信息已更新');
+                          }
+                        }}
+                        className="px-3.5 py-1.5 bg-[#1A1C1B] text-white text-xs font-semibold rounded-lg cursor-pointer"
+                      >
+                        确定更新
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </section>

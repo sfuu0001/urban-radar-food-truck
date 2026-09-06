@@ -973,23 +973,23 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
             aria-label="返回前台顾客点餐"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span className="hidden md:inline">返回前台</span>
+            <span className="hidden md:inline">前台</span>
           </button>
 
           {/* Vertical Separator */}
           <div className="h-4 w-[1px] bg-[#e6e6e4] shrink-0" />
 
-          {/* Store Brand Badge (Visible on sm+ screens, completely avoiding mobile horizontal crunch and P. truncation) */}
+          {/* Store Brand Badge */}
           <div className="hidden sm:flex items-center gap-2 shrink-0">
             <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-[3px] bg-[#37352f] text-white flex items-center justify-center font-bold text-xs shrink-0">
               <Store className="w-3.5 h-3.5" />
             </div>
             <div className="flex items-center gap-1.5">
               <span className="font-bold text-xs sm:text-sm text-[#37352f] whitespace-nowrap">
-                POS 商家总控
+                商家总控
               </span>
               <span className="text-[10px] font-mono bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc] px-1 py-0.2 rounded-[2px] shrink-0 hidden lg:inline-block">
-                实时联机
+                在线
               </span>
             </div>
           </div>
@@ -1003,7 +1003,7 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
               value={selectedTruckId}
               onChange={(e) => handleSelectTruck(e.target.value)}
               className="bg-transparent text-[11px] sm:text-xs font-bold text-[#37352f] outline-none cursor-pointer truncate max-w-[95px] xs:max-w-[120px] sm:max-w-[170px]"
-              title="切换当前管理餐车独立账本与订单"
+              title="切换餐车"
             >
               {merchantTruckConfigs.map((t) => (
                 <option key={t.truckId} value={t.truckId}>
@@ -1015,7 +1015,7 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
 
           <div className="h-4 w-[1px] bg-[#e6e6e4] shrink-0 hidden lg:block" />
 
-          {/* Verified Phone Staff Badge & Device Fingerprint Invariant Indicator (Visible on lg+, consolidated into Hardware Hub on smaller screens) */}
+          {/* Verified Phone Staff Badge */}
           <div className="hidden lg:flex items-center gap-1 bg-[#f1f1ef] border border-[#d3d1cb] rounded-[4px] px-1.5 py-0.5 shrink-0 text-xs">
             <Smartphone className="w-3.5 h-3.5 text-[#2b593f] shrink-0" />
             <span className="font-bold text-[#37352f] truncate max-w-[110px] sm:max-w-none">
@@ -1025,18 +1025,17 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
               {merchantSession?.phone ? maskPhoneNumber(merchantSession.phone) : '138****8000'}
             </span>
             <span
-              className="text-[9px] bg-emerald-100 text-emerald-800 border border-emerald-300/60 px-1 py-0.2 rounded font-mono font-bold shrink-0 flex items-center gap-0.5"
-              title={`手机号已验证 · 底层硬件指纹 [${merchantSession?.hardwareHash || 'HW-INVARIANT'}] 保持绑定不变`}
+              className="text-[9px] bg-emerald-100 text-emerald-800 border border-emerald-300/60 p-0.5 rounded shrink-0 flex items-center"
+              title={`手机号已验证 · 硬件指纹 [${merchantSession?.hardwareHash || 'HW-INVARIANT'}] 绑定`}
             >
               <Fingerprint className="w-2.5 h-2.5 text-emerald-700" />
-              <span>指纹保活</span>
             </span>
             {onOpenPhoneAuth && (
               <button
                 type="button"
                 onClick={onOpenPhoneAuth}
                 className="text-[10px] text-blue-700 hover:text-blue-900 underline ml-0.5 font-medium cursor-pointer"
-                title="更换登录手机号或切换其他员工账号"
+                title="更换登录手机号"
               >
                 切换
               </button>
@@ -1054,9 +1053,9 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
           </div>
         </div>
 
-        {/* Top Right Quick Switches - Non-wrapping and mobile compact with Hardware Hub aggregation */}
+        {/* Top Right Quick Switches */}
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-          {/* 营业状态总开关 (一键打烊/恢复接单) */}
+          {/* 营业状态总开关 */}
           <button
             type="button"
             onClick={() => setIsBusinessStatusModalOpen(true)}
@@ -1065,25 +1064,21 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
                 ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-300'
                 : 'bg-rose-50 hover:bg-rose-100 text-rose-900 border-rose-300 animate-pulse'
             }`}
-            title="流动餐车营业状态总控中心（一键打烊/恢复接单、前台公示）"
+            title="流动餐车营业状态总控（一键打烊/恢复接单）"
           >
             <span className={`w-2 h-2 rounded-full shrink-0 ${businessStatus.isOpen ? 'bg-emerald-500' : 'bg-rose-500'}`} />
             <span>{businessStatus.isOpen ? '营业中' : '已打烊'}</span>
-            <span className="text-[10px] opacity-75 font-normal hidden lg:inline">
-              {businessStatus.isOpen ? '接单中' : businessStatus.reopenTime}
-            </span>
           </button>
 
-          {/* 硬件与协同中枢聚合胶囊 (Mobile & Tablet Aggregation Pill - Always visible or primary on small screens) */}
+          {/* 协同中枢聚合胶囊 (Mobile & Tablet) */}
           <button
             type="button"
             onClick={() => setIsHardwareHubOpen(true)}
             className="px-2 sm:px-2.5 py-1 bg-[#2b593f]/10 hover:bg-[#2b593f]/20 text-[#2b593f] rounded-[3px] font-bold text-xs transition-all cursor-pointer border border-[#2b593f]/30 flex items-center gap-1.5 shadow-2xs shrink-0 xl:hidden"
-            title="打开硬件与协同中枢 (蓝牙音箱/扫码枪/云同步/语音/历史消息/切换骑手)"
+            title="打开硬件与协同中枢"
           >
             <SlidersHorizontal className="w-3.5 h-3.5 text-[#2b593f] shrink-0" />
-            <span className="hidden xs:inline">硬件协同</span>
-            <span className="xs:hidden">协同</span>
+            <span>协同</span>
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
           </button>
 
@@ -1091,30 +1086,23 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
           <div className="hidden xl:flex items-center gap-1 sm:gap-1.5 shrink-0">
             <MerchantVoiceControls showToast={showToast} />
 
-            {/* Bluetooth Audio Player Quick Link & Acoustic Routing Indicator */}
+            {/* Bluetooth Audio Player */}
             <button
               type="button"
               onClick={() => setIsBluetoothModalOpen(true)}
-              className={`px-1.5 sm:px-2.5 py-1 rounded-[3px] font-bold text-xs transition-all cursor-pointer border flex items-center gap-1 sm:gap-1.5 shadow-2xs shrink-0 ${
+              className={`px-2 py-1 rounded-[3px] font-bold text-xs transition-all cursor-pointer border flex items-center gap-1 shadow-2xs shrink-0 ${
                 activeBtDevice && activeBtDevice.status === 'connected'
                   ? 'bg-blue-50 hover:bg-blue-100 text-blue-900 border-blue-200'
                   : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border-neutral-300'
               }`}
-              title={`流动餐车蓝牙播放器绑定与定向路由管理 · 当前: ${
+              title={`流动餐车蓝牙音箱 · 当前: ${
                 activeBtDevice?.status === 'connected' ? activeBtDevice.name : '未连接'
-              } (${btConfig.routingMode === 'voice_only' ? '仅系统语音' : '统一混合'})`}
+              }`}
             >
               <Bluetooth className={`w-3.5 h-3.5 shrink-0 ${
                 activeBtDevice && activeBtDevice.status === 'connected' ? 'text-blue-600' : 'text-neutral-500'
               }`} />
-              <span className="hidden md:inline">蓝牙音箱</span>
-              <span className={`text-[10px] px-1 py-0.2 rounded font-semibold ${
-                btConfig.routingMode === 'voice_only' 
-                  ? 'bg-blue-200/70 text-blue-900' 
-                  : 'bg-neutral-200 text-neutral-800'
-              }`}>
-                {btConfig.routingMode === 'voice_only' ? '仅系统语音' : '统一混合'}
-              </span>
+              <span className="hidden md:inline">蓝牙</span>
               {activeBtDevice && activeBtDevice.status === 'connected' && (
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
               )}
@@ -1126,52 +1114,52 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
                 setActiveTab('scanner');
                 showToast('已切换至智能扫码枪硬件控制台');
               }}
-              className={`px-1.5 sm:px-2.5 py-1 rounded-[3px] font-bold text-xs transition-all cursor-pointer border flex items-center gap-1 sm:gap-1.5 shadow-2xs shrink-0 ${
+              className={`px-2 py-1 rounded-[3px] font-bold text-xs transition-all cursor-pointer border flex items-center gap-1 shadow-2xs shrink-0 ${
                 activeTab === 'scanner'
                   ? 'bg-[#2b593f] text-white border-[#2b593f]'
                   : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
               }`}
-              title="智能扫码枪硬件控制台与测试"
+              title="智能扫码枪硬件控制台"
             >
               <Barcode className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'scanner' ? 'text-white' : 'text-emerald-700'}`} />
-              <span className="hidden md:inline">扫码枪</span>
+              <span className="hidden md:inline">扫码</span>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
             </button>
 
             <button
               type="button"
               onClick={() => setIsMessageFormModalOpen(true)}
-              className="px-1.5 sm:px-2.5 py-1 bg-white hover:bg-neutral-50 text-neutral-800 rounded-[3px] font-bold text-xs transition-all cursor-pointer border border-neutral-300 flex items-center gap-1 sm:gap-1.5 shadow-2xs group shrink-0"
-              title="查看历史订单表单 (支持打开各订单在线消息界面)"
+              className="px-2 py-1 bg-white hover:bg-neutral-50 text-neutral-800 rounded-[3px] font-bold text-xs transition-all cursor-pointer border border-neutral-300 flex items-center gap-1 shadow-2xs group shrink-0"
+              title="订单协同消息与历史表单"
             >
               <div className="relative shrink-0">
                 <MessageSquareText className="w-3.5 h-3.5 text-emerald-700 shrink-0 group-hover:scale-110 transition-transform" />
                 <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               </div>
-              <span className="hidden md:inline">历史订单表单</span>
+              <span className="hidden md:inline">消息</span>
             </button>
 
             <button
               type="button"
               onClick={() => setIsCloudbaseModalOpen(true)}
-              className="px-1.5 sm:px-2.5 py-1 bg-sky-50 hover:bg-sky-100 text-sky-800 rounded-[3px] font-bold text-xs transition-all cursor-pointer border border-sky-200 flex items-center gap-1 sm:gap-1.5 shadow-2xs shrink-0"
-              title="腾讯云数据同步 (Env: tc100-d9gz0e2ko5929e360)"
+              className="px-2 py-1 bg-sky-50 hover:bg-sky-100 text-sky-800 rounded-[3px] font-bold text-xs transition-all cursor-pointer border border-sky-200 flex items-center gap-1 shadow-2xs shrink-0"
+              title="腾讯云数据同步"
             >
               <Cloud className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-              <span className="hidden md:inline">腾讯云同步</span>
+              <span className="hidden md:inline">同步</span>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
             </button>
           </div>
 
-          {/* 切换骑手端 (hidden on mobile where it is in Hardware Hub, visible on sm+) */}
+          {/* 骑手端入口 */}
           <button
             type="button"
             onClick={() => onSwitchRole('rider')}
-            className="hidden sm:flex px-1.5 sm:px-2.5 py-1 bg-[#f1f1ef] hover:bg-[#e8e8e6] text-[#37352f] rounded-[3px] font-semibold text-xs transition-all cursor-pointer border border-[#d3d1cb] items-center gap-1 shrink-0"
+            className="hidden sm:flex px-2 py-1 bg-[#f1f1ef] hover:bg-[#e8e8e6] text-[#37352f] rounded-[3px] font-semibold text-xs transition-all cursor-pointer border border-[#d3d1cb] items-center gap-1 shrink-0"
             title="切换至骑手端配送界面"
           >
             <Bike className="w-3.5 h-3.5 text-[#2b593f] shrink-0" />
-            <span className="hidden md:inline">切换骑手端</span>
+            <span className="hidden md:inline">骑手端</span>
             <span className="md:hidden font-bold">骑手</span>
           </button>
         </div>

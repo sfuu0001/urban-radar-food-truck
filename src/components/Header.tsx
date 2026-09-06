@@ -281,13 +281,10 @@ export const Header: React.FC<HeaderProps> = ({
                   type="text"
                   value={searchQuery || ''}
                   onChange={(e) => onSearchChange(e.target.value)}
-                  placeholder="检索菜品 / 备长炭 / 序号 [SK-XX]"
-                  className="w-full bg-transparent border-none text-[10px] font-mono text-pitch placeholder-stone-400 focus:outline-none focus:ring-0 p-0 m-0"
+                  placeholder="搜索菜品..."
+                  className="w-full bg-transparent border-none text-[11px] font-sans text-pitch placeholder-stone-400 focus:outline-none focus:ring-0 p-0 m-0"
                 />
               </div>
-              <span className="text-[8px] font-mono bg-techTag text-stone-600 px-1 py-0.5 border border-line uppercase shrink-0">
-                SEARCH
-              </span>
             </div>
 
             {onViewModeChange && (

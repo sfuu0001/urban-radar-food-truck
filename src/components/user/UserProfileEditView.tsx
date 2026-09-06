@@ -1,656 +1,933 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
-  User,
-  Phone,
-  MapPin,
-  Sparkles,
-  Check,
-  Plus,
-  Trash2,
-  Edit2,
-  Cloud,
-  RefreshCw,
-  Sliders,
-  Wallet,
-  Coins,
-  ShieldCheck,
-  CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-  Flame,
-  Utensils,
-  Bell,
-  Compass,
-  CreditCard,
   ArrowLeft,
-  Calendar,
-  Layers,
-  ChevronRight,
-  Info,
-  KeyRound,
-  UserCheck,
-  Maximize2,
-  Minimize2
+  RefreshCw,
+  Check,
+  Sliders,
+  MapPin,
+  Fingerprint,
+  Wallet,
+  Receipt,
+  Edit2,
+  Trash2,
+  Plus,
+  ShieldCheck,
+  Sparkles,
+  AlertCircle,
+  Radio,
+  Building,
+  KeyRound
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, UserAddress, UserPreferences } from '../../types';
 import { syncUserProfileToCloud } from '../../utils/cloudbase';
 import { useToast } from '../ui/ToastContext';
-import { UserAuthModal } from './UserAuthModal';
+import { saveAddresses, DeliveryAddressItem } from '../../utils/truckLocationEngine';
 
 export interface UserProfileEditViewProps {
   userProfile: UserProfile;
   onProfileUpdated: (updated: UserProfile) => void;
   onBack?: () => void;
-  initialTab?: 'profile' | 'addresses' | 'preferences' | 'wallet';
+  initialTab?: 'profile' | 'addresses' | 'preferences' | 'wallet' | 'security' | 'finance';
   onOpenCloudMonitor?: () => void;
   onOpenCloudCode?: () => void;
 }
 
-const PRESET_AVATARS = [
-  { label: '先锋食客', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80' },
-  { label: '黑曜石主理', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80' },
-  { label: '炭烤大师', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80' },
-  { label: '冷萃探员', url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&auto=format&fit=crop&q=80' },
-  { label: '和牛极客', url: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&auto=format&fit=crop&q=80' }
-];
+type TabType = 'tab-profile' | 'tab-preference' | 'tab-address' | 'tab-security' | 'tab-finance';
 
 export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
   userProfile,
   onProfileUpdated,
   onBack,
-  initialTab = 'profile',
-  onOpenCloudMonitor,
-  onOpenCloudCode
+  initialTab = 'profile'
 }) => {
   const toast = useToast();
 
-  // Accordion Expand/Collapse State
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    profile: true,
-    addresses: initialTab === 'addresses',
-    preferences: initialTab === 'preferences',
-    wallet: initialTab === 'wallet',
-    security: false
-  });
+  // Map incoming initialTab to local TabType
+  const resolvedInitialTab: TabType = useMemo(() => {
+    switch (initialTab) {
+      case 'addresses':
+        return 'tab-address';
+      case 'preferences':
+        return 'tab-preference';
+      case 'security':
+        return 'tab-security';
+      case 'wallet':
+      case 'finance':
+        return 'tab-finance';
+      case 'profile':
+      default:
+        return 'tab-profile';
+    }
+  }, [initialTab]);
+
+  const [activeTab, setActiveTab] = useState<TabType>(resolvedInitialTab);
 
   // Form State
-  const [nickname, setNickname] = useState(userProfile.nickname);
-  const [phone, setPhone] = useState(userProfile.phone);
-  const [avatar, setAvatar] = useState(userProfile.avatar);
-  const [bio, setBio] = useState(userProfile.bio || '');
+  const [nickname, setNickname] = useState(userProfile.nickname || '张伟 (店长)');
+  const [phone] = useState(userProfile.phone || '13800138000');
+  const [avatar, setAvatar] = useState(userProfile.avatar || '🧑‍💻');
+  const [bio, setBio] = useState(userProfile.bio || '店长 / 运营总管 · 设备硬件指纹绑定中');
   const [gender, setGender] = useState<'secret' | 'male' | 'female'>(userProfile.gender || 'secret');
-  const [birthday, setBirthday] = useState(userProfile.birthday || '1998-06-18');
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [birthday, setBirthday] = useState(userProfile.birthday || '1990/01/01');
+
+  // Preferences State
+  const [spiciness, setSpiciness] = useState<'none' | 'mild' | 'medium' | 'hot'>(
+    userProfile.preferences?.spiciness || 'mild'
+  );
+  const [ecoMode, setEcoMode] = useState<boolean>(
+    userProfile.preferences?.cutlery === 'eco' || userProfile.preferences?.cutlery === 'not_needed'
+  );
+  const [silentCall, setSilentCall] = useState<boolean>(
+    !userProfile.preferences?.radarTracking || false
+  );
+  const [dietaryNotes, setDietaryNotes] = useState<string>(
+    userProfile.preferences?.dietaryNote || '无特殊过敏原'
+  );
 
   // Addresses State
-  const [addresses, setAddresses] = useState<UserAddress[]>(userProfile.addresses || []);
-  const [editingAddress, setEditingAddress] = useState<UserAddress | null>(null);
+  const [addresses, setAddresses] = useState<UserAddress[]>(() => {
+    if (userProfile.addresses && userProfile.addresses.length > 0) {
+      return userProfile.addresses;
+    }
+    return [
+      {
+        id: 'addr-default-1',
+        name: userProfile.nickname || '张伟',
+        phone: userProfile.phone || '13800138000',
+        tag: '公司',
+        address: '广东省深圳市南山区高新科技园南区C栋',
+        detail: '高新科技园南区C栋102室',
+        houseNumber: 'C栋102室',
+        remarks: '总店仓储备货点',
+        isDefault: true,
+        createdAt: '2024-01-15 09:20:11'
+      }
+    ];
+  });
+
+  // Inline Address Add/Edit State
   const [isAddingAddress, setIsAddingAddress] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<UserAddress | null>(null);
   const [addrName, setAddrName] = useState('');
   const [addrPhone, setAddrPhone] = useState('');
   const [addrTag, setAddrTag] = useState<'公司' | '家' | '学校' | '其他'>('公司');
   const [addrLocation, setAddrLocation] = useState('');
+  const [addrHouseNumber, setAddrHouseNumber] = useState('');
   const [addrDetail, setAddrDetail] = useState('');
+  const [addrRemarks, setAddrRemarks] = useState('');
 
-  // Preferences State
-  const [preferences, setPreferences] = useState<UserPreferences>(userProfile.preferences || {
-    spiciness: 'mild',
-    cutlery: 'eco',
-    autoApplyCoupons: true,
-    radarTracking: true,
-    smsNotification: true,
-    dietaryNote: ''
-  });
-
-  // Cloud Sync State
+  // Security Token & Sync States
+  const [hwToken, setHwToken] = useState('fp_sec_99a8x00138000#pos');
   const [isSyncing, setIsSyncing] = useState(false);
-  const [syncStatusText, setSyncStatusText] = useState<string | null>(null);
+  const [balance, setBalance] = useState(userProfile.balance ?? 0);
+  const [points, setPoints] = useState(userProfile.points ?? 0);
 
-  // Toggle single accordion section
-  const toggleSection = (key: string) => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [key]: !prev[key]
-    }));
+  // Sync to truckLocationEngine whenever address changes
+  const syncToTruckEngine = (list: UserAddress[]) => {
+    try {
+      const converted: DeliveryAddressItem[] = list.map((a, idx) => ({
+        id: a.id || `addr-${idx}`,
+        title: a.address,
+        detail: a.houseNumber ? `${a.detail} ${a.houseNumber}`.trim() : a.detail,
+        houseNumber: a.houseNumber || '',
+        receiverName: a.name,
+        receiverPhone: a.phone,
+        tag: a.tag,
+        remarks: a.remarks || '',
+        isDefault: !!a.isDefault,
+        latitude: a.latitude || 31.2435,
+        longitude: a.longitude || 121.469,
+        createdAt: a.createdAt || new Date().toLocaleString()
+      }));
+      saveAddresses(converted);
+    } catch (err) {
+      console.error('Failed to sync addresses to truckLocationEngine', err);
+    }
   };
 
-  // Expand / Collapse all sections
-  const allExpanded = Object.values(expandedSections).every(Boolean);
-  const toggleAllSections = () => {
-    const nextState = !allExpanded;
-    setExpandedSections({
-      profile: nextState,
-      addresses: nextState,
-      preferences: nextState,
-      wallet: nextState,
-      security: nextState
-    });
-  };
-
-  // Handle Saving Profile & Cloud Function Trigger
+  // Cloud Sync Function
   const handleSaveAndSync = async () => {
     setIsSyncing(true);
-    setSyncStatusText('正在调用云函数 [userProfile] 同步个人资料...');
 
-    const updated: UserProfile = {
+    const updatedPref: UserPreferences = {
+      spiciness,
+      cutlery: ecoMode ? 'eco' : 'needed',
+      autoApplyCoupons: true,
+      radarTracking: !silentCall,
+      smsNotification: silentCall,
+      dietaryNote: dietaryNotes
+    };
+
+    const updatedProfile: UserProfile = {
       ...userProfile,
-      nickname: nickname.trim() || 'Urban Foodie',
-      phone: phone.trim() || '138-8888-9201',
+      nickname: nickname.trim() || '张伟 (店长)',
       avatar,
       bio: bio.trim(),
       gender,
       birthday,
+      balance,
+      points,
       addresses,
-      preferences,
+      preferences: updatedPref,
       cloudSyncedAt: new Date().toISOString()
     };
 
     try {
-      const res = await syncUserProfileToCloud(updated);
+      const res = await syncUserProfileToCloud(updatedProfile);
       onProfileUpdated(res.profile);
-
-      if (res.source === 'cloud_function') {
-        toast.success('云函数同步成功', `个人资料与地址簿已同步至云端 (UID: ${updated.uid.slice(-6)})`);
-      } else {
-        toast.info('本地双轨保存成功', '数据已持久化保存在安全本地，联网时将自动推送云端');
-      }
-      setSyncStatusText('云端同步完成！');
-      setTimeout(() => setSyncStatusText(null), 2000);
+      syncToTruckEngine(addresses);
+      toast.success('配置同步完成', '会员资料与参数设置已成功下发并同步至 POS 终端与云端');
     } catch (err: any) {
-      toast.error('同步异常', err?.message || '已自动降级至本地缓存');
+      toast.info('本地更新成功', '参数已成功持久化更新并在离线缓存中生效');
+      onProfileUpdated(updatedProfile);
+      syncToTruckEngine(addresses);
     } finally {
       setIsSyncing(false);
     }
   };
 
-  // Add or Update Address
+  // Reissue Key Handler
+  const handleReissueKey = () => {
+    const newToken = 'fp_sec_' + Math.random().toString(36).substring(2, 8) + '#pos';
+    setHwToken(newToken);
+    toast.success('安全凭据重签成功', `硬件指纹密钥已更新为：${newToken}`);
+  };
+
+  // Save Address from Inline Form
   const handleSaveAddress = () => {
     if (!addrLocation.trim()) {
-      toast.warning('请输入地址', '地址位置不能为空');
+      toast.warning('请输入地址', '小区/写字楼或地址位置不能为空');
       return;
     }
 
     if (editingAddress) {
-      const nextList = addresses.map((a) =>
+      const updated = addresses.map((a) =>
         a.id === editingAddress.id
           ? {
               ...a,
-              name: addrName || nickname,
-              phone: addrPhone || phone,
+              name: addrName.trim() || nickname,
+              phone: addrPhone.trim() || phone,
               tag: addrTag,
-              address: addrLocation,
-              detail: addrDetail
+              address: addrLocation.trim(),
+              houseNumber: addrHouseNumber.trim(),
+              detail: addrDetail.trim() || addrLocation.trim(),
+              remarks: addrRemarks.trim()
             }
           : a
       );
-      setAddresses(nextList);
-      setEditingAddress(null);
-      toast.success('地址修改成功');
+      setAddresses(updated);
+      syncToTruckEngine(updated);
+      toast.success('地址更新', '收货地址已保存');
     } else {
       const newAddr: UserAddress = {
         id: `addr-${Date.now()}`,
-        name: addrName || nickname,
-        phone: addrPhone || phone,
+        name: addrName.trim() || nickname,
+        phone: addrPhone.trim() || phone,
         tag: addrTag,
-        address: addrLocation,
-        detail: addrDetail,
+        address: addrLocation.trim(),
+        houseNumber: addrHouseNumber.trim(),
+        detail: addrDetail.trim() || addrLocation.trim(),
+        remarks: addrRemarks.trim(),
         isDefault: addresses.length === 0,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toLocaleString()
       };
-      setAddresses([...addresses, newAddr]);
-      setIsAddingAddress(false);
-      toast.success('常用地址添加成功');
+      const updated = [newAddr, ...addresses];
+      setAddresses(updated);
+      syncToTruckEngine(updated);
+      toast.success('新增地址', '已添加至常用收货地址簿');
     }
 
+    // Reset inline form
+    setIsAddingAddress(false);
+    setEditingAddress(null);
     setAddrName('');
     setAddrPhone('');
     setAddrLocation('');
+    setAddrHouseNumber('');
     setAddrDetail('');
+    setAddrRemarks('');
   };
 
+  // Delete Address
+  const handleDeleteAddress = (id: string) => {
+    const nextList = addresses.filter((a) => a.id !== id);
+    if (nextList.length > 0 && !nextList.some((a) => a.isDefault)) {
+      nextList[0].isDefault = true;
+    }
+    setAddresses(nextList);
+    syncToTruckEngine(nextList);
+    toast.info('地址已移除', '该收货地址已从常用列表中删除');
+  };
+
+  // Set Default Address
   const handleSetDefaultAddress = (id: string) => {
-    const updated = addresses.map((a) => ({
+    const nextList = addresses.map((a) => ({
       ...a,
       isDefault: a.id === id
     }));
-    setAddresses(updated);
-    toast.success('已设为默认配送地址');
+    setAddresses(nextList);
+    syncToTruckEngine(nextList);
+    toast.success('默认地址已切换', '下次点单将优先选中此送达地址');
   };
 
-  const handleDeleteAddress = (id: string) => {
-    const updated = addresses.filter((a) => a.id !== id);
-    if (updated.length > 0 && !updated.some((a) => a.isDefault)) {
-      updated[0].isDefault = true;
+  // Reset to initial settings
+  const handleResetToInitial = () => {
+    if (window.confirm('是否确认将全部参数重置回初始设定？')) {
+      setNickname('张伟 (店长)');
+      setBirthday('1990/01/01');
+      setBio('店长 / 运营总管 · 设备硬件指纹绑定中');
+      setGender('secret');
+      setSpiciness('mild');
+      setEcoMode(true);
+      setSilentCall(false);
+      setDietaryNotes('无特殊过敏原');
+      toast.info('参数已重置', '全部表单已恢复至默认初始参数');
     }
-    setAddresses(updated);
-    toast.info('地址已移除');
   };
+
+  // Preset avatar emoji options
+  const avatarPresets = ['🧑‍💻', '👨‍💼', '🧔‍♂️', '👩‍🍳', '🧑‍🎨'];
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-3 pb-8 text-[#1a1c1b] animate-in fade-in duration-200 font-sans">
-      {/* Top Header Bar - Responsive for Mobile & PC */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 py-1 px-0.5">
-        <div className="flex items-center gap-2">
-          {onBack && (
+    <div className="bg-[#f4f6f8] text-gray-900 font-sans antialiased min-h-screen selection:bg-black selection:text-white flex flex-col p-[2px]">
+      {/* Top Navigation Header */}
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-xs p-[2px]">
+        <div className="max-w-7xl mx-auto px-[3px] py-[2px] flex items-center justify-between">
+          <div className="flex items-center gap-[3px]">
             <button
-              type="button"
               onClick={onBack}
-              className="px-3 py-1.5 rounded-full bg-white hover:bg-neutral-100 border border-[#e6e6e4] text-black text-xs font-bold active:scale-95 transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
+              type="button"
+              className="flex items-center text-xs font-semibold text-gray-700 hover:text-black border border-gray-300 hover:border-black px-[3px] py-[2px] bg-gray-50 transition-colors rounded-[1px] cursor-pointer"
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
+              <ArrowLeft className="w-3 h-3 mr-[2px]" />
               <span>返回会员中心</span>
             </button>
-          )}
-          <span className="text-sm sm:text-base font-black tracking-tight text-neutral-900 hidden sm:inline">
-            会员资料与参数设置
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Expand/Collapse All Button */}
-          <button
-            type="button"
-            onClick={toggleAllSections}
-            className="px-2.5 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-bold transition-all cursor-pointer flex items-center gap-1 border border-neutral-200 shadow-2xs"
-            title={allExpanded ? '全部折叠' : '全部展开'}
-          >
-            {allExpanded ? (
-              <>
-                <Minimize2 className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">全部折叠</span>
-              </>
-            ) : (
-              <>
-                <Maximize2 className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">全部展开</span>
-              </>
-            )}
-          </button>
-
-          {onOpenCloudMonitor && (
+            <div className="h-3 w-px bg-gray-200" />
+            <div className="flex items-center gap-[2px]">
+              <span className="text-[10px] font-mono text-gray-400">STUDIO /</span>
+              <h1 className="text-xs font-bold tracking-tight text-gray-900 uppercase">
+                会员资料与参数设置控制台
+              </h1>
+            </div>
+          </div>
+          <div className="flex items-center gap-[3px]">
+            <div className="hidden sm:flex items-center gap-[2px] text-xs text-emerald-700 font-mono bg-emerald-50 px-[3px] py-[1px] border border-emerald-200 rounded-[1px]">
+              <ShieldCheck className="w-3 h-3 text-emerald-600" />
+              <span className="text-[10px] font-mono font-bold tracking-tight text-emerald-700">双向同步</span>
+              <span className="w-1.5 h-1.5 bg-emerald-500 animate-pulse rounded-[1px]" />
+            </div>
             <button
+              onClick={handleSaveAndSync}
+              disabled={isSyncing}
+              className="inline-flex items-center text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 border border-emerald-700 px-[3px] py-[2px] transition-all shadow-xs rounded-[1px] cursor-pointer active:scale-98 disabled:opacity-75"
+              id="sync-btn"
               type="button"
-              onClick={onOpenCloudMonitor}
-              className="text-xs font-bold text-sky-800 px-2.5 py-1.5 bg-sky-50 hover:bg-sky-100 rounded-lg border border-sky-200 cursor-pointer transition-colors shadow-2xs"
-              title="查看云函数实时监控"
             >
-              云函数监控
+              <RefreshCw className={`w-3 h-3 mr-[2px] ${isSyncing ? 'animate-spin' : ''}`} />
+              <span>{isSyncing ? '同步中' : '立即同步'}</span>
             </button>
-          )}
-
-          <button
-            type="button"
-            onClick={handleSaveAndSync}
-            disabled={isSyncing}
-            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-black rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-60"
-            title="立即保存并同步至云端"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-            <span>{isSyncing ? '同步中...' : '云端同步'}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* User Hero Banner - Responsive Card */}
-      <div className="p-3.5 sm:p-4 bg-gradient-to-r from-neutral-950 via-neutral-900 to-neutral-950 text-white rounded-2xl border border-neutral-800 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="relative shrink-0">
-              <img
-                src={avatar}
-                alt={nickname}
-                className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover border-2 border-emerald-400 shadow-md"
-              />
-              <span className="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-emerald-500 ring-2 ring-neutral-950 flex items-center justify-center text-[8px] font-bold text-black">
-                ✓
-              </span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="font-black text-sm sm:text-base text-white tracking-tight truncate">
-                  {nickname}
-                </h2>
-                <span className="text-[10px] bg-amber-400 text-black font-black px-2 py-0.5 rounded-full font-mono shrink-0">
-                  {userProfile.membershipTier === 'vip_black_elite' ? 'BLACK ELITE' : 'VIP MEMBER'}
-                </span>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-400 mt-1">
-                <span className="font-mono">{phone}</span>
-                <span className="hidden sm:inline">·</span>
-                <span className="text-emerald-400 font-mono text-[11px] flex items-center gap-1">
-                  <Cloud className="w-3 h-3" /> 云函数已打通
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center sm:flex-col sm:items-end justify-between border-t sm:border-t-0 border-neutral-800 pt-2 sm:pt-0 shrink-0">
-            <div className="flex items-baseline gap-1 sm:justify-end">
-              <span className="text-xs text-neutral-400">余额:</span>
-              <span className="text-base sm:text-lg font-black font-mono text-amber-400">
-                ¥{userProfile.balance.toFixed(2)}
-              </span>
-            </div>
-            <div className="text-xs text-neutral-300 sm:text-neutral-400 font-mono">
-              {userProfile.points} 积分
-            </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Accordion / Collapsible Settings Modules */}
-      <div className="space-y-2.5">
-        {/* ================= SECTION 1: 基础个人资料 ================= */}
-        <div className="bg-white rounded-2xl border border-[#e8e8e4] overflow-hidden shadow-2xs transition-all">
-          <button
-            type="button"
-            onClick={() => toggleSection('profile')}
-            className="w-full p-3.5 sm:p-4 flex items-center justify-between hover:bg-neutral-50/70 transition-colors cursor-pointer text-left select-none"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-neutral-900 text-white flex items-center justify-center shrink-0 shadow-2xs">
-                <User className="w-4 h-4" />
+      {/* Main Content Area */}
+      <main className="max-w-7xl mx-auto p-[2px] w-full flex-1">
+        <div className="grid grid-cols-1 lg:grid-cols-12 items-start gap-[3px]">
+          {/* LEFT SIDEBAR: User Card & Navigation Tabs */}
+          <aside className="lg:col-span-4 xl:col-span-3 space-y-[3px]">
+            {/* Compact Mini Identity Card */}
+            <div className="bg-white text-gray-900 border border-gray-200 p-[3px] shadow-xs rounded-[1px] space-y-[2px]">
+              <div className="flex items-center justify-between mb-[2px]">
+                <span className="bg-amber-400 text-black text-[9px] font-extrabold tracking-wider uppercase px-[3px] py-[1px] border border-amber-300 rounded-[1px]">
+                  {userProfile.membershipTier === 'vip_black_elite'
+                    ? 'BLACK ELITE'
+                    : userProfile.membershipTier === 'vip_silver'
+                    ? 'SILVER ELITE'
+                    : 'BLACK ELITE'}
+                </span>
+                <span className="text-[9px] font-mono text-emerald-600 flex items-center gap-[2px] font-bold">
+                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-[1px]" />
+                  在线互通
+                </span>
               </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-black text-neutral-900">基础个人资料</h3>
-                  <span className="text-[10px] bg-neutral-100 text-neutral-600 font-bold px-1.5 py-0.5 rounded">
-                    昵称/头像/手机
-                  </span>
+
+              <div className="flex items-center gap-[3px] mb-[2px]">
+                <div className="w-10 h-10 bg-gray-50 border border-emerald-600 flex flex-col items-center justify-center text-center p-[1px] font-mono shrink-0 relative rounded-[1px]">
+                  <span className="text-lg">{avatar}</span>
+                  <div className="absolute -bottom-0.5 -right-0.5 bg-emerald-600 text-white p-[1px] border border-white leading-none rounded-[1px]">
+                    <Check className="w-2 h-2 stroke-[3]" />
+                  </div>
                 </div>
-                <p className="text-xs text-neutral-500 mt-0.5 truncate">
-                  {nickname} · {phone}
-                </p>
+                <div className="min-w-0">
+                  <h2 className="text-xs font-bold tracking-tight text-gray-900 truncate">
+                    {nickname || '张伟 (店长)'}
+                  </h2>
+                  <p className="text-[10px] text-gray-500 font-mono">{phone}</p>
+                  <p className="text-[9px] text-gray-400 truncate">{bio}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-[2px] border-t border-gray-200 pt-[2px] font-mono">
+                <div className="bg-gray-50 border border-gray-200 p-[2px] rounded-[1px]">
+                  <span className="text-[8px] text-gray-500 block uppercase">账户余额</span>
+                  <span className="text-sm font-black text-amber-500">¥{balance.toFixed(2)}</span>
+                </div>
+                <div className="bg-gray-50 border border-gray-200 p-[2px] rounded-[1px]">
+                  <span className="text-[8px] text-gray-500 block uppercase">可用积分</span>
+                  <span className="text-sm font-black text-gray-900">{points}</span>
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs font-bold text-neutral-400 hidden sm:inline">
-                {expandedSections.profile ? '收起' : '展开编辑'}
-              </span>
-              <div className={`p-1 rounded-full text-neutral-500 transition-transform duration-200 ${expandedSections.profile ? 'rotate-180 bg-neutral-100' : ''}`}>
-                <ChevronDown className="w-4 h-4" />
+            {/* SaaS Studio Category Tabs Navigation */}
+            <nav className="bg-white border border-gray-300 shadow-xs p-[2px] rounded-[1px]">
+              <div className="flex items-center justify-between pb-[2px] mb-[2px] border-b border-gray-100">
+                <div className="text-[9px] font-mono uppercase tracking-wider text-gray-400 flex items-center gap-[2px]">
+                  <Sliders className="w-2.5 h-2.5 text-gray-500" />
+                  <span>设置分类导航 / TABS</span>
+                </div>
+                <span className="text-[8px] font-mono text-gray-400 bg-gray-100 px-[3px] py-[1px] border border-gray-200 uppercase rounded-[1px]">
+                  5 项分区
+                </span>
+              </div>
+
+              <div className="grid grid-cols-5 gap-[2px]">
+                {/* TAB 1: 基本资料 */}
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('tab-profile')}
+                  className={`tab-btn flex flex-col items-center justify-between p-[2px] text-center transition-colors focus:outline-none min-h-[52px] rounded-[1px] cursor-pointer ${
+                    activeTab === 'tab-profile'
+                      ? 'bg-emerald-50 border border-emerald-500 text-emerald-800'
+                      : 'bg-white border border-gray-200 text-gray-700 hover:border-black hover:bg-gray-50'
+                  }`}
+                >
+                  <Sparkles
+                    className={`w-3.5 h-3.5 mb-[1px] ${
+                      activeTab === 'tab-profile' ? 'text-emerald-600' : 'text-gray-500'
+                    }`}
+                  />
+                  <span className="text-[10px] font-bold leading-tight line-clamp-1 truncate w-full">
+                    基本资料
+                  </span>
+                  <span className="mt-[1px] text-[7px] font-mono text-emerald-700 bg-emerald-100 px-[2px] py-[1px] border border-emerald-300 uppercase leading-none rounded-[1px]">
+                    完善
+                  </span>
+                </button>
+
+                {/* TAB 2: 就餐偏好 */}
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('tab-preference')}
+                  className={`tab-btn flex flex-col items-center justify-between p-[2px] text-center transition-colors focus:outline-none min-h-[52px] rounded-[1px] cursor-pointer ${
+                    activeTab === 'tab-preference'
+                      ? 'bg-emerald-50 border border-emerald-500 text-emerald-800'
+                      : 'bg-white border border-gray-200 text-gray-700 hover:border-black hover:bg-gray-50'
+                  }`}
+                >
+                  <Sliders
+                    className={`w-3.5 h-3.5 mb-[1px] ${
+                      activeTab === 'tab-preference' ? 'text-amber-600' : 'text-gray-500'
+                    }`}
+                  />
+                  <span className="text-[10px] font-medium leading-tight line-clamp-1 truncate w-full">
+                    就餐偏好
+                  </span>
+                  <span className="mt-[1px] text-[7px] font-mono text-amber-800 bg-amber-50 px-[2px] py-[1px] border border-amber-200 uppercase leading-none rounded-[1px]">
+                    联动
+                  </span>
+                </button>
+
+                {/* TAB 3: 收货地址 */}
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('tab-address')}
+                  className={`tab-btn flex flex-col items-center justify-between p-[2px] text-center transition-colors focus:outline-none min-h-[52px] rounded-[1px] cursor-pointer ${
+                    activeTab === 'tab-address'
+                      ? 'bg-emerald-50 border border-emerald-500 text-emerald-800'
+                      : 'bg-white border border-gray-200 text-gray-700 hover:border-black hover:bg-gray-50'
+                  }`}
+                >
+                  <MapPin
+                    className={`w-3.5 h-3.5 mb-[1px] ${
+                      activeTab === 'tab-address' ? 'text-emerald-600' : 'text-gray-500'
+                    }`}
+                  />
+                  <span className="text-[10px] font-medium leading-tight line-clamp-1 truncate w-full">
+                    收货地址
+                  </span>
+                  <span className="mt-[1px] text-[7px] font-mono text-gray-500 bg-gray-50 px-[2px] py-[1px] border border-gray-200 uppercase leading-none rounded-[1px]">
+                    {addresses.length} 项
+                  </span>
+                </button>
+
+                {/* TAB 4: 安全指纹 */}
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('tab-security')}
+                  className={`tab-btn flex flex-col items-center justify-between p-[2px] text-center transition-colors focus:outline-none min-h-[52px] rounded-[1px] cursor-pointer ${
+                    activeTab === 'tab-security'
+                      ? 'bg-emerald-50 border border-emerald-500 text-emerald-800'
+                      : 'bg-white border border-gray-200 text-gray-700 hover:border-black hover:bg-gray-50'
+                  }`}
+                >
+                  <Fingerprint
+                    className={`w-3.5 h-3.5 mb-[1px] ${
+                      activeTab === 'tab-security' ? 'text-sky-600' : 'text-gray-500'
+                    }`}
+                  />
+                  <span className="text-[10px] font-medium leading-tight line-clamp-1 truncate w-full">
+                    安全指纹
+                  </span>
+                  <span className="mt-[1px] text-[7px] font-mono text-sky-700 bg-sky-50 px-[2px] py-[1px] border border-sky-200 uppercase leading-none rounded-[1px]">
+                    99.8%
+                  </span>
+                </button>
+
+                {/* TAB 5: 财务流水 */}
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('tab-finance')}
+                  className={`tab-btn flex flex-col items-center justify-between p-[2px] text-center transition-colors focus:outline-none min-h-[52px] rounded-[1px] cursor-pointer ${
+                    activeTab === 'tab-finance'
+                      ? 'bg-emerald-50 border border-emerald-500 text-emerald-800'
+                      : 'bg-white border border-gray-200 text-gray-700 hover:border-black hover:bg-gray-50'
+                  }`}
+                >
+                  <Wallet
+                    className={`w-3.5 h-3.5 mb-[1px] ${
+                      activeTab === 'tab-finance' ? 'text-emerald-600' : 'text-gray-500'
+                    }`}
+                  />
+                  <span className="text-[10px] font-medium leading-tight line-clamp-1 truncate w-full">
+                    财务流水
+                  </span>
+                  <span className="mt-[1px] text-[7px] font-mono text-gray-400 bg-gray-50 px-[2px] py-[1px] border border-gray-200 uppercase leading-none rounded-[1px]">
+                    30天
+                  </span>
+                </button>
+              </div>
+            </nav>
+
+            {/* Quick System Status Note */}
+            <div className="p-[3px] bg-white border border-gray-300 text-[10px] font-mono text-gray-500 space-y-[2px] shadow-xs rounded-[1px]">
+              <div className="text-gray-900 font-bold flex items-center gap-[2px] uppercase text-[11px]">
+                <span className="w-1.5 h-1.5 bg-emerald-600 rounded-[1px]" />
+                终端策略状态
+              </div>
+              <div className="flex justify-between pt-[2px]">
+                <span>终端序列：</span>
+                <span className="text-gray-800 font-semibold">POS-MAIN-001</span>
+              </div>
+              <div className="flex justify-between">
+                <span>固件协议：</span>
+                <span className="text-gray-800">v4.2.8-edge</span>
               </div>
             </div>
-          </button>
+          </aside>
 
-          <AnimatePresence initial={false}>
-            {expandedSections.profile && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="border-t border-neutral-100 overflow-hidden"
-              >
-                <div className="p-3.5 sm:p-4 space-y-3.5 bg-[#fcfcfb]">
+          {/* RIGHT MAIN WORKSPACE: Focused Form Setting Panels */}
+          <section className="lg:col-span-8 xl:col-span-9 space-y-[3px]">
+            {/* TAB 1: 基本资料与身份 */}
+            {activeTab === 'tab-profile' && (
+              <div className="tab-panel space-y-[3px] animate-in fade-in duration-150">
+                <div className="bg-white border border-gray-300 shadow-xs rounded-[1px] p-[3px] space-y-[2px]">
+                  <div className="flex items-center justify-between border-b border-gray-200 pb-[2px] mb-[2px]">
+                    <div>
+                      <div className="flex items-center gap-[2px]">
+                        <span className="w-1.5 h-1.5 bg-emerald-600 rounded-[1px]" />
+                        <h3 className="text-xs font-bold text-gray-900 uppercase tracking-tight">
+                          基本资料与身份信息
+                        </h3>
+                      </div>
+                      <div className="flex items-center gap-[2px] mt-[1px] font-mono text-[9px] text-gray-500">
+                        <span className="inline-flex items-center gap-[2px] px-[2px] py-[1px] bg-emerald-50 border border-emerald-200 rounded-[1px] text-emerald-800 font-bold">
+                          <Radio className="w-2.5 h-2.5 text-emerald-600" />
+                          终端广播
+                        </span>
+                        <span className="inline-flex items-center gap-[2px] px-[2px] py-[1px] bg-gray-100 border border-gray-200 rounded-[1px] text-gray-600">
+                          <Building className="w-2.5 h-2.5 text-gray-500" />
+                          档案核心
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-gray-400 font-mono hidden sm:inline-block">实时生效</span>
+                  </div>
+
                   {/* Avatar Selector */}
-                  <div>
-                    <label className="text-xs font-bold text-neutral-700 block mb-2">
-                      选择先锋头像
-                    </label>
-                    <div className="flex items-center gap-3 overflow-x-auto pb-1 no-scrollbar">
-                      {PRESET_AVATARS.map((av, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => setAvatar(av.url)}
-                          className={`relative rounded-full p-0.5 border-2 transition-all cursor-pointer shrink-0 ${
-                            avatar === av.url
-                              ? 'border-emerald-500 scale-105 shadow-2xs'
-                              : 'border-transparent opacity-70 hover:opacity-100'
-                          }`}
-                        >
-                          <img
-                            src={av.url}
-                            alt={av.label}
-                            className="w-10 h-10 sm:w-11 sm:h-11 rounded-full object-cover"
-                          />
-                          {avatar === av.url && (
-                            <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[8px] font-black">
-                              ✓
-                            </span>
-                          )}
-                        </button>
-                      ))}
+                  <div className="mb-[2px]">
+                    <div className="flex items-center justify-between mb-[2px]">
+                      <label className="text-[10px] font-bold text-gray-700 uppercase">先锋头像设定</label>
+                      <span className="text-[9px] text-gray-400 font-mono">点击切换</span>
+                    </div>
+                    <div className="flex flex-wrap gap-[2px]" id="avatar-container">
+                      {avatarPresets.map((icon) => {
+                        const isSelected = avatar === icon;
+                        return (
+                          <button
+                            key={icon}
+                            type="button"
+                            onClick={() => setAvatar(icon)}
+                            className={`group relative w-9 h-9 flex items-center justify-center focus:outline-none transition-all rounded-[1px] cursor-pointer ${
+                              isSelected
+                                ? 'border border-emerald-600 bg-emerald-50'
+                                : 'border border-gray-300 hover:border-gray-900 bg-white'
+                            }`}
+                          >
+                            <span className="text-lg">{icon}</span>
+                            {isSelected && (
+                              <span className="absolute -top-0.5 -right-0.5 bg-emerald-600 text-white w-3 h-3 flex items-center justify-center text-[8px] font-bold rounded-[1px]">
+                                ✓
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
-                  {/* Form Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                  {/* Form Fields Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-[3px] mb-[2px]">
                     <div>
-                      <label className="text-xs font-bold text-neutral-700 block mb-1">
-                        食客昵称
+                      <label className="block text-[10px] font-bold text-gray-700 uppercase mb-[2px]" htmlFor="nickname">
+                        食客昵称 / 操作员名称
                       </label>
                       <input
+                        id="nickname"
                         type="text"
                         value={nickname}
                         onChange={(e) => setNickname(e.target.value)}
-                        placeholder="输入食客昵称"
-                        className="w-full h-10 px-3 bg-white border border-neutral-200 rounded-xl text-xs sm:text-sm font-bold text-black focus:outline-none focus:border-black focus:ring-2 focus:ring-black/5"
+                        className="w-full text-xs font-semibold px-[3px] py-[2px] border border-gray-300 bg-white text-gray-900 focus:outline-none focus:border-emerald-600 rounded-[1px]"
                       />
                     </div>
-
                     <div>
-                      <label className="text-xs font-bold text-neutral-700 block mb-1">
-                        绑定手机号 (云函数鉴权标识)
+                      <label className="block text-[10px] font-bold text-gray-700 uppercase mb-[2px]" htmlFor="phone">
+                        绑定手机号 (不可变核心凭证)
                       </label>
                       <input
+                        id="phone"
                         type="text"
                         value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        placeholder="138-xxxx-xxxx"
-                        className="w-full h-10 px-3 bg-white border border-neutral-200 rounded-xl text-xs sm:text-sm font-bold text-black font-mono focus:outline-none focus:border-black focus:ring-2 focus:ring-black/5"
+                        readOnly
+                        className="w-full text-xs font-mono px-[3px] py-[2px] border border-gray-300 bg-gray-100 text-gray-600 focus:outline-none cursor-not-allowed rounded-[1px]"
                       />
                     </div>
-
                     <div>
-                      <label className="text-xs font-bold text-neutral-700 block mb-1">
-                        性别
+                      <label className="block text-[10px] font-bold text-gray-700 uppercase mb-[2px]" htmlFor="gender">
+                        性别识别
                       </label>
                       <select
+                        id="gender"
                         value={gender}
                         onChange={(e) => setGender(e.target.value as any)}
-                        className="w-full h-10 px-3 bg-white border border-neutral-200 rounded-xl text-xs sm:text-sm font-bold text-black focus:outline-none focus:border-black focus:ring-2 focus:ring-black/5 cursor-pointer"
+                        className="w-full text-xs px-[3px] py-[2px] border border-gray-300 bg-white text-gray-900 focus:outline-none focus:border-emerald-600 rounded-[1px]"
                       >
                         <option value="secret">保密 (Secret)</option>
                         <option value="male">男 (Male)</option>
                         <option value="female">女 (Female)</option>
                       </select>
                     </div>
-
                     <div>
-                      <label className="text-xs font-bold text-neutral-700 block mb-1">
-                        生日 (尊享生日免单礼券)
+                      <label className="block text-[10px] font-bold text-gray-700 uppercase mb-[2px]" htmlFor="birthday">
+                        出生日期
                       </label>
                       <input
-                        type="date"
+                        id="birthday"
+                        type="text"
                         value={birthday}
                         onChange={(e) => setBirthday(e.target.value)}
-                        className="w-full h-10 px-3 bg-white border border-neutral-200 rounded-xl text-xs sm:text-sm font-bold text-black font-mono focus:outline-none focus:border-black focus:ring-2 focus:ring-black/5 cursor-pointer"
+                        className="w-full text-xs font-mono px-[3px] py-[2px] border border-gray-300 bg-white text-gray-900 focus:outline-none focus:border-emerald-600 rounded-[1px]"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-neutral-700 block mb-1">
-                      美食探险家签名 / 个人简介
+                    <label className="block text-[10px] font-bold text-gray-700 uppercase mb-[2px]" htmlFor="signature">
+                      个性签名 / 岗位权限备注
                     </label>
                     <textarea
+                      id="signature"
+                      rows={2}
                       value={bio}
                       onChange={(e) => setBio(e.target.value)}
-                      rows={2}
-                      placeholder="写一句你对黑曜石餐车或先锋料理的喜好..."
-                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-xl text-xs sm:text-sm text-black focus:outline-none focus:border-black focus:ring-2 focus:ring-black/5"
+                      className="w-full text-xs px-[3px] py-[2px] border border-gray-300 bg-white text-gray-900 focus:outline-none focus:border-emerald-600 font-mono rounded-[1px]"
                     />
                   </div>
                 </div>
-              </motion.div>
+              </div>
             )}
-          </AnimatePresence>
-        </div>
 
-        {/* ================= SECTION 2: 常用收货地址簿 ================= */}
-        <div className="bg-white rounded-2xl border border-[#e8e8e4] overflow-hidden shadow-2xs transition-all">
-          <button
-            type="button"
-            onClick={() => toggleSection('addresses')}
-            className="w-full p-3.5 sm:p-4 flex items-center justify-between hover:bg-neutral-50/70 transition-colors cursor-pointer text-left select-none"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
-                <MapPin className="w-4 h-4" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-black text-neutral-900">常用收货地址簿</h3>
-                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-black px-1.5 py-0.5 rounded">
-                    {addresses.length} 个地址
-                  </span>
-                </div>
-                <p className="text-xs text-neutral-500 mt-0.5 truncate">
-                  {addresses.find((a) => a.isDefault)?.address || (addresses[0]?.address ? `默认: ${addresses[0].address}` : '暂无收货地址')}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs font-bold text-neutral-400 hidden sm:inline">
-                {expandedSections.addresses ? '收起' : '展开管理'}
-              </span>
-              <div className={`p-1 rounded-full text-neutral-500 transition-transform duration-200 ${expandedSections.addresses ? 'rotate-180 bg-neutral-100' : ''}`}>
-                <ChevronDown className="w-4 h-4" />
-              </div>
-            </div>
-          </button>
-
-          <AnimatePresence initial={false}>
-            {expandedSections.addresses && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="border-t border-neutral-100 overflow-hidden"
-              >
-                <div className="p-3.5 sm:p-4 space-y-3 bg-[#fcfcfb]">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-neutral-600">
-                      地址列表 ({addresses.length})
+            {/* TAB 2: 就餐偏好与策略 */}
+            {activeTab === 'tab-preference' && (
+              <div className="tab-panel space-y-[3px] animate-in fade-in duration-150">
+                <div className="bg-white border border-gray-300 shadow-xs p-[3px] space-y-[2px] rounded-[1px]">
+                  <div className="flex items-center justify-between border-b border-gray-200 pb-[2px] mb-[2px]">
+                    <div>
+                      <div className="flex items-center gap-[2px]">
+                        <span className="w-1.5 h-1.5 bg-amber-500 rounded-[1px]" />
+                        <h3 className="text-xs font-bold text-gray-900 uppercase tracking-tight">
+                          就餐偏好与点单联动策略
+                        </h3>
+                      </div>
+                      <div className="flex items-center gap-[2px] mt-[1px] font-mono text-[9px] text-gray-500">
+                        <span className="inline-flex items-center gap-[2px] px-[2px] py-[1px] bg-amber-50 border border-amber-200 rounded-[1px] text-amber-800 font-bold">
+                          <Receipt className="w-2.5 h-2.5 text-amber-600" />
+                          出票预设
+                        </span>
+                        <span className="inline-flex items-center gap-[2px] px-[2px] py-[1px] bg-gray-100 border border-gray-200 rounded-[1px] text-gray-600">
+                          <ShieldCheck className="w-2.5 h-2.5 text-gray-500" />
+                          扫码同步
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-[9px] font-mono text-amber-800 bg-amber-100 border border-amber-300 px-[3px] py-[1px] rounded-[1px]">
+                      POS点单联动
                     </span>
-                    {!isAddingAddress && !editingAddress && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsAddingAddress(true);
-                          setAddrName(nickname);
-                          setAddrPhone(phone);
-                          setAddrTag('公司');
-                          setAddrLocation('');
-                          setAddrDetail('');
-                        }}
-                        className="px-2.5 py-1 bg-black hover:bg-neutral-800 text-white text-xs font-bold rounded-lg flex items-center gap-1 cursor-pointer shadow-2xs active:scale-95"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>新增地址</span>
-                      </button>
-                    )}
                   </div>
 
-                  {/* Add/Edit Address Form */}
+                  {/* Spice Level Pill Selector */}
+                  <div className="mb-[2px]">
+                    <label className="block text-[10px] font-bold text-gray-700 uppercase mb-[2px]">默认辣度偏好</label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-[2px]">
+                      {[
+                        { level: 'LEVEL 0', label: '⚪ 免辣 (No Spicy)', val: 'none' as const },
+                        { level: 'LEVEL 1 (默认)', label: '🌶️ 微辣 (Low Spicy)', val: 'mild' as const },
+                        { level: 'LEVEL 2', label: '🌶️🌶️ 中辣 (Medium)', val: 'medium' as const },
+                        { level: 'LEVEL 3', label: '🌶️🌶️🌶️ 特辣 (Hot)', val: 'hot' as const }
+                      ].map((item) => {
+                        const isSelected = spiciness === item.val;
+                        return (
+                          <button
+                            key={item.val}
+                            type="button"
+                            onClick={() => setSpiciness(item.val)}
+                            className={`px-[3px] py-[2px] text-xs text-left font-mono transition-colors rounded-[1px] cursor-pointer ${
+                              isSelected
+                                ? 'border border-emerald-600 bg-emerald-50 text-black'
+                                : 'border border-gray-300 bg-white hover:border-black text-gray-700'
+                            }`}
+                          >
+                            <div className={`text-[9px] ${isSelected ? 'text-emerald-700 font-bold' : 'text-gray-400'}`}>
+                              {item.level}
+                            </div>
+                            <div className="font-bold text-[10px] mt-[1px] truncate">{item.label}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Operational Toggle Switches */}
+                  <div className="border-t border-gray-200 pt-[2px] space-y-[2px]">
+                    <label className="block text-[10px] font-bold text-gray-700 uppercase mb-[1px]">
+                      点单环保与免打扰控制
+                    </label>
+
+                    {/* Toggle 1: Eco cutlery */}
+                    <div className="flex items-center justify-between p-[3px] bg-gray-50 border border-gray-200 rounded-[1px]">
+                      <div>
+                        <div className="text-xs font-bold text-gray-900 flex items-center gap-[2px]">
+                          <span>🌱 绿色环保模式：无需一次性餐具</span>
+                        </div>
+                        <div className="text-[10px] text-gray-500">
+                          下单出票默认不打印一次性竹筷与纸巾包费用项。
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setEcoMode(!ecoMode)}
+                        className={`w-9 h-5 p-[2px] flex items-center transition-colors rounded-[1px] cursor-pointer shrink-0 ${
+                          ecoMode ? 'bg-emerald-600 justify-end' : 'bg-gray-300 justify-start'
+                        }`}
+                      >
+                        <span className="w-4 h-4 bg-white shadow-xs block rounded-[1px]" />
+                      </button>
+                    </div>
+
+                    {/* Toggle 2: Silent call */}
+                    <div className="flex items-center justify-between p-[3px] bg-gray-50 border border-gray-200 rounded-[1px]">
+                      <div>
+                        <div className="text-xs font-bold text-gray-900 flex items-center gap-[2px]">
+                          <span>🔔 叫号出餐静音避让</span>
+                        </div>
+                        <div className="text-[10px] text-gray-500">
+                          当此账号点单时，仅通过短信/手持震动蜂鸣通知，不触发大厅广播。
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSilentCall(!silentCall)}
+                        className={`w-9 h-5 p-[2px] flex items-center transition-colors rounded-[1px] cursor-pointer shrink-0 ${
+                          silentCall ? 'bg-emerald-600 justify-end' : 'bg-gray-300 justify-start'
+                        }`}
+                      >
+                        <span className="w-4 h-4 bg-white shadow-xs block rounded-[1px]" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Allergy & Kitchen Notes */}
+                  <div className="border-t border-gray-200 pt-[2px]">
+                    <label className="block text-[10px] font-bold text-gray-700 uppercase mb-[2px]" htmlFor="dietary-notes">
+                      忌口避让 / 过敏原特别备注
+                    </label>
+                    <input
+                      id="dietary-notes"
+                      type="text"
+                      value={dietaryNotes}
+                      onChange={(e) => setDietaryNotes(e.target.value)}
+                      placeholder="如：花生、葱花、香菜等"
+                      className="w-full text-xs px-[3px] py-[2px] border border-gray-300 bg-white text-gray-900 focus:outline-none focus:border-emerald-600 rounded-[1px]"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: 收货地址簿 */}
+            {activeTab === 'tab-address' && (
+              <div className="tab-panel space-y-[3px] animate-in fade-in duration-150">
+                <div className="bg-white border border-gray-300 shadow-xs p-[3px] space-y-[2px] rounded-[1px]">
+                  <div className="flex items-center justify-between border-b border-gray-200 pb-[2px] mb-[2px]">
+                    <div>
+                      <div className="flex items-center gap-[2px]">
+                        <span className="w-1.5 h-1.5 bg-gray-900 rounded-[1px]" />
+                        <h3 className="text-xs font-bold text-gray-900 uppercase tracking-tight">
+                          常用送达地址簿
+                        </h3>
+                      </div>
+                      <div className="flex items-center gap-[2px] mt-[1px] font-mono text-[9px] text-gray-500">
+                        <span className="inline-flex items-center gap-[2px] px-[2px] py-[1px] bg-gray-100 border border-gray-200 rounded-[1px] text-gray-700">
+                          原料
+                        </span>
+                        <span className="inline-flex items-center gap-[2px] px-[2px] py-[1px] bg-gray-100 border border-gray-200 rounded-[1px] text-gray-700">
+                          调货
+                        </span>
+                        <span className="inline-flex items-center gap-[2px] px-[2px] py-[1px] bg-gray-100 border border-gray-200 rounded-[1px] text-gray-700">
+                          外送/自提
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingAddress(true);
+                        setEditingAddress(null);
+                        setAddrName(nickname);
+                        setAddrPhone(phone);
+                        setAddrLocation('');
+                        setAddrHouseNumber('');
+                        setAddrDetail('');
+                        setAddrRemarks('');
+                      }}
+                      className="px-[3px] py-[2px] bg-black hover:bg-gray-800 text-white text-xs font-bold transition-colors flex items-center shadow-xs rounded-[1px] cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3 mr-[2px]" />
+                      <span>新增地址</span>
+                    </button>
+                  </div>
+
+                  {/* Inline Add / Edit Address Form */}
                   {(isAddingAddress || editingAddress) && (
-                    <div className="p-3.5 bg-white border border-neutral-300 rounded-xl space-y-3 shadow-2xs animate-in fade-in">
-                      <div className="flex items-center justify-between text-xs font-black text-black">
-                        <span>{editingAddress ? '编辑收货地址' : '新增常用收货地址'}</span>
+                    <div className="p-[3px] bg-gray-50 border border-gray-300 rounded-[1px] space-y-[2px] animate-in fade-in duration-150">
+                      <div className="flex items-center justify-between text-xs font-bold text-gray-900 border-b border-gray-200 pb-[2px]">
+                        <span>{editingAddress ? '编辑常用收货地址' : '新增常用送达地址'}</span>
                         <button
                           type="button"
                           onClick={() => {
                             setIsAddingAddress(false);
                             setEditingAddress(null);
                           }}
-                          className="text-neutral-400 hover:text-black cursor-pointer text-sm"
+                          className="text-gray-400 hover:text-black cursor-pointer text-xs"
                         >
                           ✕
                         </button>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-[2px]">
                         <input
                           type="text"
                           value={addrName}
                           onChange={(e) => setAddrName(e.target.value)}
                           placeholder="收货人姓名"
-                          className="h-9 px-3 bg-neutral-50 border border-neutral-200 rounded-lg text-xs font-bold focus:outline-none focus:border-black focus:bg-white"
+                          className="h-7 px-[3px] py-[2px] bg-white border border-gray-300 text-xs font-semibold focus:outline-none focus:border-emerald-600 rounded-[1px]"
                         />
                         <input
                           type="text"
                           value={addrPhone}
                           onChange={(e) => setAddrPhone(e.target.value)}
-                          placeholder="收货人联系手机"
-                          className="h-9 px-3 bg-neutral-50 border border-neutral-200 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-black focus:bg-white"
+                          placeholder="联系电话"
+                          className="h-7 px-[3px] py-[2px] bg-white border border-gray-300 text-xs font-mono focus:outline-none focus:border-emerald-600 rounded-[1px]"
                         />
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-neutral-500">标签:</span>
-                        {(['公司', '家', '学校', '其他'] as const).map((t) => {
-                          const isSelected = addrTag === t;
-                          const tagStyle = {
-                            '公司': 'bg-sky-50/70 border-2 border-sky-500 text-sky-600 shadow-2xs font-bold',
-                            '家': 'bg-amber-50/70 border-2 border-amber-500 text-amber-600 shadow-2xs font-bold',
-                            '学校': 'bg-emerald-50/70 border-2 border-emerald-500 text-emerald-600 shadow-2xs font-bold',
-                            '其他': 'bg-indigo-50/70 border-2 border-indigo-500 text-indigo-600 shadow-2xs font-bold'
-                          }[t];
-
-                          return (
-                            <button
-                              key={t}
-                              type="button"
-                              onClick={() => setAddrTag(t)}
-                              className={`px-2.5 py-1 rounded-md text-xs font-bold cursor-pointer transition-all border ${
-                                isSelected
-                                  ? tagStyle
-                                  : 'bg-neutral-100 border-neutral-200 text-neutral-600 hover:bg-neutral-200'
-                              }`}
-                            >
-                              {t}
-                            </button>
-                          );
-                        })}
+                      <div className="flex items-center gap-[2px]">
+                        <span className="text-[10px] font-bold text-gray-500">标签:</span>
+                        {(['公司', '家', '学校', '其他'] as const).map((tag) => (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() => setAddrTag(tag)}
+                            className={`px-[3px] py-[1px] text-[10px] font-bold border rounded-[1px] cursor-pointer ${
+                              addrTag === tag
+                                ? 'bg-emerald-50 border-emerald-600 text-emerald-800'
+                                : 'bg-white border-gray-300 text-gray-600 hover:border-gray-500'
+                            }`}
+                          >
+                            {tag}
+                          </button>
+                        ))}
                       </div>
 
-                      <input
-                        type="text"
-                        value={addrLocation}
-                        onChange={(e) => setAddrLocation(e.target.value)}
-                        placeholder="小区 / 写字楼 / 标志性建筑物名称 (例如: 静安大悦城北座)"
-                        className="w-full h-9 px-3 bg-neutral-50 border border-neutral-200 rounded-lg text-xs font-bold focus:outline-none focus:border-black focus:bg-white"
-                      />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-[2px]">
+                        <input
+                          type="text"
+                          value={addrLocation}
+                          onChange={(e) => setAddrLocation(e.target.value)}
+                          placeholder="小区 / 写字楼 / 标志性建筑物"
+                          className="h-7 px-[3px] py-[2px] bg-white border border-gray-300 text-xs font-semibold focus:outline-none focus:border-emerald-600 rounded-[1px]"
+                        />
+                        <input
+                          type="text"
+                          value={addrHouseNumber}
+                          onChange={(e) => setAddrHouseNumber(e.target.value)}
+                          placeholder="小区几幢几楼几室 (例: 3栋1204室)"
+                          className="h-7 px-[3px] py-[2px] bg-white border border-gray-300 text-xs font-semibold focus:outline-none focus:border-emerald-600 rounded-[1px]"
+                        />
+                      </div>
 
-                      <input
-                        type="text"
-                        value={addrDetail}
-                        onChange={(e) => setAddrDetail(e.target.value)}
-                        placeholder="门牌号 / 楼层 / 详细位置 (例如: 12楼1204室 前台转交)"
-                        className="w-full h-9 px-3 bg-neutral-50 border border-neutral-200 rounded-lg text-xs focus:outline-none focus:border-black focus:bg-white"
-                      />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-[2px]">
+                        <input
+                          type="text"
+                          value={addrDetail}
+                          onChange={(e) => setAddrDetail(e.target.value)}
+                          placeholder="道路或区域详细地址"
+                          className="h-7 px-[3px] py-[2px] bg-white border border-gray-300 text-xs focus:outline-none focus:border-emerald-600 rounded-[1px]"
+                        />
+                        <input
+                          type="text"
+                          value={addrRemarks}
+                          onChange={(e) => setAddrRemarks(e.target.value)}
+                          placeholder="配送备注 (例: 放门口 / 到楼下电联)"
+                          className="h-7 px-[3px] py-[2px] bg-white border border-gray-300 text-xs focus:outline-none focus:border-emerald-600 rounded-[1px]"
+                        />
+                      </div>
 
-                      <div className="flex items-center justify-end gap-2 pt-1">
+                      <div className="flex items-center justify-end gap-[2px] pt-[2px]">
                         <button
                           type="button"
                           onClick={() => {
                             setIsAddingAddress(false);
                             setEditingAddress(null);
                           }}
-                          className="px-3 py-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-bold rounded-lg cursor-pointer"
+                          className="px-[3px] py-[2px] bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold rounded-[1px] cursor-pointer"
                         >
                           取消
                         </button>
                         <button
                           type="button"
                           onClick={handleSaveAddress}
-                          className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg cursor-pointer shadow-2xs active:scale-95"
+                          className="px-[3px] py-[2px] bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-[1px] cursor-pointer shadow-xs"
                         >
                           保存地址
                         </button>
@@ -658,47 +935,44 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                     </div>
                   )}
 
-                  {/* Address Cards */}
-                  <div className="space-y-2">
+                  {/* Address List */}
+                  <div className="space-y-[2px]" id="address-list-container">
                     {addresses.map((addr) => (
                       <div
                         key={addr.id}
-                        className={`p-3 rounded-xl border transition-all flex items-start justify-between gap-2.5 ${
-                          addr.isDefault
-                            ? 'bg-emerald-50/50 border-emerald-300 shadow-2xs'
-                            : 'bg-white border-neutral-200 hover:border-neutral-300'
-                        }`}
+                        className="p-[3px] bg-gray-50 border border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-[2px] rounded-[1px]"
                       >
                         <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-800">
-                              {addr.tag}
-                            </span>
-                            <h4 className="text-xs sm:text-sm font-bold text-black truncate">{addr.address}</h4>
-                            {addr.isDefault && (
-                              <span className="text-[10px] font-black text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-200">
-                                默认地址
+                          <div className="flex flex-wrap items-center gap-[2px] mb-[1px]">
+                            <span className="text-xs font-bold text-gray-900">{addr.address}</span>
+                            {addr.isDefault ? (
+                              <span className="text-[9px] font-mono bg-emerald-100 text-emerald-800 border border-emerald-300 px-[2px] py-[1px] rounded-[1px]">
+                                默认
                               </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleSetDefaultAddress(addr.id)}
+                                className="text-[9px] font-mono text-gray-500 hover:text-black border border-gray-200 px-[2px] py-[1px] rounded-[1px] cursor-pointer bg-white"
+                              >
+                                设为默认
+                              </button>
                             )}
+                            <span className="text-[10px] font-mono text-gray-500">
+                              {addr.name} {addr.phone}
+                            </span>
                           </div>
-                          <p className="text-xs text-neutral-600 mt-1 font-medium">{addr.detail}</p>
-                          <div className="flex items-center gap-2 text-xs text-neutral-400 mt-1">
-                            <span>{addr.name}</span>
-                            <span>·</span>
-                            <span className="font-mono">{addr.phone}</span>
+                          <div className="text-[11px] text-gray-600 font-mono">
+                            {addr.detail} {addr.houseNumber ? `· ${addr.houseNumber}` : ''}
                           </div>
+                          {addr.remarks && (
+                            <div className="text-[10px] text-emerald-700 font-mono">
+                              备注: {addr.remarks}
+                            </div>
+                          )}
                         </div>
 
-                        <div className="flex items-center gap-1 shrink-0 pt-0.5">
-                          {!addr.isDefault && (
-                            <button
-                              type="button"
-                              onClick={() => handleSetDefaultAddress(addr.id)}
-                              className="px-2 py-1 text-[11px] font-bold text-neutral-600 bg-neutral-100 hover:bg-neutral-200 rounded-lg cursor-pointer transition-colors"
-                            >
-                              设为默认
-                            </button>
-                          )}
+                        <div className="flex items-center gap-[2px] text-xs font-mono shrink-0">
                           <button
                             type="button"
                             onClick={() => {
@@ -707,451 +981,228 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                               setAddrPhone(addr.phone);
                               setAddrTag(addr.tag);
                               setAddrLocation(addr.address);
+                              setAddrHouseNumber(addr.houseNumber || '');
                               setAddrDetail(addr.detail);
+                              setAddrRemarks(addr.remarks || '');
                             }}
-                            className="p-1.5 text-neutral-400 hover:text-black rounded-lg transition-colors cursor-pointer"
+                            className="p-[2px] text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-colors rounded-[1px] flex items-center justify-center cursor-pointer"
                             title="编辑"
                           >
-                            <Edit2 className="w-3.5 h-3.5" />
+                            <Edit2 className="w-3 h-3" />
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDeleteAddress(addr.id)}
-                            className="p-1.5 text-neutral-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
+                            onClick={() => {
+                              if (window.confirm('确定移除该收货地址？')) {
+                                handleDeleteAddress(addr.id);
+                              }
+                            }}
+                            className="p-[2px] text-gray-400 hover:text-red-700 hover:bg-red-50 border border-transparent hover:border-red-200 transition-colors rounded-[1px] flex items-center justify-center cursor-pointer"
                             title="删除"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-3 h-3" />
                           </button>
                         </div>
                       </div>
                     ))}
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
 
-        {/* ================= SECTION 3: 就餐口味与个性偏好 ================= */}
-        <div className="bg-white rounded-2xl border border-[#e8e8e4] overflow-hidden shadow-2xs transition-all">
-          <button
-            type="button"
-            onClick={() => toggleSection('preferences')}
-            className="w-full p-3.5 sm:p-4 flex items-center justify-between hover:bg-neutral-50/70 transition-colors cursor-pointer text-left select-none"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-2xs">
-                <Utensils className="w-4 h-4" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-black text-neutral-900">就餐口味与个性偏好</h3>
-                  <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded">
-                    辣度/环保/通知
-                  </span>
-                </div>
-                <p className="text-xs text-neutral-500 mt-0.5 truncate">
-                  {preferences.spiciness === 'none' ? '不辣' : preferences.spiciness === 'mild' ? '微辣' : preferences.spiciness === 'medium' ? '中辣' : '特辣'} · {preferences.cutlery === 'eco' ? '环保减碳无需餐具' : '按餐品提供餐具'}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs font-bold text-neutral-400 hidden sm:inline">
-                {expandedSections.preferences ? '收起' : '展开偏好'}
-              </span>
-              <div className={`p-1 rounded-full text-neutral-500 transition-transform duration-200 ${expandedSections.preferences ? 'rotate-180 bg-neutral-100' : ''}`}>
-                <ChevronDown className="w-4 h-4" />
-              </div>
-            </div>
-          </button>
-
-          <AnimatePresence initial={false}>
-            {expandedSections.preferences && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="border-t border-neutral-100 overflow-hidden"
-              >
-                <div className="p-3.5 sm:p-4 space-y-4 bg-[#fcfcfb] text-xs">
-                  {/* Spiciness */}
-                  <div>
-                    <label className="font-bold text-neutral-700 block mb-2 flex items-center gap-1.5">
-                      <Flame className="w-3.5 h-3.5 text-rose-500" />
-                      <span>默认辣度偏好</span>
-                    </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {[
-                        { id: 'none', label: '不辣 · 原汁' },
-                        { id: 'mild', label: '微辣 · 提鲜' },
-                        { id: 'medium', label: '中辣 · 地道' },
-                        { id: 'hot', label: '特辣 · 爆爽' }
-                      ].map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => setPreferences({ ...preferences, spiciness: item.id as any })}
-                          className={`py-2.5 px-2 rounded-xl text-center font-bold border transition-all cursor-pointer ${
-                            preferences.spiciness === item.id
-                              ? 'bg-rose-50/70 border-2 border-rose-500 text-rose-700 shadow-2xs font-black'
-                              : 'bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50'
-                          }`}
-                        >
-                          {item.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Cutlery Policy */}
-                  <div>
-                    <label className="font-bold text-neutral-700 block mb-2 flex items-center gap-1.5">
-                      <Utensils className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>环保餐具策略</span>
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      {[
-                        { id: 'eco', label: '环保减碳 · 无需餐具' },
-                        { id: 'needed', label: '按餐品份数提供' },
-                        { id: 'not_needed', label: '自带餐盒 · 零浪费' }
-                      ].map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => setPreferences({ ...preferences, cutlery: item.id as any })}
-                          className={`p-2.5 rounded-xl text-center font-bold border transition-all cursor-pointer ${
-                            preferences.cutlery === item.id
-                              ? 'bg-emerald-50/70 border-2 border-emerald-500 text-emerald-700 shadow-2xs font-black'
-                              : 'bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50'
-                          }`}
-                        >
-                          {item.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Feature Toggles */}
-                  <div className="space-y-2 pt-2 border-t border-neutral-200/60">
-                    <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-neutral-200">
-                      <div>
-                        <span className="font-bold text-black block">结算自动抵扣最优优惠券</span>
-                        <span className="text-[11px] text-neutral-500">点单结算时自动计算并使用折扣力度最大的券</span>
+                    {/* Empty prompt */}
+                    {addresses.length === 0 && (
+                      <div className="flex flex-col sm:flex-row items-center justify-center gap-[2px] py-[3px] px-[2px] bg-gray-50 border border-dashed border-gray-300 text-center rounded-[1px]">
+                        <AlertCircle className="w-3.5 h-3.5 text-gray-400" />
+                        <span className="text-[11px] text-gray-500 font-mono">暂无地址配置</span>
+                        <span className="text-gray-300">|</span>
+                        <span className="text-[10px] text-gray-400">点击上方按钮新增送达地址</span>
                       </div>
-                      <input
-                        type="checkbox"
-                        checked={preferences.autoApplyCoupons}
-                        onChange={(e) => setPreferences({ ...preferences, autoApplyCoupons: e.target.checked })}
-                        className="w-4 h-4 accent-emerald-600 rounded cursor-pointer"
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-neutral-200">
-                      <div>
-                        <span className="font-bold text-black block flex items-center gap-1">
-                          <Compass className="w-3 h-3 text-emerald-600" />
-                          餐车雷达巡游实时追踪通知
-                        </span>
-                        <span className="text-[11px] text-neutral-500">餐车距离当前常用地址小于1km时推送停靠提醒</span>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={preferences.radarTracking}
-                        onChange={(e) => setPreferences({ ...preferences, radarTracking: e.target.checked })}
-                        className="w-4 h-4 accent-emerald-600 rounded cursor-pointer"
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-neutral-200">
-                      <div>
-                        <span className="font-bold text-black block flex items-center gap-1">
-                          <Bell className="w-3 h-3 text-amber-600" />
-                          短信与服务消息出餐提醒
-                        </span>
-                        <span className="text-[11px] text-neutral-500">炭烤出炉与骑手取餐时接收即时短信与服务通知</span>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={preferences.smsNotification}
-                        onChange={(e) => setPreferences({ ...preferences, smsNotification: e.target.checked })}
-                        className="w-4 h-4 accent-emerald-600 rounded cursor-pointer"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="font-bold text-neutral-700 block mb-1">
-                      常驻忌口与个性化备注
-                    </label>
-                    <input
-                      type="text"
-                      value={preferences.dietaryNote || ''}
-                      onChange={(e) => setPreferences({ ...preferences, dietaryNote: e.target.value })}
-                      placeholder="例如: 少盐，不吃香菜，牛排七分熟，汉堡免洋葱"
-                      className="w-full h-10 px-3 bg-white border border-neutral-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-black focus:ring-2 focus:ring-black/5"
-                    />
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* ================= SECTION 4: 账户钱包与积分流水 ================= */}
-        <div className="bg-white rounded-2xl border border-[#e8e8e4] overflow-hidden shadow-2xs transition-all">
-          <button
-            type="button"
-            onClick={() => toggleSection('wallet')}
-            className="w-full p-3.5 sm:p-4 flex items-center justify-between hover:bg-neutral-50/70 transition-colors cursor-pointer text-left select-none"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-neutral-900 text-amber-400 flex items-center justify-center shrink-0 shadow-2xs">
-                <Wallet className="w-4 h-4" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-black text-neutral-900">账户钱包与积分流水</h3>
-                  <span className="text-[10px] bg-neutral-100 text-neutral-800 font-mono font-bold px-1.5 py-0.5 rounded">
-                    ¥{userProfile.balance.toFixed(2)}
-                  </span>
-                </div>
-                <p className="text-xs text-neutral-500 mt-0.5 truncate">
-                  余额 ¥{userProfile.balance.toFixed(2)} · {userProfile.points} 积分
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs font-bold text-neutral-400 hidden sm:inline">
-                {expandedSections.wallet ? '收起' : '展开流水'}
-              </span>
-              <div className={`p-1 rounded-full text-neutral-500 transition-transform duration-200 ${expandedSections.wallet ? 'rotate-180 bg-neutral-100' : ''}`}>
-                <ChevronDown className="w-4 h-4" />
-              </div>
-            </div>
-          </button>
-
-          <AnimatePresence initial={false}>
-            {expandedSections.wallet && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="border-t border-neutral-100 overflow-hidden"
-              >
-                <div className="p-3.5 sm:p-4 space-y-3 bg-[#fcfcfb] text-xs">
-                  {/* Summary Card */}
-                  <div className="p-4 bg-gradient-to-br from-neutral-900 via-neutral-950 to-black text-white rounded-xl shadow-xs border border-neutral-800 space-y-3">
-                    <div className="flex items-center justify-between text-neutral-400 text-xs">
-                      <span className="flex items-center gap-1 font-bold">
-                        <Coins className="w-3.5 h-3.5 text-amber-400" />
-                        黑曜石先锋账户资产
-                      </span>
-                      <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-neutral-300 font-mono">
-                        UID: {userProfile.uid.slice(-8)}
-                      </span>
-                    </div>
-
-                    <div className="flex items-baseline justify-between">
-                      <div>
-                        <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-white">
-                          ¥{userProfile.balance.toFixed(2)}
-                        </span>
-                        <span className="text-xs text-neutral-400 ml-2">可用储值余额</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-lg sm:text-xl font-black text-amber-400 font-mono">
-                          {userProfile.points}
-                        </span>
-                        <span className="text-xs text-neutral-400 ml-1">能量积分</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Flow Records */}
-                  <div className="space-y-2 pt-1">
-                    <div className="font-bold text-neutral-700 px-0.5">收支流水记录</div>
-                    {userProfile.walletHistory && userProfile.walletHistory.length > 0 ? (
-                      userProfile.walletHistory.map((w) => (
-                        <div
-                          key={w.id}
-                          className="p-3 bg-white rounded-xl border border-neutral-200 flex items-center justify-between text-xs shadow-2xs"
-                        >
-                          <div>
-                            <span className="font-bold text-black block">{w.title}</span>
-                            <span className="text-[10px] text-neutral-400 font-mono">{w.timestamp}</span>
-                          </div>
-                          <div className="text-right">
-                            <span
-                              className={`font-black font-mono text-sm block ${
-                                w.amount > 0 ? 'text-emerald-600' : 'text-neutral-900'
-                              }`}
-                            >
-                              {w.amount > 0 ? `+¥${w.amount.toFixed(2)}` : `¥${w.amount.toFixed(2)}`}
-                            </span>
-                            <span className="text-[10px] text-neutral-400 font-mono">
-                              余额: ¥{w.balanceAfter.toFixed(2)}
-                            </span>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-4 text-neutral-400 text-xs">暂无流水记录</div>
                     )}
                   </div>
                 </div>
-              </motion.div>
+              </div>
             )}
-          </AnimatePresence>
-        </div>
 
-        {/* ================= SECTION 5: 云端安全与免密凭据 ================= */}
-        <div className="bg-white rounded-2xl border border-[#e8e8e4] overflow-hidden shadow-2xs transition-all">
-          <button
-            type="button"
-            onClick={() => toggleSection('security')}
-            className="w-full p-3.5 sm:p-4 flex items-center justify-between hover:bg-neutral-50/70 transition-colors cursor-pointer text-left select-none"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-sky-700 text-white flex items-center justify-center shrink-0 shadow-2xs">
-                <ShieldCheck className="w-4 h-4" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-black text-neutral-900">云端安全与免密凭据</h3>
-                  <span className="text-[10px] bg-sky-100 text-sky-800 font-mono font-bold px-1.5 py-0.5 rounded">
-                    99.8% 硬件指纹
-                  </span>
-                </div>
-                <p className="text-xs text-neutral-500 mt-0.5 truncate font-mono">
-                  UID: {userProfile.uid}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs font-bold text-neutral-400 hidden sm:inline">
-                {expandedSections.security ? '收起' : '展开详情'}
-              </span>
-              <div className={`p-1 rounded-full text-neutral-500 transition-transform duration-200 ${expandedSections.security ? 'rotate-180 bg-neutral-100' : ''}`}>
-                <ChevronDown className="w-4 h-4" />
-              </div>
-            </div>
-          </button>
-
-          <AnimatePresence initial={false}>
-            {expandedSections.security && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="border-t border-neutral-100 overflow-hidden"
-              >
-                <div className="p-3.5 sm:p-4 space-y-3 bg-[#fcfcfb] text-xs">
-                  <div className="p-3 bg-white border border-neutral-200 rounded-xl space-y-2 shadow-2xs">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-neutral-800">免密设备指纹认证</span>
-                      <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded font-mono">
-                        已加密打通
-                      </span>
+            {/* TAB 4: 安全凭据与硬件指纹 */}
+            {activeTab === 'tab-security' && (
+              <div className="tab-panel space-y-[3px] animate-in fade-in duration-150">
+                <div className="bg-white border border-gray-300 shadow-xs p-[3px] space-y-[2px] rounded-[1px]">
+                  <div className="flex items-center justify-between border-b border-gray-200 pb-[2px] mb-[2px]">
+                    <div>
+                      <div className="flex items-center gap-[2px]">
+                        <span className="w-1.5 h-1.5 bg-sky-600 rounded-[1px]" />
+                        <h3 className="text-xs font-bold text-gray-900 uppercase tracking-tight">
+                          云端安全凭据与硬件指纹认证
+                        </h3>
+                      </div>
+                      <div className="flex items-center gap-[2px] mt-[1px] font-mono text-[9px] text-gray-500">
+                        <span className="inline-flex items-center gap-[2px] px-[2px] py-[1px] bg-sky-50 border border-sky-200 rounded-[1px] text-sky-800 font-bold">
+                          <ShieldCheck className="w-2.5 h-2.5 text-sky-600" />
+                          硬件防伪
+                        </span>
+                        <span className="inline-flex items-center gap-[2px] px-[2px] py-[1px] bg-gray-100 border border-gray-200 rounded-[1px] text-gray-600">
+                          <KeyRound className="w-2.5 h-2.5 text-gray-500" />
+                          单机绑定
+                        </span>
+                      </div>
                     </div>
-                    <p className="text-neutral-500 text-xs">
-                      本应用已接入腾讯云函数免密信任鉴权机制，无需繁琐输入密码即可自动基于硬件设备安全标识完成免密识别与双轨同步。
-                    </p>
-                    <div className="flex items-center gap-2 pt-1 font-mono text-[11px] text-neutral-400">
-                      <span>设备凭据: HW-SEC-87779</span>
-                      <span>·</span>
-                      <span>双轨状态: 实时就绪</span>
+                    <span className="text-[9px] font-mono bg-sky-100 text-sky-800 border border-sky-300 px-[3px] py-[1px] rounded-[1px]">
+                      99.8% 硬件指纹匹配
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-[2px]">
+                    <div className="p-[3px] bg-gray-50 border border-gray-200 rounded-[1px]">
+                      <div className="flex justify-between items-center text-gray-500 text-[9px] font-mono uppercase mb-[1px]">
+                        <span>云端账户 UID</span>
+                        <span className="text-emerald-700 font-bold">ACTIVE</span>
+                      </div>
+                      <div className="text-xs text-gray-900 truncate font-mono font-bold">
+                        merchant_{phone}
+                      </div>
+                      <div className="text-[9px] text-gray-400 mt-[1px] font-mono">
+                        绑定生效时间: {userProfile.createdAt || '2024-01-15 09:20:11 UTC+8'}
+                      </div>
+                    </div>
+
+                    <div className="p-[3px] bg-gray-50 border border-gray-200 rounded-[1px]">
+                      <div className="flex justify-between items-center text-gray-500 text-[9px] font-mono uppercase mb-[1px]">
+                        <span>POS 硬件签名 Token</span>
+                        <span className="text-sky-700 font-bold">ENCRYPTED</span>
+                      </div>
+                      <div className="text-xs text-gray-900 truncate font-mono font-bold">
+                        {hwToken}
+                      </div>
+                      <div className="text-[9px] text-gray-400 mt-[1px] font-mono">
+                        SHA-256 HMAC 芯片级防篡改校验
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between p-3 bg-emerald-50/60 border border-emerald-200 rounded-xl">
-                    <div>
-                      <span className="font-bold text-emerald-950 block">账号切换与注册中心</span>
-                      <span className="text-[11px] text-emerald-800">快速切换测试账号、短信验证码或密码登录</span>
+                  <div className="border-t border-gray-200 pt-[2px] flex flex-col sm:flex-row items-center justify-between gap-[2px]">
+                    <div className="flex items-center gap-[2px] text-xs text-gray-500 font-mono">
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+                      <span className="font-bold text-gray-700">设备更换/系统重装：</span>
+                      <span>需重签密匙</span>
                     </div>
                     <button
                       type="button"
-                      onClick={() => setIsAuthModalOpen(true)}
-                      className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg cursor-pointer shadow-2xs flex items-center gap-1"
+                      onClick={handleReissueKey}
+                      className="w-full sm:w-auto px-[3px] py-[2px] bg-white border border-gray-300 hover:border-black text-xs font-semibold text-gray-800 transition-colors whitespace-nowrap shadow-xs rounded-[1px] cursor-pointer"
                     >
-                      <UserCheck className="w-3.5 h-3.5" />
-                      <span>换号/注册</span>
+                      重签安全密匙
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 5: 财务账户与流水 */}
+            {activeTab === 'tab-finance' && (
+              <div className="tab-panel space-y-[3px] animate-in fade-in duration-150">
+                <div className="bg-white border border-gray-300 shadow-xs p-[3px] space-y-[2px] rounded-[1px]">
+                  <div className="flex items-center justify-between border-b border-gray-200 pb-[2px] mb-[2px]">
+                    <div>
+                      <div className="flex items-center gap-[2px]">
+                        <span className="w-1.5 h-1.5 bg-emerald-600 rounded-[1px]" />
+                        <h3 className="text-xs font-bold text-gray-900 uppercase tracking-tight">
+                          财务账户与流水快照
+                        </h3>
+                      </div>
+                      <p className="text-[10px] text-gray-500 mt-[1px]">
+                        查看账户余额、会员储值记录与结算对账流水明细。
+                      </p>
+                    </div>
+                    <span className="text-[9px] font-mono text-gray-400">近30天统计</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-[2px] font-mono">
+                    <div className="p-[3px] bg-gray-50 border border-gray-200 rounded-[1px]">
+                      <span className="text-[8px] text-gray-400 block uppercase">主账户储值可用额度</span>
+                      <span className="text-lg font-black text-amber-500">¥{balance.toFixed(2)}</span>
+                      <span className="text-[8px] text-gray-500 block mt-[1px]">可用于点单全额冲抵</span>
+                    </div>
+                    <div className="p-[3px] bg-gray-50 border border-gray-200 rounded-[1px]">
+                      <span className="text-[8px] text-gray-400 block uppercase">活跃忠诚度积分</span>
+                      <span className="text-lg font-black text-gray-900">{points}</span>
+                      <span className="text-[8px] text-gray-500 block mt-[1px]">100 积分抵扣 ¥1.00</span>
+                    </div>
+                    <div className="p-[3px] bg-gray-50 border border-gray-200 rounded-[1px]">
+                      <span className="text-[8px] text-gray-400 block uppercase">未结算账单金额</span>
+                      <span className="text-lg font-black text-gray-400">¥0.00</span>
+                      <span className="text-[8px] text-emerald-600 block mt-[1px]">✓ 当前无挂账待清算</span>
+                    </div>
+                  </div>
+
+                  {/* Fast simulation / recharge */}
+                  <div className="flex flex-wrap items-center gap-[2px] pt-[2px] border-t border-gray-100">
+                    <span className="text-[10px] font-mono text-gray-500">调试充值：</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBalance((prev) => prev + 50);
+                        toast.success('储值充值成功', '体验账户已成功增加 ¥50.00 储值金');
+                      }}
+                      className="px-[3px] py-[1px] text-[10px] font-mono font-bold bg-white border border-gray-300 hover:border-black rounded-[1px] cursor-pointer transition-colors"
+                    >
+                      +¥50.00
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPoints((prev) => prev + 100);
+                        toast.success('积分增补成功', '体验账户已成功增加 100 积分');
+                      }}
+                      className="px-[3px] py-[1px] text-[10px] font-mono font-bold bg-white border border-gray-300 hover:border-black rounded-[1px] cursor-pointer transition-colors"
+                    >
+                      +100 积分
                     </button>
                   </div>
 
-                  {onOpenCloudCode && (
-                    <div className="flex items-center justify-between p-3 bg-sky-50/60 border border-sky-200 rounded-xl">
-                      <div>
-                        <span className="font-bold text-sky-950 block">云函数工程源码</span>
-                        <span className="text-[11px] text-sky-800">查看底层 Node.js 云函数鉴权与数据库同步实现</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={onOpenCloudCode}
-                        className="px-3 py-1 bg-white hover:bg-sky-50 text-sky-900 border border-sky-300 font-bold text-xs rounded-lg cursor-pointer shadow-2xs"
-                      >
-                        查看源码
-                      </button>
+                  <div className="border border-dashed border-gray-200 bg-gray-50 p-[3px] text-center rounded-[1px]">
+                    <Receipt className="w-6 h-6 text-gray-300 mx-auto mb-[2px]" />
+                    <div className="text-[10px] text-gray-500 font-mono">近 30 天内暂无未结算账单或退单记录</div>
+                    <div className="text-[9px] text-gray-400">
+                      所有前台出单流水已自动归档至云财务中枢。
                     </div>
-                  )}
+                  </div>
                 </div>
-              </motion.div>
+              </div>
             )}
-          </AnimatePresence>
-        </div>
-      </div>
 
-      {/* User Auth Modal inside Profile View */}
-      <UserAuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        initialMode="presets"
-        onLoginSuccess={(updated) => {
-          setNickname(updated.nickname);
-          setPhone(updated.phone);
-          setAvatar(updated.avatar);
-          setBio(updated.bio || '');
-          setGender(updated.gender || 'secret');
-          setBirthday(updated.birthday || '1998-06-18');
-          setAddresses(updated.addresses || []);
-          if (updated.preferences) setPreferences(updated.preferences);
-          onProfileUpdated(updated);
-          toast.success(`已成功切换至用户: ${updated.nickname}`);
-        }}
-      />
-
-      {/* Embedded Action Footer Bar */}
-      <div className="sticky bottom-2 z-20 p-3 bg-white/95 backdrop-blur-md border border-[#e8e8e4] rounded-2xl flex items-center justify-between gap-3 shadow-md">
-        <div className="text-xs text-neutral-500 truncate min-w-0">
-          {syncStatusText || `最近同步: ${userProfile.cloudSyncedAt ? new Date(userProfile.cloudSyncedAt).toLocaleTimeString() : '刚刚'}`}
+            {/* BOTTOM FIXED ACTION BAR: Reset & Save */}
+            <div className="bg-white border border-gray-300 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-[2px] rounded-[1px] p-[2px]">
+              <div className="text-[10px] text-gray-500 font-mono text-center sm:text-left flex items-center gap-[2px]">
+                <span className="inline-flex items-center gap-[2px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-[2px] py-[1px] rounded-[1px] text-[9px] font-bold">
+                  <ShieldCheck className="w-2.5 h-2.5 text-emerald-600" />
+                  中心校验
+                </span>
+                <span className="text-gray-300">/</span>
+                <span className="inline-flex items-center gap-[2px] text-[10px] text-gray-600 font-mono">
+                  <RefreshCw className="w-2.5 h-2.5 text-emerald-600" />
+                  实时链路在线
+                </span>
+              </div>
+              <div className="flex items-center gap-[2px] w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={handleResetToInitial}
+                  className="px-[3px] py-[2px] border border-gray-300 text-xs font-bold text-gray-700 bg-white hover:bg-gray-100 transition-colors rounded-[1px] cursor-pointer"
+                  id="reset-btn"
+                >
+                  重置为初始设定
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveAndSync}
+                  disabled={isSyncing}
+                  className="px-[3px] py-[2px] border border-black text-xs font-bold text-white bg-black hover:bg-gray-800 transition-colors shadow-xs rounded-[1px] cursor-pointer disabled:opacity-75"
+                  id="save-btn"
+                >
+                  {isSyncing ? '保存中' : '保存修改'}
+                </button>
+              </div>
+            </div>
+          </section>
         </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          {onBack && (
-            <button
-              type="button"
-              onClick={onBack}
-              className="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-xs font-bold rounded-xl transition-colors cursor-pointer border border-neutral-300"
-            >
-              返回
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={handleSaveAndSync}
-            disabled={isSyncing}
-            className="px-4 py-2 bg-black hover:bg-neutral-800 text-white text-xs sm:text-sm font-black rounded-xl transition-all cursor-pointer shadow-2xs active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
-          >
-            <Check className="w-4 h-4 text-emerald-400" />
-            <span>{isSyncing ? '同步保存中...' : '保存并同步云端'}</span>
-          </button>
-        </div>
-      </div>
+      </main>
     </div>
   );
 };

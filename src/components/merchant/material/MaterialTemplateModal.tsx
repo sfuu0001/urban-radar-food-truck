@@ -12,6 +12,7 @@ import {
   Calendar,
   Building2,
   Package,
+  PackageCheck,
   Plus,
   ArrowDownToLine,
   RotateCcw,
@@ -34,6 +35,7 @@ interface MaterialTemplateModalProps {
   onClose: () => void;
   existingMaterials: MaterialItem[];
   onApplyTemplate: (template: MaterialTemplate) => void;
+  onApplyAndStockIn?: (template: MaterialTemplate) => void;
   onBatchApplyTemplates: (templates: MaterialTemplate[]) => void;
   showToast: (msg: string) => void;
 }
@@ -43,6 +45,7 @@ export const MaterialTemplateModal: React.FC<MaterialTemplateModalProps> = ({
   onClose,
   existingMaterials,
   onApplyTemplate,
+  onApplyAndStockIn,
   onBatchApplyTemplates,
   showToast
 }) => {
@@ -393,23 +396,41 @@ export const MaterialTemplateModal: React.FC<MaterialTemplateModalProps> = ({
                     </div>
 
                     {/* Bottom Action */}
-                    <div className="mt-3 pt-2.5 border-t border-[#f1f5f9] flex items-center justify-between gap-2">
-                      <div className="text-[10px] text-amber-800/80 bg-amber-50 px-1.5 py-0.5 rounded">
-                        调用后在库置为0
+                    <div className="mt-3 pt-2.5 border-t border-[#f1f5f9] flex flex-wrap items-center justify-between gap-2">
+                      <div className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-[2px] font-medium">
+                        在库归零 · 需手动上架
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onApplyTemplate(tpl);
-                          showToast(`已调用模板【${tpl.name}】创建原料档案，当前在库量为 0！`);
-                          onClose();
-                        }}
-                        className="px-3 py-1.5 bg-[#0f172a] hover:bg-black text-white rounded-[3px] text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors active:scale-95 shadow-xs"
-                      >
-                        <Plus className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>调用此模板</span>
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onApplyTemplate(tpl);
+                            showToast(`已调用模板【${tpl.name}】建立原料档案，当前在库量为 0！`);
+                            onClose();
+                          }}
+                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-[#0f172a] rounded-[2px] text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-colors active:scale-95 border border-[#cbd5e1]"
+                          title="导入档案，当前库存置为 0，等待后续手动上架"
+                        >
+                          <Plus className="w-3 h-3 text-slate-600" />
+                          <span>仅调用档案 (0库存)</span>
+                        </button>
+
+                        {onApplyAndStockIn && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onApplyAndStockIn(tpl);
+                              onClose();
+                            }}
+                            className="px-2.5 py-1 bg-[#0f172a] hover:bg-black text-white rounded-[2px] text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-colors active:scale-95 shadow-xs"
+                            title="导入档案并将库存置为 0，同时立即开启实物验收入库上架窗口"
+                          >
+                            <PackageCheck className="w-3 h-3 text-amber-400" />
+                            <span>调用并立即上架</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );

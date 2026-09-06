@@ -821,7 +821,7 @@ export const RiderSystemView: React.FC<RiderSystemViewProps> = ({
             aria-label="返回前台顾客点餐"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">返回前台</span>
+            <span className="hidden sm:inline">前台</span>
           </button>
 
           <div className="h-4 w-[1px] bg-[#e6e6e4] shrink-0" />
@@ -831,9 +831,9 @@ export const RiderSystemView: React.FC<RiderSystemViewProps> = ({
               <Bike className="w-3.5 h-3.5" />
             </div>
             <div className="flex items-center gap-1.5 min-w-0">
-              <span className="font-bold text-xs sm:text-sm text-[#37352f] truncate">骑士专送工作台</span>
-              <span className="text-[10px] font-mono bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc] px-1.5 py-0.2 rounded-[2px] shrink-0 hidden xs:inline-block">
-                在线接单中
+              <span className="font-bold text-xs sm:text-sm text-[#37352f] truncate">骑士工作台</span>
+              <span className="text-[10px] font-mono bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc] px-1 py-0.2 rounded-[2px] shrink-0 hidden xs:inline-block">
+                在线
               </span>
             </div>
           </div>
@@ -851,11 +851,10 @@ export const RiderSystemView: React.FC<RiderSystemViewProps> = ({
               {riderSession?.phone ? maskPhoneNumber(riderSession.phone) : '138****9201'}
             </span>
             <span
-              className="text-[9px] bg-emerald-200/70 text-emerald-900 border border-emerald-300 px-1 py-0.2 rounded font-mono font-bold shrink-0 flex items-center gap-0.5"
-              title={`手机号已实名核验 · 底层硬件指纹 [${riderSession?.hardwareHash || 'HW-INVARIANT'}] 保持绑定不变`}
+              className="text-[9px] bg-emerald-200/70 text-emerald-900 border border-emerald-300 p-0.5 rounded shrink-0 flex items-center"
+              title={`手机号已实名核验 · 底层硬件指纹 [${riderSession?.hardwareHash || 'HW-INVARIANT'}] 保持绑定`}
             >
               <Fingerprint className="w-2.5 h-2.5 text-emerald-700" />
-              <span>指纹保活</span>
             </span>
             {onOpenPhoneAuth && (
               <button
@@ -879,7 +878,7 @@ export const RiderSystemView: React.FC<RiderSystemViewProps> = ({
             )}
           </div>
 
-          {/* 骑手自动抢单/接单开关 (必须有开关按钮，如果没有则是待取件) */}
+          {/* 骑手自动抢单/接单开关 */}
           <button
             type="button"
             onClick={() => {
@@ -887,7 +886,7 @@ export const RiderSystemView: React.FC<RiderSystemViewProps> = ({
               setIsAutoAcceptRider(next);
               showToast(next ? '已开启极速自动抢单（新任务自动接单）' : '已关闭自动抢单（新任务将保留在抢单大厅待取件）');
             }}
-            className={`px-2 sm:px-2.5 py-1 rounded-[3px] font-semibold text-xs flex items-center gap-1 cursor-pointer border transition-all shadow-2xs ${
+            className={`px-2 py-1 rounded-[3px] font-semibold text-xs flex items-center gap-1 cursor-pointer border transition-all shadow-2xs ${
               isAutoAcceptRider
                 ? 'bg-[#edf3ec] text-[#2b593f] border-[#c4dcbc] hover:bg-[#e1ece0]'
                 : 'bg-[#fbe4e4] text-[#c93b3b] border-[#f0c3c3] hover:bg-[#f8d7d7]'
@@ -895,7 +894,7 @@ export const RiderSystemView: React.FC<RiderSystemViewProps> = ({
             title={isAutoAcceptRider ? '点击关闭自动抢单' : '点击开启自动抢单'}
           >
             <Zap className={`w-3.5 h-3.5 ${isAutoAcceptRider ? 'text-[#4dab63]' : 'text-[#c93b3b]'}`} />
-            <span className="hidden xs:inline">自动抢单: </span><strong>{isAutoAcceptRider ? '开启' : '关闭'}</strong>
+            <span>{isAutoAcceptRider ? '自动抢单' : '手动抢单'}</span>
           </button>
 
           <button

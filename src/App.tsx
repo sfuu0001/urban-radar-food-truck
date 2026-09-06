@@ -2022,7 +2022,7 @@ function MainAppContent() {
       <main 
         id="main-content-scroll-area"
         ref={mainScrollContainerRef}
-        className="flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden max-w-7xl mx-auto px-1.5 sm:px-3 pt-0 pb-6 sm:pb-8 space-y-1 sm:space-y-1.5 scroll-smooth"
+        className="flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden max-w-7xl mx-auto px-[2px] pt-0 pb-[3px] space-y-[2px] scroll-smooth"
       >
         {activeNavTab === 'checkout' ? (
           <CheckoutPageView
@@ -2032,6 +2032,7 @@ function MainAppContent() {
               setDeliveryAddress(addr);
               toast.info('配送地址已修改');
             }}
+            onOpenAddressModal={() => setIsAddressModalOpen(true)}
             diningMode={diningMode}
             onDiningModeChange={handleDiningModeChange}
             isVIPActive={isVIPActive}

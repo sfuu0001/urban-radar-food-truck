@@ -146,14 +146,12 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
           {config.enabled ? (
             <div className="flex items-center gap-1">
               <Volume2 className="w-3.5 h-3.5 text-emerald-600 animate-pulse shrink-0" />
-              <span className="hidden md:inline font-semibold">
-                {currentPersona.avatarIcon} {currentPersona.name.slice(0, 4)}
-              </span>
+              <span className="hidden md:inline font-semibold">语音</span>
             </div>
           ) : (
             <div className="flex items-center gap-1">
               <VolumeX className="w-3.5 h-3.5 text-[#787774] shrink-0" />
-              <span className="hidden md:inline">语音静音</span>
+              <span className="hidden md:inline font-semibold">静音</span>
             </div>
           )}
         </button>
@@ -164,35 +162,11 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
           type="button"
           onClick={() => setIsOpen(!isOpen)}
           className="text-[#37352f] hover:text-black p-0.5 cursor-pointer shrink-0 flex items-center gap-0.5"
-          title="真人语音播报设置 (去除人机声)"
+          title="语音播报设置"
         >
           <Settings2 className="w-3.5 h-3.5" />
           <Sparkles className="w-2.5 h-2.5 text-amber-600 shrink-0" />
         </button>
-
-        {/* Quick Bluetooth Speaker Status */}
-        {activeBtDevice && activeBtDevice.status === 'connected' && (
-          <>
-            <span className="text-[#d3d1cb]">|</span>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsBluetoothModalOpen(true);
-              }}
-              className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-colors ${
-                btConfig.routingMode === 'voice_only'
-                  ? 'bg-blue-100 hover:bg-blue-200 text-blue-900 border border-blue-200'
-                  : 'bg-neutral-200/80 hover:bg-neutral-300 text-neutral-800'
-              }`}
-              title={`已连接蓝牙音箱: ${activeBtDevice.name} · 点击管理声学专属路由`}
-            >
-              <Bluetooth className="w-2.5 h-2.5 text-blue-700 shrink-0" />
-              <span className="hidden lg:inline">{btConfig.routingMode === 'voice_only' ? '仅系统语音' : '统一混合'}</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-            </button>
-          </>
-        )}
       </div>
 
       {/* Voice Settings Backdrop on Mobile */}

@@ -33,7 +33,8 @@ import {
   Trash2,
   Layers,
   PackageCheck,
-  ArrowDownToLine
+  ArrowDownToLine,
+  Download
 } from 'lucide-react';
 import { MaterialItem, PurchaseRecord } from '../../types';
 import { INITIAL_MATERIALS, INITIAL_PURCHASE_RECORDS } from '../../data/mockEnhancedData';
@@ -42,7 +43,8 @@ import { globalVersionEngine } from '../../utils/versionPointerEngine';
 import {
   STANDARD_MATERIAL_TEMPLATES,
   MaterialTemplate,
-  instantiateMaterialFromTemplate
+  instantiateMaterialFromTemplate,
+  exportMaterialTemplatesJson
 } from '../../data/materialTemplates';
 import { MaterialTemplateModal } from './material/MaterialTemplateModal';
 import { MaterialStockInModal } from './material/MaterialStockInModal';
@@ -435,6 +437,66 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
     showToast(`已批量调用 ${templates.length} 项标准原料模板！(新增 ${addedCount} 种，更新 ${updatedCount} 种，实际在库统一置为 0)`);
   };
 
+  // Apply Single Template and Immediately Open Stock-In Modal
+  const handleApplyAndStockIn = (template: MaterialTemplate) => {
+    let targetItem: MaterialItem;
+    const existingIndex = materials.findIndex((m) => m.name.trim() === template.name.trim());
+    if (existingIndex >= 0) {
+      const existing = materials[existingIndex];
+      targetItem = {
+        ...existing,
+        currentStock: 0, // 遵从要求：在库初始设为0
+        safetyStock: template.safetyStock,
+        reorderSuggestion: template.reorderSuggestion,
+        unit: template.unit,
+        purchasePrice: template.purchasePrice,
+        storageLocation: template.storageLocation,
+        storageTempZone: template.storageTempZone,
+        supplier: template.supplier,
+        supplierContact: template.supplierContact,
+        supplierPhone: template.supplierPhone,
+        supplierLeadDays: template.supplierLeadDays,
+        supplierRating: template.supplierRating,
+        shelfLifeDays: template.shelfLifeDays,
+        standardYieldRate: template.standardYieldRate,
+        spec: template.spec,
+        status: 'warning',
+        stockStatus: 'out_of_stock',
+        isInStock: false,
+        updatedAt: new Date().toISOString()
+      };
+      const updatedList = [...materials];
+      updatedList[existingIndex] = targetItem;
+      saveMaterials(updatedList);
+    } else {
+      targetItem = instantiateMaterialFromTemplate(template);
+      saveMaterials([targetItem, ...materials]);
+    }
+
+    setStockInTargetMaterial(targetItem);
+    setIsStockInModalOpen(true);
+    showToast(`已调用【${template.name}】标准模板！当前在库已设为 0，请录入实际到货数量与批次完成上架。`);
+  };
+
+  // Quick Download Standard Template Library JSON
+  const handleDownloadTemplateJson = () => {
+    try {
+      const jsonText = exportMaterialTemplatesJson(STANDARD_MATERIAL_TEMPLATES);
+      const blob = new Blob([jsonText], { type: 'application/json;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `material_safety_stock_templates_${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showToast(`已成功导出包含 ${STANDARD_MATERIAL_TEMPLATES.length} 项原料安全库存标准模板文件 (JSON)！`);
+    } catch (err: any) {
+      showToast(`导出失败: ${err.message || '未知错误'}`);
+    }
+  };
+
   // Reset All Stock to Zero
   const handleResetAllStockToZero = () => {
     if (!confirm('确认将所有原料的实际在库库存统一归零 (设为0) 吗？\n操作后需要商家根据实际到货手动验收入库上架。')) {
@@ -651,6 +713,16 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
           >
             <Sparkles className="w-4 h-4 text-amber-200" />
             <span>原料模板库 ({STANDARD_MATERIAL_TEMPLATES.length})</span>
+          </button>
+          <button
+            id="btn-download-material-templates"
+            type="button"
+            onClick={handleDownloadTemplateJson}
+            className="px-2.5 py-2 rounded-[3px] bg-white border border-[#cbd5e1] text-[#475569] hover:bg-[#f8fafc] font-medium flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors active:scale-95 text-xs"
+            title="一键下载包含全部原料与安全库存参数的标准模板 JSON 文件"
+          >
+            <Download className="w-3.5 h-3.5 text-blue-600" />
+            <span>下载模板文件</span>
           </button>
           <button
             id="btn-reset-stock-zero"
@@ -2108,6 +2180,28 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
           </div>
         </div>
       )}
+
+      {/* MODAL 5: Material Template Library Modal (原料档案与安全库存模板调用中心) */}
+      <MaterialTemplateModal
+        isOpen={isTemplateModalOpen}
+        onClose={() => setIsTemplateModalOpen(false)}
+        existingMaterials={materials}
+        onApplyTemplate={handleApplyTemplate}
+        onApplyAndStockIn={handleApplyAndStockIn}
+        onBatchApplyTemplates={handleBatchApplyTemplates}
+        showToast={showToast}
+      />
+
+      {/* MODAL 6: Material Manual Stock-In (On-Shelf) Modal (商家手动验收入库上架) */}
+      <MaterialStockInModal
+        isOpen={isStockInModalOpen}
+        onClose={() => {
+          setIsStockInModalOpen(false);
+          setStockInTargetMaterial(null);
+        }}
+        material={stockInTargetMaterial}
+        onConfirmStockIn={handleConfirmStockIn}
+      />
     </div>
   );
 };

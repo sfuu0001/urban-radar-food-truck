@@ -7,6 +7,10 @@ export interface UserAddress {
   detail: string;
   isDefault: boolean;
   createdAt?: string;
+  remarks?: string;
+  houseNumber?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface UserPreferences {

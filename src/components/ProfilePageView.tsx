@@ -23,8 +23,6 @@ import {
   Flame,
   ArrowRight,
   Cloud,
-  Terminal,
-  Activity,
   Edit3,
   Coins,
   Wallet,
@@ -32,21 +30,18 @@ import {
   UserCheck,
   LogIn,
   UserPlus,
-  Smartphone
+  Smartphone,
+  Fingerprint
 } from 'lucide-react';
 import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
 import { UserCouponsModal } from './UserCouponsModal';
 import { UserProfileEditView } from './user/UserProfileEditView';
-import { CloudFunctionCodeModal } from './user/CloudFunctionCodeModal';
-import { CloudFunctionMonitorModal } from './user/CloudFunctionMonitorModal';
-import { AutoLoginDiagnosticsModal } from './user/AutoLoginDiagnosticsModal';
 import { UserAuthModal } from './user/UserAuthModal';
 import { INITIAL_USER_COUPONS } from '../data/mockCoupons';
 import { INITIAL_USER_PROFILE } from '../data/mockUser';
 import { UserCouponRecord } from '../types/coupon';
 import { UserProfile, Order } from '../types';
 import { safeGetStorage, safeSetStorage } from '../utils/safeStorage';
-import { Fingerprint } from 'lucide-react';
 import { useDevSimulation } from '../context/DevSimulationContext';
 import { BackButton } from './BackButton';
 
@@ -84,9 +79,6 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
   const [isCouponsOpen, setIsCouponsOpen] = useState(false);
   const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
   const [profileEditTab, setProfileEditTab] = useState<'profile' | 'addresses' | 'preferences' | 'wallet'>('profile');
-  const [isCloudCodeOpen, setIsCloudCodeOpen] = useState(false);
-  const [isCloudMonitorOpen, setIsCloudMonitorOpen] = useState(false);
-  const [isAutoLoginOpen, setIsAutoLoginOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'sms' | 'password' | 'register' | 'auto' | 'presets' | 'login'>('sms');
   const [isSignedOut, setIsSignedOut] = useState(false);
@@ -157,10 +149,10 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
   // If user opened embedded profile/settings page
   if (isProfileEditOpen) {
     return (
-      <div className="w-full max-w-4xl mx-auto min-h-[85vh] bg-[#f9f9f7] text-[#1a1c1b] px-2 sm:px-4 py-1 flex flex-col font-sans select-none animate-in fade-in duration-200">
+      <div className="w-full min-h-screen bg-[#f4f6f8] text-gray-900 flex flex-col font-sans select-none animate-in fade-in duration-200">
         {/* Toast Notification */}
         {toastMessage && (
-          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-black text-white text-xs px-3 py-2 rounded-full shadow-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-150">
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-black text-white text-xs px-3 py-2 rounded-[1px] shadow-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-150">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
             <span>{toastMessage}</span>
           </div>
@@ -173,24 +165,6 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
           }}
           onBack={() => setIsProfileEditOpen(false)}
           initialTab={profileEditTab}
-          onOpenCloudMonitor={() => setIsCloudMonitorOpen(true)}
-          onOpenCloudCode={() => setIsCloudCodeOpen(true)}
-        />
-
-        {/* Cloud Function Source Code Exporter Modal */}
-        <CloudFunctionCodeModal
-          isOpen={isCloudCodeOpen}
-          onClose={() => setIsCloudCodeOpen(false)}
-        />
-
-        {/* Cloud Function Live Telemetry Monitor Modal */}
-        <CloudFunctionMonitorModal
-          isOpen={isCloudMonitorOpen}
-          onClose={() => setIsCloudMonitorOpen(false)}
-          userProfile={userProfile}
-          orders={orders}
-          onOrdersUpdated={onOrdersUpdated}
-          onProfileUpdated={onProfileUpdated}
         />
       </div>
     );
@@ -645,10 +619,10 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
         </div>
       </div>
 
-      {/* Section 2: Account & Cloud Function Settings */}
+      {/* Section 2: Account & Security Settings */}
       <div className="mt-2">
         <h3 className="text-xs sm:text-sm font-black text-black tracking-tight mb-1">
-          Account & Cloud Functions
+          Account & Security
         </h3>
 
         {/* White Rounded Card with Setting Rows */}
@@ -685,38 +659,6 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
             </div>
           </button>
 
-          {/* Row 0: Passwordless Auto-Login & Hardware Fingerprint */}
-          <button
-            type="button"
-            onClick={() => setIsAutoLoginOpen(true)}
-            className="w-full px-2.5 py-2 flex items-center justify-between hover:bg-neutral-50 active:bg-neutral-100 transition-colors cursor-pointer text-left group bg-gradient-to-r from-emerald-500/5 via-transparent to-transparent"
-          >
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-5.5 h-5.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200/60 flex items-center justify-center shrink-0">
-                <Fingerprint className="w-3.5 h-3.5" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold text-black tracking-tight block truncate">
-                    无密码智能自动登录与设备识别
-                  </span>
-                  <span className="text-[8px] bg-emerald-100 text-emerald-800 font-mono px-1 rounded font-bold">
-                    99.8% 高熵
-                  </span>
-                </div>
-                <span className="text-[9px] text-[#787770] block truncate">
-                  切浏览器/清除缓存依然秒级识别，未注册自动分配专属 UID
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-              <span className="text-[8.5px] bg-black text-emerald-400 font-bold px-1.5 py-0.2 rounded font-mono">
-                免密认证
-              </span>
-              <ChevronRight className="w-3.5 h-3.5 text-[#9ca3af] stroke-[2] group-hover:translate-x-0.5 transition-transform" />
-            </div>
-          </button>
-
           {/* Row 1: Personal Information */}
           <button
             type="button"
@@ -742,93 +684,6 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
                 {userProfile.addresses?.length || 0} 个地址
               </span>
               <ChevronRight className="w-3.5 h-3.5 text-[#9ca3af] stroke-[2]" />
-            </div>
-          </button>
-
-          {/* Row 2: Cloud Function Monitor & Logs */}
-          <button
-            type="button"
-            onClick={() => setIsCloudMonitorOpen(true)}
-            className="w-full px-2.5 py-2 flex items-center justify-between hover:bg-neutral-50 active:bg-neutral-100 transition-colors cursor-pointer text-left group"
-          >
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-5.5 h-5.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shrink-0">
-                <Activity className="w-3 h-3 animate-pulse" />
-              </div>
-              <div className="min-w-0">
-                <span className="text-xs font-bold text-black tracking-tight block truncate">
-                  Cloud Functions Telemetry (云函数调用监控)
-                </span>
-                <span className="text-[9px] text-[#787770] block truncate">
-                  查看 userProfile / orders / createOrder 实时调用链路与报文
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-              <span className="text-[8.5px] bg-emerald-50 text-emerald-700 font-bold px-1.5 py-0.2 rounded border border-emerald-200 font-mono">
-                实时追踪
-              </span>
-              <ChevronRight className="w-3.5 h-3.5 text-[#9ca3af] stroke-[2] group-hover:translate-x-0.5 transition-transform" />
-            </div>
-          </button>
-
-          {/* Row 3: Cloud Function Source Code Exporter */}
-          <button
-            type="button"
-            onClick={() => setIsCloudCodeOpen(true)}
-            className="w-full px-2.5 py-2 flex items-center justify-between hover:bg-neutral-50 active:bg-neutral-100 transition-colors cursor-pointer text-left group"
-          >
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-5.5 h-5.5 rounded-lg bg-sky-50 text-sky-600 border border-sky-100 flex items-center justify-center shrink-0">
-                <Terminal className="w-3 h-3" />
-              </div>
-              <div className="min-w-0">
-                <span className="text-xs font-bold text-black tracking-tight block truncate">
-                  Cloud Function Source Code (云函数源码导出)
-                </span>
-                <span className="text-[9px] text-[#787770] block truncate">
-                  一键复制或下载 4 个核心 Node.js 云函数部署源码
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-              <span className="text-[8.5px] bg-sky-50 text-sky-700 font-bold px-1.5 py-0.2 rounded border border-sky-200 font-mono">
-                Node.js
-              </span>
-              <ChevronRight className="w-3.5 h-3.5 text-[#9ca3af] stroke-[2] group-hover:translate-x-0.5 transition-transform" />
-            </div>
-          </button>
-
-          {/* Row 4: Cloud Data Sync */}
-          <button
-            type="button"
-            onClick={() => {
-              if (onOpenCloudSync) {
-                onOpenCloudSync();
-              } else {
-                showToast('正在打开腾讯云开发同步通道...');
-              }
-            }}
-            className="w-full px-2.5 py-2 flex items-center justify-between hover:bg-neutral-50 active:bg-neutral-100 transition-colors cursor-pointer text-left group"
-          >
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-5.5 h-5.5 rounded-lg bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center shrink-0">
-                <Cloud className="w-3 h-3" />
-              </div>
-              <div className="min-w-0">
-                <span className="text-xs font-bold text-black tracking-tight block truncate">
-                  Database & CloudBase Status (云开发状态诊断)
-                </span>
-                <span className="text-[9px] text-[#787770] block truncate">
-                  腾讯云开发 (TCB) 集合连接、环境权限与菜品灌库
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-              <span className="text-[8.5px] bg-emerald-50 text-emerald-700 font-bold px-1.5 py-0.2 rounded border border-emerald-200 font-mono">
-                tc100-d9...
-              </span>
-              <ChevronRight className="w-3.5 h-3.5 text-[#9ca3af] stroke-[2] group-hover:translate-x-0.5 transition-transform" />
             </div>
           </button>
 
@@ -1055,34 +910,6 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
           }
           showToast(`登录成功，欢迎 ${user.nickname}！`);
         }}
-      />
-
-      {/* Cloud Function Source Code Exporter Modal */}
-      <CloudFunctionCodeModal
-        isOpen={isCloudCodeOpen}
-        onClose={() => setIsCloudCodeOpen(false)}
-      />
-
-      {/* Cloud Function Live Telemetry Monitor Modal */}
-      <CloudFunctionMonitorModal
-        isOpen={isCloudMonitorOpen}
-        onClose={() => setIsCloudMonitorOpen(false)}
-        userProfile={userProfile}
-        orders={orders}
-        onOrdersUpdated={onOrdersUpdated}
-        onProfileUpdated={onProfileUpdated}
-      />
-
-      {/* Passwordless Auto-Login Diagnostics & Testing Modal */}
-      <AutoLoginDiagnosticsModal
-        isOpen={isAutoLoginOpen}
-        onClose={() => setIsAutoLoginOpen(false)}
-        currentUser={userProfile}
-        onUserSwitched={(updated) => {
-          if (onProfileUpdated) onProfileUpdated(updated);
-        }}
-        onOpenCloudMonitor={() => setIsCloudMonitorOpen(true)}
-        onOpenCloudCode={() => setIsCloudCodeOpen(true)}
       />
 
       {/* User Coupons Management Center Modal */}
