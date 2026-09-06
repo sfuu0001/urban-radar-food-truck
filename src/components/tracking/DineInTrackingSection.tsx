@@ -172,10 +172,10 @@ export const DineInTrackingSection: React.FC<DineInTrackingSectionProps> = ({
   return (
     <div className="space-y-3 p-3 sm:p-4 bg-white">
       {/* 1. Table & Order Identity Banner */}
-      <div className="bg-[#f8f9fa] border border-[#e5e7eb] rounded-2xl p-3 sm:p-3.5 shadow-2xs space-y-2.5">
+      <div className="bg-[#f8f9fa] border border-[#e5e7eb] rounded-none p-3 sm:p-3.5 shadow-2xs space-y-2.5">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-11 h-11 rounded-xl bg-[#2b593f] text-white flex flex-col items-center justify-center shrink-0 shadow-xs">
+            <div className="w-11 h-11 rounded-none bg-[#2b593f] text-white flex flex-col items-center justify-center shrink-0 shadow-xs">
               <span className="text-[10px] font-medium leading-none opacity-80">桌台</span>
               <span className="font-mono font-black text-base leading-tight">{tableCode}</span>
             </div>
@@ -184,7 +184,7 @@ export const DineInTrackingSection: React.FC<DineInTrackingSectionProps> = ({
                 <h2 className="text-sm sm:text-base font-bold text-[#1a1c1b] truncate">
                   堂食就餐 · {order.truckName || '黑曜石流动餐车'}
                 </h2>
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc]">
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-none bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc]">
                   室内散座/外摆
                 </span>
               </div>
@@ -213,7 +213,7 @@ export const DineInTrackingSection: React.FC<DineInTrackingSectionProps> = ({
         </div>
 
         {/* Order Number Row with Quick Copy */}
-        <div className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg border border-[#e5e7eb] text-xs">
+        <div className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-none border border-[#e5e7eb] text-xs">
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="text-[10px] font-bold text-[#787774] uppercase tracking-wider">堂食单号:</span>
             <span className="font-mono font-bold text-[#1a1c1b] tracking-tight">{orderNo}</span>
@@ -221,7 +221,7 @@ export const DineInTrackingSection: React.FC<DineInTrackingSectionProps> = ({
           <button
             type="button"
             onClick={handleCopyOrderNo}
-            className="text-[10.5px] font-bold text-[#2b593f] hover:text-[#1e3f2c] flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-[#edf3ec] transition-colors cursor-pointer"
+            className="text-[10.5px] font-bold text-[#2b593f] hover:text-[#1e3f2c] flex items-center gap-1 px-1.5 py-0.5 rounded-none hover:bg-[#edf3ec] transition-colors cursor-pointer"
             title="复制订单号"
           >
             {copiedOrderNo ? <CheckCircle2 className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
@@ -231,7 +231,7 @@ export const DineInTrackingSection: React.FC<DineInTrackingSectionProps> = ({
       </div>
 
       {/* 2. Real-Time Dish Serving & Kitchen Prep Matrix (出餐上菜制作情况) */}
-      <div className="bg-white border border-[#e2e3e1] rounded-2xl p-3 sm:p-3.5 shadow-2xs space-y-3">
+      <div className="bg-white border border-[#e2e3e1] rounded-none p-3 sm:p-3.5 shadow-2xs space-y-3">
         {/* Progress Header */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-xs">
@@ -309,7 +309,7 @@ export const DineInTrackingSection: React.FC<DineInTrackingSectionProps> = ({
             return (
               <div
                 key={dish.id || idx}
-                className={`p-2.5 rounded-xl border transition-all ${
+                className={`p-2.5 rounded-none border transition-all ${
                   isServed
                     ? 'bg-[#fbfcfb] border-[#ddead8]'
                     : isUrged
@@ -320,7 +320,7 @@ export const DineInTrackingSection: React.FC<DineInTrackingSectionProps> = ({
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-start gap-2.5 min-w-0">
                     <div
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold ${
+                      className={`w-8 h-8 rounded-none flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold ${
                         isServed
                           ? 'bg-[#edf3ec] text-[#2b593f]'
                           : isUrged
@@ -343,7 +343,7 @@ export const DineInTrackingSection: React.FC<DineInTrackingSectionProps> = ({
                           {dish.name}
                         </h4>
                         {dish.station && (
-                          <span className="text-[9.5px] px-1 py-0.2 rounded bg-neutral-100 text-neutral-600 border border-neutral-200">
+                          <span className="text-[9.5px] px-1 py-0.2 rounded-none bg-neutral-100 text-neutral-600 border border-neutral-200">
                             {dish.station}
                           </span>
                         )}
@@ -369,7 +369,7 @@ export const DineInTrackingSection: React.FC<DineInTrackingSectionProps> = ({
                   <div className="text-right shrink-0">
                     {isServed ? (
                       <div className="space-y-0.5">
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc]">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-none bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc]">
                           <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                           <span>已上桌</span>
                         </span>
@@ -379,7 +379,7 @@ export const DineInTrackingSection: React.FC<DineInTrackingSectionProps> = ({
                       </div>
                     ) : isUrged ? (
                       <div className="space-y-0.5">
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-[#fee2e2] text-[#b91c1c] border border-[#fecaca] animate-pulse">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-none bg-[#fee2e2] text-[#b91c1c] border border-[#fecaca] animate-pulse">
                           <AlertCircle className="w-3 h-3" />
                           <span>催单加急</span>
                         </span>
@@ -387,14 +387,14 @@ export const DineInTrackingSection: React.FC<DineInTrackingSectionProps> = ({
                       </div>
                     ) : isCooking ? (
                       <div className="space-y-0.5">
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-[#fef3c7] text-[#92400e] border border-[#fde68a]">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-none bg-[#fef3c7] text-[#92400e] border border-[#fde68a]">
                           <Flame className="w-3 h-3" />
                           <span>烹饪制作中</span>
                         </span>
                         <p className="text-[9px] font-mono text-amber-700">进度约 {dish.prepProgress || 70}%</p>
                       </div>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-[#f3f4f6] text-[#4b5563] border border-[#e5e7eb]">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-none bg-[#f3f4f6] text-[#4b5563] border border-[#e5e7eb]">
                         <Clock className="w-3 h-3" />
                         <span>备料排单中</span>
                       </span>
@@ -428,7 +428,7 @@ export const DineInTrackingSection: React.FC<DineInTrackingSectionProps> = ({
             type="button"
             disabled={isAllServed || isUrgingKitchen}
             onClick={handleUrgeServing}
-            className={`py-2 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1 cursor-pointer transition-all border ${
+            className={`py-2 px-2 rounded-none text-xs font-bold flex items-center justify-center gap-1 cursor-pointer transition-all border ${
               isAllServed
                 ? 'bg-neutral-100 text-neutral-400 border-neutral-200 cursor-not-allowed'
                 : 'bg-rose-50 text-rose-700 hover:bg-rose-100 border-rose-200 shadow-2xs'
@@ -443,7 +443,7 @@ export const DineInTrackingSection: React.FC<DineInTrackingSectionProps> = ({
             type="button"
             disabled={isCallingServer}
             onClick={handleCallServer}
-            className="py-2 px-2 rounded-xl text-xs font-bold bg-[#f4f4f2] hover:bg-[#ebebe7] text-[#1a1c1b] border border-[#deded8] flex items-center justify-center gap-1 cursor-pointer transition-all shadow-2xs"
+            className="py-2 px-2 rounded-none text-xs font-bold bg-[#f4f4f2] hover:bg-[#ebebe7] text-[#1a1c1b] border border-[#deded8] flex items-center justify-center gap-1 cursor-pointer transition-all shadow-2xs"
             title="呼叫桌台值班服务员"
           >
             <Users className={`w-3.5 h-3.5 ${isCallingServer ? 'text-emerald-600' : ''}`} />
@@ -453,7 +453,7 @@ export const DineInTrackingSection: React.FC<DineInTrackingSectionProps> = ({
           <button
             type="button"
             onClick={onBackToMenu}
-            className="py-2 px-2 rounded-xl text-xs font-bold bg-[#edf3ec] hover:bg-[#ddead8] text-[#2b593f] border border-[#c4dcbc] flex items-center justify-center gap-1 cursor-pointer transition-all shadow-2xs"
+            className="py-2 px-2 rounded-none text-xs font-bold bg-[#edf3ec] hover:bg-[#ddead8] text-[#2b593f] border border-[#c4dcbc] flex items-center justify-center gap-1 cursor-pointer transition-all shadow-2xs"
             title="继续加点其他美味菜品"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -463,13 +463,13 @@ export const DineInTrackingSection: React.FC<DineInTrackingSectionProps> = ({
       </div>
 
       {/* 3. Dine-In Status Flow Nodes (堂食状态流转节点) */}
-      <div className="bg-white border border-[#e2e3e1] rounded-2xl p-3 sm:p-3.5 shadow-2xs space-y-3">
+      <div className="bg-white border border-[#e2e3e1] rounded-none p-3 sm:p-3.5 shadow-2xs space-y-3">
         <div className="flex items-center justify-between text-xs">
           <span className="font-bold text-[#1a1c1b] flex items-center gap-1.5">
             <Layers className="w-4 h-4 text-[#2b593f]" />
             <span>堂食状态流转节点</span>
           </span>
-          <span className="text-[10px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded font-medium">
+          <span className="text-[10px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded-none font-medium">
             全链路实时存证
           </span>
         </div>
@@ -508,7 +508,7 @@ export const DineInTrackingSection: React.FC<DineInTrackingSectionProps> = ({
                 </div>
 
                 <div
-                  className={`flex-1 p-2 rounded-xl border transition-all ${
+                  className={`flex-1 p-2 rounded-none border transition-all ${
                     isCurrent
                       ? 'bg-[#edf3ec]/60 border-[#c4dcbc]'
                       : isCompleted
@@ -539,7 +539,7 @@ export const DineInTrackingSection: React.FC<DineInTrackingSectionProps> = ({
       </div>
 
       {/* 4. Dining Logs & Time Audit Strip */}
-      <div className="p-3 bg-[#f8f9fa] border border-[#e5e7eb] rounded-2xl text-xs space-y-1.5">
+      <div className="p-3 bg-[#f8f9fa] border border-[#e5e7eb] rounded-none text-xs space-y-1.5">
         <div className="flex items-center justify-between text-[#787774] font-medium">
           <span className="flex items-center gap-1">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />

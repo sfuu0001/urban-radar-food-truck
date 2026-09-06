@@ -815,7 +815,7 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                   <span className="truncate">{s.diffReasonText} {s.note ? `(${s.note})` : ''}</span>
                   <button
                     type="button"
-                    onClick={() => showToast(`已重新补打班次 ${s.shiftNo} 交班小票！`)}
+                    onClick={() => window.print()}
                     className="px-2 py-1 bg-[#f1f1ef] hover:bg-[#e8e8e6] text-[#37352f] rounded-[2px] font-semibold text-[10.5px] flex items-center gap-1 cursor-pointer shrink-0"
                   >
                     <Printer className="w-3 h-3" />
@@ -891,7 +891,7 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                     <td className="p-2.5">
                       <button
                         type="button"
-                        onClick={() => showToast(`已重新补打班次 ${s.shiftNo} 交班小票！`)}
+                        onClick={() => window.print()}
                         className="px-2 py-1 bg-[#f1f1ef] hover:bg-[#e8e8e6] text-[#37352f] rounded-[2px] font-semibold text-[11px] flex items-center gap-1 cursor-pointer"
                       >
                         <Printer className="w-3 h-3" />

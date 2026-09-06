@@ -18,6 +18,9 @@ import {
 } from 'lucide-react';
 import { AuditLogItem, OutboxItem } from '../../types';
 import { INITIAL_AUDIT_LOGS, INITIAL_OUTBOX_ITEMS } from '../../data/mockEnhancedData';
+import { safeGetStorage, safeSetStorage } from '../../utils/safeStorage';
+
+const OUTBOX_STORAGE_KEY = 'obsidian_audit_outbox';
 
 interface MerchantAuditLogProps {
   showToast: (msg: string) => void;
@@ -26,7 +29,9 @@ interface MerchantAuditLogProps {
 export const MerchantAuditLog: React.FC<MerchantAuditLogProps> = ({ showToast }) => {
   const [activeTab, setActiveTab] = useState<'audit' | 'outbox'>('audit');
   const [logs, setLogs] = useState<AuditLogItem[]>(INITIAL_AUDIT_LOGS);
-  const [outbox, setOutbox] = useState<OutboxItem[]>(INITIAL_OUTBOX_ITEMS);
+  const [outbox, setOutbox] = useState<OutboxItem[]>(
+    safeGetStorage<OutboxItem[]>(OUTBOX_STORAGE_KEY, INITIAL_OUTBOX_ITEMS)
+  );
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterAction, setFilterAction] = useState<string>('all');
@@ -38,7 +43,11 @@ export const MerchantAuditLog: React.FC<MerchantAuditLogProps> = ({ showToast })
       return;
     }
 
-    setOutbox((prev) => prev.map((item) => ({ ...item, status: 'synced' })));
+    setOutbox((prev) => {
+      const synced = prev.map((item) => ({ ...item, status: 'synced' as const }));
+      safeSetStorage(OUTBOX_STORAGE_KEY, synced);
+      return synced;
+    });
     showToast('离线外发队列已全部重放同步至腾讯云 CloudBase！');
   };
 

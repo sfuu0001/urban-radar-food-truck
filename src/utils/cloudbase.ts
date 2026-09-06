@@ -11,6 +11,8 @@ import {
   INITIAL_QUEUE_TICKETS 
 } from '../data/merchantExtendedMockData';
 import { safeGetStorage, safeSetStorage } from './safeStorage';
+import { applyDishFieldOverrides } from './dishFieldOverrides';
+import { applyAvailabilityOverrides } from './dishAvailability';
 import { isOrderMatch } from './orderNormalizer';
 import { 
   sanitizeUserProfileForCloud, 
@@ -924,8 +926,9 @@ export async function fetchDishesFromCloud(): Promise<{ success: boolean; dishes
     if (!tcbDb) {
       const cached = safeGetStorage<DishItem[]>('obsidian_truck_dishes', INITIAL_DISHES);
       const merged = mergeInitial(cached);
-      safeSetStorage('obsidian_truck_dishes', merged);
-      return { success: false, dishes: merged, fromCloud: false, error: 'TCB 未就绪' };
+      const finalDishes = applyDishFieldOverrides(applyAvailabilityOverrides(merged));
+      safeSetStorage('obsidian_truck_dishes', finalDishes);
+      return { success: false, dishes: finalDishes, fromCloud: false, error: 'TCB 未就绪' };
     }
 
     const res = await tcbDb.collection(TCB_COLLECTIONS.DISHES).limit(200).get();
@@ -938,20 +941,31 @@ export async function fetchDishesFromCloud(): Promise<{ success: boolean; dishes
         } as DishItem;
       });
       const merged = mergeInitial(cleanDishes);
-      safeSetStorage('obsidian_truck_dishes', merged);
-      return { success: true, dishes: merged, fromCloud: true };
+      // 保留本地新增、云端不存在的菜品，防止商家新增菜在云端激活环境下刷新后丢失
+      const cachedLocal = safeGetStorage<DishItem[]>('obsidian_truck_dishes', []);
+      const cloudIds = new Set(merged.map((d) => d.id));
+      const initIds = new Set(INITIAL_DISHES.map((d) => d.id));
+      const localOnly = cachedLocal.filter(
+        (d) => !cloudIds.has(d.id) && !initIds.has(d.id)
+      );
+      const withLocalAdded = localOnly.length > 0 ? [...merged, ...localOnly] : merged;
+      const finalDishes = applyDishFieldOverrides(applyAvailabilityOverrides(withLocalAdded));
+      safeSetStorage('obsidian_truck_dishes', finalDishes);
+      return { success: true, dishes: finalDishes, fromCloud: true };
     }
 
     // 数据库集合为空，加载本地缓存
     const cached = safeGetStorage<DishItem[]>('obsidian_truck_dishes', INITIAL_DISHES);
     const merged = mergeInitial(cached);
-    safeSetStorage('obsidian_truck_dishes', merged);
-    return { success: true, dishes: merged, fromCloud: false };
+    const finalDishes = applyDishFieldOverrides(applyAvailabilityOverrides(merged));
+    safeSetStorage('obsidian_truck_dishes', finalDishes);
+    return { success: true, dishes: finalDishes, fromCloud: false };
   } catch (err: any) {
     const cached = safeGetStorage<DishItem[]>('obsidian_truck_dishes', INITIAL_DISHES);
     const merged = mergeInitial(cached);
-    safeSetStorage('obsidian_truck_dishes', merged);
-    return { success: false, dishes: merged, fromCloud: false, error: err?.message };
+    const finalDishes = applyDishFieldOverrides(applyAvailabilityOverrides(merged));
+    safeSetStorage('obsidian_truck_dishes', finalDishes);
+    return { success: false, dishes: finalDishes, fromCloud: false, error: err?.message };
   }
 }
 

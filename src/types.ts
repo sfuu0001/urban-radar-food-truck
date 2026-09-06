@@ -459,6 +459,8 @@ export interface HeldOrder {
     quantity: number;
     price: number;
   }[];
+  lastReminderAt?: string;
+  convertedToTakeaway?: boolean;
 }
 
 // ---- Rider System Types ----

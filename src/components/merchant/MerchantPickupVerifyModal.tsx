@@ -47,7 +47,7 @@ export const MerchantPickupVerifyModal: React.FC<MerchantPickupVerifyModalProps>
       return;
     }
 
-    if (trimmed === expectedPickupCode || trimmed === cleanOrderNo || cleanOrderNo.endsWith(trimmed)) {
+    if (trimmed === expectedPickupCode || trimmed === cleanOrderNo || cleanOrderNo.slice(-4) === trimmed) {
       setErrorMsg('');
       // 广播并通知
       dispatchPickupVerifiedEvent({

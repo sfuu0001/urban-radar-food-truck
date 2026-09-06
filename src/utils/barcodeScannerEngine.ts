@@ -283,9 +283,12 @@ export function parseAndRouteBarcode(rawCode: string, options: ParseBarcodeOptio
 
   const matchedOrderByPickupCode = orders.find((o) => {
     const pCode = getOrGeneratePickupCode(o.orderNo, o.pickupCode);
+    const oNo = (o.orderNo || '').replace(/^#/, '').toUpperCase();
+    const oLast4 = oNo.slice(-4);
     return (
       pCode === cleanPickupCandidate ||
-      (o.orderNo && o.orderNo.replace(/^#/, '').toUpperCase().endsWith(cleanPickupCandidate))
+      oNo === cleanPickupCandidate ||
+      oLast4 === cleanPickupCandidate
     );
   });
 

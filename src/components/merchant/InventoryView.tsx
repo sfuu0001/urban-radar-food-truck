@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Lock,
   Unlock,
@@ -18,17 +18,39 @@ import {
 } from 'lucide-react';
 import { StocktakeItem } from '../../types';
 import { INITIAL_STOCKTAKE_ITEMS } from '../../data/mockEnhancedData';
+import { safeGetStorage, safeSetStorage } from '../../utils/safeStorage';
+import { exportToCsv } from '../../utils/dataExportEngine';
 
 interface InventoryViewProps {
   showToast: (msg: string) => void;
 }
 
 export const InventoryView: React.FC<InventoryViewProps> = ({ showToast }) => {
-  const [items, setItems] = useState<StocktakeItem[]>(INITIAL_STOCKTAKE_ITEMS);
+  const [items, setItems] = useState<StocktakeItem[]>(
+    () => safeGetStorage<StocktakeItem[]>('obsidian_inventory_stock', INITIAL_STOCKTAKE_ITEMS)
+  );
   const [isLocked, setIsLocked] = useState<boolean>(false);
   const [lockedTime, setLockedTime] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState<number>(1); // 1: 原料, 2: 穿串半成品, 3: 辅料, 4: 锁定
   const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
+
+  // Persist inventory counts to localStorage so edits survive refresh
+  useEffect(() => {
+    safeSetStorage('obsidian_inventory_stock', items);
+  }, [items]);
+
+  // Shared CSV column layout for stocktake exports
+  const buildStocktakeColumns = () => [
+    { label: 'SKU', key: 'sku' },
+    { label: '物品名称', key: 'name' },
+    { label: '分类', key: 'category' },
+    { label: '单位', key: 'unit' },
+    { label: '系统理论存量', key: 'systemQty' },
+    { label: '后厨实测实盘', key: 'actualQty' },
+    { label: '实物差异', key: 'variance' },
+    { label: '差异金额', key: 'varianceCost' },
+    { label: '评估状态', key: 'status' }
+  ];
 
   // Step categories mapping
   const stepCategoryMap: Record<number, string> = {
@@ -68,7 +90,9 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ showToast }) => {
     const now = new Date().toLocaleString('zh-CN', { hour12: false });
     setLockedTime(now);
     setItems((prev) => prev.map((item) => ({ ...item, locked: true })));
-    showToast('打烊盘点已完成锁账！实测存量已覆盖写入全店期初理论库存。');
+    // Real day-end settlement output: download the EOD snapshot as CSV
+    exportToCsv('每日打烊日结单', buildStocktakeColumns(), items);
+    showToast('打烊盘点已完成锁账！实测存量已覆盖写入全店期初理论库存，日结单已导出 CSV。');
   };
 
   const handleUnlockStocktake = () => {
@@ -315,7 +339,10 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ showToast }) => {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => showToast('盘点实测草稿已暂存本地')}
+            onClick={() => {
+              exportToCsv('盘点实测草稿', buildStocktakeColumns(), items);
+              showToast('盘点实测草稿已导出为本地 CSV 文件');
+            }}
             className="px-3 py-1.5 rounded-[2px] bg-white text-[#64748b] border border-[#cbd5e1] hover:bg-[#f1f5f9] cursor-pointer"
           >
             保存盘点草稿
@@ -407,7 +434,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ showToast }) => {
             <div className="bg-[#f8fafc] px-4 py-2.5 border-t border-[#e2e8f0] flex items-center justify-between">
               <button
                 type="button"
-                onClick={() => showToast('已发送至后厨热敏打印机')}
+                onClick={() => window.print()}
                 className="px-3 py-1 rounded-[2px] bg-white text-[#64748b] border border-[#cbd5e1] hover:bg-[#f1f5f9] flex items-center gap-1 cursor-pointer"
               >
                 <Printer className="w-3.5 h-3.5" />

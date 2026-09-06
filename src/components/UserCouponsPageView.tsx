@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import {
-  ArrowLeft,
   Settings,
   Tag,
   Calendar,
@@ -23,6 +22,7 @@ import { INITIAL_USER_COUPONS, INITIAL_MERCHANT_COUPONS } from '../data/mockCoup
 import { CategoryType } from '../types';
 import { safeGetStorage, safeSetStorage } from '../utils/safeStorage';
 import { copyTextToClipboard } from '../utils/clipboard';
+import { BackButton } from './BackButton';
 
 interface UserCouponsPageViewProps {
   onBackToMenu: () => void;
@@ -201,6 +201,11 @@ export const UserCouponsPageView: React.FC<UserCouponsPageViewProps> = ({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Back Navigation to Point-of-Sale Menu */}
+      <div className="px-0.5 pt-0.5 pb-1">
+        <BackButton onClick={onBackToMenu} label="返回点餐" />
+      </div>
 
       {/* Main Content Area */}
       <div className="px-0.5 py-0.5 space-y-2">

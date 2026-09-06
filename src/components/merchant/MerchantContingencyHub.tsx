@@ -51,6 +51,9 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
   const [remakeReason, setRemakeReason] = useState<string>('果木炭火火候过猛导致肉串焦化，主厨已重新下炉烤制');
   const [partialRefundRatio, setPartialRefundRatio] = useState<number>(50);
 
+  // Per-item refund arbitration reject reason (keyed by order id)
+  const [refundRejectReasons, setRefundRejectReasons] = useState<Record<string, string>>({});
+
   // Compute Anomaly Metrics across nodes
   const unacceptedOrders = orders.filter((o) => o.status === 'pending' || (o.stepIndex === 0 && !o.merchantAccepted));
   const cookingDelayOrders = orders.filter((o) => o.status === 'cooking' && (o.etaMinutes > 20 || o.stepIndex === 1));
@@ -358,6 +361,50 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
                     <p className="text-[11px] text-[#787774]">
                       <strong>退单申请原因：</strong>{order.refundReason || '临时有事 / 行程变更'} {order.refundFeedback ? `· 说明: ${order.refundFeedback}` : ''}
                     </p>
+
+                    {/* Refund Arbitration: Approve / Reject actions wired to onAuditRefund */}
+                    <div className="pt-1.5 border-t border-[#ffe082] space-y-1.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (onAuditRefund) {
+                              onAuditRefund(order.id, true);
+                              showToast(`工单 #${order.orderNo} 退款审核已通过，款项原路退回顾客账户！`);
+                            }
+                          }}
+                          className="px-3 py-1 bg-[#2b593f] hover:bg-[#204430] text-white rounded-[3px] font-bold text-[11px] flex items-center gap-1 cursor-pointer shadow-2xs"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>审核通过退单</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const reason = refundRejectReasons[order.id]?.trim() || '商家审核驳回退单';
+                            if (onAuditRefund) {
+                              onAuditRefund(order.id, false, reason);
+                              showToast(`工单 #${order.orderNo} 退款申请已驳回：${reason}`);
+                            }
+                          }}
+                          className="px-3 py-1 bg-[#9c2b2e] hover:bg-[#7e2123] text-white rounded-[3px] font-bold text-[11px] flex items-center gap-1 cursor-pointer shadow-2xs"
+                        >
+                          <XCircle className="w-3.5 h-3.5" />
+                          <span>驳回退单</span>
+                        </button>
+                      </div>
+
+                      <input
+                        type="text"
+                        value={refundRejectReasons[order.id] || ''}
+                        onChange={(e) =>
+                          setRefundRejectReasons((prev) => ({ ...prev, [order.id]: e.target.value }))
+                        }
+                        placeholder="驳回原因（可选，默认：商家审核驳回退单）"
+                        className="w-full px-2.5 py-1 bg-white border border-[#ffd36b] rounded-[3px] text-[11px] focus:outline-none focus:border-[#d9730d]"
+                      />
+                    </div>
                   </div>
                 )}
 

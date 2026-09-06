@@ -161,7 +161,7 @@ export const TrackingStepIndicator: React.FC<TrackingStepIndicatorProps> = ({
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`p-3 rounded-xl border flex items-start gap-2.5 shadow-2xs ${
+            className={`p-3 rounded-none border flex items-start gap-2.5 shadow-2xs ${
               activeKey === 'merchant_rejected'
                 ? 'bg-rose-50 border-rose-200 text-rose-950'
                 : activeKey === 'rider_rejected'
@@ -191,7 +191,7 @@ export const TrackingStepIndicator: React.FC<TrackingStepIndicatorProps> = ({
               <div className="flex items-center justify-between gap-1">
                 <span className="font-bold text-xs sm:text-sm tracking-tight flex items-center gap-1.5">
                   <span>{statusConfig.label}</span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded font-bold border uppercase bg-white/80">
+                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-none font-bold border uppercase bg-white/80">
                     {statusConfig.badgeText}
                   </span>
                 </span>
@@ -228,7 +228,7 @@ export const TrackingStepIndicator: React.FC<TrackingStepIndicatorProps> = ({
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-[11px] font-medium text-neutral-500 shrink-0">当前流转节点:</span>
           <span
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-black border ${statusConfig.badgeClass}`}
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-none text-xs font-black border ${statusConfig.badgeClass}`}
           >
             <span
               className="w-2 h-2 rounded-full animate-pulse"
@@ -241,13 +241,13 @@ export const TrackingStepIndicator: React.FC<TrackingStepIndicatorProps> = ({
         {/* Toggle dynamic state simulation panel or Non-admin Lock Badge */}
         {effectiveAllowSimulation ? (
           <div className="flex items-center gap-1.5 shrink-0">
-            <span className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-mono font-bold">
+            <span className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-mono font-bold">
               <Unlock className="w-2.5 h-2.5" /> 管理员可改
             </span>
             <button
               type="button"
               onClick={() => setShowSimulator((prev) => !prev)}
-              className="text-[10.5px] text-neutral-600 hover:text-black font-medium flex items-center gap-1 px-2 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 transition-all cursor-pointer shadow-2xs"
+              className="text-[10.5px] text-neutral-600 hover:text-black font-medium flex items-center gap-1 px-2 py-0.5 rounded-none bg-neutral-100 hover:bg-neutral-200 transition-all cursor-pointer shadow-2xs"
               title="查看或模拟切换所有细化流程节点"
             >
               <SlidersHorizontal className="w-3 h-3 text-neutral-500" />
@@ -259,7 +259,7 @@ export const TrackingStepIndicator: React.FC<TrackingStepIndicatorProps> = ({
           <button
             type="button"
             onClick={() => openDevAuthModal()}
-            className="flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-neutral-100 hover:bg-neutral-200 text-neutral-600 hover:text-neutral-900 text-[10.5px] font-medium border border-neutral-200/80 transition-all cursor-pointer shadow-2xs shrink-0"
+            className="flex items-center gap-1 px-2.5 py-0.5 rounded-none bg-neutral-100 hover:bg-neutral-200 text-neutral-600 hover:text-neutral-900 text-[10.5px] font-medium border border-neutral-200/80 transition-all cursor-pointer shadow-2xs shrink-0"
             title="当前为普通食客视图，流转节点已锁定；点击唤出管理员登录"
           >
             <Lock className="w-3 h-3 text-neutral-500" />
@@ -278,7 +278,7 @@ export const TrackingStepIndicator: React.FC<TrackingStepIndicatorProps> = ({
             exit={{ opacity: 0, height: 0 }}
             className="px-3.5 pt-2 overflow-hidden"
           >
-            <div className="bg-amber-50 border border-amber-200 text-amber-950 px-3 py-2 rounded-xl text-xs flex items-center justify-between gap-2 shadow-2xs">
+            <div className="bg-amber-50 border border-amber-200 text-amber-950 px-3 py-2 rounded-none text-xs flex items-center justify-between gap-2 shadow-2xs">
               <div className="flex items-center gap-1.5 min-w-0">
                 <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
                 <span className="font-medium text-[11px] leading-snug">{lockedNotice}</span>
@@ -286,7 +286,7 @@ export const TrackingStepIndicator: React.FC<TrackingStepIndicatorProps> = ({
               <button
                 type="button"
                 onClick={() => openDevAuthModal()}
-                className="px-2 py-0.5 rounded bg-white text-amber-900 font-bold border border-amber-300 text-[10.5px] hover:bg-amber-100 shrink-0 cursor-pointer shadow-2xs"
+                className="px-2 py-0.5 rounded-none bg-white text-amber-900 font-bold border border-amber-300 text-[10.5px] hover:bg-amber-100 shrink-0 cursor-pointer shadow-2xs"
               >
                 管理员认证
               </button>
@@ -327,7 +327,7 @@ export const TrackingStepIndicator: React.FC<TrackingStepIndicatorProps> = ({
                       key={step.key}
                       type="button"
                       onClick={() => onSimulateStep?.(step.key)}
-                      className={`px-2 py-1 rounded text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1 ${
+                      className={`px-2 py-1 rounded-none text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1 ${
                         isCurrent
                           ? 'bg-amber-400 text-neutral-950 font-bold shadow-xs scale-105'
                           : 'bg-neutral-800 text-neutral-200 hover:bg-neutral-700 hover:text-white'
@@ -354,7 +354,7 @@ export const TrackingStepIndicator: React.FC<TrackingStepIndicatorProps> = ({
                       key={step.key}
                       type="button"
                       onClick={() => onSimulateStep?.(step.key)}
-                      className={`px-2 py-1 rounded text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1 ${
+                      className={`px-2 py-1 rounded-none text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1 ${
                         isCurrent
                           ? 'bg-rose-500 text-white font-bold shadow-xs scale-105'
                           : 'bg-neutral-800 text-rose-200 hover:bg-neutral-700 hover:text-white'
@@ -398,11 +398,11 @@ export const TrackingStepIndicator: React.FC<TrackingStepIndicatorProps> = ({
                   {/* Step Number */}
                   <div className="h-4.5 flex items-center justify-center mb-1">
                     {step.isActive ? (
-                      <span className="bg-[#181816] text-white text-[9px] font-bold font-mono px-1 py-0.2 rounded">
+                      <span className="bg-[#181816] text-white text-[9px] font-bold font-mono px-1 py-0.2 rounded-none">
                         {step.stepNum}
                       </span>
                     ) : (
-                      <span className="bg-[#f0f0ee] text-[#787872] text-[9px] font-bold font-mono px-1 py-0.2 rounded">
+                      <span className="bg-[#f0f0ee] text-[#787872] text-[9px] font-bold font-mono px-1 py-0.2 rounded-none">
                         {step.stepNum}
                       </span>
                     )}

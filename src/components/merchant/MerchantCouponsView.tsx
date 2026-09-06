@@ -38,6 +38,7 @@ import {
 import { CouponItem, CouponType, CouponScopeType, CouponDayRestriction, CouponDesignStyle, UserCouponRecord } from '../../types/coupon';
 import { INITIAL_MERCHANT_COUPONS, INITIAL_USER_COUPONS } from '../../data/mockCoupons';
 import { safeGetStorage, safeSetStorage } from '../../utils/safeStorage';
+import { copyTextToClipboard } from '../../utils/clipboard';
 import { globalVersionEngine } from '../../utils/versionPointerEngine';
 
 interface MerchantCouponsViewProps {
@@ -116,8 +117,12 @@ export const MerchantCouponsView: React.FC<MerchantCouponsViewProps> = ({ showTo
   const [dispatchCustomMsg, setDispatchCustomMsg] = useState('黑曜石流动餐车主厨为您送上专属赏味礼券！');
 
   // Marketing Automation Campaign Switches
-  const [autoNewUserCoupon, setAutoNewUserCoupon] = useState(true);
-  const [autoFissionShareCoupon, setAutoFissionShareCoupon] = useState(true);
+  const [autoNewUserCoupon, setAutoNewUserCoupon] = useState<boolean>(() =>
+    safeGetStorage<boolean>('obsidian_marketing_auto_new_user_coupon', true)
+  );
+  const [autoFissionShareCoupon, setAutoFissionShareCoupon] = useState<boolean>(() =>
+    safeGetStorage<boolean>('obsidian_marketing_fission_share_coupon', true)
+  );
 
   // QR Code share preview
   const [shareQrModalOpen, setShareQrModalOpen] = useState(false);
@@ -529,8 +534,10 @@ export const MerchantCouponsView: React.FC<MerchantCouponsViewProps> = ({ showTo
             <button
               type="button"
               onClick={() => {
-                setAutoNewUserCoupon(!autoNewUserCoupon);
-                showToast(autoNewUserCoupon ? '已暂停新人进店自动送券' : '已开启新人进店自动送券！');
+                const next = !autoNewUserCoupon;
+                setAutoNewUserCoupon(next);
+                safeSetStorage('obsidian_marketing_auto_new_user_coupon', next);
+                showToast(next ? '已开启新人进店自动送券！' : '已暂停新人进店自动送券');
               }}
               className={`px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer transition-colors border ${
                 autoNewUserCoupon
@@ -553,8 +560,10 @@ export const MerchantCouponsView: React.FC<MerchantCouponsViewProps> = ({ showTo
             <button
               type="button"
               onClick={() => {
-                setAutoFissionShareCoupon(!autoFissionShareCoupon);
-                showToast(autoFissionShareCoupon ? '已暂停裂变返券' : '已开启满80裂变返券！');
+                const next = !autoFissionShareCoupon;
+                setAutoFissionShareCoupon(next);
+                safeSetStorage('obsidian_marketing_fission_share_coupon', next);
+                showToast(next ? '已开启满80裂变返券！' : '已暂停裂变返券');
               }}
               className={`px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer transition-colors border ${
                 autoFissionShareCoupon
@@ -949,9 +958,17 @@ export const MerchantCouponsView: React.FC<MerchantCouponsViewProps> = ({ showTo
 
             <button
               type="button"
-              onClick={() => {
+              onClick={async () => {
+                if (shareQrCoupon) {
+                  const shareText = [
+                    `【黑石餐车 · 优惠领券】${shareQrCoupon.title}`,
+                    `兑换码：${shareQrCoupon.code}`,
+                    `扫码或凭码到店核销，活动页：${window.location.origin}${window.location.pathname}`
+                  ].join('\n');
+                  const ok = await copyTextToClipboard(shareText);
+                  showToast(ok ? '已复制领券海报图文与兑换码到剪贴板！' : '复制失败，请手动长按选择复制');
+                }
                 setShareQrModalOpen(false);
-                showToast('已复制领券链接与二维码海报！');
               }}
               className="w-full py-2 bg-[#0f172a] text-white rounded font-bold text-xs hover:bg-black cursor-pointer"
             >

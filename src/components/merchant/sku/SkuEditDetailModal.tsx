@@ -138,7 +138,22 @@ export const SkuEditDetailModal: React.FC<SkuEditDetailModalProps> = ({
               <span>① 条码与二维码标贴</span>
               <button
                 type="button"
-                onClick={() => showToast('已下载矢量条形码 SVG')}
+                onClick={() => {
+                  const bars = [2, 1, 3, 1, 2, 3, 1, 2, 1, 3, 2, 1, 1, 2, 3, 1, 2];
+                  const rects = bars
+                    .map((w, idx) => `<rect x="${idx * 7 + 4}" y="2" width="${w}" height="30" fill="#0f172a" />`)
+                    .join('');
+                  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="130" height="34" viewBox="0 0 130 34"><rect width="130" height="34" fill="#ffffff"/>${rects}<text x="65" y="32" font-family="monospace" font-size="9" font-weight="bold" fill="#0f172a" text-anchor="middle" letter-spacing="2">${formData.sku}</text></svg>`;
+                  const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8;' });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = `barcode_${formData.sku}.svg`;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  URL.revokeObjectURL(url);
+                }}
                 className="text-[11px] text-[#2563eb] hover:underline flex items-center gap-0.5 cursor-pointer"
               >
                 <Download className="w-3 h-3" />

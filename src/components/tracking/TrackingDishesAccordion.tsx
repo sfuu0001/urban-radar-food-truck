@@ -81,7 +81,7 @@ export const TrackingDishesAccordion: React.FC<TrackingDishesAccordionProps> = (
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-1.5">
                     <span className="font-bold text-black text-[13px]">{dish.name}</span>
-                    <span className="text-[10px] bg-[#f0f0ee] text-[#666] px-1.5 py-0.2 rounded">
+                    <span className="text-[10px] bg-[#f0f0ee] text-[#666] px-1.5 py-0.2 rounded-none">
                       x{dish.count}
                     </span>
                   </div>
@@ -129,7 +129,7 @@ export const TrackingDishesAccordion: React.FC<TrackingDishesAccordionProps> = (
               <button
                 type="button"
                 onClick={onCopyBill}
-                className="px-3 py-1.5 bg-[#f4f4f1] hover:bg-[#eaeae6] active:scale-95 text-black text-[11.5px] font-bold flex items-center gap-1.5 transition-all cursor-pointer rounded-lg"
+                className="px-3 py-1.5 bg-[#f4f4f1] hover:bg-[#eaeae6] active:scale-95 text-black text-[11.5px] font-bold flex items-center gap-1.5 transition-all cursor-pointer rounded-none"
               >
                 <Copy className="w-3.5 h-3.5" />
                 <span>复制餐品清单</span>

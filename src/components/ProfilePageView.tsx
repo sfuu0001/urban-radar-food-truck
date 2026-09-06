@@ -48,6 +48,7 @@ import { UserProfile, Order } from '../types';
 import { safeGetStorage, safeSetStorage } from '../utils/safeStorage';
 import { Fingerprint } from 'lucide-react';
 import { useDevSimulation } from '../context/DevSimulationContext';
+import { BackButton } from './BackButton';
 
 interface ProfilePageViewProps {
   onOpenRadar?: () => void;
@@ -202,6 +203,13 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-black text-white text-xs px-3 py-2 rounded-full shadow-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-150">
           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
           <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Back Navigation to Point-of-Sale Menu */}
+      {onGoToMenu && (
+        <div className="pt-0.5 pb-0.5">
+          <BackButton onClick={onGoToMenu} label="返回点餐" />
         </div>
       )}
 

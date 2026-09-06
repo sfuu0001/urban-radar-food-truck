@@ -724,7 +724,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.22, ease: 'easeOut' }}
-      className="w-full max-w-md mx-auto min-h-[85vh] bg-[#f9f9f7] text-[#1a1c1b] px-1 py-0 flex flex-col font-sans select-none"
+      className="w-full max-w-md mx-auto min-h-[85vh] bg-[#f9f9f7] text-[#1a1c1b] px-1 py-0 flex flex-col font-sans select-none shrink-0"
     >
       {/* Toast Notification */}
       <AnimatePresence>
@@ -1029,34 +1029,34 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
                   />
                 )}
 
-                <div className="pt-3 sm:pt-3.5 px-3 pb-2.5 space-y-2">
+                <div className="pt-3 sm:pt-3.5 px-0.5 pb-2.5 space-y-2">
                   {/* Header Row: Form-style data-intensive compact banner */}
                   <div className="flex items-center justify-between gap-2 p-2 bg-[#fbfbf9] rounded-none border border-[#e5e5e0] mb-1">
                     {/* Form-style Data Column (Left) */}
                     <div className="min-w-0 flex-1 space-y-1">
                       {/* Top Data Strip: Order No Badge + UID Chip + Channel Tag */}
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#f0f0ed] text-[#1a1c1b] border border-[#d6d6d0] font-mono text-[11px] font-bold shrink-0">
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none bg-[#f0f0ed] text-[#1a1c1b] border border-[#d6d6d0] font-mono text-[11px] font-bold shrink-0">
                           <span className="text-[#8a8984] text-[9.5px] font-normal">单号</span>
                           <span>#{order.orderNo}</span>
                         </span>
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-mono text-[10px] font-semibold shrink-0">
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-mono text-[10px] font-semibold shrink-0">
                           <span className="text-emerald-600/70 text-[9px] font-normal">UID:</span>
                           <span>{order.userId ? (order.userId.length > 12 ? `${order.userId.slice(0, 10)}...` : order.userId) : '当前账户'}</span>
                         </span>
                         {order.channel && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600 border border-neutral-200 text-[9.5px] font-medium shrink-0">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-none bg-neutral-100 text-neutral-600 border border-neutral-200 text-[9.5px] font-medium shrink-0">
                             {order.channel === 'dine_in' ? '堂食现制' : order.channel === 'pickup' ? '自提取餐' : '雷达专送'}
                           </span>
                         )}
                         {order.channel === 'dine_in' && order.tableCode && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200 text-[9.5px] font-bold shrink-0">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none bg-amber-50 text-amber-900 border border-amber-200 text-[9.5px] font-bold shrink-0">
                             <UtensilsCrossed className="w-2.5 h-2.5 text-amber-700" />
                             <span>{order.tableCode}桌</span>
                           </span>
                         )}
                         {order.channel === 'pickup' && (order.pickupCode || order.orderNo) && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-50 text-sky-900 border border-sky-200 text-[9.5px] font-bold shrink-0">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none bg-sky-50 text-sky-900 border border-sky-200 text-[9.5px] font-bold shrink-0">
                             <QrCode className="w-2.5 h-2.5 text-sky-700" />
                             <span>取餐码 #{order.pickupCode || order.orderNo?.slice(-4) || '8806'}</span>
                           </span>
@@ -1069,7 +1069,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
                           {order.title}
                         </h3>
                         {order.totalAmount !== undefined && (
-                          <span className="font-mono text-[11px] font-black text-neutral-900 shrink-0 bg-white px-1 py-0.2 rounded border border-neutral-200">
+                          <span className="font-mono text-[11px] font-black text-neutral-900 shrink-0 bg-white px-1 py-0.2 rounded-none border border-neutral-200">
                             ¥{Number(order.totalAmount).toFixed(2)}
                           </span>
                         )}
@@ -1084,7 +1084,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
                     {/* Status & Attributes Column (Right) */}
                     <div className="shrink-0 flex items-center gap-1">
                       {order.nonRefundable && (
-                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 text-[9.5px] font-bold border border-rose-200/90 shrink-0">
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-none bg-rose-50 text-rose-700 text-[9.5px] font-bold border border-rose-200/90 shrink-0">
                           <ShieldCheck className="w-2.5 h-2.5" />
                           <span>不可退单</span>
                         </span>
@@ -1092,7 +1092,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
 
                       {(order as any).statusConfig ? (
                         <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold tracking-tight border shrink-0 ${(order as any).statusConfig.badgeClass}`}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-none text-[10px] font-bold tracking-tight border shrink-0 ${(order as any).statusConfig.badgeClass}`}
                         >
                           {(order as any).statusConfig.isException ? (
                             <AlertCircle className="w-3 h-3 text-amber-600 animate-pulse" />
@@ -1110,37 +1110,37 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
                           <span>{(order as any).statusConfig.shortLabel || (order as any).statusConfig.label}</span>
                         </span>
                       ) : order.statusType === 'refund_pending' ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 text-amber-800 text-[10px] font-bold border border-amber-200 shrink-0">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-none bg-amber-50 text-amber-800 text-[10px] font-bold border border-amber-200 shrink-0">
                           <Clock className="w-3 h-3 text-amber-600 animate-spin" />
                           <span>退单审核中</span>
                         </span>
                       ) : order.statusType === 'refunded' ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-neutral-100 text-neutral-600 text-[10px] font-bold border border-neutral-300 shrink-0">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-none bg-neutral-100 text-neutral-600 text-[10px] font-bold border border-neutral-300 shrink-0">
                           <CheckCircle2 className="w-3 h-3 text-neutral-500" />
                           <span>已全额退款</span>
                         </span>
                       ) : order.statusType === 'en_route' ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#e6f4ea] text-[#15803d] text-[10px] font-bold border border-[#c3e6cb] shrink-0">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-none bg-[#e6f4ea] text-[#15803d] text-[10px] font-bold border border-[#c3e6cb] shrink-0">
                           <Truck className="w-3 h-3 fill-current animate-pulse" />
                           <span>骑手配送中</span>
                         </span>
                       ) : order.statusType === 'ready' ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 text-amber-800 text-[10px] font-bold border border-amber-200 shrink-0">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-none bg-amber-50 text-amber-800 text-[10px] font-bold border border-amber-200 shrink-0">
                           <Package className="w-3 h-3" />
                           <span>出餐待取</span>
                         </span>
                       ) : order.statusType === 'placed' ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-neutral-100 text-neutral-700 text-[10px] font-bold border border-neutral-200 shrink-0">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-none bg-neutral-100 text-neutral-700 text-[10px] font-bold border border-neutral-200 shrink-0">
                           <CheckCircle2 className="w-3 h-3 text-neutral-500" />
                           <span>下单已付</span>
                         </span>
                       ) : order.statusType === 'preparing' ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#f0f0ed] text-[#4b5563] text-[10px] font-bold border border-[#d8d8d3] shrink-0">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-none bg-[#f0f0ed] text-[#4b5563] text-[10px] font-bold border border-[#d8d8d3] shrink-0">
                           <CookingPot className="w-3 h-3" />
                           <span>备料制作中</span>
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#e6f4ea] text-[#15803d] text-[10px] font-bold border border-[#c3e6cb] shrink-0">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-none bg-[#e6f4ea] text-[#15803d] text-[10px] font-bold border border-[#c3e6cb] shrink-0">
                           <CheckCircle2 className="w-3 h-3" />
                           <span>已送达完成</span>
                         </span>
@@ -1150,7 +1150,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
 
                   {/* Granular Exception / Status Notice Banner */}
                   {(order as any).statusConfig?.isException && (
-                    <div className="p-2 rounded-lg bg-amber-50/90 border border-amber-200/90 flex items-start gap-2 mb-1">
+                    <div className="p-2 rounded-none bg-amber-50/90 border border-amber-200/90 flex items-start gap-2 mb-1">
                       <AlertCircle className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
                       <div className="text-[11px] leading-snug">
                         <span className="font-bold text-amber-900">{(order as any).statusConfig.label}：</span>
@@ -1164,7 +1164,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
-                      className="p-2 bg-amber-50/90 border border-amber-200/90 rounded-lg text-xs space-y-1"
+                      className="p-2 bg-amber-50/90 border border-amber-200/90 rounded-none text-xs space-y-1"
                     >
                       <div className="flex items-center justify-between text-amber-900 font-bold">
                         <span className="flex items-center gap-1">
@@ -1184,7 +1184,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
-                      className="p-2 bg-rose-50 border border-rose-200/90 rounded-lg text-xs space-y-0.5"
+                      className="p-2 bg-rose-50 border border-rose-200/90 rounded-none text-xs space-y-0.5"
                     >
                       <div className="flex items-center gap-1 text-rose-900 font-bold">
                         <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
@@ -1200,7 +1200,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
-                      className="p-2 bg-neutral-100 border border-neutral-200 rounded-lg text-xs space-y-0.5"
+                      className="p-2 bg-neutral-100 border border-neutral-200 rounded-none text-xs space-y-0.5"
                     >
                       <div className="flex items-center gap-1 text-neutral-800 font-bold">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
@@ -1235,7 +1235,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
                           : '订单已接收 · 等待后厨确认'}
                       </span>
                     </div>
-                    <span className="text-[9px] font-mono font-bold text-neutral-500 bg-white px-1.5 py-0.5 rounded border border-neutral-200 shrink-0">
+                    <span className="text-[9px] font-mono font-bold text-neutral-500 bg-white px-1.5 py-0.5 rounded-none border border-neutral-200 shrink-0">
                       🔒 商家/骑手授权推进
                     </span>
                   </div>
@@ -1248,7 +1248,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
                           <>
                             <UtensilsCrossed className="w-3.5 h-3.5 text-amber-600" />
                             <span>堂食出餐制作进度</span>
-                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 font-bold">
+                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-none bg-amber-100 text-amber-800 font-bold">
                               {order.tableCode ? `${order.tableCode}号桌` : '堂食'}
                             </span>
                           </>
@@ -1256,7 +1256,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
                           <>
                             <PackageCheck className="w-3.5 h-3.5 text-sky-600" />
                             <span>自提打包出餐进度</span>
-                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-sky-100 text-sky-800 font-bold">
+                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-none bg-sky-100 text-sky-800 font-bold">
                               取餐码 #{order.pickupCode || '8806'}
                             </span>
                           </>
@@ -1264,7 +1264,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
                           <>
                             <CookingPot className="w-3.5 h-3.5 text-emerald-600" />
                             <span>餐车后厨出餐进度</span>
-                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 font-bold">
+                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-none bg-emerald-100 text-emerald-800 font-bold">
                               极速专送
                             </span>
                           </>
@@ -1328,17 +1328,17 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
 
                             <div className="shrink-0 flex items-center gap-1.5">
                               {isServed ? (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
                                   <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                                   <span>已上桌{dishItem.serveTime ? ` ${dishItem.serveTime}` : ''}</span>
                                 </span>
                               ) : isReady ? (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-50 text-sky-700 text-[10px] font-bold border border-sky-200">
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none bg-sky-50 text-sky-700 text-[10px] font-bold border border-sky-200">
                                   <PackageCheck className="w-3 h-3 text-sky-600" />
                                   <span>{order.channel === 'pickup' ? '已入柜保温' : '出餐就绪'}</span>
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 text-[10px] font-bold border border-amber-200">
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none bg-amber-50 text-amber-700 text-[10px] font-bold border border-amber-200">
                                   <Flame className="w-3 h-3 text-amber-600 animate-pulse" />
                                   <span>制作中 {dishItem.prepProgress || 65}%</span>
                                 </span>
@@ -1394,7 +1394,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
                         whileTap={{ scale: 0.98 }}
                         type="button"
                         onClick={() => handleTrackRadar(order)}
-                        className="flex-1 py-1.5 px-3 bg-[#181816] text-white text-xs font-black rounded-lg hover:bg-neutral-800 transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
+                        className="flex-1 py-1.5 px-3 bg-[#181816] text-white text-xs font-black rounded-none hover:bg-neutral-800 transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <UtensilsCrossed className="w-3.5 h-3.5 text-amber-400" />
                         <span>堂食出餐与流转节点</span>
@@ -1405,7 +1405,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
                         whileTap={{ scale: 0.98 }}
                         type="button"
                         onClick={() => handleTrackRadar(order)}
-                        className="flex-1 py-1.5 px-3 bg-[#181816] text-white text-xs font-black rounded-lg hover:bg-neutral-800 transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
+                        className="flex-1 py-1.5 px-3 bg-[#181816] text-white text-xs font-black rounded-none hover:bg-neutral-800 transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <QrCode className="w-3.5 h-3.5 text-sky-400" />
                         <span>自提出餐与取餐码</span>
@@ -1416,7 +1416,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
                         whileTap={{ scale: 0.98 }}
                         type="button"
                         onClick={() => handleTrackRadar(order)}
-                        className="flex-1 py-1.5 px-3 bg-black text-white text-xs font-black rounded-lg hover:bg-neutral-800 transition-all shadow-2xs flex items-center justify-center cursor-pointer"
+                        className="flex-1 py-1.5 px-3 bg-black text-white text-xs font-black rounded-none hover:bg-neutral-800 transition-all shadow-2xs flex items-center justify-center cursor-pointer"
                       >
                         雷达追踪
                       </motion.button>
@@ -1426,7 +1426,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
                         whileTap={{ scale: 0.98 }}
                         type="button"
                         onClick={() => handleTrackRadar(order)}
-                        className="flex-1 py-1.5 px-3 bg-[#e8e8e6] text-[#1a1c1b] text-xs font-black rounded-lg hover:bg-[#dededc] transition-all flex items-center justify-center cursor-pointer"
+                        className="flex-1 py-1.5 px-3 bg-[#e8e8e6] text-[#1a1c1b] text-xs font-black rounded-none hover:bg-[#dededc] transition-all flex items-center justify-center cursor-pointer"
                       >
                         查看出餐与流转节点
                       </motion.button>
@@ -1444,7 +1444,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
                             setRefundReason(order.refundReason || '临时有事 / 行程变更');
                             setRefundFeedback(order.refundFeedback || '');
                           }}
-                          className="px-2.5 py-1.5 bg-amber-50 text-amber-800 hover:bg-amber-100 rounded-lg text-xs font-bold transition-colors cursor-pointer border border-amber-200 shrink-0 flex items-center gap-1"
+                          className="px-2.5 py-1.5 bg-amber-50 text-amber-800 hover:bg-amber-100 rounded-none text-xs font-bold transition-colors cursor-pointer border border-amber-200 shrink-0 flex items-center gap-1"
                           title="查看退单审核详情"
                         >
                           <Clock className="w-3 h-3 text-amber-600" />
@@ -1458,7 +1458,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
                           onClick={() => {
                             setRefundModalOrder(order);
                           }}
-                          className="px-2.5 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-lg text-xs font-bold transition-colors cursor-pointer border border-neutral-300 shrink-0 flex items-center gap-1"
+                          className="px-2.5 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-none text-xs font-bold transition-colors cursor-pointer border border-neutral-300 shrink-0 flex items-center gap-1"
                           title="该订单已被商家设置为不可退单，点击联系商家协商"
                         >
                           <ShieldCheck className="w-3 h-3 text-rose-600" />
@@ -1474,7 +1474,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
                             setRefundReason('临时有事 / 行程变更');
                             setRefundFeedback('');
                           }}
-                          className="px-2.5 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-lg text-xs font-bold transition-colors cursor-pointer border border-rose-200 shrink-0 flex items-center gap-1"
+                          className="px-2.5 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-none text-xs font-bold transition-colors cursor-pointer border border-rose-200 shrink-0 flex items-center gap-1"
                           title="在当前状态节点发起退单申请与反馈"
                         >
                           <AlertCircle className="w-3 h-3 text-rose-600" />
@@ -1490,7 +1490,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
                       whileTap={{ scale: 0.95 }}
                       type="button"
                       onClick={() => setChatOrder(order)}
-                      className="h-8 w-8 rounded-lg bg-[#f5f5f3] hover:bg-[#eaeae6] active:bg-[#deded8] text-[#2d2c27] hover:text-black border border-[#d8d8d2] transition-all cursor-pointer flex items-center justify-center shrink-0 shadow-2xs relative group"
+                      className="h-8 w-8 rounded-none bg-[#f5f5f3] hover:bg-[#eaeae6] active:bg-[#deded8] text-[#2d2c27] hover:text-black border border-[#d8d8d2] transition-all cursor-pointer flex items-center justify-center shrink-0 shadow-2xs relative group"
                       title="消息中心 · 订单联络室"
                       aria-label="消息中心"
                     >
@@ -1507,7 +1507,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
                         animate={{ opacity: 1, height: 'auto', overflow: 'visible' }}
                         exit={{ opacity: 0, height: 0, overflow: 'hidden' }}
                         transition={{ duration: 0.22, ease: 'easeInOut' }}
-                        className="mt-2 p-2.5 bg-[#f9f9f7] rounded-lg border border-[#e2e3e1] space-y-1.5"
+                        className="mt-2 p-2.5 bg-[#f9f9f7] rounded-none border border-[#e2e3e1] space-y-1.5"
                       >
                         <div className="flex items-center justify-between border-b border-[#ebebe6] pb-1.5 text-xs">
                           <span className="font-bold text-black">餐品清单明细</span>
@@ -1516,7 +1516,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
 
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-[#787770]">食客 UID 标识</span>
-                          <span className="font-mono text-[11px] font-bold text-emerald-800 bg-emerald-50 px-1 py-0.5 rounded">
+                          <span className="font-mono text-[11px] font-bold text-emerald-800 bg-emerald-50 px-1 py-0.5 rounded-none">
                             {order.userId || currentUid}
                           </span>
                         </div>
@@ -1544,7 +1544,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
                             whileTap={{ scale: 0.98 }}
                             type="button"
                             onClick={() => handleTrackRadar(order)}
-                            className="flex-1 py-1.5 bg-black text-white text-xs font-bold rounded-lg hover:bg-neutral-800 transition-colors cursor-pointer"
+                            className="flex-1 py-1.5 bg-black text-white text-xs font-bold rounded-none hover:bg-neutral-800 transition-colors cursor-pointer"
                           >
                             前往实时雷达地图追踪
                           </motion.button>

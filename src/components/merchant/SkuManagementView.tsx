@@ -701,7 +701,7 @@ export const SkuManagementView: React.FC<SkuManagementViewProps> = ({ showToast 
               <button
                 type="button"
                 disabled={selectedSkuIds.size === 0}
-                onClick={() => showToast(`已向热敏打印机批量发送 ${selectedSkuIds.size} 个 SKU 条形码标签`)}
+                onClick={() => window.print()}
                 className="px-2.5 py-1 bg-[#0f172a] disabled:opacity-50 text-white rounded-[2px] font-semibold hover:bg-black cursor-pointer flex items-center gap-1 ml-1"
               >
                 <Printer className="w-3 h-3 text-emerald-400" />
@@ -846,7 +846,7 @@ export const SkuManagementView: React.FC<SkuManagementViewProps> = ({ showToast 
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
-                    onClick={() => showToast(`已向热敏标签机发送 [${sku.name}] 标签打印`)}
+                    onClick={() => window.print()}
                     className="px-2 py-1 bg-white text-[#0f172a] border border-[#cbd5e1] rounded-[2px] font-semibold flex items-center gap-1 cursor-pointer hover:bg-[#f1f5f9] text-[11px]"
                   >
                     <Printer className="w-3 h-3" />

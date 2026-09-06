@@ -36,7 +36,7 @@ export const TrackingHeader: React.FC<TrackingHeaderProps> = ({
               <ArrowLeft className="w-3.5 h-3.5 stroke-[2.2]" />
             </button>
           )}
-          <span className="bg-[#f0f0ee] text-[#2c2d2a] font-bold px-2 py-0.5 text-[11.5px] font-mono rounded-md border border-[#e5e5df] shrink-0">
+          <span className="bg-[#f0f0ee] text-[#2c2d2a] font-bold px-2 py-0.5 text-[11.5px] font-mono rounded-none border border-[#e5e5df] shrink-0">
             {orderId}
           </span>
           <span className="text-[#888880] text-[11px] shrink-0">{orderTime}</span>
@@ -49,7 +49,7 @@ export const TrackingHeader: React.FC<TrackingHeaderProps> = ({
 
         {/* Right side: Mobile GPS Pill & Notification Control */}
         <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-[#66665f] text-[10.5px] font-medium sm:hidden flex items-center gap-0.5 bg-[#f7f7f5] px-1.5 py-0.5 rounded border border-[#e8e8e4]">
+          <span className="text-[#66665f] text-[10.5px] font-medium sm:hidden flex items-center gap-0.5 bg-[#f7f7f5] px-1.5 py-0.5 rounded-none border border-[#e8e8e4]">
             <span>🚗</span>
             <span>GPS 专送</span>
           </span>
@@ -82,9 +82,9 @@ export const TrackingHeader: React.FC<TrackingHeaderProps> = ({
       </div>
 
       {/* 3. Streamlined Dark ETA Banner (Est. mins, 极速达, 准时达, 超时赔付) */}
-      <div className="bg-[#181816] text-white px-3 py-2 rounded-xl flex items-center justify-between shadow-2xs">
+      <div className="bg-[#181816] text-white px-3 py-2 rounded-none flex items-center justify-between shadow-2xs">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-7 h-7 rounded-lg bg-[#2b271b] text-[#facc15] flex items-center justify-center shrink-0">
+          <div className="w-7 h-7 rounded-none bg-[#2b271b] text-[#facc15] flex items-center justify-center shrink-0">
             <Zap className="w-4 h-4 fill-[#facc15] text-[#facc15]" />
           </div>
           <div className="min-w-0">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Package,
   Lock,
@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { StocktakeItem, StoreTransferRecord } from '../../types';
 import { INITIAL_STOCKTAKE_ITEMS, INITIAL_TRANSFERS } from '../../data/mockEnhancedData';
+import { safeGetStorage, safeSetStorage } from '../../utils/safeStorage';
 
 interface MerchantInventoryProps {
   showToast: (msg: string) => void;
@@ -24,10 +25,23 @@ interface MerchantInventoryProps {
 
 export const MerchantInventory: React.FC<MerchantInventoryProps> = ({ showToast }) => {
   const [activeTab, setActiveTab] = useState<'stocktake' | 'transfers'>('stocktake');
-  const [items, setItems] = useState<StocktakeItem[]>(INITIAL_STOCKTAKE_ITEMS);
-  const [transfers, setTransfers] = useState<StoreTransferRecord[]>(INITIAL_TRANSFERS);
+  const [items, setItems] = useState<StocktakeItem[]>(
+    () => safeGetStorage<StocktakeItem[]>('obsidian_inventory_stock', INITIAL_STOCKTAKE_ITEMS)
+  );
+  const [transfers, setTransfers] = useState<StoreTransferRecord[]>(
+    () => safeGetStorage<StoreTransferRecord[]>('obsidian_inventory_loss', INITIAL_TRANSFERS)
+  );
   const [isLocked, setIsLocked] = useState<boolean>(false);
   const [filterCategory, setFilterCategory] = useState<string>('all');
+
+  // Persist inventory counts and transfer records so they survive refresh
+  useEffect(() => {
+    safeSetStorage('obsidian_inventory_stock', items);
+  }, [items]);
+
+  useEffect(() => {
+    safeSetStorage('obsidian_inventory_loss', transfers);
+  }, [transfers]);
 
   // New Transfer Modal state
   const [isAddingTransfer, setIsAddingTransfer] = useState(false);

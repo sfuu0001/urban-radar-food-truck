@@ -44,7 +44,7 @@ import {
   Clock
 } from 'lucide-react';
 import { MerchantSession, maskPhoneNumber } from '../../utils/staffAndRiderAuthEngine';
-import { DishItem, Order, TruckInfo, TableItem, KdsTicket, HeldOrder } from '../../types';
+import { DishItem, Order, TruckInfo, TableItem, KdsTicket, HeldOrder, TableDishItem } from '../../types';
 import { INITIAL_TABLES, INITIAL_KDS_TICKETS, INITIAL_HELD_ORDERS } from '../../data/posMockData';
 import { resolveOrderChannelType, normalizeOrderKey } from '../../utils/orderNormalizer';
 import { syncSingleModuleToCloud, pullSingleModuleFromCloud } from '../../utils/cloudbase';
@@ -71,6 +71,8 @@ import { MerchantCraftSOP } from './MerchantCraftSOP';
 import { MerchantShiftRefund } from './MerchantShiftRefund';
 import { MerchantAuditLog } from './MerchantAuditLog';
 import { MerchantVersionTrackingView } from './MerchantVersionTrackingView';
+import { setAvailabilityOverride } from '../../utils/dishAvailability';
+import { setDishFieldOverride } from '../../utils/dishFieldOverrides';
 import { MerchantCloudSyncView } from './MerchantCloudSyncView';
 import { CraftStandardView } from './CraftStandardView';
 import { MerchantMarketingHub } from './MerchantMarketingHub';
@@ -107,6 +109,7 @@ interface MerchantSystemViewProps {
   initialTab?: MerchantTab;
   onUpdateDishes?: React.Dispatch<React.SetStateAction<DishItem[]>>;
   onAdvanceOrderStatus: (orderId: string, targetStatus?: Order['status'], extraDetails?: Partial<Order>) => void;
+  onSyncOrderItems?: (orderNo: string, items: TableDishItem[]) => void;
   onRejectOrder?: (orderId: string, reason: string) => void;
   onAuditRefund?: (orderId: string, approved: boolean, rejectReason?: string) => void;
   onToggleNonRefundable?: (orderId: string, nonRefundable: boolean) => void;
@@ -174,6 +177,7 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
   initialTab,
   onUpdateDishes,
   onAdvanceOrderStatus,
+  onSyncOrderItems,
   onRejectOrder,
   onAuditRefund,
   onToggleNonRefundable,
@@ -724,20 +728,36 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
 
   // --- Handlers for Held Orders ---
   const handleResumeCheckout = (heldOrder: HeldOrder) => {
+    // 恢复收银：将挂单从风控列表移除并切回桌台/收银视图，便于继续结算
     setHeldOrders((prev) => prev.filter((h) => h.id !== heldOrder.id));
     setActiveTab('tables');
   };
 
   const handleSendReminder = (orderId: string) => {
-    // simulated notification
+    // 真实催付：记录最近一次催付时间（持久化），挂单保留以便追踪回执
+    const nowStr = new Date().toLocaleString('zh-CN', { hour12: false });
+    setHeldOrders((prev) =>
+      prev.map((h) => (h.id === orderId ? { ...h, lastReminderAt: nowStr } : h))
+    );
+    showToast('已向顾客手机下发催付账单短信通知！');
   };
 
   const handleConvertToTakeaway = (orderId: string) => {
-    setHeldOrders((prev) => prev.filter((h) => h.id !== orderId));
+    // 真实转外带：将堂食挂单标记为外带打包（持久化），释放堂食桌位风控
+    setHeldOrders((prev) =>
+      prev.map((h) =>
+        h.id === orderId
+          ? { ...h, convertedToTakeaway: true, tableName: '外带打包', tableCode: '外带' }
+          : h
+      )
+    );
+    showToast('挂单已转为外带保温打包，可交付顾客带走！');
   };
 
   const handleVoidOrder = (orderId: string) => {
+    // 真实作废冲正：取消该笔挂账账单（从风控列表移除）
     setHeldOrders((prev) => prev.filter((h) => h.id !== orderId));
+    showToast('挂单已作废冲正，相关账单与库存占用已取消！');
   };
 
   // --- Handlers for GPS ---
@@ -761,6 +781,7 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
           afterData: { id: dishId, available: !oldDish.available },
           customSummary: `菜品【${oldDish.name}】状态切换为：${!oldDish.available ? '恢复上架供应' : '下架/沽清'}`
         });
+        setAvailabilityOverride(dishId, !oldDish.available);
       }
       onUpdateDishes((prev) =>
         prev.map((d) => (d.id === dishId ? { ...d, available: !d.available } : d))
@@ -780,6 +801,12 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
           beforeData: oldDish,
           afterData: updatedDish
         });
+        if (typeof updatedDish.available === 'boolean' && updatedDish.available !== oldDish.available) {
+          setAvailabilityOverride(updatedDish.id, updatedDish.available);
+        }
+        // 种下「字段级」本地覆盖：名称/价格/描述/图片/分类/规格/排序等商家改动，
+        // 刷新后不会被 fetchDishesFromCloud 的云端覆盖冲掉
+        setDishFieldOverride(updatedDish.id, updatedDish);
       }
       onUpdateDishes((prev) =>
         prev.map((d) => (d.id === updatedDish.id ? updatedDish : d))
@@ -1283,6 +1310,7 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
             onTransferTable={handleTransferTable}
             onReleaseTable={handleReleaseTable}
             onUpdateTable={handleUpdateTable}
+            onSyncOrderItems={onSyncOrderItems}
             showToast={showToast}
           />
         )}

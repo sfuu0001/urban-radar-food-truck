@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   TrendingUp,
   DollarSign,
@@ -9,6 +9,7 @@ import {
   Download,
   Flame,
   ArrowUpRight,
+  ArrowDownRight,
   Sparkles,
   PieChart as PieChartIcon,
   FileSpreadsheet,
@@ -32,28 +33,96 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
   const [timeRange, setTimeRange] = useState<'today' | 'week' | 'month'>('today');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const totalSales = orders.reduce((sum, o) => sum + o.totalAmount, 1680.0);
-  const totalOrdersCount = orders.length + 38;
-  const avgTicketPrice = totalSales / (totalOrdersCount || 1);
+  // 真实数据衍生：基于订单数组按时间区间聚合，杜绝写死数值与假筛选
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startOfTomorrow = startOfToday + 86400000;
+  const startOfYesterday = startOfToday - 86400000;
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 
-  // Hourly distribution simulation
-  const hourlyData = [
-    { hour: '11:00', amount: 180, count: 4 },
-    { hour: '12:00', amount: 560, count: 14, isPeak: true },
-    { hour: '13:00', amount: 420, count: 9 },
-    { hour: '14:00', amount: 150, count: 3 },
-    { hour: '17:00', amount: 280, count: 6 },
-    { hour: '18:00', amount: 690, count: 16, isPeak: true },
-    { hour: '19:00', amount: 540, count: 12 },
-    { hour: '20:00', amount: 310, count: 7 }
-  ];
+  const orderTs = (o: Order): number => {
+    const t = new Date(o.createdTime).getTime();
+    return isNaN(t) ? 0 : t;
+  };
 
-  const topDishes = [
-    { name: '碳烤和牛小汉堡双重奏', qty: 42, revenue: 2646.0, percent: 38 },
-    { name: '黑松露墨汁手工玉棋', qty: 28, revenue: 2464.0, percent: 26 },
-    { name: '果木烟熏黑豚炙烤五花', qty: 22, revenue: 1210.0, percent: 18 },
-    { name: '冷萃黑金茉莉提拉米苏', qty: 35, revenue: 1330.0, percent: 18 }
-  ];
+  const rangeBounds = useMemo(() => {
+    if (timeRange === 'today') {
+      return { start: startOfToday, end: startOfTomorrow, prevStart: startOfYesterday, prevEnd: startOfToday };
+    }
+    if (timeRange === 'week') {
+      const weekStart = startOfToday - 6 * 86400000;
+      return { start: weekStart, end: startOfTomorrow, prevStart: weekStart - 7 * 86400000, prevEnd: weekStart };
+    }
+    const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime();
+    return { start: startOfMonth, end: startOfTomorrow, prevStart: prevMonthStart, prevEnd: startOfMonth };
+  }, [timeRange]);
+
+  const rangeOrders = useMemo(
+    () => orders.filter((o) => {
+      const t = orderTs(o);
+      return t >= rangeBounds.start && t < rangeBounds.end;
+    }),
+    [orders, rangeBounds]
+  );
+  const prevOrders = useMemo(
+    () => orders.filter((o) => {
+      const t = orderTs(o);
+      return t >= rangeBounds.prevStart && t < rangeBounds.prevEnd;
+    }),
+    [orders, rangeBounds]
+  );
+
+  const totalSales = rangeOrders.reduce((s, o) => s + o.totalAmount, 0);
+  const totalOrdersCount = rangeOrders.length;
+  const avgTicketPrice = totalOrdersCount > 0 ? totalSales / totalOrdersCount : 0;
+  const prevSales = prevOrders.reduce((s, o) => s + o.totalAmount, 0);
+  const prevCount = prevOrders.length;
+  const salesDelta = prevSales > 0 ? ((totalSales - prevSales) / prevSales) * 100 : null;
+  const countDelta = prevCount > 0 ? ((totalOrdersCount - prevCount) / prevCount) * 100 : null;
+
+  const storeSideCount = rangeOrders.filter((o) => o.channelType === 'dine_in' || o.channelType === 'pickup').length;
+  const deliverySideCount = rangeOrders.filter((o) => o.channelType === 'delivery').length;
+  const dineVsDeliveryTotal = storeSideCount + deliverySideCount;
+  const dineShare = dineVsDeliveryTotal > 0 ? Math.round((storeSideCount / dineVsDeliveryTotal) * 100) : 0;
+  const deliveryShare = dineVsDeliveryTotal > 0 ? 100 - dineShare : 0;
+
+  // 各时段出单分布（按真实订单聚合，业务时段 11-14 / 17-20）
+  const hourlyHours = ['11:00', '12:00', '13:00', '14:00', '17:00', '18:00', '19:00', '20:00'];
+  const hourlyData = useMemo(() => {
+    const buckets: Record<string, { amount: number; count: number }> = {};
+    for (const o of rangeOrders) {
+      const key = `${new Date(orderTs(o)).getHours()}:00`;
+      if (!buckets[key]) buckets[key] = { amount: 0, count: 0 };
+      buckets[key].amount += o.totalAmount;
+      buckets[key].count += 1;
+    }
+    let maxAmount = 0;
+    const arr = hourlyHours.map((h) => {
+      const b = buckets[h] || { amount: 0, count: 0 };
+      if (b.amount > maxAmount) maxAmount = b.amount;
+      return { hour: h, amount: Math.round(b.amount), count: b.count, isPeak: false };
+    });
+    arr.forEach((a) => { if (maxAmount > 0 && a.amount === maxAmount) a.isPeak = true; });
+    return arr;
+  }, [rangeOrders]);
+
+  // 热销爆品榜（按真实订单菜品销量聚合 TOP4）
+  const topDishes = useMemo(() => {
+    const map: Record<string, { qty: number; revenue: number }> = {};
+    for (const o of rangeOrders) {
+      for (const it of o.items) {
+        if (!map[it.name]) map[it.name] = { qty: 0, revenue: 0 };
+        map[it.name].qty += it.quantity;
+        map[it.name].revenue += it.price * it.quantity;
+      }
+    }
+    const sorted = Object.entries(map)
+      .map(([name, v]) => ({ name, qty: v.qty, revenue: v.revenue }))
+      .sort((a, b) => b.qty - a.qty)
+      .slice(0, 4);
+    const maxQty = sorted.length ? sorted[0].qty : 0;
+    return sorted.map((d) => ({ ...d, percent: maxQty > 0 ? Math.round((d.qty / maxQty) * 100) : 0 }));
+  }, [rangeOrders]);
 
   const handleExportOrdersCsv = () => {
     const exportData = orders.map(o => ({
@@ -239,10 +308,18 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
           <p className="text-xl font-mono font-bold text-[#2b593f]">
             ¥{totalSales.toFixed(2)}
           </p>
-          <span className="text-[10px] text-[#4dab63] font-semibold flex items-center gap-0.5">
-            <ArrowUpRight className="w-3 h-3" />
-            <span>环比昨日 +18.4%</span>
-          </span>
+          {salesDelta === null ? (
+            <span className="text-[10px] text-[#787774] font-semibold">环比上一周期 暂无对比数据</span>
+          ) : (() => {
+            const up = salesDelta >= 0;
+            const Icon = up ? ArrowUpRight : ArrowDownRight;
+            return (
+              <span className={`text-[10px] font-semibold flex items-center gap-0.5 ${up ? 'text-[#4dab63]' : 'text-[#eb5757]'}`}>
+                <Icon className="w-3 h-3" />
+                <span>{up ? `环比上一周期 +${salesDelta.toFixed(1)}%` : `环比上一周期 ${salesDelta.toFixed(1)}%`}</span>
+              </span>
+            );
+          })()}
         </div>
 
         <div className="bg-white p-3.5 rounded border border-[#e6e6e4] space-y-1 shadow-2xs">
@@ -253,10 +330,18 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
           <p className="text-xl font-mono font-bold text-[#37352f]">
             {totalOrdersCount} <span className="text-xs font-normal text-[#787774]">单</span>
           </p>
-          <span className="text-[10px] text-[#4dab63] font-semibold flex items-center gap-0.5">
-            <ArrowUpRight className="w-3 h-3" />
-            <span>出餐履约率 99.2%</span>
-          </span>
+          {countDelta === null ? (
+            <span className="text-[10px] text-[#787774] font-semibold">环比上一周期 暂无对比数据</span>
+          ) : (() => {
+            const up = countDelta >= 0;
+            const Icon = up ? ArrowUpRight : ArrowDownRight;
+            return (
+              <span className={`text-[10px] font-semibold flex items-center gap-0.5 ${up ? 'text-[#4dab63]' : 'text-[#eb5757]'}`}>
+                <Icon className="w-3 h-3" />
+                <span>{up ? `环比上一周期 +${countDelta.toFixed(1)}%` : `环比上一周期 ${countDelta.toFixed(1)}%`}</span>
+              </span>
+            );
+          })()}
         </div>
 
         <div className="bg-white p-3.5 rounded border border-[#e6e6e4] space-y-1 shadow-2xs">
@@ -276,9 +361,9 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
             <PieChartIcon className="w-4 h-4 text-[#2383e2]" />
           </div>
           <p className="text-xl font-mono font-bold text-[#1c5598]">
-            55% : 45%
+            {dineVsDeliveryTotal > 0 ? `${dineShare}% : ${deliveryShare}%` : '—'}
           </p>
-          <span className="text-[10px] text-[#2383e2]">全渠道均衡渗透</span>
+          <span className="text-[10px] text-[#2383e2]">到店/自提 vs 外卖</span>
         </div>
       </div>
 
@@ -326,28 +411,32 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
           </div>
 
           <div className="space-y-2.5">
-            {topDishes.map((dish, idx) => (
-              <div key={idx} className="space-y-1">
-                <div className="flex items-center justify-between text-[11px]">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className={`w-4 h-4 rounded font-mono text-[10px] font-bold flex items-center justify-center ${
-                      idx === 0 ? 'bg-[#d9730d] text-white' : 'bg-[#f1f1ef] text-[#787774]'
-                    }`}>
-                      {idx + 1}
-                    </span>
-                    <span className="text-[#37352f] font-semibold truncate">{dish.name}</span>
+            {topDishes.length === 0 ? (
+              <div className="text-[11px] text-[#787774] py-4 text-center">当前区间暂无销售数据</div>
+            ) : (
+              topDishes.map((dish, idx) => (
+                <div key={idx} className="space-y-1">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className={`w-4 h-4 rounded font-mono text-[10px] font-bold flex items-center justify-center ${
+                        idx === 0 ? 'bg-[#d9730d] text-white' : 'bg-[#f1f1ef] text-[#787774]'
+                      }`}>
+                        {idx + 1}
+                      </span>
+                      <span className="text-[#37352f] font-semibold truncate">{dish.name}</span>
+                    </div>
+                    <span className="font-bold text-[#2b593f]">¥{dish.revenue.toFixed(0)}</span>
                   </div>
-                  <span className="font-bold text-[#2b593f]">¥{dish.revenue.toFixed(0)}</span>
-                </div>
 
-                <div className="w-full bg-[#f1f1ef] h-1.5 rounded-full overflow-hidden">
-                  <div
-                    style={{ width: `${dish.percent * 2.2}%` }}
-                    className={`h-full ${idx === 0 ? 'bg-[#d9730d]' : 'bg-[#37352f]'}`}
-                  />
+                  <div className="w-full bg-[#f1f1ef] h-1.5 rounded-full overflow-hidden">
+                    <div
+                      style={{ width: `${dish.percent}%` }}
+                      className={`h-full ${idx === 0 ? 'bg-[#d9730d]' : 'bg-[#37352f]'}`}
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>

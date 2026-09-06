@@ -2880,6 +2880,7 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
         onClose={() => setPreviewZoomDish(null)}
         onSelectDish={(d) => setPreviewZoomDish(d)}
         onEditDish={(d) => openEditModal(d)}
+        onUpdateDish={onUpdateDish}
         onToggleAvailability={(dishId) => onToggleAvailability(dishId)}
         showToast={showToast}
       />

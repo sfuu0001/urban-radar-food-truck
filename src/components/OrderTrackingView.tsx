@@ -240,7 +240,7 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
   const isPickup = order?.channelType === 'pickup' || order?.channel === 'pickup' || !!order?.pickupCode;
 
   return (
-    <div id="order-tracking-container" className="w-full flex justify-center py-1 sm:py-2.5 px-1 sm:px-4 relative bg-transparent">
+    <div id="order-tracking-container" className="w-full flex justify-center p-0 relative bg-transparent">
       {/* Toast Notification */}
       <AnimatePresence>
         {toastMsg && (
@@ -248,7 +248,7 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="fixed top-5 left-1/2 -translate-x-1/2 z-60 bg-[#181816] text-white text-xs sm:text-sm px-4 py-2.5 shadow-2xl flex items-center gap-2 rounded-xl border border-white/10"
+            className="fixed top-5 left-1/2 -translate-x-1/2 z-60 bg-[#181816] text-white text-xs sm:text-sm px-4 py-2.5 shadow-2xl flex items-center gap-2 rounded-none border border-white/10"
           >
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
             <span className="font-semibold">{toastMsg}</span>
@@ -259,7 +259,7 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
       {/* Main Tracking Card */}
       <div
         id="order-tracking-card"
-        className="w-full max-w-[430px] bg-white shadow-md border border-[#e5e5df] rounded-3xl flex flex-col select-none font-sans overflow-hidden p-0 space-y-0"
+        className="w-full max-w-[430px] bg-white shadow-2xs border border-[#D3D1CB] rounded-none flex flex-col select-none font-sans overflow-hidden p-0 space-y-0"
       >
         {/* 1. Header & ETA Section */}
         <TrackingHeader
@@ -295,7 +295,7 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
           <button
             type="button"
             onClick={() => setIsVoucherModalOpen(true)}
-            className="text-[10.5px] font-bold text-emerald-700 hover:text-emerald-800 bg-white hover:bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded-md shadow-2xs transition-all cursor-pointer shrink-0 flex items-center gap-1"
+            className="text-[10.5px] font-bold text-emerald-700 hover:text-emerald-800 bg-white hover:bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded-none shadow-2xs transition-all cursor-pointer shrink-0 flex items-center gap-1"
           >
             <span>电子支付凭据</span>
           </button>
@@ -426,7 +426,7 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white w-full max-w-sm rounded-2xl border border-[#d3d1cb] shadow-2xl overflow-hidden text-xs"
+              className="bg-white w-full max-w-sm rounded-none border border-[#d3d1cb] shadow-2xl overflow-hidden text-xs"
             >
               {/* Header */}
               <div className="p-3.5 bg-rose-50 border-b border-rose-100 flex items-center justify-between">
@@ -445,7 +445,7 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
 
               {/* Form Body */}
               <div className="p-4 space-y-3.5 text-neutral-700">
-                <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-900 leading-relaxed">
+                <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-none text-[11px] text-amber-900 leading-relaxed">
                   <strong>温馨提示：</strong> 当前订单已进入【{statusConfig.label}】流程。若餐车主理人已在制作中，主理人将根据食材损耗情况确认审核。
                 </div>
 
@@ -461,7 +461,7 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
                     ].map((reason) => (
                       <label
                         key={reason}
-                        className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${
+                        className={`flex items-center gap-2 p-2 rounded-none border cursor-pointer transition-all ${
                           cancelReason === reason
                             ? 'bg-rose-50 border-rose-300 text-rose-950 font-medium'
                             : 'bg-neutral-50 border-neutral-200 hover:bg-neutral-100'
@@ -487,7 +487,7 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
                     value={cancelNote}
                     onChange={(e) => setCancelNote(e.target.value)}
                     placeholder="请输入详细诉求，主理人将加急跟进处理..."
-                    className="w-full p-2 border border-neutral-300 rounded-lg text-xs resize-none outline-none focus:border-black"
+                    className="w-full p-2 border border-neutral-300 rounded-none text-xs resize-none outline-none focus:border-black"
                   />
                 </div>
               </div>
@@ -497,14 +497,14 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsCancelModalOpen(false)}
-                  className="px-3 py-1.5 rounded-lg border border-neutral-300 hover:bg-neutral-100 text-neutral-700 font-semibold cursor-pointer"
+                  className="px-3 py-1.5 rounded-none border border-neutral-300 hover:bg-neutral-100 text-neutral-700 font-semibold cursor-pointer"
                 >
                   暂不取消
                 </button>
                 <button
                   type="button"
                   onClick={handleSubmitCancelRequest}
-                  className="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold cursor-pointer shadow-xs"
+                  className="px-4 py-1.5 rounded-none bg-rose-600 hover:bg-rose-700 text-white font-bold cursor-pointer shadow-xs"
                 >
                   确认提交申请
                 </button>

@@ -92,6 +92,18 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
     safeSetStorage('obsidian_merchant_voice_broadcast', isVoiceBroadcast);
   }, [isVoiceBroadcast]);
 
+  // 自动接单：开启后，待接单状态的订单自动流入后厨制作（消费已持久化的开关状态）
+  useEffect(() => {
+    if (!isAutoAccept) return;
+    orders.forEach((o) => {
+      if (o.status === 'pending') {
+        handleAcceptSingleOrder(o);
+      }
+    });
+    // 仅在开关或订单集合变化时评估；handleAcceptSingleOrder 每次渲染重建，故不列入依赖
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAutoAccept, orders]);
+
   // Modals
   const [receiptOrder, setReceiptOrder] = useState<Order | null>(null);
   const [chatOrder, setChatOrder] = useState<Order | null>(null);

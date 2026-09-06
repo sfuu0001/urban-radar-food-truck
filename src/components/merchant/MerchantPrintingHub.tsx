@@ -539,7 +539,7 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
             </div>
             <button
               type="button"
-              onClick={() => showToast('已模拟将本订单拆分发送至全部 4 台档口打印机！')}
+              onClick={() => window.print()}
               className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
             >
               <CheckCircle2 className="w-3.5 h-3.5" />

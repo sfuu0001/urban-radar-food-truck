@@ -32,7 +32,7 @@ import { CloudbaseStatusModal } from './components/CloudbaseStatusModal';
 import { INITIAL_DISHES, INITIAL_ORDERS, INITIAL_TRUCK_INFO } from './data/mockData';
 import { CATEGORY_TAXONOMY } from './data/categoryTaxonomy';
 import { INITIAL_USER_PROFILE } from './data/mockUser';
-import { CategoryType, DishItem, Order, ViewMode, CartItem, TruckInfo, UserProfile, DishVariant } from './types';
+import { CategoryType, DishItem, Order, ViewMode, CartItem, TruckInfo, UserProfile, DishVariant, TableDishItem } from './types';
 import { PaymentVoucher } from './types/payment';
 import { FilterOptions, INITIAL_FILTER_OPTIONS } from './types/filter';
 import { UtensilsCrossed, RefreshCw, Sparkles, FilterX, CheckSquare, Square } from 'lucide-react';
@@ -41,6 +41,9 @@ import { ToastProvider, useToast } from './components/ui/ToastContext';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { DishSkeletonGrid } from './components/ui/DishSkeletonGrid';
 import { safeGetStorage, safeSetStorage } from './utils/safeStorage';
+import { applyAvailabilityOverrides, setAvailabilityOverride } from './utils/dishAvailability';
+import { applyDishFieldOverrides } from './utils/dishFieldOverrides';
+import { getTruckInfo, saveTruckInfo } from './utils/truckInfo';
 import { isOrderMatch, normalizeOrderKey, getCanonicalOrderNo } from './utils/orderNormalizer';
 import { getCurrentBoundTable, bindOrderToMerchantTable } from './utils/tableStorage';
 import { sendOrderChatMessage } from './utils/chatHub';
@@ -142,10 +145,12 @@ function MainAppContent() {
   const toast = useToast();
 
   // Core state
-  const [truck, setTruck] = useState<TruckInfo>(INITIAL_TRUCK_INFO);
+  const [truck, setTruck] = useState<TruckInfo>(() => getTruckInfo());
   const [dishes, setDishes] = useState<DishItem[]>(() => {
     const raw = safeGetStorage<DishItem[]>('obsidian_truck_dishes', INITIAL_DISHES);
-    return ensureDishBarcodes(rematchAllDishImages(raw));
+    return applyAvailabilityOverrides(
+      applyDishFieldOverrides(ensureDishBarcodes(rematchAllDishImages(raw)))
+    );
   });
   const [orders, setOrders] = useState<Order[]>(() => {
     const raw = safeGetStorage<Order[]>('obsidian_truck_orders', INITIAL_ORDERS);
@@ -335,7 +340,7 @@ function MainAppContent() {
       .then((res) => {
         if (!isMounted) return;
         if (res.success && res.fromCloud && res.dishes && res.dishes.length > 0) {
-          setDishes(res.dishes);
+          setDishes(applyDishFieldOverrides(applyAvailabilityOverrides(res.dishes)));
         }
       })
       .catch((err) => {
@@ -399,7 +404,7 @@ function MainAppContent() {
       if (event.type === 'ORDERS_CHANGED' && event.data && Array.isArray(event.data)) {
         setOrders(event.data);
       } else if (event.type === 'DISHES_CHANGED' && event.data && Array.isArray(event.data)) {
-        setDishes(event.data);
+        setDishes(applyDishFieldOverrides(applyAvailabilityOverrides(event.data)));
       } else if (event.type === 'OUTBOX_DRAINED') {
         fetchOrdersFromCloud().then((res) => {
           if (res.orders && res.orders.length > 0 && isMounted) {
@@ -427,13 +432,22 @@ function MainAppContent() {
     safeSetStorage('obsidian_truck_dishes', dishes);
   }, [dishes]);
 
+  // Synchronize truck (店铺/餐车信息) to secure local storage whenever changed
+  useEffect(() => {
+    saveTruckInfo(truck);
+  }, [truck]);
+
   // 监听版本回滚引擎:菜单/订单数据被回滚到历史版本后，从本地权威键重载进 React state
   useEffect(() => {
     const handleDataRestored = (e: Event) => {
       const detail = (e as CustomEvent<{ module?: string; fullRestore?: boolean }>).detail || {};
       if (!detail.module || detail.module === 'dishes' || detail.fullRestore) {
         const fresh = safeGetStorage<DishItem[]>('obsidian_truck_dishes', INITIAL_DISHES);
-        setDishes(rematchAllDishImages(ensureDishBarcodes(fresh)));
+        setDishes(
+          applyAvailabilityOverrides(
+            applyDishFieldOverrides(rematchAllDishImages(ensureDishBarcodes(fresh)))
+          )
+        );
       }
       if (!detail.module || detail.module === 'orders' || detail.fullRestore) {
         const freshOrders = safeGetStorage<Order[]>('obsidian_truck_orders', INITIAL_ORDERS);
@@ -665,6 +679,7 @@ function MainAppContent() {
     const target = dishes.find((d) => d.id === dishId);
     if (target) {
       const nextState = !target.available;
+      setAvailabilityOverride(dishId, nextState);
       toast.info(nextState ? `已上架: ${target.name}` : `已下架: ${target.name}`);
     }
     setDishes((prev) =>
@@ -688,7 +703,7 @@ function MainAppContent() {
     fetchDishesFromCloud().then((res) => {
       setIsLoadingMenu(false);
       if (res.success && res.fromCloud && res.dishes.length > 0) {
-        setDishes(res.dishes);
+        setDishes(applyDishFieldOverrides(applyAvailabilityOverrides(res.dishes)));
         toast.success('菜单已从腾讯云同步至最新', '餐车实时库存与促销状态已刷新');
       } else {
         toast.success('菜单已同步至最新', '餐车实时库存与促销状态已刷新');
@@ -1039,6 +1054,30 @@ function MainAppContent() {
     toast.info(nonRefundable ? '已设置该订单为【不可退单】' : '已解除该订单不可退单锁定');
   };
 
+  // 同步桌台菜品进度到对应堂食订单：商家端台位矩阵的出餐进度回流至顾客端追踪视图
+  const handleSyncTableOrderItems = (orderNo: string, items: TableDishItem[]) => {
+    const cleanTarget = (orderNo || '').replace(/^#/, '');
+    setOrders((prev) =>
+      prev.map((o) => {
+        const cleanNo = (o.orderNo || '').replace(/^#/, '');
+        if (cleanNo !== cleanTarget) return o;
+        return {
+          ...o,
+          items: o.items.map((it) => {
+            const match = items.find((di) => (di.id && di.id === it.dishId) || di.name === it.name);
+            if (!match) return it;
+            return {
+              ...it,
+              serveStatus: match.serveStatus,
+              prepProgress: match.prepProgress,
+              serveTime: match.serveTime
+            };
+          })
+        };
+      })
+    );
+  };
+
   // Customer Apply Refund Feedback Handler (客户端只能做申请反馈)
   const handleApplyRefund = (
     orderId: string,
@@ -1085,10 +1124,11 @@ function MainAppContent() {
 
   // Update truck GPS & location across customer, merchant and rider portals
   const handleUpdateTruckLocation = (newLocation: string) => {
-    setTruck((prev) => ({
-      ...prev,
-      currentLocationName: newLocation
-    }));
+    setTruck((prev) => {
+      const updated = { ...prev, currentLocationName: newLocation };
+      saveTruckInfo(updated); // 商家修改餐车停靠点需落盘，刷新后保留
+      return updated;
+    });
     toast.success('餐车停靠位置与GPS已全网广播', `新停靠点：${newLocation}`);
   };
 
@@ -1824,6 +1864,7 @@ function MainAppContent() {
           onUpdateTruckLocation={handleUpdateTruckLocation}
           onSwitchRole={handleSelectRole}
           onAuditRefund={handleAuditRefund}
+          onSyncOrderItems={handleSyncTableOrderItems}
           onToggleNonRefundable={handleToggleNonRefundable}
         />
         <CloudbaseStatusModal

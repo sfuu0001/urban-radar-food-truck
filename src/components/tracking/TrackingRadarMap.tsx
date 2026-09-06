@@ -170,14 +170,14 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
         {/* Streamlined Top Telemetry Bar */}
         <div className="absolute top-2 inset-x-2.5 flex items-center justify-between pointer-events-none z-20">
           {/* Left: Compact Est ETA Chip */}
-          <div className="bg-[#181816]/90 backdrop-blur-xs text-white text-[10.5px] font-bold px-2.5 py-1 flex items-center gap-1.5 shadow-2xs rounded-lg pointer-events-auto">
+          <div className="bg-[#181816]/90 backdrop-blur-xs text-white text-[10.5px] font-bold px-2.5 py-1 flex items-center gap-1.5 shadow-2xs rounded-none pointer-events-auto">
             <Clock className="w-3 h-3 text-amber-400" />
             <span>{routeProgress >= 100 ? '已顺利送达' : 'Est. 1-2 mins'}</span>
           </div>
 
           {/* Right: Consolidated Streamlined Radar Status */}
           <div className="flex items-center gap-1.5 pointer-events-auto">
-            <div className="bg-white/95 backdrop-blur-xs text-[#222] text-[10.5px] font-bold px-2 py-1 border border-[#e2e2dc] shadow-2xs flex items-center gap-1.2 rounded-lg">
+            <div className="bg-white/95 backdrop-blur-xs text-[#222] text-[10.5px] font-bold px-2 py-1 border border-[#e2e2dc] shadow-2xs flex items-center gap-1.2 rounded-none">
               <motion.span
                 animate={{ opacity: [1, 0.2, 1], scale: [1, 1.2, 1] }}
                 transition={{ repeat: Infinity, duration: 1.2 }}
@@ -186,7 +186,7 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
               <span>{routeProgress >= 100 ? '0m 妥投' : `剩余约 ${distanceMeters}m`}</span>
             </div>
 
-            <div className="bg-[#181816]/90 backdrop-blur-xs text-white text-[10.5px] font-bold px-2 py-1 shadow-2xs flex items-center gap-1 rounded-lg">
+            <div className="bg-[#181816]/90 backdrop-blur-xs text-white text-[10.5px] font-bold px-2 py-1 shadow-2xs flex items-center gap-1 rounded-none">
               <motion.div
                 animate={{ rotate: 360 }}
                 transition={{ repeat: Infinity, duration: 3, ease: 'linear' }}
@@ -201,7 +201,7 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
 
         {/* Node 1: Food Truck Indicator Pin on Map (Start Point) */}
         <div className="absolute left-6 bottom-9 flex flex-col items-center z-10">
-          <div className="bg-[#181816] text-white text-[10px] font-bold px-2 py-0.5 shadow-sm flex items-center gap-1 rounded-md mb-0.5 whitespace-nowrap">
+          <div className="bg-[#181816] text-white text-[10px] font-bold px-2 py-0.5 shadow-sm flex items-center gap-1 rounded-none mb-0.5 whitespace-nowrap">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
             <span>起点: {truckName}</span>
           </div>
@@ -257,10 +257,10 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
         {/* Node 4: Streamlined Destination Point & Rider Marker (End Point) */}
         <div className="absolute right-6 top-8 flex flex-col items-end z-10">
           <div className="flex items-center gap-1.5 relative">
-            <div className="bg-[#181816]/95 backdrop-blur-xs text-white text-[9.5px] font-bold px-2 py-0.5 shadow-sm rounded-md whitespace-nowrap flex items-center gap-1.5 border border-white/10">
+            <div className="bg-[#181816]/95 backdrop-blur-xs text-white text-[9.5px] font-bold px-2 py-0.5 shadow-sm rounded-none whitespace-nowrap flex items-center gap-1.5 border border-white/10">
               <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
               <span>终点: {destinationLabel}</span>
-              <span className="text-blue-300 font-mono text-[9px] bg-blue-950/80 px-1 py-0.2 rounded border border-blue-400/20">
+              <span className="text-blue-300 font-mono text-[9px] bg-blue-950/80 px-1 py-0.2 rounded-none border border-blue-400/20">
                 {routeProgress}%
               </span>
             </div>
@@ -285,11 +285,11 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
 
         {/* Bottom-Left Floating Stats & Simulation Controls */}
         <div className="absolute bottom-2.5 left-3 flex items-center gap-1.5 z-20 flex-wrap">
-          <div className="bg-white text-black text-[11px] font-bold px-2.5 py-1 border border-[#e5e5e0] shadow-xs flex items-center gap-1 rounded-xl">
+          <div className="bg-white text-black text-[11px] font-bold px-2.5 py-1 border border-[#e5e5e0] shadow-xs flex items-center gap-1 rounded-none">
             <Zap className="w-3 h-3 text-amber-500 fill-amber-500" />
             <span>{speed} km/h</span>
           </div>
-          <div className="bg-white text-black text-[11px] font-bold px-2.5 py-1 border border-[#e5e5e0] shadow-xs flex items-center gap-1 rounded-xl">
+          <div className="bg-white text-black text-[11px] font-bold px-2.5 py-1 border border-[#e5e5e0] shadow-xs flex items-center gap-1 rounded-none">
             <Target className="w-3 h-3 text-neutral-600" />
             <span>距目的地 {distanceMeters}m</span>
           </div>
@@ -300,7 +300,7 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
               <button
                 type="button"
                 onClick={handleStepSimulation}
-                className="bg-white hover:bg-neutral-50 active:scale-95 text-[#333] text-[11px] font-bold px-2.5 py-1 border border-[#e5e5e0] shadow-xs cursor-pointer transition-all rounded-xl flex items-center gap-1"
+                className="bg-white hover:bg-neutral-50 active:scale-95 text-[#333] text-[11px] font-bold px-2.5 py-1 border border-[#e5e5e0] shadow-xs cursor-pointer transition-all rounded-none flex items-center gap-1"
               >
                 <Play className="w-3 h-3 text-blue-600 fill-blue-600" />
                 <span>{isSimulating ? '模拟巡航中...' : '单步模拟 (+15%)'}</span>
@@ -309,7 +309,7 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
               <button
                 type="button"
                 onClick={handleResetRoute}
-                className="bg-white hover:bg-neutral-50 active:scale-95 text-[#555] text-[11px] font-semibold px-2 py-1 border border-[#e5e5e0] shadow-xs cursor-pointer transition-all rounded-xl flex items-center gap-0.5"
+                className="bg-white hover:bg-neutral-50 active:scale-95 text-[#555] text-[11px] font-semibold px-2 py-1 border border-[#e5e5e0] shadow-xs cursor-pointer transition-all rounded-none flex items-center gap-0.5"
                 title="重播完整模拟线路"
               >
                 <RotateCcw className="w-3 h-3" />
@@ -323,7 +323,7 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
         <button
           type="button"
           onClick={() => setIsMapExpanded((v) => !v)}
-          className="absolute bottom-2.5 right-3 w-7 h-7 bg-white hover:bg-neutral-50 text-black border border-[#e5e5e0] shadow-xs flex items-center justify-center cursor-pointer active:scale-95 transition-all rounded-xl z-20"
+          className="absolute bottom-2.5 right-3 w-7 h-7 bg-white hover:bg-neutral-50 text-black border border-[#e5e5e0] shadow-xs flex items-center justify-center cursor-pointer active:scale-95 transition-all rounded-none z-20"
           title={isMapExpanded ? '收起' : '展开全景'}
         >
           {isMapExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}

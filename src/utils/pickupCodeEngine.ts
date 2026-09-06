@@ -71,8 +71,9 @@ export function verifyPickupCode(
   if (cleanInput === targetCode) return true;
   // 2. 匹配带前缀 "PK-8821"
   if (cleanInput === `PK-${targetCode}`) return true;
-  // 3. 匹配完整订单号后4位或完整订单号
-  if (cleanInput === cleanOrderNo || cleanOrderNo.endsWith(cleanInput)) return true;
+  // 3. 匹配完整订单号 或 订单号末 4 位（禁用模糊后缀匹配，防止单字符误放行）
+  const last4 = cleanOrderNo.slice(-4);
+  if (cleanInput === cleanOrderNo || cleanInput === last4) return true;
 
   return false;
 }

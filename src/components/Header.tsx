@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, Ticket, ShoppingBag, ClipboardList, User, Compass, Cloud, MessageSquareText, Bike, Utensils, ChevronDown } from 'lucide-react';
+import { Ticket, ShoppingBag, ClipboardList, User, Compass, Cloud, MessageSquareText, Bike, Utensils, ChevronDown } from 'lucide-react';
 import { motion } from 'motion/react';
 import { DiningModeSelector, DiningMode } from './DiningModeSelector';
 import { RoleSwitcherDropdown, UserRole } from './RoleSwitcherDropdown';
@@ -152,15 +152,12 @@ export const Header: React.FC<HeaderProps> = ({
   onSwitchTable,
   activeOrderNo
 }) => {
-  const routeConfig = customRouteConfig || getRouteConfig(activeNavTab, previousNavTab, isVIPActive);
-  const isSubRoute = activeNavTab !== 'home';
-
   return (
     <div className="w-full flex flex-col shrink-0 z-40 select-none">
       {/* Top Nav: Artisan Architectural Header */}
       <header
         id="main-unified-header"
-        className="bg-paper-card border-b border-line px-3 pt-[6px] pb-0 z-20 flex-shrink-0 h-[77.6px]"
+        className="bg-paper-card border-b border-line px-3 pt-[6px] pb-0 z-20 flex-shrink-0"
       >
         {/* Top Live Status Row */}
         <div className="flex items-center justify-between text-[10px] font-mono tracking-wider text-pitch border-b border-line pb-[5px] mb-[3px]">
@@ -241,14 +238,14 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </div>
 
-          <div className="flex items-center gap-1 min-w-0">
-            <span className="text-[9px] font-mono bg-techTag text-stone-700 px-1 py-0.5 border border-line shrink-0">
+          <div className="flex items-stretch gap-1 min-w-0 h-7.5 sm:h-8">
+            <span className="flex items-center text-[9px] font-mono bg-techTag text-stone-700 px-1 h-full border border-line shrink-0">
               单号 #{activeOrderNo || '8921'}
             </span>
             <button
               type="button"
               onClick={onSwitchTable || onChangeAddress}
-              className="text-[10px] font-mono px-2 py-0.5 bg-paper hover:bg-stone-100 border border-pitch text-pitch font-black flex items-center gap-1 transition-colors cursor-pointer truncate"
+              className="flex items-center text-[10px] font-mono px-2 h-full bg-paper hover:bg-stone-100 border border-pitch text-pitch font-black gap-1 transition-colors cursor-pointer truncate"
               title={diningMode === 'delivery' ? deliveryAddress : '点击切换堂食就餐桌号'}
             >
               <span className="w-1.5 h-1.5 bg-emeraldAccent rounded-full shrink-0"></span>
@@ -326,28 +323,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         )}
 
-        {/* Sub-Route Header Bar (Rendered only on sub-views with back navigation) */}
-        {isSubRoute && onBackToMenu && (
-          <div className="mt-1 pt-1.5 border-t border-line flex items-center justify-between">
-            <button
-              type="button"
-              onClick={onBackToMenu}
-              className="inline-flex items-center gap-1 px-2 py-0.5 bg-paper hover:bg-stone-100 border border-pitch text-[10px] font-mono font-bold text-pitch transition-colors cursor-pointer"
-              id="sub-header-back-button"
-              title={routeConfig?.backText || '返回点餐'}
-            >
-              <ArrowLeft className="w-3 h-3 text-pitch stroke-[2.2]" />
-              <span>{routeConfig?.backText || '返回点餐'}</span>
-            </button>
-
-            {routeConfig && (
-              <div className="flex items-center gap-1.5 text-[11px] font-mono text-pitch font-bold">
-                {routeConfig.icon}
-                <span>{routeConfig.title}</span>
-              </div>
-            )}
-          </div>
-        )}
+        {/* Sub-Route back navigation now lives inside each sub-page via <BackButton /> */}
       </header>
     </div>
   );

@@ -28,7 +28,7 @@ import {
   ListOrdered,
   QrCode
 } from 'lucide-react';
-import { TableItem, TableStatus, TableZone, DishItem, Order, WaitingTableItem } from '../../types';
+import { TableItem, TableStatus, TableZone, DishItem, Order, WaitingTableItem, TableDishItem } from '../../types';
 import { globalScannerEngine, playScannerBeep } from '../../utils/barcodeScannerEngine';
 import { resolveOrderChannelType, normalizeOrderKey } from '../../utils/orderNormalizer';
 import { TableDishProgressView } from './TableDishProgressView';
@@ -53,6 +53,7 @@ interface MerchantTablesProps {
   onTransferTable: (fromTableId: string, toTableId: string) => void;
   onReleaseTable: (tableId: string) => void;
   onUpdateTable?: (updatedTable: TableItem) => void;
+  onSyncOrderItems?: (orderNo: string, items: TableDishItem[]) => void;
   showToast: (msg: string, detail?: string) => void;
 }
 
@@ -65,6 +66,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
   onTransferTable,
   onReleaseTable,
   onUpdateTable,
+  onSyncOrderItems,
   showToast
 }) => {
   const [selectedZone, setSelectedZone] = useState<TableZone>('all');
@@ -212,6 +214,9 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
         onUpdateTable={(updated) => {
           onUpdateTable?.(updated);
           setSelectedTableForDetail(updated);
+          if (updated.orderNo && updated.orderItems && onSyncOrderItems) {
+            onSyncOrderItems(updated.orderNo, updated.orderItems);
+          }
         }}
         onOpenBillModal={(tbl) => {
           setSelectedTableForDetail(null);

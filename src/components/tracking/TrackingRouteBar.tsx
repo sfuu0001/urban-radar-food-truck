@@ -23,7 +23,7 @@ export const TrackingRouteBar: React.FC<TrackingRouteBarProps> = ({
       </div>
 
       {/* Middle Badge: Distance Arrow */}
-      <div className="bg-[#f0f0ee] text-[#444] text-[11px] font-bold px-2.5 py-1 flex items-center gap-1 font-mono shrink-0 rounded-md">
+      <div className="bg-[#f0f0ee] text-[#444] text-[11px] font-bold px-2.5 py-1 flex items-center gap-1 font-mono shrink-0 rounded-none">
         <span>直线 {distanceKm} km</span>
         <span>→</span>
       </div>

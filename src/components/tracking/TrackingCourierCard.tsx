@@ -42,14 +42,14 @@ export const TrackingCourierCard: React.FC<TrackingCourierCardProps> = ({
             <span className="text-[12px] text-[#73736c] font-normal">
               ({courier.title})
             </span>
-            <span className="inline-flex items-center gap-0.5 bg-[#fffbeb] text-[#d97706] text-[10.5px] font-bold px-1.5 py-0.2 border border-[#fef3c7] rounded-md shrink-0">
+            <span className="inline-flex items-center gap-0.5 bg-[#fffbeb] text-[#d97706] text-[10.5px] font-bold px-1.5 py-0.2 border border-[#fef3c7] rounded-none shrink-0">
               ★ {courier.rating.toFixed(2)}
             </span>
           </div>
           <div className="flex items-center gap-1 text-[11px] text-[#787770] font-normal mt-0.5 truncate">
             <span>已安全完成 {courier.completedOrders} 单 ·</span>
             {courier.isInsulatedBoxSanitized && (
-              <span className="text-[#059669] font-medium bg-[#ecfdf5] border border-[#d1fae5] px-1.5 py-0.2 text-[10px] rounded-md">
+              <span className="text-[#059669] font-medium bg-[#ecfdf5] border border-[#d1fae5] px-1.5 py-0.2 text-[10px] rounded-none">
                 保温箱已消毒
               </span>
             )}
@@ -57,12 +57,12 @@ export const TrackingCourierCard: React.FC<TrackingCourierCardProps> = ({
         </div>
       </div>
 
-      {/* Right: Micro-rounded Action Buttons */}
+      {/* Right: Micro-rounded-none Action Buttons */}
       <div className="flex flex-col gap-1.5 shrink-0">
         <button
           type="button"
           onClick={onContactOnline}
-          className="relative px-3.5 py-1.5 bg-[#181816] hover:bg-black active:scale-95 text-white text-[11.5px] font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-xs rounded-xl group"
+          className="relative px-3.5 py-1.5 bg-[#181816] hover:bg-black active:scale-95 text-white text-[11.5px] font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-xs rounded-none group"
         >
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -74,7 +74,7 @@ export const TrackingCourierCard: React.FC<TrackingCourierCardProps> = ({
         <button
           type="button"
           onClick={onCallPhone}
-          className="px-3.5 py-1.5 bg-[#f2f2ef] hover:bg-[#eaeae5] active:scale-95 text-black text-[11.5px] font-bold border border-[#e5e5df] flex items-center justify-center gap-1.5 cursor-pointer transition-all rounded-xl"
+          className="px-3.5 py-1.5 bg-[#f2f2ef] hover:bg-[#eaeae5] active:scale-95 text-black text-[11.5px] font-bold border border-[#e5e5df] flex items-center justify-center gap-1.5 cursor-pointer transition-all rounded-none"
         >
           <Phone className="w-3.5 h-3.5 fill-black text-black" />
           <span>电话联系</span>

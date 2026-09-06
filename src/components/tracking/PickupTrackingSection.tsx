@@ -106,7 +106,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
   return (
     <div className="space-y-3 p-3 sm:p-4 bg-white">
       {/* 1. Core Pickup Credential Card (取餐核心凭证) */}
-      <div className="bg-gradient-to-br from-[#1c1c1a] to-[#2b2b28] text-white rounded-2xl p-4 sm:p-5 shadow-md border border-neutral-800 space-y-3 relative overflow-hidden">
+      <div className="bg-gradient-to-br from-[#1c1c1a] to-[#2b2b28] text-white rounded-none p-4 sm:p-5 shadow-md border border-neutral-800 space-y-3 relative overflow-hidden">
         {/* Background glow watermark */}
         <div className="absolute -right-8 -bottom-8 w-36 h-36 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none" />
 
@@ -127,7 +127,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
         </div>
 
         {/* Big Monospace Code Display */}
-        <div className="bg-black/40 border border-white/10 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 backdrop-blur-sm">
+        <div className="bg-black/40 border border-white/10 rounded-none p-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 backdrop-blur-sm">
           <div>
             <span className="text-[10px] text-neutral-400 block font-medium">您的专属取餐码</span>
             <div className="flex items-baseline gap-2 mt-0.5">
@@ -137,7 +137,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
               <button
                 type="button"
                 onClick={handleCopyCode}
-                className="text-[11px] text-neutral-400 hover:text-white flex items-center gap-1 py-0.5 px-1.5 rounded bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+                className="text-[11px] text-neutral-400 hover:text-white flex items-center gap-1 py-0.5 px-1.5 rounded-none bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
               >
                 {copiedCode ? <CheckCircle2 className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
                 <span>{copiedCode ? '已复制' : '复制'}</span>
@@ -149,7 +149,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
           <button
             type="button"
             onClick={() => setIsQrModalOpen(true)}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-bold text-white transition-all cursor-pointer group"
+            className="flex items-center gap-2 px-3 py-2 rounded-none bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-bold text-white transition-all cursor-pointer group"
           >
             <QrCode className="w-5 h-5 text-emerald-400 group-hover:scale-110 transition-transform" />
             <div className="text-left">
@@ -162,7 +162,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
 
         {/* Smart Locker Location */}
         <div className="flex items-center gap-2 pt-1 text-xs text-neutral-300">
-          <div className="w-5 h-5 rounded-md bg-white/10 flex items-center justify-center shrink-0">
+          <div className="w-5 h-5 rounded-none bg-white/10 flex items-center justify-center shrink-0">
             <ThermometerSnowflake className="w-3 h-3 text-amber-400" />
           </div>
           <div className="min-w-0 flex-1">
@@ -173,7 +173,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
       </div>
 
       {/* 2. Real-time Dish Packing & Kitchen Prep Matrix (自提出餐打包与制作情况) */}
-      <div className="bg-white border border-[#e2e3e1] rounded-2xl p-3 sm:p-3.5 shadow-2xs space-y-3">
+      <div className="bg-white border border-[#e2e3e1] rounded-none p-3 sm:p-3.5 shadow-2xs space-y-3">
         {/* Progress Header */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-xs">
@@ -204,10 +204,10 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
           {pickupDishes.map((dish, idx) => (
             <div
               key={idx}
-              className="p-2.5 rounded-xl bg-[#fbfcfb] border border-[#ddead8] flex items-start justify-between gap-2"
+              className="p-2.5 rounded-none bg-[#fbfcfb] border border-[#ddead8] flex items-start justify-between gap-2"
             >
               <div className="flex items-start gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-[#edf3ec] text-[#2b593f] flex items-center justify-center shrink-0 mt-0.5">
+                <div className="w-8 h-8 rounded-none bg-[#edf3ec] text-[#2b593f] flex items-center justify-center shrink-0 mt-0.5">
                   <CheckCircle2 className="w-4 h-4 text-emerald-700" />
                 </div>
                 <div className="min-w-0">
@@ -232,7 +232,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
               </div>
 
               <div className="text-right shrink-0 space-y-0.5">
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc]">
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-none bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc]">
                   <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                   <span>已入柜保温</span>
                 </span>
@@ -248,7 +248,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
             type="button"
             onClick={handleUrgePickup}
             disabled={isUrging}
-            className="py-2 px-2 rounded-xl text-xs font-bold bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200 flex items-center justify-center gap-1 cursor-pointer transition-all shadow-2xs"
+            className="py-2 px-2 rounded-none text-xs font-bold bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200 flex items-center justify-center gap-1 cursor-pointer transition-all shadow-2xs"
             title="通知餐车吧台加急处理"
           >
             <AlertCircle className={`w-3.5 h-3.5 ${isUrging ? 'animate-spin' : ''}`} />
@@ -258,7 +258,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
           <button
             type="button"
             onClick={handleNavigateToTruck}
-            className="py-2 px-2 rounded-xl text-xs font-bold bg-[#f4f4f2] hover:bg-[#ebebe7] text-[#1a1c1b] border border-[#deded8] flex items-center justify-center gap-1 cursor-pointer transition-all shadow-2xs"
+            className="py-2 px-2 rounded-none text-xs font-bold bg-[#f4f4f2] hover:bg-[#ebebe7] text-[#1a1c1b] border border-[#deded8] flex items-center justify-center gap-1 cursor-pointer transition-all shadow-2xs"
             title="查看流动餐车站台位置与路线"
           >
             <Navigation className="w-3.5 h-3.5 text-emerald-600" />
@@ -268,7 +268,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
           <button
             type="button"
             onClick={handleCallTruck}
-            className="py-2 px-2 rounded-xl text-xs font-bold bg-[#edf3ec] hover:bg-[#ddead8] text-[#2b593f] border border-[#c4dcbc] flex items-center justify-center gap-1 cursor-pointer transition-all shadow-2xs"
+            className="py-2 px-2 rounded-none text-xs font-bold bg-[#edf3ec] hover:bg-[#ddead8] text-[#2b593f] border border-[#c4dcbc] flex items-center justify-center gap-1 cursor-pointer transition-all shadow-2xs"
             title="直接致电餐车主理人"
           >
             <Phone className="w-3.5 h-3.5" />
@@ -278,13 +278,13 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
       </div>
 
       {/* 3. Pickup Flow Nodes (自提状态流转节点) */}
-      <div className="bg-white border border-[#e2e3e1] rounded-2xl p-3 sm:p-3.5 shadow-2xs space-y-3">
+      <div className="bg-white border border-[#e2e3e1] rounded-none p-3 sm:p-3.5 shadow-2xs space-y-3">
         <div className="flex items-center justify-between text-xs">
           <span className="font-bold text-[#1a1c1b] flex items-center gap-1.5">
             <Layers className="w-4 h-4 text-emerald-700" />
             <span>到店自提状态流转节点</span>
           </span>
-          <span className="text-[10px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded font-medium">
+          <span className="text-[10px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded-none font-medium">
             5步全流程可溯
           </span>
         </div>
@@ -313,7 +313,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
                 </div>
 
                 <div
-                  className={`flex-1 p-2 rounded-xl border transition-all ${
+                  className={`flex-1 p-2 rounded-none border transition-all ${
                     isCurrent
                       ? 'bg-emerald-50/70 border-emerald-200'
                       : isCompleted
@@ -344,7 +344,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
       </div>
 
       {/* 4. Food Truck Stand Address & Info */}
-      <div className="p-3 bg-[#f8f9fa] border border-[#e5e7eb] rounded-2xl text-xs space-y-1.5">
+      <div className="p-3 bg-[#f8f9fa] border border-[#e5e7eb] rounded-none text-xs space-y-1.5">
         <div className="flex items-center justify-between text-[#787774] font-medium">
           <span className="flex items-center gap-1">
             <MapPin className="w-3.5 h-3.5 text-emerald-600" />
@@ -371,7 +371,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm bg-white rounded-3xl p-6 text-center space-y-4 shadow-2xl relative"
+              className="w-full max-w-sm bg-white rounded-none p-6 text-center space-y-4 shadow-2xl relative"
             >
               <button
                 type="button"
@@ -399,7 +399,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
               </div>
 
               {/* Simulated Barcode */}
-              <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-200 flex flex-col items-center justify-center">
+              <div className="bg-neutral-50 p-4 rounded-none border border-neutral-200 flex flex-col items-center justify-center">
                 <div className="h-16 w-56 flex items-center justify-between px-2">
                   {[2, 1, 3, 1, 4, 2, 1, 3, 2, 4, 1, 2, 3, 1, 2, 4, 2, 1, 3, 2, 1, 3, 1, 2].map((w, idx) => (
                     <div
@@ -421,7 +421,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
               <button
                 type="button"
                 onClick={() => setIsQrModalOpen(false)}
-                className="w-full py-2.5 rounded-xl bg-black text-white text-xs font-bold hover:bg-neutral-800 transition-colors"
+                className="w-full py-2.5 rounded-none bg-black text-white text-xs font-bold hover:bg-neutral-800 transition-colors"
               >
                 我知道了，返回追踪页
               </button>
