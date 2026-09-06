@@ -322,6 +322,8 @@ export interface Order {
   convertAuditReason?: string; // 堂食转外卖审核原因
   paymentMethod?: string; // 支付渠道标识 (如 'wechat', 'alipay', 'card', 'dcep', 'enterprise')
   paymentVoucher?: PaymentVoucher; // 安全支付防伪电子凭证与对账存证回执
+  dinerCount?: number; // 堂食就餐人数
+  truckLocation?: string; // 餐车停泊位置说明
 }
 
 export interface BoundTableInfo {

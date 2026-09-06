@@ -27,7 +27,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约5m',
     imageUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     artisanCode: 'ARTISAN #02',
     refCode: 'SK-1012',
     coreTemp: '备长炭 800°C',
@@ -53,7 +53,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约6m',
     imageUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     artisanCode: 'ARTISAN #08',
     refCode: 'SK-1090',
     coreTemp: 'TEMP 62°C',
@@ -82,7 +82,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约4m',
     imageUrl: 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '160 kcal', protein: '14.5g' },
     originSource: '冷鲜排酸牛里脊/霖肉，单串 35g',
     chefNotes: '牛羊肉忌厚重甜酱，只刷薄油+撒万能干料，大火快烤锁汁。'
@@ -108,7 +108,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约5m',
     imageUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '190 kcal', protein: '13.8g' },
     originSource: '谷饲牛肋条，单串 35g',
     chefNotes: '中大火快烤，逼出油香时撒纯孜然辣椒干粉。'
@@ -130,7 +130,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约4m',
     imageUrl: 'https://images.unsplash.com/photo-1558030006-450675393462?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '175 kcal', protein: '15.0g' },
     originSource: '原切雪花牛上脑，单串 35g',
     chefNotes: '高温封边，7分熟最佳。'
@@ -152,7 +152,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约3m',
     imageUrl: 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '180 kcal', protein: '11.0g' },
     originSource: '冷鲜精选肥牛，单串 30g',
     chefNotes: '快烤2-3分钟，出锅撒万能撒料。'
@@ -176,7 +176,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '堂食',
     prepTime: '约7m',
     imageUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '165 kcal', protein: '16.0g' },
     originSource: '冷鲜带油羊腰，单串 80g',
     chefNotes: '内脏腌制20分钟即可，中小火慢烤熟透，薄刷卤烤复合酱去腥，出锅补撒干料。'
@@ -198,7 +198,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约4m',
     imageUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '110 kcal', protein: '13.0g' },
     originSource: '精选原切羊板筋，单串 35g',
     chefNotes: '提前高压熟化，炭火快烤1分钟出锅，保持软弹。'
@@ -220,7 +220,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约5m',
     imageUrl: 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '130 kcal', protein: '12.0g' },
     originSource: '原切羊脆骨，单串 35g',
     chefNotes: '慢火烘透，出锅撒万能撒料与粗熟花生碎。'
@@ -246,7 +246,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约4m',
     imageUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '120 kcal', protein: '10.5g' },
     originSource: '精品猪脆骨，单串 30g',
     chefNotes: '大火快烤，出锅撒足量孜然辣椒面。'
@@ -268,7 +268,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '堂食',
     prepTime: '约4m',
     imageUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '135 kcal', protein: '14.0g' },
     originSource: '鲜猪小腰，单串 35g',
     chefNotes: '猛火快烤，出锅撒麻辣烧烤料。'
@@ -290,7 +290,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约4m',
     imageUrl: 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '100 kcal', protein: '11.0g' },
     originSource: '鲜猪板筋，单串 30g',
     chefNotes: '勤刷红油防烤干。'
@@ -312,7 +312,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约3m',
     imageUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '115 kcal', protein: '13.5g' },
     originSource: '原切生猪鼻筋，单串 30g',
     chefNotes: '大火快烤，出锅撒足量万能撒料与花生碎。'
@@ -334,7 +334,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约3m',
     imageUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '95 kcal', protein: '12.0g' },
     originSource: '鲜猪黄喉，单串 35g',
     chefNotes: '快烤2分钟至边缘微卷，严禁烤老。'
@@ -356,7 +356,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约5m',
     imageUrl: 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '140 kcal', protein: '11.5g' },
     originSource: '精品月牙骨，单串 35g',
     chefNotes: '中温慢烤，出锅前补撒孜然辣椒干料。'
@@ -380,7 +380,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约4m',
     imageUrl: 'https://images.unsplash.com/photo-1527477396000-e27163b481c2?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '125 kcal', protein: '13.0g' },
     originSource: '精选鸡掌中宝，单串 30g',
     chefNotes: '大火快烤逼出油，撒万能干料与熟白芝麻。'
@@ -402,7 +402,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约4m',
     imageUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '110 kcal', protein: '14.0g' },
     originSource: '原切鸡脚筋，单串 30g',
     chefNotes: '刷红油慢烤，撒秘制麻辣烧烤料。'
@@ -426,7 +426,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约8m',
     imageUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '220 kcal', protein: '18.0g' },
     originSource: '精品猪精排，单串 60g',
     chefNotes: '中小火慢烤熟透，8成熟薄刷万能卤烤复合酱，去腥增香自带回味。'
@@ -448,7 +448,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约5m',
     imageUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '165 kcal', protein: '12.0g' },
     originSource: '冷鲜松板肉，单串 35g',
     chefNotes: '烤出金黄焦边时出炉，撒万能干料。'
@@ -470,7 +470,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '堂食',
     prepTime: '约6m',
     imageUrl: 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '210 kcal', protein: '15.0g' },
     originSource: '冷鲜生油边，单串 50g',
     chefNotes: '慢火逼油，出锅趁热切开撒干料与熟芝麻。'
@@ -492,7 +492,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约4m',
     imageUrl: 'https://images.unsplash.com/photo-1527477396000-e27163b481c2?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '95 kcal', protein: '8.0g' },
     originSource: '冰鲜鸡翅尖，单串 35g',
     chefNotes: '大火快翻防焦黑。'
@@ -514,7 +514,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约4m',
     imageUrl: 'https://images.unsplash.com/photo-1527477396000-e27163b481c2?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '130 kcal', protein: '13.5g' },
     originSource: '冷鲜去骨鸡腿肉，单串 35g',
     chefNotes: '半熟时薄刷烧烤刷酱，收尾撒干料增香。'
@@ -536,7 +536,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '堂食',
     prepTime: '约4m',
     imageUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '90 kcal', protein: '12.0g' },
     originSource: '鲜鸡肝，单串 35g',
     chefNotes: '严禁烤老发干，薄刷复合酱出炉。'
@@ -558,7 +558,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约4m',
     imageUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '145 kcal', protein: '15.0g' },
     originSource: '卤制鸡爪，单串 45g',
     chefNotes: '先卤后烤，刷万能卤烤复合酱，出锅撒麻辣烧烤料。'
@@ -580,7 +580,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约2m',
     imageUrl: 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '120 kcal', protein: '14.0g' },
     originSource: '鲜鸭肠，标准把把串 50g',
     chefNotes: '猛火快烤20秒定型，出锅撒万能干料。'
@@ -602,7 +602,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约4m',
     imageUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '95 kcal', protein: '13.0g' },
     originSource: '鲜鸭胗，单串 35g',
     chefNotes: '内脏类快烤，撒万能撒料与花生碎。'
@@ -624,7 +624,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '堂食',
     prepTime: '约5m',
     imageUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '110 kcal', protein: '10.5g' },
     originSource: '精选鲜鸭舌，单串 30g',
     chefNotes: '薄刷刷酱，收尾撒白芝麻。'
@@ -652,7 +652,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约3m',
     imageUrl: 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '120 kcal', protein: '11.0g' },
     originSource: '原切牛霖肉片 + 鲜香菜，单串 35g',
     chefNotes: '只刷薄油锁汁，出锅撒基础万能撒料，忌重酱掩盖香菜清香。'
@@ -676,7 +676,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约3m',
     imageUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '115 kcal', protein: '10.5g' },
     originSource: '四川野山椒 + 原切牛肉片，单串 35g',
     chefNotes: '快烤2分钟锁水，撒少量孜然粉提香。'
@@ -698,7 +698,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约3m',
     imageUrl: 'https://images.unsplash.com/photo-1558030006-450675393462?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '125 kcal', protein: '11.5g' },
     originSource: '精选大叶紫苏 + 牛肉，单串 35g',
     chefNotes: '微火快烤保留紫苏鲜绿与芳香油。'
@@ -722,7 +722,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约3m',
     imageUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '130 kcal', protein: '9.8g' },
     originSource: '都乐金菠萝 + 原切牛肉，单串 35g',
     chefNotes: '水果款不撒麻辣料，撒奶香原味烧烤料保留清甜。'
@@ -744,7 +744,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约3m',
     imageUrl: 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '110 kcal', protein: '9.0g' },
     originSource: '云南阳光玫瑰青提 + 原切牛肉，单串 35g',
     chefNotes: '极速快烤锁汁，出锅撒少量海盐奶香粉。'
@@ -766,7 +766,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约3m',
     imageUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '105 kcal', protein: '10.0g' },
     originSource: '洪湖泡藕尖 + 原切牛肉，单串 35g',
     chefNotes: '快烤锁住藕尖脆度。'
@@ -788,7 +788,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约3m',
     imageUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '115 kcal', protein: '9.5g' },
     originSource: '传统古法糖蒜 + 牛肉，单串 35g',
     chefNotes: '薄刷油烤透即可，撒基础干料。'
@@ -810,7 +810,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约3m',
     imageUrl: 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '120 kcal', protein: '11.0g' },
     originSource: '新鲜螺丝椒 + 原切牛肉，单串 35g',
     chefNotes: '青椒起虎皮时出炉，撒万能干料。'
@@ -838,7 +838,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约4m',
     imageUrl: 'https://images.unsplash.com/photo-1565680018434-b513d5e5fd47?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '105 kcal', protein: '16.0g' },
     originSource: '冷链深海鲜鱿鱼须，单串 50g',
     chefNotes: '海鲜全程不刷甜厚酱，只刷清油/红油，出锅前撒孜然、辣椒面与白胡椒粉，突出本鲜。'
@@ -860,7 +860,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约5m',
     imageUrl: 'https://images.unsplash.com/photo-1565680018434-b513d5e5fd47?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '180 kcal', protein: '28.0g' },
     originSource: '深海原切大鱿鱼板，单份 120g',
     chefNotes: '双面刷红油快烤，剪开撒万能干粉。'
@@ -882,7 +882,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约4m',
     imageUrl: 'https://images.unsplash.com/photo-1533745848184-3db07256e163?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '95 kcal', protein: '14.0g' },
     originSource: '鲜冻小墨鱼仔，单串 40g (3只)',
     chefNotes: '轻刷薄油防干，撒鲜香不辣撒料。'
@@ -904,7 +904,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '堂食',
     prepTime: '约6m',
     imageUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '120 kcal', protein: '15.0g' },
     originSource: '东海野生小黄鱼，单条 60g',
     chefNotes: '慢火把鱼皮水分烤干变酥脆，撒孜然椒盐。'
@@ -926,7 +926,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约3m',
     imageUrl: 'https://images.unsplash.com/photo-1565680018434-b513d5e5fd47?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '100 kcal', protein: '18.0g' },
     originSource: '鲜活青虾仁，单把 50g',
     chefNotes: '大火烤至通红微焦即可，撒鲜香撒料。'
@@ -948,7 +948,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '堂食',
     prepTime: '约7m',
     imageUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '210 kcal', protein: '16.0g' },
     originSource: '出口级鲜活鳗鱼，单串 50g',
     chefNotes: '皮朝下先烤脆，反复刷酱3遍，出炉撒白芝麻。'
@@ -972,7 +972,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约4m',
     imageUrl: 'https://images.unsplash.com/photo-1565680018434-b513d5e5fd47?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '160 kcal', protein: '15.0g' },
     originSource: '鲜大虾仁 + 五花肉，单串 40g',
     chefNotes: '五花肉焦香逼出油滋养虾肉，撒万能干粉。'
@@ -998,7 +998,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约4m',
     imageUrl: 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '140 kcal', protein: '10.0g' },
     originSource: '手打牛肉丸，单串 50g (3颗)',
     chefNotes: '半熟时薄刷烧烤刷酱入味，丸类烤至外皮微焦再撒料。'
@@ -1020,7 +1020,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约3m',
     imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '95 kcal', protein: '8.5g' },
     originSource: '深海鱼豆腐，单串 45g',
     chefNotes: '豆制品多刷薄油防干，膨胀后刷酱。'
@@ -1042,7 +1042,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约3m',
     imageUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '180 kcal', protein: '11.0g' },
     originSource: '高肉含量午餐肉，单串 50g',
     chefNotes: '微火烘烤出焦壳即可。'
@@ -1064,7 +1064,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约3m',
     imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '85 kcal', protein: '7.5g' },
     originSource: '高品质蟹肉棒，单串 40g',
     chefNotes: '蟹柳易散，中温快翻。'
@@ -1088,7 +1088,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约5m',
     imageUrl: 'https://images.unsplash.com/photo-1565680018434-b513d5e5fd47?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '135 kcal', protein: '14.0g' },
     originSource: '手工鲜虾滑 + 优质豆泡，单串 50g',
     chefNotes: '慢火把虾滑烘熟膨胀，豆皮刷薄蒜蓉油。'
@@ -1110,7 +1110,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约4m',
     imageUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '140 kcal', protein: '13.0g' },
     originSource: '手工面筋 + 纯虾滑，单串 55g',
     chefNotes: '先烤熟内部虾滑，出锅重撒孜然花生碎。'
@@ -1132,7 +1132,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约2m',
     imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '120 kcal', protein: '12.0g' },
     originSource: '农家现磨油豆皮，单把 45g',
     chefNotes: '快烤防焦，出锅撒万能干料。'
@@ -1160,7 +1160,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约4m',
     imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '160 kcal', protein: '3.0g' },
     originSource: '手打红薯苕皮，单张标准 80g',
     chefNotes: '苕皮额外刷秘制红油+撒万能干料，大火快烤起泡立刻包料出锅。'
@@ -1182,7 +1182,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约3m',
     imageUrl: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '35 kcal', protein: '1.5g' },
     originSource: '安徽涡阳贡菜，单串 40g',
     chefNotes: '快烤快出，刷素菜专用蘸刷汁提鲜。'
@@ -1206,7 +1206,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约4m',
     imageUrl: 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '150 kcal', protein: '9.0g' },
     originSource: '精品五花肉 + 鲜金针菇，单串 45g',
     chefNotes: '带肉混搭串先烤至肉出油，补刷薄烧烤酱再撒干料。'
@@ -1228,7 +1228,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约4m',
     imageUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '130 kcal', protein: '8.5g' },
     originSource: '生菜心 + 五花肉，单串 40g',
     chefNotes: '快烤锁住生菜脆嫩。'
@@ -1252,7 +1252,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约8m',
     imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '110 kcal', protein: '3.5g' },
     originSource: '精选大圆茄，整只 250g',
     chefNotes: '茄皮烤软剖开，盖金银蒜蓉酱煨入味，出炉撒葱花与白芝麻。'
@@ -1274,7 +1274,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约3m',
     imageUrl: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '60 kcal', protein: '1.5g' },
     originSource: '洪湖鲜莲藕，单串 45g',
     chefNotes: '焯水3分熟后再烤，缩短时间避免夹生。'
@@ -1296,7 +1296,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约3m',
     imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '40 kcal', protein: '2.0g' },
     originSource: '深海厚海带结，单串 40g',
     chefNotes: '薄刷红油烤热即可。'
@@ -1318,7 +1318,7 @@ export const COMPREHENSIVE_SKEWER_SKUS: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约3m',
     imageUrl: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '30 kcal', protein: '1.8g' },
     originSource: '高山鲜笋尖，单串 40g',
     chefNotes: '刷素菜专用汁提鲜，少量撒干料。'

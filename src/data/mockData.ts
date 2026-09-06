@@ -85,7 +85,7 @@ const RAW_INITIAL_DISHES: DishItem[] = [
     discountTag: '外卖立减¥5',
     prepTime: '约8m',
     imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA32viOVDfexuwOuGfWnXAaAz9FvK4lKmqO8K-IwSbSdK1_LtbRf0RW4oqeV-waNLp39pdw0Qs5DJnmVhscOgTjgcIxM_HjaS4ziUGxVJocwH86s8Zfnj6nAO1A8oJUnmPbFlWa1VjsnzO_uBejuq3nRqHu4libamcGnIIh-bdR1GMyDECwYyrS13NDxymSmSqButaz5iDig3QMakfSEBj70SpexDSFVfolI_f1sXyXcdd_nOizGFes',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '420 kcal', protein: '12g' },
     originSource: 'Miyazaki Prefecture, Japan. Sourced from a multi-generational family farm known for exceptional marbling score 10+.',
     chefNotes: '"The activated charcoal bun isn\'t just visual—it provides a subtle earthy undertone that anchors the high notes of the black winter truffle."',
@@ -180,7 +180,7 @@ const RAW_INITIAL_DISHES: DishItem[] = [
     discountTag: '外卖专享特惠',
     prepTime: '约10m',
     imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAFn5YXoe2cx0af8TGA7AvNQ837PkCRykZiObX-23oeLS_MW0El0JEVhJDI-_HlLQ6_t1uYePqpzYbiTaNR8hehaicvg4xo0PSFsLeCo7pa3UPnDgQfEgXgzGM9FKlbxda-mPqMSipcF9xvoiTNMvVIA9DfESecb1psm91IuRxQhleXDSn22xy6h0I5IAqc5AyLl91V8bjrdDuXK97xvdcbr80WasEl89ZODQdXSl8d-9eDbJ1RATlj',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '620 kcal', protein: '28g' },
     optionGroups: [
       {
@@ -224,7 +224,7 @@ const RAW_INITIAL_DISHES: DishItem[] = [
     discountTag: '外卖买一赠一券',
     prepTime: '约3m',
     imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDEgIb6rUJR2kLOr-nub3lL-TuvnpBeGKW_Iuu07rANWy0oRq28VazKBq2tvcI64cxXRQKfCCTCKaDwSWaZrEZvQr5zANiFcWCvJRqMd49q9au-sOUY1T4YKoFvnK6u36M0Is5vaYSx206P_OQ4hdhqPT3K3OqUOGU6ptOIrK8GUBeQuv1HgG6MjYYHV0g6yrOk7LdWPrBDJnBSSKtq0MDjQMx45Nvo3k0H3DyRkB_bPRXI1qNJS0ms',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '65 kcal', protein: '2g' },
     optionGroups: [
       {
@@ -268,7 +268,7 @@ const RAW_INITIAL_DISHES: DishItem[] = [
     discountTag: '第二份半价',
     prepTime: '约6m',
     imageUrl: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '380 kcal', protein: '6g' },
     optionGroups: [
       {
@@ -303,7 +303,7 @@ const RAW_INITIAL_DISHES: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约12m',
     imageUrl: 'https://images.unsplash.com/photo-1587314168485-3236d6710814?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '310 kcal', protein: '8g' },
     optionGroups: [
       {
@@ -337,7 +337,7 @@ const RAW_INITIAL_DISHES: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约2m',
     imageUrl: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '45 kcal', protein: '0g' },
     optionGroups: [
       {
@@ -372,7 +372,7 @@ const RAW_INITIAL_DISHES: DishItem[] = [
     discountTag: '新客减¥8',
     prepTime: '约9m',
     imageUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '690 kcal', protein: '38g' },
     optionGroups: [
       {
@@ -416,7 +416,7 @@ const RAW_INITIAL_DISHES: DishItem[] = [
     typeTag: '堂食',
     prepTime: '约15m',
     imageUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '780 kcal', protein: '58g' },
     originSource: '澳洲昆士兰谷饲和牛，大理石花纹等级 M5+',
     chefNotes: '推荐五分熟 (Medium)，炭火炙烤锁汁，静置醒肉 3 分钟后切厚片出品。',
@@ -462,7 +462,7 @@ const RAW_INITIAL_DISHES: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约16m',
     imageUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '920 kcal', protein: '66g' }
   },
   {
@@ -486,7 +486,7 @@ const RAW_INITIAL_DISHES: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约8m',
     imageUrl: 'https://images.unsplash.com/photo-1587314168485-3236d6710814?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '350 kcal', protein: '6.5g' }
   },
   {
@@ -510,7 +510,7 @@ const RAW_INITIAL_DISHES: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约8m',
     imageUrl: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '540 kcal', protein: '24g' }
   },
   // ==========================================
@@ -537,7 +537,7 @@ const RAW_INITIAL_DISHES: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约5m',
     imageUrl: 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '135 kcal', protein: '8.5g' },
     originSource: '雨润冷鲜冷链直供，标准出肉率 85%，单串标准克重 30g',
     chefNotes: '逆肉纹斜切断筋，蜜汁含糖易焦化，中后程移至微火区慢烤。',
@@ -689,7 +689,7 @@ const RAW_INITIAL_DISHES: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约6m',
     imageUrl: 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '185 kcal', protein: '14.0g' },
     originSource: '宁夏滩羊产业基地直供排酸羊肉，标准出肉率 74%，单串 35g',
     chefNotes: '两瘦夹一肥，严禁明火直接燎肉，出锅前15秒撒纯孜然辣椒料。',
@@ -727,7 +727,7 @@ const RAW_INITIAL_DISHES: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约5m',
     imageUrl: 'https://images.unsplash.com/photo-1533745848184-3db07256e163?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '120 kcal', protein: '9.0g' },
     originSource: '威海乳山直供鲜活大生蚝 (120-150g/只)，出成率 94%',
     chefNotes: '原汁自然烧开沸腾 1 分钟后铺金银蒜蓉酱，铝箔慢煨 2 分钟。',
@@ -783,7 +783,7 @@ const RAW_INITIAL_DISHES: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约4m',
     imageUrl: 'https://images.unsplash.com/photo-1565680018434-b513d5e5fd47?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '95 kcal', protein: '15.0g' },
     originSource: '连云港直通冷链南美白对虾，标准出成率 92%，单串 45g (2只)',
     chefNotes: '两面各烤 2 分钟至外壳焦红，出炉刷蒜蓉微辣酱。'
@@ -989,7 +989,7 @@ const RAW_INITIAL_DISHES: DishItem[] = [
     typeTag: '外卖',
     prepTime: '约3m',
     imageUrl: 'https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?auto=format&fit=crop&w=800&q=80',
-    available: true,
+    available: false, // 遵从要求：默认未上架，待商家手动上架
     nutrition: { calories: '35 kcal', protein: '1.2g' },
     originSource: '云南高山有机彩椒，标准出成率 90%，单串 50g',
     chefNotes: '现切现穿沥干水分，刷薄油撒少许椒盐。'

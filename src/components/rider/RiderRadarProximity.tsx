@@ -12,6 +12,7 @@ import {
   Layers
 } from 'lucide-react';
 import { TruckInfo } from '../../types';
+import { getTruckTheme } from '../../utils/truckLocationEngine';
 
 interface RiderRadarProximityProps {
   truck: TruckInfo;
@@ -25,6 +26,7 @@ export const RiderRadarProximity: React.FC<RiderRadarProximityProps> = ({
   showToast
 }) => {
   const [radarZoom, setRadarZoom] = useState<'1km' | '3km' | '5km'>('1km');
+  const theme = getTruckTheme(truck.id);
 
   // Simulated nearby orders and heatmaps
   const nearbyDemandHotspots = [
@@ -79,30 +81,51 @@ export const RiderRadarProximity: React.FC<RiderRadarProximityProps> = ({
         {/* Radar Graphic Visualizer */}
         <div className="md:col-span-2 bg-[#201f1d] rounded-[3px] p-5 text-white relative overflow-hidden flex flex-col justify-between shadow-xs min-h-[260px]">
           {/* Radar Circles Pattern */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
-            <div className="w-64 h-64 border border-emerald-400 rounded-full animate-ping" />
-            <div className="w-48 h-48 border border-white/40 rounded-full absolute" />
-            <div className="w-32 h-32 border border-white/40 rounded-full absolute" />
-            <div className="w-16 h-16 border border-white/40 rounded-full absolute" />
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
+            {/* 360° Rotating sweep beam */}
+            <div
+              className="radar-sweep-beam w-72 h-72 rounded-full absolute"
+              style={{
+                background: theme.radarSweepGradient,
+                border: `1px dashed ${theme.color}35`
+              }}
+            />
+            {/* Concentric sonar waves */}
+            <div className="radar-sonar-wave-1 w-60 h-60 rounded-full border absolute" style={{ borderColor: theme.color }} />
+            <div className="radar-sonar-wave-2 w-60 h-60 rounded-full border absolute" style={{ borderColor: theme.color }} />
+            <div className="w-56 h-56 border border-white/20 rounded-full absolute" />
+            <div className="w-40 h-40 border border-white/25 rounded-full absolute" />
+            <div className="w-24 h-24 border border-white/30 rounded-full absolute" />
+            {/* Polar crosshair reticle */}
+            <div className="w-full h-[1px] bg-white/15 absolute" />
+            <div className="h-full w-[1px] bg-white/15 absolute" />
           </div>
 
           <div className="relative z-10 flex items-center justify-between">
-            <span className="font-mono text-xs text-emerald-400 flex items-center gap-1.5 font-bold">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>雷达扫描巡检运行中</span>
+            <span className="font-mono text-xs flex items-center gap-1.5 font-bold" style={{ color: theme.color }}>
+              <span className="w-2.5 h-2.5 rounded-full animate-pulse shadow-xs" style={{ backgroundColor: theme.color }} />
+              <span>{theme.num}号车 · 动态雷达遥测中</span>
             </span>
-            <span className="text-[10px] text-white/60 font-mono">扫描范围: {radarZoom}</span>
+            <span className="text-[10px] text-white/70 font-mono bg-white/10 px-2 py-0.5 rounded-full">
+              扫描范围: {radarZoom}
+            </span>
           </div>
 
           {/* Central Mobile Food Truck Marker */}
           <div className="relative z-10 my-6 text-center space-y-2">
             <div className="inline-flex flex-col items-center">
-              <div className="w-12 h-12 bg-white text-black rounded-full flex items-center justify-center shadow-lg border-2 border-emerald-400">
-                <Bike className="w-6 h-6 text-[#2b593f]" />
+              <div
+                className="radar-core-ping w-12 h-12 bg-white text-black rounded-full flex items-center justify-center shadow-lg border-2"
+                style={{ borderColor: theme.color, boxShadow: `0 0 20px ${theme.glowColor}` }}
+              >
+                <Bike className="w-6 h-6" style={{ color: theme.color }} />
               </div>
-              <div className="mt-2 bg-black/80 backdrop-blur-xs px-3 py-1 rounded-[3px] border border-white/20 text-center">
-                <p className="font-bold text-xs text-white">{truck.name}</p>
-                <p className="text-[10px] text-white/70">{truck.currentLocationName}</p>
+              <div className="mt-2 bg-black/85 backdrop-blur-md px-3 py-1 rounded-xl border border-white/20 text-center shadow-lg">
+                <div className="flex items-center justify-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: theme.color }} />
+                  <p className="font-bold text-xs text-white">{truck.name}</p>
+                </div>
+                <p className="text-[10px] text-white/70 mt-0.5">{truck.currentLocationName}</p>
               </div>
             </div>
           </div>

@@ -959,30 +959,34 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
             onClick={() => setIsMobileSidebarOpen(true)}
             className="md:hidden p-1.5 bg-[#f1f1ef] hover:bg-[#e8e8e6] text-[#37352f] rounded-[3px] transition-all cursor-pointer border border-[#d3d1cb] flex items-center justify-center shrink-0"
             title="展开28个功能模块侧边栏"
+            aria-label="展开功能模块侧边栏"
           >
             <MenuIcon className="w-4 h-4 text-[#37352f]" />
           </button>
 
+          {/* Return to Customer Storefront */}
           <button
             type="button"
             onClick={() => onSwitchRole('customer')}
-            className="p-1 sm:p-1.5 hover:bg-[#efefed] rounded-[3px] text-[#787774] hover:text-[#37352f] transition-all cursor-pointer flex items-center gap-1 font-semibold text-xs border border-transparent hover:border-[#d3d1cb] shrink-0"
+            className="p-1.5 bg-[#f1f1ef] hover:bg-[#e8e8e6] rounded-[3px] text-[#787774] hover:text-[#37352f] transition-all cursor-pointer flex items-center gap-1 font-semibold text-xs border border-[#d3d1cb] shrink-0"
             title="返回前台顾客点餐"
+            aria-label="返回前台顾客点餐"
           >
             <ArrowLeft className="w-4 h-4" />
             <span className="hidden md:inline">返回前台</span>
           </button>
 
-          <div className="h-4 w-[1px] bg-[#e6e6e4] shrink-0 hidden xs:block" />
+          {/* Vertical Separator */}
+          <div className="h-4 w-[1px] bg-[#e6e6e4] shrink-0" />
 
-          <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+          {/* Store Brand Badge (Visible on sm+ screens, completely avoiding mobile horizontal crunch and P. truncation) */}
+          <div className="hidden sm:flex items-center gap-2 shrink-0">
             <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-[3px] bg-[#37352f] text-white flex items-center justify-center font-bold text-xs shrink-0">
               <Store className="w-3.5 h-3.5" />
             </div>
-            <div className="flex items-center gap-1 min-w-0">
-              <span className="font-bold text-xs sm:text-sm text-[#37352f] truncate">
-                <span className="xs:hidden">POS</span>
-                <span className="hidden xs:inline">POS 商家总控</span>
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-xs sm:text-sm text-[#37352f] whitespace-nowrap">
+                POS 商家总控
               </span>
               <span className="text-[10px] font-mono bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc] px-1 py-0.2 rounded-[2px] shrink-0 hidden lg:inline-block">
                 实时联机
@@ -993,12 +997,12 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
           <div className="h-4 w-[1px] bg-[#e6e6e4] shrink-0 hidden sm:block" />
 
           {/* Truck Scope Selector */}
-          <div className="flex items-center gap-0.5 sm:gap-1 bg-[#f1f1ef] border border-[#d3d1cb] rounded-[4px] px-1 sm:px-1.5 py-0.5 max-w-[105px] xs:max-w-[135px] sm:max-w-xs shrink-0">
+          <div className="flex items-center gap-1 bg-[#f1f1ef] border border-[#d3d1cb] rounded-[4px] px-1.5 py-0.5 shrink-0 max-w-[125px] xs:max-w-[155px] sm:max-w-xs">
             <Truck className="w-3.5 h-3.5 text-[#2b593f] shrink-0" />
             <select
               value={selectedTruckId}
               onChange={(e) => handleSelectTruck(e.target.value)}
-              className="bg-transparent text-[11px] sm:text-xs font-bold text-[#37352f] outline-none cursor-pointer truncate max-w-[80px] xs:max-w-[105px] sm:max-w-[170px]"
+              className="bg-transparent text-[11px] sm:text-xs font-bold text-[#37352f] outline-none cursor-pointer truncate max-w-[95px] xs:max-w-[120px] sm:max-w-[170px]"
               title="切换当前管理餐车独立账本与订单"
             >
               {merchantTruckConfigs.map((t) => (
@@ -1201,87 +1205,107 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
         <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-[#f7f7f5]">
           {/* Subheader: Active Module Breadcrumb & Quick Pill Bar */}
           <div className="shrink-0 bg-[#ffffff]/95 backdrop-blur-xs border-b border-[#e6e6e4] px-2.5 sm:px-4 py-1.5 shadow-2xs flex items-center justify-between gap-2 z-20">
-            {/* Active Module Indicator */}
-            <div className="flex items-center gap-2 min-w-0">
-              <button
-                type="button"
-                onClick={() => setIsMobileSidebarOpen(true)}
-                className="md:hidden flex items-center gap-1.5 text-xs font-bold text-[#37352f] bg-[#f1f1ef] px-2 py-1 rounded-[3px] border border-[#d3d1cb]"
-              >
-                <CurrentIcon className="w-3.5 h-3.5 text-[#37352f]" />
-                <span className="truncate">{currentTabConfig.label}</span>
-                <ChevronDown className="w-3 h-3 text-[#787774]" />
-              </button>
-
-              <div className="hidden md:flex items-center gap-2 min-w-0 text-xs">
-                <span className="text-[#787774] font-medium">{currentTabConfig.category}</span>
-                <span className="text-[#d3d1cb]">/</span>
-                <div className="flex items-center gap-1.5 font-bold text-[#201f1d]">
-                  <CurrentIcon className="w-3.5 h-3.5 text-emerald-700" />
-                  <span>{currentTabConfig.label}</span>
-                </div>
-                {currentTabConfig.badge !== undefined && currentTabConfig.badge > 0 && (
-                  <span
-                    className={`text-[9.5px] font-mono font-bold px-1.5 py-0.2 rounded-[2px] ${
-                      currentTabConfig.badgeAlert
-                        ? 'bg-rose-50 text-rose-600 border border-rose-200'
-                        : 'bg-[#201f1d] text-white'
-                    }`}
-                  >
-                    {currentTabConfig.badge}
-                  </span>
-                )}
+            {/* Desktop Active Module Indicator Breadcrumb (Hidden on mobile to give full row to quick pill bar) */}
+            <div className="hidden md:flex items-center gap-2 min-w-0 text-xs shrink-0">
+              <span className="text-[#787774] font-medium">{currentTabConfig.category}</span>
+              <span className="text-[#d3d1cb]">/</span>
+              <div className="flex items-center gap-1.5 font-bold text-[#201f1d]">
+                <CurrentIcon className="w-3.5 h-3.5 text-emerald-700" />
+                <span>{currentTabConfig.label}</span>
               </div>
+              {currentTabConfig.badge !== undefined && currentTabConfig.badge > 0 && (
+                <span
+                  className={`text-[9.5px] font-mono font-bold px-1.5 py-0.2 rounded-[1px] ${
+                    currentTabConfig.badgeAlert
+                      ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                      : 'bg-[#201f1d] text-white'
+                  }`}
+                >
+                  {currentTabConfig.badge}
+                </span>
+              )}
             </div>
 
             {/* Quick Frequent Modules (Desktop & Mobile horizontal scrollable pill bar) & Width Toggle */}
-            <div className="flex items-center gap-2 max-w-full overflow-hidden">
-              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 max-w-full">
-                {[
-                  { id: 'tables', label: '台位', icon: UtensilsCrossed, badge: tables.filter(t => t.status === 'dining').length },
-                  { id: 'orders', label: '订单', icon: ShoppingBag, badge: scopedOrders.filter(o => o.status === 'cooking' || o.status === 'pending').length },
-                  { id: 'contingency', label: '兜底中枢', icon: ShieldAlert, badge: scopedOrders.filter(o => (o.rejectionCount && o.rejectionCount > 0) || o.refundStatus === 'pending' || o.status === 'refund_pending').length, badgeAlert: true },
-                  { id: 'kds', label: 'KDS', icon: ChefHat, badge: tickets.length },
-                  { id: 'calling', label: '叫号', icon: BellRing },
-                  { id: 'truck_expand', label: '展开与底栏', icon: SlidersHorizontal },
-                  { id: 'printing', label: '打印', icon: Printer },
-                  { id: 'held', label: '未结', icon: ShieldAlert, badge: heldOrders.length, badgeAlert: true },
-                  { id: 'members', label: '会员', icon: Award },
-                  { id: 'staff', label: '员工', icon: Users },
-                  { id: 'analytics', label: '报表', icon: TrendingUp },
-                  { id: 'gps', label: 'GPS', icon: MapPin }
-                ].map((quick) => {
-                  const Icon = quick.icon;
-                  const isSelected = activeTab === quick.id;
+            <div className="flex items-center gap-2 w-full md:w-auto min-w-0 overflow-hidden">
+              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 w-full">
+                {(() => {
+                  const baseQuickTabs = [
+                    { id: 'tables', label: '堂食台位', icon: UtensilsCrossed, badge: tables.filter(t => t.status === 'dining').length },
+                    { id: 'orders', label: '订单', icon: ShoppingBag, badge: scopedOrders.filter(o => o.status === 'cooking' || o.status === 'pending').length },
+                    { id: 'contingency', label: '兜底中枢', icon: ShieldAlert, badge: scopedOrders.filter(o => (o.rejectionCount && o.rejectionCount > 0) || o.refundStatus === 'pending' || o.status === 'refund_pending').length, badgeAlert: true },
+                    { id: 'kds', label: 'KDS', icon: ChefHat, badge: tickets.length },
+                    { id: 'calling', label: '叫号', icon: BellRing },
+                    { id: 'truck_expand', label: '展开与底栏', icon: SlidersHorizontal },
+                    { id: 'printing', label: '打印', icon: Printer },
+                    { id: 'held', label: '未结', icon: ShieldAlert, badge: heldOrders.length, badgeAlert: true },
+                    { id: 'members', label: '会员', icon: Award },
+                    { id: 'user_data_mgmt', label: '统一档案', icon: Fingerprint },
+                    { id: 'staff', label: '员工', icon: Users },
+                    { id: 'analytics', label: '报表', icon: TrendingUp },
+                    { id: 'gps', label: 'GPS', icon: MapPin }
+                  ];
+
+                  const isCurrentInBase = baseQuickTabs.some(t => t.id === activeTab);
+                  const displayTabs = !isCurrentInBase && currentTabConfig
+                    ? [
+                        {
+                          id: currentTabConfig.id,
+                          label: currentTabConfig.label.replace('矩阵', '').replace('管理', ''),
+                          icon: currentTabConfig.icon,
+                          badge: currentTabConfig.badge,
+                          badgeAlert: currentTabConfig.badgeAlert
+                        },
+                        ...baseQuickTabs
+                      ]
+                    : baseQuickTabs;
+
                   return (
-                    <button
-                      key={quick.id}
-                      type="button"
-                      onClick={() => setActiveTab(quick.id as MerchantTab)}
-                      className={`px-2 py-1 rounded-[3px] text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
-                        isSelected
-                          ? 'bg-[#201f1d] text-white shadow-xs'
-                          : 'text-[#787774] hover:bg-[#efefed] hover:text-[#201f1d]'
-                      }`}
-                    >
-                      <Icon className="w-3 h-3 shrink-0" />
-                      <span>{quick.label}</span>
-                      {quick.badge !== undefined && quick.badge > 0 && (
-                        <span
-                          className={`text-[9px] font-mono font-bold px-1 rounded-[2px] ${
-                            isSelected
-                              ? 'bg-white/20 text-white'
-                              : quick.badgeAlert
-                              ? 'bg-rose-50 text-rose-600 border border-rose-200'
-                              : 'bg-[#e6e6e4] text-[#37352f]'
-                          }`}
-                        >
-                          {quick.badge}
-                        </span>
-                      )}
-                    </button>
+                    <>
+                      {displayTabs.map((quick) => {
+                        const Icon = quick.icon;
+                        const isSelected = activeTab === quick.id;
+                        return (
+                          <button
+                            key={quick.id}
+                            type="button"
+                            onClick={() => setActiveTab(quick.id as MerchantTab)}
+                            className={`px-2 py-1 rounded-[1px] text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                              isSelected
+                                ? 'bg-[#201f1d] text-white shadow-xs'
+                                : 'text-[#787774] hover:bg-[#efefed] hover:text-[#201f1d]'
+                            }`}
+                          >
+                            <Icon className="w-3 h-3 shrink-0" />
+                            <span>{quick.label}</span>
+                            {quick.badge !== undefined && quick.badge > 0 && (
+                              <span
+                                className={`text-[9px] font-mono font-bold px-1 rounded-[1px] ${
+                                  isSelected
+                                    ? 'bg-white/20 text-white'
+                                    : quick.badgeAlert
+                                    ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                                    : 'bg-[#e6e6e4] text-[#37352f]'
+                                }`}
+                              >
+                                {quick.badge}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        onClick={() => setIsMobileSidebarOpen(true)}
+                        className="md:hidden px-2 py-1 rounded-[1px] text-xs font-semibold flex items-center gap-1 text-[#787774] hover:bg-[#efefed] hover:text-[#201f1d] shrink-0 border border-dashed border-[#d3d1cb]"
+                        title="展开全部28个功能模块侧边栏"
+                      >
+                        <MenuIcon className="w-3 h-3 text-[#787774]" />
+                        <span className="whitespace-nowrap">全部</span>
+                      </button>
+                    </>
                   );
-                })}
+                })()}
               </div>
 
               {/* Desktop Workspace Width Switcher */}

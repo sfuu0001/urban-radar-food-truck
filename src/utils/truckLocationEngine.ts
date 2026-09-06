@@ -20,6 +20,159 @@ export interface TruckLocationConfig {
   updatedAt?: string;
 }
 
+/**
+ * 多餐车独立专属雷达与锚点配色体系
+ */
+export interface TruckThemeConfig {
+  id: string;
+  num: string; // '01', '02', '03', '04', etc.
+  name: string;
+  themeTitle: string; // e.g. '01号车 · 翡翠青'
+  color: string; // Primary hex (e.g. '#10b981')
+  secondaryColor: string;
+  glowColor: string; // e.g. 'rgba(16, 185, 129, 0.45)'
+  radarFill: string; // e.g. 'rgba(16, 185, 129, 0.12)'
+  radarBorder: string; // e.g. 'rgba(16, 185, 129, 0.95)'
+  radarSweepGradient: string; // conic-gradient for rotating radar sweep
+  ringColor: string;
+  badgeBg: string;
+  badgeText: string;
+  badgeBorder: string;
+  dotColor: string;
+}
+
+export const FLEET_THEME_PALETTE: TruckThemeConfig[] = [
+  {
+    id: 'truck-01',
+    num: '01',
+    name: '01 号流动餐车',
+    themeTitle: '01号车 · 翡翠青',
+    color: '#10b981',
+    secondaryColor: '#059669',
+    glowColor: 'rgba(16, 185, 129, 0.45)',
+    radarFill: 'rgba(16, 185, 129, 0.12)',
+    radarBorder: 'rgba(16, 185, 129, 0.95)',
+    radarSweepGradient: 'conic-gradient(from 0deg, rgba(16, 185, 129, 0.48) 0deg, rgba(16, 185, 129, 0.15) 30deg, rgba(16, 185, 129, 0) 65deg)',
+    ringColor: '#10b981',
+    badgeBg: 'bg-emerald-50',
+    badgeText: 'text-emerald-700',
+    badgeBorder: 'border-emerald-200',
+    dotColor: '#10b981'
+  },
+  {
+    id: 'truck-02',
+    num: '02',
+    name: '02 号流动餐车',
+    themeTitle: '02号车 · 琥珀金',
+    color: '#f59e0b',
+    secondaryColor: '#d97706',
+    glowColor: 'rgba(245, 158, 11, 0.45)',
+    radarFill: 'rgba(245, 158, 11, 0.12)',
+    radarBorder: 'rgba(245, 158, 11, 0.95)',
+    radarSweepGradient: 'conic-gradient(from 0deg, rgba(245, 158, 11, 0.48) 0deg, rgba(245, 158, 11, 0.15) 30deg, rgba(245, 158, 11, 0) 65deg)',
+    ringColor: '#f59e0b',
+    badgeBg: 'bg-amber-50',
+    badgeText: 'text-amber-700',
+    badgeBorder: 'border-amber-200',
+    dotColor: '#f59e0b'
+  },
+  {
+    id: 'truck-03',
+    num: '03',
+    name: '03 号流动餐车',
+    themeTitle: '03号车 · 极光蓝',
+    color: '#06b6d4',
+    secondaryColor: '#0891b2',
+    glowColor: 'rgba(6, 182, 212, 0.45)',
+    radarFill: 'rgba(6, 182, 212, 0.12)',
+    radarBorder: 'rgba(6, 182, 212, 0.95)',
+    radarSweepGradient: 'conic-gradient(from 0deg, rgba(6, 182, 212, 0.48) 0deg, rgba(6, 182, 212, 0.15) 30deg, rgba(6, 182, 212, 0) 65deg)',
+    ringColor: '#06b6d4',
+    badgeBg: 'bg-cyan-50',
+    badgeText: 'text-cyan-700',
+    badgeBorder: 'border-cyan-200',
+    dotColor: '#06b6d4'
+  },
+  {
+    id: 'truck-04',
+    num: '04',
+    name: '04 号流动餐车',
+    themeTitle: '04号车 · 星云紫',
+    color: '#8b5cf6',
+    secondaryColor: '#7c3aed',
+    glowColor: 'rgba(139, 92, 246, 0.45)',
+    radarFill: 'rgba(139, 92, 246, 0.12)',
+    radarBorder: 'rgba(139, 92, 246, 0.95)',
+    radarSweepGradient: 'conic-gradient(from 0deg, rgba(139, 92, 246, 0.48) 0deg, rgba(139, 92, 246, 0.15) 30deg, rgba(139, 92, 246, 0) 65deg)',
+    ringColor: '#8b5cf6',
+    badgeBg: 'bg-purple-50',
+    badgeText: 'text-purple-700',
+    badgeBorder: 'border-purple-200',
+    dotColor: '#8b5cf6'
+  },
+  {
+    id: 'truck-05',
+    num: '05',
+    name: '05 号流动餐车',
+    themeTitle: '05号车 · 珊瑚粉',
+    color: '#f43f5e',
+    secondaryColor: '#e11d48',
+    glowColor: 'rgba(244, 63, 94, 0.45)',
+    radarFill: 'rgba(244, 63, 94, 0.12)',
+    radarBorder: 'rgba(244, 63, 94, 0.95)',
+    radarSweepGradient: 'conic-gradient(from 0deg, rgba(244, 63, 94, 0.48) 0deg, rgba(244, 63, 94, 0.15) 30deg, rgba(244, 63, 94, 0) 65deg)',
+    ringColor: '#f43f5e',
+    badgeBg: 'bg-rose-50',
+    badgeText: 'text-rose-700',
+    badgeBorder: 'border-rose-200',
+    dotColor: '#f43f5e'
+  },
+  {
+    id: 'truck-06',
+    num: '06',
+    name: '06 号流动餐车',
+    themeTitle: '06号车 · 钛空蓝',
+    color: '#3b82f6',
+    secondaryColor: '#2563eb',
+    glowColor: 'rgba(59, 130, 246, 0.45)',
+    radarFill: 'rgba(59, 130, 246, 0.12)',
+    radarBorder: 'rgba(59, 130, 246, 0.95)',
+    radarSweepGradient: 'conic-gradient(from 0deg, rgba(59, 130, 246, 0.48) 0deg, rgba(59, 130, 246, 0.15) 30deg, rgba(59, 130, 246, 0) 65deg)',
+    ringColor: '#3b82f6',
+    badgeBg: 'bg-blue-50',
+    badgeText: 'text-blue-700',
+    badgeBorder: 'border-blue-200',
+    dotColor: '#3b82f6'
+  }
+];
+
+/**
+ * 根据餐车 ID 或索引获取专属雷达配色配置
+ */
+export function getTruckTheme(truckIdOrIndex: string | number): TruckThemeConfig {
+  if (typeof truckIdOrIndex === 'number') {
+    return FLEET_THEME_PALETTE[Math.abs(truckIdOrIndex) % FLEET_THEME_PALETTE.length];
+  }
+  const byId = FLEET_THEME_PALETTE.find((t) => t.id === truckIdOrIndex);
+  if (byId) return byId;
+
+  // 尝试匹配数字尾缀
+  const match = truckIdOrIndex.match(/\d+/);
+  if (match) {
+    const idx = parseInt(match[0], 10) - 1;
+    if (idx >= 0 && idx < FLEET_THEME_PALETTE.length) {
+      return FLEET_THEME_PALETTE[idx];
+    }
+  }
+
+  // 根据字符串 hash 取模
+  let hash = 0;
+  for (let i = 0; i < truckIdOrIndex.length; i++) {
+    hash = (hash << 5) - hash + truckIdOrIndex.charCodeAt(i);
+  }
+  return FLEET_THEME_PALETTE[Math.abs(hash) % FLEET_THEME_PALETTE.length];
+}
+
 export interface UserLocationState {
   latitude: number;
   longitude: number;
@@ -407,6 +560,150 @@ export function calculateGeodesicDistanceKm(
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   const d = R * c;
   return Number(d.toFixed(2));
+}
+
+/**
+ * 球面大圆航向角 / 雷达方位角计算（正北为 0°，顺时针 0°~360°）
+ */
+export function calculateGeodesicBearing(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const y = Math.sin(((lon2 - lon1) * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180);
+  const x =
+    Math.cos((lat1 * Math.PI) / 180) * Math.sin((lat2 * Math.PI) / 180) -
+    Math.sin((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.cos(((lon2 - lon1) * Math.PI) / 180);
+  const theta = Math.atan2(y, x);
+  const bearing = ((theta * 180) / Math.PI + 360) % 360;
+  return Number(bearing.toFixed(1));
+}
+
+export interface FleetBoundsResult {
+  center: [number, number]; // [lat, lng]
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+  bounds: [[number, number], [number, number]]; // Leaflet LatLngBounds compatible
+  spanKm: number;
+  optimalZoom: number;
+  hasMultiple: boolean;
+}
+
+/**
+ * 车队全局视野与居中计算引擎：
+ * 计算所有餐车精确外包围盒、几何中心点、跨度公里数及视觉最佳缩放档位
+ */
+export function calculateFleetBounds(trucks: TruckLocationConfig[]): FleetBoundsResult {
+  const validTrucks = (trucks || []).filter(
+    (t) => typeof t.latitude === 'number' && typeof t.longitude === 'number' && t.latitude !== 0
+  );
+
+  if (validTrucks.length === 0) {
+    return {
+      center: [30.3008, 120.1255],
+      minLat: 30.29,
+      maxLat: 30.31,
+      minLng: 120.11,
+      maxLng: 120.14,
+      bounds: [
+        [30.29, 120.11],
+        [30.31, 120.14]
+      ],
+      spanKm: 3.5,
+      optimalZoom: 13,
+      hasMultiple: false
+    };
+  }
+
+  if (validTrucks.length === 1) {
+    const t = validTrucks[0];
+    const pad = ((t.deliveryRadiusKm || 3.0) / 111) * 1.35;
+    return {
+      center: [t.latitude, t.longitude],
+      minLat: t.latitude - pad,
+      maxLat: t.latitude + pad,
+      minLng: t.longitude - pad,
+      maxLng: t.longitude + pad,
+      bounds: [
+        [t.latitude - pad, t.longitude - pad],
+        [t.latitude + pad, t.longitude + pad]
+      ],
+      spanKm: (t.deliveryRadiusKm || 3.0) * 2,
+      optimalZoom: 14,
+      hasMultiple: false
+    };
+  }
+
+  let minLat = 90;
+  let maxLat = -90;
+  let minLng = 180;
+  let maxLng = -180;
+
+  for (const t of validTrucks) {
+    if (t.latitude < minLat) minLat = t.latitude;
+    if (t.latitude > maxLat) maxLat = t.latitude;
+    if (t.longitude < minLng) minLng = t.longitude;
+    if (t.longitude > maxLng) maxLng = t.longitude;
+  }
+
+  // 考虑各餐车自身配送雷达半径的最大延展，保证雷达圈不会被视口裁剪
+  const maxRadiusKm = Math.max(...validTrucks.map((t) => t.deliveryRadiusKm || 3.0));
+  const radiusDeg = (maxRadiusKm / 111.32) * 1.15; // 预留安全外边距
+
+  const boundedMinLat = minLat - radiusDeg;
+  const boundedMaxLat = maxLat + radiusDeg;
+  const boundedMinLng = minLng - radiusDeg;
+  const boundedMaxLng = maxLng + radiusDeg;
+
+  const centerLat = Number(((minLat + maxLat) / 2).toFixed(6));
+  const centerLng = Number(((minLng + maxLng) / 2).toFixed(6));
+
+  const spanKm = calculateGeodesicDistanceKm(minLat, minLng, maxLat, maxLng);
+
+  // 依据跨度计算最舒适的 Leaflet 缩放档位
+  let optimalZoom = 13;
+  if (spanKm > 35) optimalZoom = 10;
+  else if (spanKm > 18) optimalZoom = 11;
+  else if (spanKm > 8) optimalZoom = 12;
+  else if (spanKm > 4) optimalZoom = 13;
+  else if (spanKm > 1.8) optimalZoom = 14;
+  else optimalZoom = 15;
+
+  return {
+    center: [centerLat, centerLng],
+    minLat: boundedMinLat,
+    maxLat: boundedMaxLat,
+    minLng: boundedMinLng,
+    maxLng: boundedMaxLng,
+    bounds: [
+      [boundedMinLat, boundedMinLng],
+      [boundedMaxLat, boundedMaxLng]
+    ],
+    spanKm: Number(spanKm.toFixed(2)),
+    optimalZoom,
+    hasMultiple: true
+  };
+}
+
+/**
+ * 雷达遥测面积与极速专送时效引擎
+ */
+export function calculateRadarCoverage(radiusKm: number): {
+  areaKm2: number;
+  perimeterKm: number;
+  estSpeedyMinutes: number;
+} {
+  const r = Math.max(0.1, radiusKm);
+  const areaKm2 = Number((Math.PI * r * r).toFixed(2));
+  const perimeterKm = Number((2 * Math.PI * r).toFixed(2));
+  // 电动专送骑手平均 20km/h 巡航时效 + 5min 出餐封装
+  const estSpeedyMinutes = Math.round(5 + (r / 20) * 60);
+  return { areaKm2, perimeterKm, estSpeedyMinutes };
 }
 
 /**

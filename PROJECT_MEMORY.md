@@ -6,8 +6,8 @@
 
 ## 腾讯云静态网站托管与 COS 存储桶配置
 
-- **Secret ID**: `AKIDOq8D6lPdkiUcYTHxZ1IPK1Yt1wfFvPuG`
-- **Secret Key**: `FKEvSwDHF0e5KPRM4LOK6h7LMEtxufKq`
+- **Secret ID**: `<YOUR_TENCENT_SECRET_ID>`
+- **Secret Key**: `<YOUR_TENCENT_SECRET_KEY>`
 - **静态网站托管存储桶 (网页部署)**: `529f-static-tc100-d9gz0e2ko5929e360-1445454244`
 - **应用附件存储桶 (文件存储)**: `7463-tc100-d9gz0e2ko5929e360-1445454244`
 - **COS Region**: `ap-shanghai`（华东·上海）

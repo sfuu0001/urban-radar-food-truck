@@ -16,7 +16,7 @@
  * 后续商家端的编辑以该存储为唯一事实来源 (与客户端互不污染)。
  */
 
-import { UserProfile } from '../types/user';
+import { UserProfile, UserBoundDevice, UserDeviceHardwareDetails } from '../types/user';
 import { INITIAL_USER_PROFILE } from '../data/mockUser';
 
 const MERCHANT_USER_DATA_KEY = 'obsidian_merchant_user_data';
@@ -27,6 +27,100 @@ function nowStamp(): string {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/**
+ * 确保每个用户都拥有完整的硬件特征矩阵与多设备互联初始数据
+ */
+export function ensureUserHardwareDetails(u: UserProfile): UserProfile {
+  const seed = Math.abs(u.uid.split('').reduce((acc, c) => (acc << 5) - acc + c.charCodeAt(0), 0));
+  const hwSuffix = u.uid.replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase() || '88AA';
+  const hw = u.hardwareHash || `HW-CORE-${hwSuffix}`;
+  const dev = u.deviceFingerprint || `DEV-FPR-${hwSuffix}`;
+  const pairing = u.pairingCode || `UR-${hwSuffix}-BIND`;
+
+  const gpuOptions = [
+    { renderer: 'Apple M2 Pro (Metal 3)', vendor: 'Apple Inc.' },
+    { renderer: 'NVIDIA GeForce RTX 4070 Laptop GPU', vendor: 'NVIDIA Corporation' },
+    { renderer: 'Intel(R) Iris(R) Xe Graphics (TGL GT2)', vendor: 'Intel Inc.' },
+    { renderer: 'Qualcomm Adreno 740', vendor: 'Qualcomm' }
+  ];
+  const selectedGpu = gpuOptions[seed % gpuOptions.length];
+
+  const resolutions = ['2560x1440 (2K Retina)', '1170x2532 (OLED SuperRetina)', '2880x1800 (16-inch Display)', '3840x2160 (4K UHD)'];
+  const res = resolutions[seed % resolutions.length];
+
+  const defaultDetails: UserDeviceHardwareDetails = u.hardwareDetails || {
+    hardwareHash: hw,
+    deviceFingerprint: dev,
+    confidenceScore: u.autoLoginScore ?? 99.8,
+    gpuRenderer: selectedGpu.renderer,
+    gpuVendor: selectedGpu.vendor,
+    webglScore: `0x${(seed * 31 + 0x1000).toString(16).slice(-8).toUpperCase()}`,
+    audioDspHash: `DSP-${(seed * 17 + 0x2000).toString(16).slice(-8).toUpperCase()}`,
+    canvasHash: `CNV-${(seed * 43 + 0x3000).toString(16).slice(-8).toUpperCase()}`,
+    physicalResolution: res,
+    colorDepth: 24,
+    pixelRatio: 2.0,
+    cpuCores: seed % 2 === 0 ? 8 : 12,
+    deviceMemoryGb: seed % 2 === 0 ? 16 : 8,
+    maxTouchPoints: seed % 3 === 0 ? 5 : 0,
+    timezone: 'Asia/Shanghai (CST +0800)',
+    platform: seed % 3 === 0 ? 'iPhone / iOS 17.5' : seed % 2 === 0 ? 'MacIntel / macOS 14.5' : 'Win32 / Windows 11 Pro',
+    languages: ['zh-CN', 'zh', 'en-US'],
+    collectedAt: u.createdAt || nowStamp()
+  };
+
+  const defaultDevices: UserBoundDevice[] =
+    u.boundDevices && u.boundDevices.length > 0
+      ? u.boundDevices
+      : [
+          {
+            id: `dev-${u.uid}-1`,
+            deviceName:
+              seed % 3 === 0
+                ? 'iPhone 15 Pro (食客常用机)'
+                : seed % 2 === 0
+                ? 'MacBook Pro 14" (主力机)'
+                : 'ThinkPad X1 (商务电脑)',
+            hardwareHash: hw,
+            deviceFingerprint: dev,
+            gpuRenderer: selectedGpu.renderer,
+            physicalResolution: res,
+            platform: defaultDetails.platform,
+            boundAt: u.createdAt || nowStamp(),
+            isCurrent: true,
+            status: 'trusted'
+          },
+          ...(seed % 2 === 0
+            ? [
+                {
+                  id: `dev-${u.uid}-2`,
+                  deviceName: 'iPad Air 5 (餐车自提备用机)',
+                  hardwareHash: `HW-PAD-${hwSuffix}`,
+                  deviceFingerprint: `DEV-PAD-${hwSuffix}`,
+                  gpuRenderer: 'Apple M1 GPU',
+                  physicalResolution: '2360x1640',
+                  platform: 'iPadOS / Safari',
+                  boundAt: '2026-07-10 14:20',
+                  isCurrent: false,
+                  status: 'trusted' as const
+                }
+              ]
+            : [])
+        ];
+
+  return {
+    ...u,
+    hardwareHash: hw,
+    deviceFingerprint: dev,
+    pairingCode: pairing,
+    autoLoginScore: u.autoLoginScore ?? 99.8,
+    crossBrowserTested: u.crossBrowserTested ?? true,
+    antiWipeRecoveryTested: u.antiWipeRecoveryTested ?? true,
+    hardwareDetails: defaultDetails,
+    boundDevices: defaultDevices
+  };
 }
 
 /**
@@ -228,25 +322,33 @@ function aggregateFromClient(): UserProfile[] {
 }
 
 /**
- * 读取商家端统一用户数据 (首次自动从客户端聚合并落盘)。
+ * 读取商家端统一用户数据 (首次自动从客户端聚合并落盘，且自动补齐高熵硬件矩阵与设备互联数据)。
  */
 export function getUserDataRecords(): UserProfile[] {
+  let list: UserProfile[] = [];
   try {
     const raw = localStorage.getItem(MERCHANT_USER_DATA_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as UserProfile[];
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        list = parsed;
+      }
     }
   } catch {
     /* fall through to aggregate */
   }
-  const aggregated = aggregateFromClient();
+  if (list.length === 0) {
+    list = aggregateFromClient();
+  }
+
+  // 保证每一个用户都具备与客户端免密登录系统完全一致的高熵硬件矩阵与互联设备
+  const enriched = list.map(ensureUserHardwareDetails);
   try {
-    localStorage.setItem(MERCHANT_USER_DATA_KEY, JSON.stringify(aggregated));
+    localStorage.setItem(MERCHANT_USER_DATA_KEY, JSON.stringify(enriched));
   } catch {
     /* ignore */
   }
-  return aggregated;
+  return enriched;
 }
 
 /**
@@ -254,7 +356,8 @@ export function getUserDataRecords(): UserProfile[] {
  */
 export function saveUserDataRecords(users: UserProfile[]): void {
   try {
-    localStorage.setItem(MERCHANT_USER_DATA_KEY, JSON.stringify(users));
+    const enriched = users.map(ensureUserHardwareDetails);
+    localStorage.setItem(MERCHANT_USER_DATA_KEY, JSON.stringify(enriched));
   } catch {
     /* ignore */
   }
@@ -265,11 +368,12 @@ export function saveUserDataRecords(users: UserProfile[]): void {
  */
 export function upsertUser(user: UserProfile): UserProfile[] {
   const list = getUserDataRecords();
-  const idx = list.findIndex((u) => u.uid === user.uid);
+  const enriched = ensureUserHardwareDetails(user);
+  const idx = list.findIndex((u) => u.uid === enriched.uid);
   if (idx >= 0) {
-    list[idx] = user;
+    list[idx] = enriched;
   } else {
-    list.unshift(user);
+    list.unshift(enriched);
   }
   saveUserDataRecords(list);
   return list;
@@ -290,7 +394,7 @@ export function deleteUser(uid: string): UserProfile[] {
 export function createBlankUserProfile(overrides: Partial<UserProfile> = {}): UserProfile {
   const ts = nowStamp();
   const uid = overrides.uid || `tcb_u_${Math.random().toString(36).slice(2, 10)}`;
-  return {
+  const base: UserProfile = {
     uid,
     nickname: overrides.nickname || '新注册食客',
     phone: overrides.phone || '',
@@ -315,8 +419,113 @@ export function createBlankUserProfile(overrides: Partial<UserProfile> = {}): Us
     authProvider: overrides.authProvider || 'custom_phone',
     hardwareHash: overrides.hardwareHash,
     deviceFingerprint: overrides.deviceFingerprint,
-    autoLoginScore: overrides.autoLoginScore,
+    autoLoginScore: overrides.autoLoginScore ?? 99.8,
     createdAt: overrides.createdAt || ts
+  };
+  return ensureUserHardwareDetails(base);
+}
+
+/**
+ * 为指定用户添加一台新信任设备
+ */
+export function addBoundDeviceToUser(
+  user: UserProfile,
+  device: {
+    deviceName: string;
+    hardwareHash: string;
+    gpuRenderer?: string;
+    physicalResolution?: string;
+    platform?: string;
+  }
+): UserProfile {
+  const newDevice: UserBoundDevice = {
+    id: `dev-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    deviceName: device.deviceName || '新互联终端设备',
+    hardwareHash: device.hardwareHash || `HW-BOUND-${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
+    deviceFingerprint: `DEV-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+    gpuRenderer: device.gpuRenderer || 'WebGL Generic Core',
+    physicalResolution: device.physicalResolution || '2560x1440',
+    platform: device.platform || 'Cross-Platform Client',
+    boundAt: nowStamp(),
+    isCurrent: false,
+    status: 'trusted'
+  };
+  const updated: UserProfile = {
+    ...user,
+    boundDevices: [newDevice, ...(user.boundDevices || [])]
+  };
+  return updated;
+}
+
+/**
+ * 解绑某台设备
+ */
+export function removeBoundDeviceFromUser(user: UserProfile, deviceId: string): UserProfile {
+  return {
+    ...user,
+    boundDevices: (user.boundDevices || []).filter((d) => d.id !== deviceId)
+  };
+}
+
+/**
+ * 切换某台设备的信任状态 (trusted / suspended)
+ */
+export function toggleDeviceTrustStatus(user: UserProfile, deviceId: string): UserProfile {
+  return {
+    ...user,
+    boundDevices: (user.boundDevices || []).map((d) =>
+      d.id === deviceId
+        ? { ...d, status: d.status === 'trusted' ? ('suspended' as const) : ('trusted' as const) }
+        : d
+    )
+  };
+}
+
+/**
+ * 重新生成用户的 8 位跨设备关联码
+ */
+export function regenerateUserPairingCode(user: UserProfile): UserProfile {
+  const rnd = Math.floor(1000 + Math.random() * 9000);
+  return {
+    ...user,
+    pairingCode: `UR-${user.uid.slice(-4).toUpperCase()}-${rnd}-BIND`
+  };
+}
+
+/**
+ * 模拟诊断判定
+ */
+export function runSimulatedUserDiagnostic(
+  user: UserProfile,
+  kind: 'anti_wipe' | 'cross_browser' | 'new_device'
+): {
+  success: boolean;
+  score: number;
+  reason: string;
+  timestamp: string;
+} {
+  const ts = nowStamp();
+  if (kind === 'anti_wipe') {
+    return {
+      success: true,
+      score: user.autoLoginScore || 99.8,
+      reason: `即便全清浏览器 LocalStorage/Cookies，底层抗清除保险箱利用硬件指纹 [${user.hardwareHash || 'HW-CORE'}] 精准锁定食客档案 ${user.nickname} (UID: ${user.uid})。`,
+      timestamp: ts
+    };
+  }
+  if (kind === 'cross_browser') {
+    return {
+      success: true,
+      score: 99.5,
+      reason: `跨浏览器物理硬件不变性比对通过 (Chrome ⇄ Safari / Edge)。物理声卡 DSP/GPU 核心哈希一致，成功自动同步至该账号。`,
+      timestamp: ts
+    };
+  }
+  return {
+    success: true,
+    score: 98.9,
+    reason: `未注册新设备秒级建档规则已预热就绪：分配专属账号、写入首发设备多维指纹并自动注入迎新体验金。`,
+    timestamp: ts
   };
 }
 
@@ -349,6 +558,115 @@ export function adjustUserBalance(
     updated.points = Math.max(0, user.points + delta);
   }
   return updated;
+}
+
+/**
+ * 直接设置用户账户资产与积分 (支持直接输入精确数值)
+ */
+export function setDirectUserAssets(
+  user: UserProfile,
+  newBalance: number,
+  newPoints: number,
+  note: string = '商家后台直接调整'
+): UserProfile {
+  const safeBal = Math.max(0, Number(newBalance.toFixed(2)));
+  const safePts = Math.max(0, Math.floor(newPoints));
+  const deltaBal = safeBal - user.balance;
+
+  const history = [...user.walletHistory];
+  if (Math.abs(deltaBal) > 0.001) {
+    history.unshift({
+      id: `w-mgr-${Date.now()}`,
+      type: deltaBal > 0 ? 'recharge' : 'expense',
+      title: `${note} (资产校准: ¥${safeBal})`,
+      amount: Number(deltaBal.toFixed(2)),
+      balanceAfter: safeBal,
+      timestamp: nowStamp(),
+      orderNo: 'ASSET-RECALIB'
+    });
+  }
+
+  return {
+    ...user,
+    balance: safeBal,
+    points: safePts,
+    walletHistory: history
+  };
+}
+
+/**
+ * 处置用户违规状态: 封号 / 全指纹黑名单 / 解封
+ */
+export function setUserViolationAction(
+  user: UserProfile,
+  action: 'ban' | 'unban' | 'blacklist_hw' | 'unblacklist_hw',
+  reason: string,
+  operator: string = '商家管理员'
+): UserProfile {
+  const ts = nowStamp();
+  const currentRecord = user.violationRecord || {
+    status: user.status || 'normal',
+    history: []
+  };
+
+  const logs = [...(currentRecord.history || [])];
+  let nextStatus: 'normal' | 'banned' | 'hardware_blacklisted' = 'normal';
+  let blacklistedFps: string[] = currentRecord.blacklistFingerprints || [];
+
+  if (action === 'ban') {
+    nextStatus = 'banned';
+    logs.unshift({
+      id: `viol-${Date.now()}`,
+      action: 'ban',
+      reason,
+      timestamp: ts,
+      operator
+    });
+  } else if (action === 'blacklist_hw') {
+    nextStatus = 'hardware_blacklisted';
+    // 收集该用户所有已知的硬件特征与关联设备硬件
+    const fps = new Set<string>();
+    if (user.hardwareHash) fps.add(user.hardwareHash);
+    if (user.deviceFingerprint) fps.add(user.deviceFingerprint);
+    if (user.hardwareDetails?.audioDspHash) fps.add(user.hardwareDetails.audioDspHash);
+    if (user.hardwareDetails?.canvasHash) fps.add(user.hardwareDetails.canvasHash);
+    (user.boundDevices || []).forEach((d) => {
+      if (d.hardwareHash) fps.add(d.hardwareHash);
+      if (d.deviceFingerprint) fps.add(d.deviceFingerprint);
+    });
+    blacklistedFps = Array.from(fps);
+
+    logs.unshift({
+      id: `viol-${Date.now()}`,
+      action: 'blacklist_hw',
+      reason,
+      timestamp: ts,
+      operator
+    });
+  } else if (action === 'unban' || action === 'unblacklist_hw') {
+    nextStatus = 'normal';
+    blacklistedFps = [];
+    logs.unshift({
+      id: `viol-${Date.now()}`,
+      action: action,
+      reason,
+      timestamp: ts,
+      operator
+    });
+  }
+
+  return {
+    ...user,
+    status: nextStatus,
+    violationRecord: {
+      status: nextStatus,
+      reason: nextStatus !== 'normal' ? reason : undefined,
+      bannedAt: nextStatus !== 'normal' ? ts : undefined,
+      operator: nextStatus !== 'normal' ? operator : undefined,
+      blacklistFingerprints: blacklistedFps,
+      history: logs
+    }
+  };
 }
 
 /**

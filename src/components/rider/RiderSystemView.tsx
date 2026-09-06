@@ -816,11 +816,12 @@ export const RiderSystemView: React.FC<RiderSystemViewProps> = ({
           <button
             type="button"
             onClick={() => onSwitchRole('customer')}
-            className="p-1.5 hover:bg-[#efefed] rounded-[3px] text-[#787774] hover:text-[#37352f] transition-all cursor-pointer flex items-center gap-1 font-semibold text-xs border border-transparent hover:border-[#d3d1cb] shrink-0"
+            className="p-1.5 bg-[#f1f1ef] hover:bg-[#e8e8e6] rounded-[3px] text-[#787774] hover:text-[#37352f] transition-all cursor-pointer flex items-center gap-1 font-semibold text-xs border border-[#d3d1cb] shrink-0"
             title="返回前台顾客点餐"
+            aria-label="返回前台顾客点餐"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>返回前台</span>
+            <span className="hidden sm:inline">返回前台</span>
           </button>
 
           <div className="h-4 w-[1px] bg-[#e6e6e4] shrink-0" />

@@ -3,8 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import COS from 'cos-nodejs-sdk-v5';
 
-const SecretId = process.env.TENCENT_SECRET_ID || process.env.COS_SECRET_ID || 'AKIDOq8D6lPdkiUcYTHxZ1IPK1Yt1wfFvPuG';
-const SecretKey = process.env.TENCENT_SECRET_KEY || process.env.COS_SECRET_KEY || 'FKEvSwDHF0e5KPRM4LOK6h7LMEtxufKq';
+const SecretId = process.env.TENCENT_SECRET_ID || process.env.COS_SECRET_ID || '';
+const SecretKey = process.env.TENCENT_SECRET_KEY || process.env.COS_SECRET_KEY || '';
 const Bucket = process.env.TENCENT_COS_BUCKET || process.env.COS_BUCKET || '529f-static-tc100-d9gz0e2ko5929e360-1445454244';
 const Region = process.env.TENCENT_COS_REGION || process.env.COS_REGION || 'ap-shanghai';
 

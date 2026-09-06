@@ -30,12 +30,22 @@ import {
   Boxes,
   TrendingDown,
   TrendingUp,
-  Trash2
+  Trash2,
+  Layers,
+  PackageCheck,
+  ArrowDownToLine
 } from 'lucide-react';
 import { MaterialItem, PurchaseRecord } from '../../types';
 import { INITIAL_MATERIALS, INITIAL_PURCHASE_RECORDS } from '../../data/mockEnhancedData';
 import { safeGetStorage, safeSetStorage } from '../../utils/safeStorage';
 import { globalVersionEngine } from '../../utils/versionPointerEngine';
+import {
+  STANDARD_MATERIAL_TEMPLATES,
+  MaterialTemplate,
+  instantiateMaterialFromTemplate
+} from '../../data/materialTemplates';
+import { MaterialTemplateModal } from './material/MaterialTemplateModal';
+import { MaterialStockInModal } from './material/MaterialStockInModal';
 
 interface MaterialViewProps {
   showToast: (msg: string) => void;
@@ -89,12 +99,17 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
   const [editingMaterial, setEditingMaterial] = useState<MaterialItem | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
+  // Material Template Modal & Stock-In Modal
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [isStockInModalOpen, setIsStockInModalOpen] = useState(false);
+  const [stockInTargetMaterial, setStockInTargetMaterial] = useState<MaterialItem | null>(null);
+
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [createForm, setCreateForm] = useState<Partial<MaterialItem>>({
     sku: '',
     name: '',
     category: '肉类原料',
-    currentStock: 10,
+    currentStock: 0, // 遵从要求：默认在库设为0，待商家手动上架
     safetyStock: 10,
     reorderSuggestion: 20,
     unit: 'kg',
@@ -257,6 +272,195 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
     showToast(`[${target.name}] 库存已调整为 ${nextStock} ${target.unit}`);
   };
 
+  // Manual Stock-In (On-Shelf) Action
+  const handleOpenStockIn = (item: MaterialItem) => {
+    setStockInTargetMaterial(item);
+    setIsStockInModalOpen(true);
+  };
+
+  const handleConfirmStockIn = (params: {
+    materialId: string;
+    arrivalQty: number;
+    batchNo: string;
+    unitPrice: number;
+    supplier: string;
+    storageLocation: string;
+    expiryDate: string;
+    notes: string;
+  }) => {
+    const target = materials.find((m) => m.id === params.materialId);
+    if (!target) return;
+
+    const newStock = parseFloat((target.currentStock + params.arrivalQty).toFixed(1));
+    const updatedItem: MaterialItem = {
+      ...target,
+      currentStock: newStock,
+      status: (newStock <= target.safetyStock ? 'warning' : 'normal') as 'warning' | 'normal',
+      stockStatus: 'in_stock',
+      isInStock: true,
+      batchNo: params.batchNo || target.batchNo,
+      storageLocation: params.storageLocation || target.storageLocation,
+      supplier: params.supplier || target.supplier,
+      purchasePrice: params.unitPrice || target.purchasePrice,
+      lastPurchased: new Date().toISOString().slice(0, 10),
+      purchaseCount: (target.purchaseCount || 0) + 1,
+      updatedAt: new Date().toISOString(),
+      remark: `${new Date().toLocaleDateString()}: 手动验收入库 +${params.arrivalQty}${target.unit} (${params.notes})`
+    };
+
+    const updatedList = materials.map((m) => (m.id === params.materialId ? updatedItem : m));
+    saveMaterials(updatedList);
+
+    // Auto-record purchase receipt
+    const newRecord: PurchaseRecord = {
+      id: `po-${Date.now()}`,
+      purchaseNo: `RCV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(100 + Math.random() * 900)}`,
+      timestamp: new Date().toLocaleString('zh-CN', { hour12: false }).slice(0, 16),
+      itemName: target.name,
+      category: target.category,
+      supplier: params.supplier || target.supplier,
+      quantity: params.arrivalQty,
+      unit: target.unit,
+      unitPrice: params.unitPrice || target.purchasePrice,
+      totalAmount: params.arrivalQty * (params.unitPrice || target.purchasePrice),
+      status: 'completed',
+      buyer: '商家现地验收 (手动上架)',
+      notes: `手动验收入库上架 - 批次:${params.batchNo} (${params.notes})`
+    };
+    savePurchaseRecords([newRecord, ...purchaseRecords]);
+
+    globalVersionEngine.recordDataMutation({
+      module: 'materials',
+      entityId: target.id,
+      entityName: target.name,
+      actionType: 'update',
+      beforeData: target,
+      afterData: updatedItem,
+      customSummary: `手动入库上架：${target.currentStock} -> ${newStock} ${target.unit} (批次: ${params.batchNo})`
+    });
+
+    showToast(`原料【${target.name}】已成功验收入库上架 ${params.arrivalQty} ${target.unit}！在库状态已转为在售。`);
+  };
+
+  // Template Actions
+  const handleApplyTemplate = (template: MaterialTemplate) => {
+    const existingIndex = materials.findIndex((m) => m.name.trim() === template.name.trim());
+    if (existingIndex >= 0) {
+      const existing = materials[existingIndex];
+      const updated: MaterialItem = {
+        ...existing,
+        currentStock: 0, // 严格遵从要求：在库设为0
+        safetyStock: template.safetyStock,
+        reorderSuggestion: template.reorderSuggestion,
+        unit: template.unit,
+        purchasePrice: template.purchasePrice,
+        storageLocation: template.storageLocation,
+        storageTempZone: template.storageTempZone,
+        supplier: template.supplier,
+        supplierContact: template.supplierContact,
+        supplierPhone: template.supplierPhone,
+        supplierLeadDays: template.supplierLeadDays,
+        supplierRating: template.supplierRating,
+        shelfLifeDays: template.shelfLifeDays,
+        standardYieldRate: template.standardYieldRate,
+        spec: template.spec,
+        status: 'warning',
+        stockStatus: 'out_of_stock',
+        isInStock: false,
+        updatedAt: new Date().toISOString()
+      };
+      const updatedList = [...materials];
+      updatedList[existingIndex] = updated;
+      saveMaterials(updatedList);
+      globalVersionEngine.recordDataMutation({
+        module: 'materials',
+        entityId: existing.id,
+        entityName: existing.name,
+        actionType: 'update',
+        beforeData: existing,
+        afterData: updated,
+        customSummary: `从模板刷新原料档案【${template.name}】(在库已置0待上架)`
+      });
+      showToast(`已从标准模板刷新【${template.name}】，实际在库已设为 0 (待手动上架)！`);
+    } else {
+      const newMat = instantiateMaterialFromTemplate(template);
+      saveMaterials([newMat, ...materials]);
+      globalVersionEngine.recordDataMutation({
+        module: 'materials',
+        entityId: newMat.id,
+        entityName: newMat.name,
+        actionType: 'create',
+        beforeData: null,
+        afterData: newMat,
+        customSummary: `从模板库载入原料档案【${template.name}】(在库已置0待上架)`
+      });
+      showToast(`已从标准模板载入原料【${template.name}】，实际在库为 0 (待手动上架)！`);
+    }
+  };
+
+  const handleBatchApplyTemplates = (templates: MaterialTemplate[]) => {
+    const currentList = [...materials];
+    let addedCount = 0;
+    let updatedCount = 0;
+
+    templates.forEach((tpl) => {
+      const idx = currentList.findIndex((m) => m.name.trim() === tpl.name.trim());
+      if (idx >= 0) {
+        currentList[idx] = {
+          ...currentList[idx],
+          currentStock: 0, // 遵从要求：在库统一设为0
+          safetyStock: tpl.safetyStock,
+          reorderSuggestion: tpl.reorderSuggestion,
+          unit: tpl.unit,
+          purchasePrice: tpl.purchasePrice,
+          storageLocation: tpl.storageLocation,
+          storageTempZone: tpl.storageTempZone,
+          supplier: tpl.supplier,
+          shelfLifeDays: tpl.shelfLifeDays,
+          standardYieldRate: tpl.standardYieldRate,
+          spec: tpl.spec,
+          status: 'warning',
+          stockStatus: 'out_of_stock',
+          isInStock: false,
+          updatedAt: new Date().toISOString()
+        };
+        updatedCount++;
+      } else {
+        currentList.unshift(instantiateMaterialFromTemplate(tpl));
+        addedCount++;
+      }
+    });
+
+    saveMaterials(currentList);
+    showToast(`已批量调用 ${templates.length} 项标准原料模板！(新增 ${addedCount} 种，更新 ${updatedCount} 种，实际在库统一置为 0)`);
+  };
+
+  // Reset All Stock to Zero
+  const handleResetAllStockToZero = () => {
+    if (!confirm('确认将所有原料的实际在库库存统一归零 (设为0) 吗？\n操作后需要商家根据实际到货手动验收入库上架。')) {
+      return;
+    }
+    const updated = materials.map((m) => ({
+      ...m,
+      currentStock: 0,
+      status: 'warning' as const,
+      stockStatus: 'out_of_stock' as const,
+      isInStock: false,
+      updatedAt: new Date().toISOString()
+    }));
+    saveMaterials(updated);
+    globalVersionEngine.recordDataMutation({
+      module: 'materials',
+      entityId: 'all',
+      entityName: '全量原物料',
+      actionType: 'update',
+      beforeData: materials,
+      afterData: updated,
+      customSummary: '执行原料在库库存一键归零 (待商家手动入库上架)'
+    });
+    showToast('全量原料在库库存已重置归零！请点击【手动入库上架】录入实物。');
+  };
+
   // Create New Material
   const handleOpenCreateModal = () => {
     const nextSku = `SKU-RM-${String(materials.length + 1).padStart(3, '0')}`;
@@ -264,7 +468,7 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
       sku: nextSku,
       name: '',
       category: '肉类原料',
-      currentStock: 10,
+      currentStock: 0, // 遵从要求：默认在库设为0
       safetyStock: 10,
       reorderSuggestion: 20,
       unit: 'kg',
@@ -440,6 +644,25 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
 
         <div className="flex items-center gap-2 flex-wrap">
           <button
+            id="btn-open-material-templates"
+            type="button"
+            onClick={() => setIsTemplateModalOpen(true)}
+            className="px-3 py-2 rounded-[3px] bg-linear-to-r from-amber-600 to-amber-700 text-white hover:from-amber-700 hover:to-amber-800 font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-all active:scale-95 text-xs"
+          >
+            <Sparkles className="w-4 h-4 text-amber-200" />
+            <span>原料模板库 ({STANDARD_MATERIAL_TEMPLATES.length})</span>
+          </button>
+          <button
+            id="btn-reset-stock-zero"
+            type="button"
+            onClick={handleResetAllStockToZero}
+            className="px-2.5 py-2 rounded-[3px] bg-white border border-amber-300 text-amber-900 hover:bg-amber-50 font-medium flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors active:scale-95 text-xs"
+            title="将所有原料在库库存归零，等待商家手动验收入库上架"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
+            <span>在库归零</span>
+          </button>
+          <button
             id="btn-create-new-material-archive"
             type="button"
             onClick={handleOpenCreateModal}
@@ -456,6 +679,44 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
           >
             <ShoppingCart className="w-4 h-4 text-emerald-400" />
             <span>下发新采购单</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 1.5 Template & Zero-Stock Status Notice */}
+      <div className="bg-linear-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border border-amber-300/80 rounded-[4px] p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+        <div className="flex items-start sm:items-center gap-2.5">
+          <div className="w-8 h-8 rounded-[3px] bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+            <Layers className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-bold text-xs text-amber-950">标准原料模板化与零在库模式已启用</span>
+              <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-200 text-amber-900">
+                实际在库设为0 · 待商家手动上架
+              </span>
+            </div>
+            <p className="text-[11px] text-amber-800/90 mt-0.5">
+              所有原料档案及安全库存参数已抽象为标准化模板。当前在库实际库存已归零，请点击【原料模板库】调配档案，或点击卡片上的【手动入库上架】录入实物到货。
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+          <button
+            type="button"
+            onClick={() => setIsTemplateModalOpen(true)}
+            className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-[3px] text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition-colors"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+            <span>打开原料模板库</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleResetAllStockToZero}
+            className="px-2.5 py-1.5 bg-white border border-amber-300 hover:bg-amber-50 text-amber-900 rounded-[3px] text-xs font-medium flex items-center gap-1 shadow-xs cursor-pointer transition-colors"
+          >
+            <RotateCcw className="w-3 h-3 text-amber-700" />
+            <span>一键在库归零</span>
           </button>
         </div>
       </div>
@@ -704,6 +965,24 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
 
                   {/* Stock Gauge & Quick +/- Adjuster */}
                   <div className="bg-[#f8fafc] p-2.5 rounded-[3px] border border-[#e2e8f0] space-y-2">
+                    {/* Zero Stock Manual On-Shelf Prompt */}
+                    {mat.currentStock === 0 && (
+                      <div className="p-2 bg-amber-50 border border-amber-200 rounded-[3px] flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 text-amber-800 text-[11px] font-medium">
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          <span>在库为 0 (待手动上架)</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenStockIn(mat)}
+                          className="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-[2px] text-[10.5px] flex items-center gap-1 cursor-pointer transition-colors shadow-xs active:scale-95"
+                        >
+                          <PackageCheck className="w-3 h-3" />
+                          <span>手动上架</span>
+                        </button>
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between">
                       <span className="text-[#64748b] text-[11px]">当前在库存量：</span>
                       <div className="flex items-center gap-1.5">
@@ -715,7 +994,7 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
                         >
                           -
                         </button>
-                        <span className={`font-mono font-bold text-sm ${isLow ? 'text-red-600' : 'text-[#0f172a]'}`}>
+                        <span className={`font-mono font-bold text-sm ${mat.currentStock === 0 ? 'text-amber-600' : isLow ? 'text-red-600' : 'text-[#0f172a]'}`}>
                           {mat.currentStock} {mat.unit}
                         </span>
                         <button

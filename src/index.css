@@ -294,5 +294,63 @@ nav[id^="bottom-main"] {
   animation: shake 0.4s ease-in-out;
 }
 
+/* =========================================================================
+ * Dynamic Radar Engine Keyframes & Utilities (流动餐车高精雷达动态引擎)
+ * ========================================================================= */
+@keyframes radarSweepSpin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes radarSonarExpand {
+  0% {
+    transform: translate(-50%, -50%) scale(0.18);
+    opacity: 0.95;
+  }
+  45% {
+    opacity: 0.65;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.4);
+    opacity: 0;
+  }
+}
+
+@keyframes radarCorePulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 0.75;
+  }
+}
+
+.radar-sweep-beam {
+  animation: radarSweepSpin 3.2s linear infinite;
+  transform-origin: center center;
+}
+
+.radar-sonar-wave-1 {
+  animation: radarSonarExpand 2.8s cubic-bezier(0.1, 0.7, 0.3, 1) infinite;
+}
+
+.radar-sonar-wave-2 {
+  animation: radarSonarExpand 2.8s cubic-bezier(0.1, 0.7, 0.3, 1) infinite 0.95s;
+}
+
+.radar-sonar-wave-3 {
+  animation: radarSonarExpand 2.8s cubic-bezier(0.1, 0.7, 0.3, 1) infinite 1.9s;
+}
+
+.radar-core-ping {
+  animation: radarCorePulse 1.8s ease-in-out infinite;
+}
+
 
 

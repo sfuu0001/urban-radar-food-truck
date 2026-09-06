@@ -10,8 +10,8 @@
 
 | 配置项 | 配置值 / 说明 |
 | :--- | :--- |
-| **TENCENT_SECRET_ID** | `AKIDOq8D6lPdkiUcYTHxZ1IPK1Yt1wfFvPuG` |
-| **TENCENT_SECRET_KEY** | `FKEvSwDHF0e5KPRM4LOK6h7LMEtxufKq` |
+| **TENCENT_SECRET_ID** | `<YOUR_TENCENT_SECRET_ID>` |
+| **TENCENT_SECRET_KEY** | `<YOUR_TENCENT_SECRET_KEY>` |
 | **静态托管存储桶 (推荐)** | `529f-static-tc100-d9gz0e2ko5929e360-1445454244` (用于网页部署，免强制下载) |
 | **文件存储存储桶** | `7463-tc100-d9gz0e2ko5929e360-1445454244` (用于应用附件存储) |
 | **TENCENT_COS_REGION** | `ap-shanghai` (华东·上海) |
@@ -35,8 +35,8 @@ npm run deploy:cos
 
 ### `.env` 变量定义
 ```ini
-TENCENT_SECRET_ID=AKIDOq8D6lPdkiUcYTHxZ1IPK1Yt1wfFvPuG
-TENCENT_SECRET_KEY=FKEvSwDHF0e5KPRM4LOK6h7LMEtxufKq
+TENCENT_SECRET_ID=<YOUR_TENCENT_SECRET_ID>
+TENCENT_SECRET_KEY=<YOUR_TENCENT_SECRET_KEY>
 TENCENT_COS_BUCKET=529f-static-tc100-d9gz0e2ko5929e360-1445454244
 TENCENT_COS_REGION=ap-shanghai
 ```

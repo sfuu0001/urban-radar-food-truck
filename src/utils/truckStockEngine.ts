@@ -22,13 +22,8 @@ export const TRUCK_STOCK_EVENT = 'obsidian_truck_stock_changed';
 export function getTruckStockData(): TruckStockData {
   return safeGetStorage<TruckStockData>(STORAGE_KEY_TRUCK_STOCK, {
     'truck-01': {},
-    'truck-02': {
-      'dish-1': { soldOut: false, dailyStock: 50, remainingStock: 12 },
-      'dish-5': { soldOut: true, dailyStock: 20, remainingStock: 0 } // 02号车单独售罄
-    },
-    'truck-03': {
-      'dish-7': { soldOut: true, dailyStock: 15, remainingStock: 0 } // 03号车单独售罄
-    }
+    'truck-02': {},
+    'truck-03': {}
   });
 }
 

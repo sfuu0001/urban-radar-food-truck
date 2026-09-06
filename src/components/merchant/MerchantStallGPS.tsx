@@ -3,27 +3,17 @@ import {
   Truck,
   MapPin,
   Radio,
-  ShieldCheck,
-  CheckCircle2,
-  AlertCircle,
-  Compass,
-  Thermometer,
-  Zap,
-  BatteryCharging,
-  Flame,
   Search,
-  Sparkles,
-  Sliders,
   Navigation,
   Check,
-  RefreshCw,
-  Clock,
-  Bike,
   KeyRound,
-  ChevronDown,
-  ChevronUp,
   Lock,
-  Unlock
+  Unlock,
+  Store,
+  Moon,
+  Building2,
+  Plus,
+  Minus
 } from 'lucide-react';
 import { TruckInfo } from '../../types';
 import {
@@ -32,8 +22,11 @@ import {
   getActiveTruckConfig,
   setActiveTruckId,
   TruckLocationConfig,
-  PRESET_TRUCK_LOCATIONS,
-  saveAmapWebKey
+  saveAmapWebKey,
+  geocodeAddress,
+  PlaceSuggestion,
+  suggestPlaces,
+  getTruckTheme
 } from '../../utils/truckLocationEngine';
 import { TruckLocationMapPicker } from './TruckLocationMapPicker';
 
@@ -55,6 +48,15 @@ interface GpsDraft {
   savedAt: string;
 }
 
+// 常用快捷商圈图钉
+const QUICK_LANDMARKS = [
+  { name: '三宝郡庭', locationName: '三宝郡庭东门', lat: 30.3012, lng: 120.1262, radius: 1.0 },
+  { name: '拱墅万达', locationName: '拱墅万达广场西区', lat: 30.3045, lng: 120.1310, radius: 3.0 },
+  { name: '西湖文化', locationName: '西湖文化广场地铁口', lat: 30.2785, lng: 120.1601, radius: 3.0 },
+  { name: '武林银泰', locationName: '武林银泰临街专送口', lat: 30.2721, lng: 120.1625, radius: 3.0 },
+  { name: '市民中心', locationName: '钱江新城市民中心', lat: 30.2458, lng: 120.2105, radius: 5.0 }
+];
+
 export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
   truck,
   onUpdateLocation,
@@ -66,27 +68,37 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
 
   const [stallStatus, setStallStatus] = useState<'open' | 'transit' | 'closed'>('open');
   const [locationName, setLocationName] = useState(currentTruckConfig.locationName);
+  const [locationDetail, setLocationDetail] = useState('');
   const [fenceRadius, setFenceRadius] = useState<number>(currentTruckConfig.deliveryRadiusKm);
   const [pinLat, setPinLat] = useState<number>(currentTruckConfig.latitude);
   const [pinLng, setPinLng] = useState<number>(currentTruckConfig.longitude);
-  // 镜像最新候选坐标: 广播时直接取 ref, 规避任何重渲染/闭包导致的旧值, 确保「修改即生效」
+
+  // 候选坐标 Ref: 广播时直接取 ref 保证无闭包滞后
   const pinRef = useRef<{ lat: number; lng: number }>({ lat: pinLat, lng: pinLng });
   pinRef.current = { lat: pinLat, lng: pinLng };
+
   const [isBroadcasting, setIsBroadcasting] = useState(false);
-  // 位置锁定开关: 默认「查看模式」, 打开面板绝不改动餐车实际停靠点
+  // 位置锁定开关: 默认「查看模式」
   const [locationLocked, setLocationLocked] = useState<boolean>(true);
   const locationLockedRef = useRef(true);
   locationLockedRef.current = locationLocked;
 
-  // 地图飞行目标(预设点点击/手动) —— seq 变化即触发地图飞达
+  // 地图飞行目标 (seq 变化触发)
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; seq: number } | undefined>(undefined);
+
   // 自动保存草稿
   const [lastAutoSave, setLastAutoSave] = useState<string | null>(null);
   const [hasDraft, setHasDraft] = useState(false);
   const autosaveTimer = useRef<number | null>(null);
-  const skipAutosaveRef = useRef(true); // 首次/切换时同步状态不触发
+  const skipAutosaveRef = useRef(true);
 
-  // 高德 Key 配置
+  // 搜索与智能联想
+  const [searchInput, setSearchInput] = useState('');
+  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+
+  // 高德 Key 配置展开
   const [amapKeyOpen, setAmapKeyOpen] = useState(false);
   const [amapKeyText, setAmapKeyText] = useState<string>('');
   const [customKeyActive, setCustomKeyActive] = useState<boolean>(() => {
@@ -97,7 +109,10 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
     }
   });
 
-  // 从草稿恢复单个餐车的未广播配置
+  // 辅助信息面板展开
+  const [detailsPanelOpen, setDetailsPanelOpen] = useState(false);
+
+  // 从草稿恢复单个餐车
   const loadDraftFor = (truckId: string, target: TruckLocationConfig) => {
     try {
       const raw = localStorage.getItem(draftKeyFor(truckId));
@@ -112,13 +127,15 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
       setHasDraft(true);
       setLastAutoSave(draft.savedAt || null);
     } catch {
-      /* 草稿损坏则忽略 */
+      /* ignore */
     }
   };
 
-  // 初始化/切换餐车: 重置到该车配置(仅编辑态恢复草稿)并让地图重挂载
+  // 切换餐车
   useEffect(() => {
-    const config = getAllTruckConfigs().find((t) => t.id === selectedTruckId) || allTrucks.find((t) => t.id === selectedTruckId);
+    const config =
+      getAllTruckConfigs().find((t) => t.id === selectedTruckId) ||
+      allTrucks.find((t) => t.id === selectedTruckId);
     if (!config) return;
     skipAutosaveRef.current = true;
     setLocationName(config.locationName);
@@ -128,32 +145,36 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
     setStallStatus(config.status || 'open');
     setHasDraft(false);
     setLastAutoSave(null);
-    setFlyTo(undefined);
-    // 锁定(查看)状态: 展示已保存的真实停靠点, 不恢复草稿
+    setFlyTo({ lat: config.latitude, lng: config.longitude, seq: Date.now() });
+
     if (!locationLockedRef.current) {
       loadDraftFor(selectedTruckId, config);
     }
-    // 切车后允许自动保存
+
     requestAnimationFrame(() => {
       skipAutosaveRef.current = false;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTruckId]);
 
-  // 解锁编辑: 进入编辑模式, 若该车存在未广播草稿则恢复以便继续
+  // 解锁编辑
   const handleUnlock = () => {
     setLocationLocked(false);
-    const config = getAllTruckConfigs().find((t) => t.id === selectedTruckId) || allTrucks.find((t) => t.id === selectedTruckId);
+    const config =
+      getAllTruckConfigs().find((t) => t.id === selectedTruckId) ||
+      allTrucks.find((t) => t.id === selectedTruckId);
     if (config) {
       loadDraftFor(selectedTruckId, config);
     }
-    showToast('已解锁编辑: 地图/GPS/搜索仅更新「候选位置」, 必须点「保存并广播」才写回餐车实际位置');
+    showToast('已解锁编辑模式：您可拖动地图中心准星、搜索或选择快捷商圈，修改后点下方「保存并广播」生效');
   };
 
+  // 完成锁定
   const handleLock = () => {
     setLocationLocked(true);
-    // 回到查看: 丢弃未广播的本地候选(含草稿), 重新展示已保存位置
-    const config = getAllTruckConfigs().find((t) => t.id === selectedTruckId) || allTrucks.find((t) => t.id === selectedTruckId);
+    const config =
+      getAllTruckConfigs().find((t) => t.id === selectedTruckId) ||
+      allTrucks.find((t) => t.id === selectedTruckId);
     if (config) {
       skipAutosaveRef.current = true;
       setLocationName(config.locationName);
@@ -161,18 +182,18 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
       setPinLat(config.latitude);
       setPinLng(config.longitude);
       setStallStatus(config.status || 'open');
+      setFlyTo({ lat: config.latitude, lng: config.longitude, seq: Date.now() });
       requestAnimationFrame(() => {
         skipAutosaveRef.current = false;
       });
     }
     clearDraft(selectedTruckId);
-    showToast('已锁定(查看模式): 餐车位置不会被任何操作修改, 未广播草稿已放弃');
+    showToast('已锁定查看模式：餐车停靠点不会被误触修改，草稿已重置为实际停靠点');
   };
 
-  // 自动保存草稿(600ms 防抖): 仅编辑态生效, 位置/名称/半径/状态任一变化即落盘, 广播后清除
+  // 自动保存草稿
   useEffect(() => {
-    if (locationLockedRef.current) return; // 锁定态不写草稿
-    if (skipAutosaveRef.current) return;
+    if (locationLockedRef.current || skipAutosaveRef.current) return;
     if (autosaveTimer.current) window.clearTimeout(autosaveTimer.current);
     autosaveTimer.current = window.setTimeout(() => {
       const now = new Date().toLocaleTimeString('zh-CN', { hour12: false });
@@ -195,7 +216,6 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
     return () => {
       if (autosaveTimer.current) window.clearTimeout(autosaveTimer.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locationLocked, locationName, fenceRadius, pinLat, pinLng, stallStatus, selectedTruckId]);
 
   const clearDraft = (truckId: string) => {
@@ -213,22 +233,97 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
     setActiveTruckId(id);
   };
 
-  const handlePresetLoad = (loc: (typeof PRESET_TRUCK_LOCATIONS)[number]) => {
-    if (locationLockedRef.current) {
-      showToast('🔒 当前为查看模式: 请先点击上方「解锁编辑」再载入商圈预设');
+  // 地址输入搜索联想
+  const handleSearchChange = async (v: string) => {
+    setSearchInput(v);
+    const q = v.trim();
+    if (q.length < 2) {
+      setSuggestions([]);
+      setSuggestOpen(false);
+      return;
+    }
+    const items = await suggestPlaces(q);
+    if (items.length) {
+      setSuggestions(items);
+      setSuggestOpen(true);
+    } else {
+      setSuggestions([]);
+      setSuggestOpen(false);
+    }
+  };
+
+  // 选定联想项
+  const handleSelectSuggestion = (s: PlaceSuggestion) => {
+    if (locationLocked) {
+      showToast('🔒 当前为查看模式，请先解锁编辑');
+      return;
+    }
+    setLocationName(s.title);
+    setLocationDetail(s.detail);
+    setPinLat(s.latitude);
+    setPinLng(s.longitude);
+    setSearchInput('');
+    setSuggestions([]);
+    setSuggestOpen(false);
+    setFlyTo({ lat: s.latitude, lng: s.longitude, seq: Date.now() });
+    showToast(`已选定候选基点：${s.title}`);
+  };
+
+  // 回车搜索地址
+  const handleSearchSubmit = async () => {
+    if (locationLocked) {
+      showToast('🔒 当前为查看模式，请先解锁编辑');
+      return;
+    }
+    const q = searchInput.trim();
+    if (!q || isSearching) return;
+    setIsSearching(true);
+    const res = await geocodeAddress(q);
+    setIsSearching(false);
+    if (res) {
+      setLocationName(q);
+      setLocationDetail('已通过高德逆地理结构化解析定位');
+      setPinLat(res.latitude);
+      setPinLng(res.longitude);
+      setSearchInput('');
+      setSuggestions([]);
+      setSuggestOpen(false);
+      setFlyTo({ lat: res.latitude, lng: res.longitude, seq: Date.now() });
+      showToast(`已定位到：${q}`);
+    } else {
+      showToast('未检索到该地址，请尝试更详细的商圈名称或道路');
+    }
+  };
+
+  // 载入预设商圈切点
+  const handlePresetLoad = (loc: (typeof QUICK_LANDMARKS)[number]) => {
+    if (locationLocked) {
+      showToast('已锁定查看模式，请先点击解锁');
       return;
     }
     setLocationName(loc.locationName);
-    setFenceRadius(loc.defaultRadiusKm);
-    setPinLat(loc.latitude);
-    setPinLng(loc.longitude);
-    setFlyTo({ lat: loc.latitude, lng: loc.longitude, seq: Date.now() });
-    showToast(`已载入【${loc.locationName}】为候选位置, 保存并广播后生效`);
+    setFenceRadius(loc.radius);
+    setPinLat(loc.lat);
+    setPinLng(loc.lng);
+    setFlyTo({ lat: loc.lat, lng: loc.lng, seq: Date.now() });
+    showToast(`已定位到: ${loc.name}`);
   };
 
+  // 半径微调与快速档位
+  const handleRadiusStep = (delta: number) => {
+    if (locationLocked) return;
+    setFenceRadius((prev) => Math.max(0.5, Math.min(15.0, Math.round((prev + delta) * 10) / 10)));
+  };
+
+  const handleSelectTier = (km: number) => {
+    if (locationLocked) return;
+    setFenceRadius(km);
+  };
+
+  // 保存并广播
   const handleBroadcast = () => {
-    if (locationLockedRef.current) {
-      showToast('🔒 当前为查看模式: 无需广播。如需修改位置请先解锁编辑');
+    if (locationLocked) {
+      showToast('已锁定，请先解锁后再广播');
       return;
     }
     setIsBroadcasting(true);
@@ -248,8 +343,10 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
       setAllTrucks(getAllTruckConfigs());
       clearDraft(selectedTruckId);
       onUpdateLocation(locationName, fenceRadius);
-      showToast(`✅ 已广播【${currentTruckConfig.name}】: ${locationName} · 半径 ${fenceRadius.toFixed(1)} km · ${stallStatus === 'open' ? '营业中' : stallStatus === 'transit' ? '转场中' : '休整'}`);
-    }, 500);
+      showToast(
+        `已广播【${currentTruckConfig.name}】停靠点与外卖半径（${fenceRadius.toFixed(1)}km）`
+      );
+    }, 600);
   };
 
   const handleSaveAmapKey = () => {
@@ -257,470 +354,389 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
     saveAmapWebKey(key);
     setCustomKeyActive(!!key);
     setAmapKeyText('');
-    showToast(key ? '已保存你自己的高德 Key, 将覆盖内置 Key(搜索走高德更稳)' : '已清除自定义 Key, 恢复使用内置默认 Key');
+    setAmapKeyOpen(false);
+    showToast(key ? '已启用自定义高德 Key' : '已恢复默认高德 Key');
   };
 
   return (
-    <div className="space-y-3.5 text-xs">
-      {/* 0. Multi-Truck Selector Banner */}
-      <div className="bg-white p-3 rounded-xl border border-[#e6e6e4] shadow-2xs">
-        <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
-          <div className="flex items-center gap-1.5 font-bold text-xs text-[#37352f]">
-            <Sliders className="w-3.5 h-3.5 text-emerald-700" />
-            <span>选择配置餐车（多车独立配送范围）:</span>
+    <div className="space-y-3 text-xs">
+      {/* ============================================================
+       * 1. 顶层紧凑控制条 (纯图标按钮与微型状态)
+       * ============================================================ */}
+      <div className="bg-white p-2.5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between gap-2 flex-wrap">
+        {/* 左侧：餐车当前编号与 5G 指示灯 */}
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold shadow-xs">
+            <Truck className="w-3.5 h-3.5 text-emerald-400" />
           </div>
-          <span className="text-[10px] text-[#787774]">切换餐车 → 地图自动飞达其已保存停靠点 · 默认锁定查看</span>
+          <span className="font-black text-xs text-slate-900 tracking-tight">
+            {currentTruckConfig.name.replace(/黑曜石\s*/, '').replace(/流动餐车/, '')}
+          </span>
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="5G 在线" />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {allTrucks.map((t) => {
-            const isCurrent = t.id === selectedTruckId;
+        {/* 中间：车队纯图标/编号切换按钮 */}
+        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+          {allTrucks.map((t, idx) => {
+            const isCur = t.id === selectedTruckId;
+            const theme = getTruckTheme(t.id);
+            const num = String(idx + 1).padStart(2, '0');
             return (
               <button
                 key={t.id}
                 type="button"
                 onClick={() => handleTruckChange(t.id)}
-                className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
-                  isCurrent
-                    ? 'border-black bg-neutral-50 ring-1.5 ring-black'
-                    : 'border-[#e6e6e4] bg-white hover:bg-neutral-50'
+                className={`relative w-7 h-7 rounded-lg flex items-center justify-center font-mono font-bold text-xs transition-all cursor-pointer ${
+                  isCur
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'text-slate-600 hover:bg-white hover:text-slate-900'
                 }`}
+                style={
+                  isCur
+                    ? {
+                        color: theme.color,
+                        boxShadow: `0 0 10px ${theme.glowColor}`,
+                        border: `1.5px solid ${theme.color}`
+                      }
+                    : {
+                        border: `1px solid transparent`
+                      }
+                }
+                title={`${t.name} (${t.deliveryRadiusKm}km · ${theme.themeTitle})`}
               >
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-xs text-black">{t.name}</span>
-                    <span className="text-[9px] px-1 py-0.2 rounded bg-neutral-100 text-neutral-600 font-mono">
-                      {t.code}
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-[#787770] truncate mt-0.5">{t.locationName}</p>
-                  <span className="text-[10px] font-bold text-emerald-700 font-mono mt-0.5 block">
-                    配送半径: {t.deliveryRadiusKm.toFixed(1)} km
-                  </span>
-                </div>
-                {isCurrent && <Check className="w-4 h-4 text-black shrink-0" />}
+                <span
+                  className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full"
+                  style={{ backgroundColor: theme.color }}
+                />
+                {num}
               </button>
             );
           })}
         </div>
-      </div>
 
-      {/* 1. Hardware & Telemetry Sensors */}
-      <div className="bg-white p-3.5 rounded-xl border border-[#e6e6e4] space-y-3 shadow-2xs">
-        <div className="flex items-center justify-between border-b border-[#efefed] pb-2 flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-[#37352f] text-white flex items-center justify-center font-bold">
-              <Truck className="w-4 h-4 text-[#fde047]" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h4 className="font-bold text-sm text-[#37352f]">{currentTruckConfig.name}</h4>
-                <span className="text-[10px] font-mono bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc] px-1.5 py-0.2 rounded">
-                  RTK 高精车载终端
-                </span>
-              </div>
-              <p className="text-[11px] text-[#787774]">特种移动厨房牌照: 沪A·E8892 · 5G 实时车路协同</p>
-            </div>
+        {/* 右侧：营运状态纯图标按钮 + 锁定/解锁 + Key设置 */}
+        <div className="flex items-center gap-1.5">
+          {/* 状态纯图标按钮 */}
+          <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-xl">
+            <button
+              type="button"
+              onClick={() => {
+                setStallStatus('open');
+                showToast('营业中');
+              }}
+              className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                stallStatus === 'open'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+              title="营业中"
+            >
+              <Store className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setStallStatus('transit');
+                showToast('巡游中');
+              }}
+              className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                stallStatus === 'transit'
+                  ? 'bg-amber-500 text-white shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+              title="巡游中"
+            >
+              <Truck className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setStallStatus('closed');
+                showToast('打烊');
+              }}
+              className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                stallStatus === 'closed'
+                  ? 'bg-slate-700 text-white shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+              title="打烊"
+            >
+              <Moon className="w-3.5 h-3.5" />
+            </button>
           </div>
 
-          {/* Operational Status Toggle */}
-          <div className="flex bg-[#f1f1ef] p-0.5 rounded-lg border border-[#e6e6e4]">
-            {[
-              { id: 'open', label: '出摊营业中', color: 'bg-[#2b593f] text-white' },
-              { id: 'transit', label: '转场巡游中', color: 'bg-[#d9730d] text-white' },
-              { id: 'closed', label: '打烊休整', color: 'bg-[#37352f] text-white' }
-            ].map((st) => (
-              <button
-                key={st.id}
-                type="button"
-                onClick={() => {
-                  setStallStatus(st.id as any);
-                  showToast(
-                    locationLockedRef.current
-                      ? `餐车营运状态: ${st.label}(查看模式, 解锁编辑后才能广播)`
-                      : `餐车营运状态已变更为: ${st.label}(编辑中, 广播后生效)`
-                  );
-                }}
-                className={`px-3 py-1 rounded-md font-semibold text-xs transition-all cursor-pointer ${
-                  stallStatus === st.id ? st.color : 'text-[#787774] hover:text-black'
-                }`}
-              >
-                {st.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* 4 Sensor Gauges */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-          <div className="bg-[#fbfbfa] p-2.5 rounded-xl border border-[#e6e6e4] space-y-1">
-            <span className="text-[10px] text-[#787774] flex items-center gap-1">
-              <Thermometer className="w-3 h-3 text-[#2383e2]" />
-              <span>冷藏生鲜仓温控</span>
-            </span>
-            <p className="font-mono font-bold text-sm text-[#2b593f]">-18.2 °C</p>
-            <span className="text-[9.5px] text-[#4dab63] block">✓ 医用级冷链合格</span>
-          </div>
-
-          <div className="bg-[#fbfbfa] p-2.5 rounded-xl border border-[#e6e6e4] space-y-1">
-            <span className="text-[10px] text-[#787774] flex items-center gap-1">
-              <Flame className="w-3 h-3 text-[#eb5757]" />
-              <span>炙烤主炉温控</span>
-            </span>
-            <p className="font-mono font-bold text-sm text-[#d9730d]">280 °C</p>
-            <span className="text-[9.5px] text-[#d9730d] block">果木炭火炙烤中</span>
-          </div>
-
-          <div className="bg-[#fbfbfa] p-2.5 rounded-xl border border-[#e6e6e4] space-y-1">
-            <span className="text-[10px] text-[#787774] flex items-center gap-1">
-              <BatteryCharging className="w-3 h-3 text-[#4dab63]" />
-              <span>车载储能与供电</span>
-            </span>
-            <p className="font-mono font-bold text-sm text-[#37352f]">88% (9.5h)</p>
-            <span className="text-[9.5px] text-[#787774] block">太阳能辅助补充</span>
-          </div>
-
-          <div className="bg-[#fbfbfa] p-2.5 rounded-xl border border-[#e6e6e4] space-y-1">
-            <span className="text-[10px] text-[#787774] flex items-center gap-1">
-              <Compass className="w-3 h-3 text-emerald-700" />
-              <span>设定配送辐射半径</span>
-            </span>
-            <p className="font-bold text-sm text-emerald-700">{fenceRadius.toFixed(1)} km</p>
-            <span className="text-[9.5px] text-emerald-700 block">超出即触发客端引导</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 1.2 GPS 引擎增强设置(可选高德 Key) */}
-      <div className="bg-white p-3 rounded-xl border border-[#e6e6e4] shadow-2xs">
-        <button
-          type="button"
-          onClick={() => setAmapKeyOpen(!amapKeyOpen)}
-          className="w-full flex items-center justify-between cursor-pointer"
-        >
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-[#f3f1ec] text-[#d9730d] flex items-center justify-center">
-              <KeyRound className="w-4 h-4" />
-            </div>
-            <div className="text-left">
-              <div className="font-bold text-[#37352f]">高德开放平台 Key（已内置默认 Key, 可覆盖）</div>
-              <div className="text-[10px] text-[#787774]">
-                已启用高德 POI 联想 + 逆地理（中文搜索更精准）; 如遇配额/限流可在此粘贴你自己的 Key
-              </div>
-            </div>
-          </div>
-          {amapKeyOpen ? (
-            <ChevronUp className="w-4 h-4 text-[#9a937f]" />
+          {/* 锁定 / 解锁纯图标按钮 */}
+          {locationLocked ? (
+            <button
+              type="button"
+              onClick={handleUnlock}
+              className="w-7 h-7 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-700 flex items-center justify-center transition-all cursor-pointer shadow-xs"
+              title="已锁定（防误触），点击解锁编辑"
+            >
+              <Lock className="w-3.5 h-3.5" />
+            </button>
           ) : (
-            <ChevronDown className="w-4 h-4 text-[#9a937f]" />
+            <button
+              type="button"
+              onClick={handleLock}
+              className="w-7 h-7 rounded-xl bg-slate-900 hover:bg-slate-800 text-emerald-400 flex items-center justify-center transition-all cursor-pointer shadow-xs ring-1 ring-emerald-500"
+              title="编辑中，点击完成锁定"
+            >
+              <Unlock className="w-3.5 h-3.5" />
+            </button>
           )}
-        </button>
 
-        {amapKeyOpen && (
-          <>
-            <div className="mt-2.5 pt-2.5 border-t border-[#efefed] flex items-center gap-2 text-[10.5px]">
-              <span
-                className={`px-2 py-0.5 rounded-full font-bold border ${
-                  customKeyActive
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                    : 'bg-amber-50 text-amber-800 border-amber-200'
-                }`}
-              >
-                {customKeyActive ? '● 自定义 Key 生效中' : '● 内置默认 Key 生效中'}
-              </span>
-              <span className="text-[#787774]">
-                {customKeyActive
-                  ? '如需恢复默认, 清空输入框后点「保存」'
-                  : '高德 POI 联想/逆地理已可用; 配额不足时可替换'}
-              </span>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <input
-                type="text"
-                value={amapKeyText}
-                onChange={(e) => setAmapKeyText(e.target.value)}
-                placeholder="粘贴你自己的高德 Web服务 Key (留空=使用内置)"
-                className="flex-1 min-w-0 px-2.5 py-2 bg-[#f7f7f5] border border-[#d3d1cb] rounded-lg focus:outline-none focus:border-[#37352f] text-xs font-mono"
-              />
-              <button
-                type="button"
-                onClick={handleSaveAmapKey}
-                className="px-3.5 py-2 bg-black hover:bg-neutral-800 text-white rounded-lg font-bold text-xs cursor-pointer shrink-0"
-              >
-                保存并启用
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* 1.5 可视化精准坐标锚定 (查看锁定 / 编辑模式开关) */}
-      <div className="bg-white p-3 rounded-xl border border-[#e6e6e4] shadow-2xs space-y-2.5">
-        <div className="flex items-center justify-between border-b border-[#efefed] pb-2 flex-wrap gap-2">
-          <h4 className="font-bold text-sm text-[#37352f] flex items-center gap-1.5">
-            <MapPin className="w-4 h-4 text-emerald-700" />
-            <span>餐车停靠点可视化定位</span>
-            {locationLocked ? (
-              <span className="text-[9px] font-bold bg-[#f3f1ec] text-[#9a6a00] border border-[#e3d5a8] px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                <Lock className="w-2.5 h-2.5" /> 查看模式
-              </span>
-            ) : (
-              <span className="text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                <Unlock className="w-2.5 h-2.5" /> 编辑模式 · 需保存才生效
-              </span>
-            )}
-          </h4>
-          <div className="flex items-center gap-2">
-            {locationLocked ? (
-              <button
-                type="button"
-                onClick={handleUnlock}
-                className="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[11px] flex items-center gap-1.5 cursor-pointer shadow-xs"
-              >
-                <Unlock className="w-3.5 h-3.5 text-emerald-200" />
-                解锁编辑
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleLock}
-                className="px-3 py-1.5 rounded-lg bg-black hover:bg-neutral-800 text-white font-bold text-[11px] flex items-center gap-1.5 cursor-pointer shadow-xs"
-              >
-                <Lock className="w-3.5 h-3.5 text-[#fde047]" />
-                完成并锁定
-              </button>
-            )}
-            {!locationLocked && hasDraft && lastAutoSave && (
-              <span className="text-[9.5px] text-[#2b593f] bg-[#edf3ec] border border-[#c4dcbc] px-2 py-0.5 rounded-full flex items-center gap-1 font-semibold">
-                <Clock className="w-2.5 h-2.5" />
-                草稿已保存 {lastAutoSave}
-              </span>
-            )}
-          </div>
+          {/* 高德 Key 设置纯图标按钮 */}
+          <button
+            type="button"
+            onClick={() => setAmapKeyOpen(!amapKeyOpen)}
+            className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all cursor-pointer border ${
+              amapKeyOpen || customKeyActive
+                ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+            }`}
+            title="高德 Web 服务 Key 设置"
+          >
+            <KeyRound className="w-3.5 h-3.5" />
+          </button>
         </div>
-
-        {/* 锁定提示条 */}
-        {locationLocked ? (
-          <div className="bg-[#fbf7ec] border border-[#e7dcb8] rounded-xl px-3 py-2 text-[10.5px] text-[#6b5200] leading-snug flex items-start gap-1.5">
-            <Lock className="w-3.5 h-3.5 text-[#d9a300] shrink-0 mt-0.5" />
-            <span>
-              当前位置为餐车<b className="font-black">已保存的实际停靠点</b>（{pinLat.toFixed(5)}, {pinLng.toFixed(5)}）。
-              地图可拖动浏览, 但<b className="font-black">不会修改任何位置</b>。点击「解锁编辑」后, GPS/搜索/拖动才会更新候选位置。
-            </span>
-          </div>
-        ) : (
-          <div className="bg-amber-50/80 border border-amber-200 rounded-xl px-3 py-2 text-[10.5px] text-[#7a4a00] leading-snug flex items-start gap-1.5">
-            <Unlock className="w-3.5 h-3.5 text-[#d9730d] shrink-0 mt-0.5" />
-            <span>
-              编辑模式: 地图/GPS/搜索更新的是<b className="font-black">候选位置</b>（当前 {pinLat.toFixed(5)}, {pinLng.toFixed(5)}）。
-              必须点「保存并广播」才会写回餐车实际停靠点; 点「完成并锁定」则放弃候选恢复原位置。
-            </span>
-          </div>
-        )}
-
-        <TruckLocationMapPicker
-          key={selectedTruckId}
-          initialLat={pinLat}
-          initialLng={pinLng}
-          radiusKm={fenceRadius}
-          locked={locationLocked}
-          flyToTarget={flyTo}
-          onPositionChange={(la, ln) => {
-            setPinLat(la);
-            setPinLng(ln);
-          }}
-          onAddressChange={(name) => setLocationName(name)}
-          onRadiusChange={(km) => setFenceRadius(km)}
-        />
       </div>
 
-      {/* 2. GPS Broadcast & Delivery Range Slider Form */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-        {/* Left: Radius Customizer & Broadcast */}
-        <div className="bg-white p-3.5 rounded-xl border border-[#e6e6e4] space-y-3.5 shadow-2xs">
-          <div className="flex items-center justify-between border-b border-[#efefed] pb-2">
-            <h4 className="font-bold text-sm text-[#37352f] flex items-center gap-1.5">
-              <Radio className="w-4 h-4 text-[#eb5757] animate-pulse" />
-              <span>商家自定义每个餐车配送范围</span>
-            </h4>
-            <span className="text-[10px] text-[#787774]">地图围栏圈实时同步 · 客户端生效</span>
+      {/* 高德 Key 展开内嵌行 */}
+      {amapKeyOpen && (
+        <div className="p-2 bg-white border border-slate-200 rounded-xl shadow-xs flex items-center gap-1.5">
+          <KeyRound className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          <input
+            type="text"
+            value={amapKeyText}
+            onChange={(e) => setAmapKeyText(e.target.value)}
+            placeholder="高德 Web 服务 Key (留空保存则恢复默认)"
+            className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-mono outline-none focus:border-emerald-600 focus:bg-white"
+          />
+          <button
+            type="button"
+            onClick={handleSaveAmapKey}
+            className="w-7 h-7 bg-slate-900 hover:bg-slate-800 text-white rounded-lg flex items-center justify-center cursor-pointer shrink-0"
+            title="保存 Key"
+          >
+            <Check className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* ============================================================
+       * 2. 核心布局：左侧紧凑操作控制台，右侧大地图
+       * ============================================================ */}
+      <div className="flex flex-col lg:flex-row gap-3 items-stretch">
+        {/* ------------------------------------------------------------
+         * 左边: 极简参数控制台 (Left Modification Console)
+         * ------------------------------------------------------------ */}
+        <div className="w-full lg:w-[320px] xl:w-[340px] shrink-0 bg-white border border-slate-200 rounded-2xl shadow-xs flex flex-col overflow-hidden">
+          {/* 微型坐标与半径状态条 */}
+          <div className="px-3 py-2 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between font-mono text-[11px] text-slate-600">
+            <span className="flex items-center gap-1">
+              <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+              {pinLat.toFixed(4)}, {pinLng.toFixed(4)}
+            </span>
+            <span className="font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+              {fenceRadius.toFixed(1)} km
+            </span>
           </div>
 
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <label className="font-semibold text-[#5a5854] block flex items-center gap-1">
-                餐车停靠点描述 (顾客端位置基准)
-                {locationLocked && <span className="text-[9px] font-bold text-[#9a6a00]">· 锁定中, 解锁后可改</span>}
-              </label>
+          <div className="p-3 space-y-3 flex-1 overflow-y-auto max-h-[480px] lg:max-h-[calc(100vh-250px)]">
+            {/* 搜索框与纯图标按钮 */}
+            <div className="relative">
+              <div className="flex gap-1.5">
+                <div className="relative flex-1">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={searchInput}
+                    disabled={locationLocked}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearchSubmit()}
+                    placeholder={locationLocked ? '已锁定当前位置' : '搜索地址或商圈'}
+                    className="w-full pl-8 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-600 focus:bg-white disabled:opacity-50"
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={locationLocked || isSearching}
+                  onClick={handleSearchSubmit}
+                  className="w-8 h-8 bg-slate-900 hover:bg-slate-800 text-white rounded-xl flex items-center justify-center cursor-pointer disabled:opacity-40 shrink-0"
+                  title="搜索"
+                >
+                  <Search className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* 联想建议下拉 */}
+              {suggestOpen && suggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-float z-50 overflow-hidden max-h-48 overflow-y-auto">
+                  {suggestions.map((s, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleSelectSuggestion(s)}
+                      className="w-full px-2.5 py-1.5 text-left hover:bg-emerald-50 border-b border-slate-50 last:border-0 transition-colors flex items-center justify-between gap-1"
+                    >
+                      <span className="font-bold text-slate-800 text-xs truncate">{s.title}</span>
+                      <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 停靠点名称直接编辑 */}
+            <div className="relative">
+              <Navigation className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={locationName}
+                disabled={locationLocked}
                 onChange={(e) => setLocationName(e.target.value)}
-                disabled={locationLocked}
-                className={`w-full p-2 border rounded-lg focus:outline-none text-xs font-medium ${
-                  locationLocked
-                    ? 'bg-neutral-100 text-neutral-500 border-neutral-200 cursor-not-allowed'
-                    : 'bg-[#f7f7f5] border-[#d3d1cb] focus:border-[#37352f]'
-                }`}
-                placeholder="拖动地图后自动填入识别地址, 也可手动修改"
+                placeholder="停靠点名称"
+                className="w-full pl-8 pr-2.5 py-1.5 font-bold text-xs text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:border-emerald-600 focus:bg-white outline-none disabled:bg-slate-100 disabled:text-slate-600"
               />
             </div>
 
-            {/* Custom Distance Slider */}
-            <div className={`space-y-2 p-3 rounded-xl border ${locationLocked ? 'bg-neutral-100/60 border-neutral-200' : 'bg-neutral-50 border-neutral-200'}`}>
-              <div className="flex items-center justify-between">
-                <label className="font-bold text-black text-xs flex items-center gap-1.5">
-                  <Bike className={`w-3.5 h-3.5 ${locationLocked ? 'text-neutral-400' : 'text-emerald-700'}`} />
-                  <span>外卖配送最大服务半径 (公里):</span>
-                </label>
-                <div className="flex items-baseline gap-1">
-                  <input
-                    type="number"
-                    min="0.5"
-                    max="15.0"
-                    step="0.1"
-                    value={fenceRadius}
-                    disabled={locationLocked}
-                    onChange={(e) => setFenceRadius(Math.max(0.5, Math.min(15.0, parseFloat(e.target.value) || 1.0)))}
-                    className="w-16 px-1.5 py-0.5 text-right font-mono font-black text-sm bg-white border border-neutral-300 rounded focus:border-black outline-none disabled:bg-neutral-100 disabled:text-neutral-500"
-                  />
-                  <span className="font-mono font-bold text-xs text-neutral-600">km</span>
-                </div>
-              </div>
-
-              <input
-                type="range"
-                min="0.5"
-                max="15.0"
-                step="0.1"
-                value={fenceRadius}
-                disabled={locationLocked}
-                onChange={(e) => setFenceRadius(parseFloat(e.target.value))}
-                className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-black disabled:opacity-40 disabled:cursor-not-allowed"
-              />
-
-              <div className="flex justify-between text-[10px] text-neutral-500 font-mono">
-                <span>0.5 km (社区极速)</span>
-                <span>3.0 km (商圈标准)</span>
-                <span>8.0 km</span>
-                <span>15.0 km (全城专送)</span>
-              </div>
+            {/* 快捷商圈图钉按钮组 */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {QUICK_LANDMARKS.map((loc, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  disabled={locationLocked}
+                  onClick={() => handlePresetLoad(loc)}
+                  className="px-2 py-1 rounded-lg border border-slate-200 hover:border-emerald-500 bg-slate-50 hover:bg-emerald-50/50 text-[11px] text-slate-700 hover:text-emerald-700 flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-40"
+                  title={`${loc.locationName} (${loc.radius}km)`}
+                >
+                  <Building2 className="w-3 h-3 text-slate-400" />
+                  <span>{loc.name}</span>
+                </button>
+              ))}
             </div>
 
-            {/* Quick Range Presets */}
-            <div className="space-y-1">
-              <span className="text-[11px] font-semibold text-neutral-600">常用配送圈快捷档位:</span>
-              <div className="grid grid-cols-4 gap-1.5">
-                {[
-                  { label: '1.0 km 极速', val: 1.0 },
-                  { label: '2.0 km 核心', val: 2.0 },
-                  { label: '3.0 km 标准', val: 3.0 },
-                  { label: '5.0 km 宽域', val: 5.0 },
-                  { label: '8.0 km 远距', val: 8.0 },
-                  { label: '10.0 km 特送', val: 10.0 }
-                ].map((rad) => (
-                  <button
-                    key={rad.val}
-                    type="button"
-                    disabled={locationLocked}
-                    onClick={() => setFenceRadius(rad.val)}
-                    className={`py-1.5 rounded-lg font-bold border text-center transition-all text-[11px] disabled:cursor-not-allowed disabled:opacity-50 ${
-                      Math.abs(fenceRadius - rad.val) < 0.05
-                        ? 'bg-black text-white border-black'
-                        : 'bg-white text-neutral-800 border-neutral-300 hover:bg-neutral-100'
-                    }`}
-                  >
-                    {rad.label}
-                  </button>
-                ))}
+            <div className="border-t border-slate-100" />
+
+            {/* 外卖半径档位：纯数字/图标按钮 */}
+            <div className="space-y-2">
+              <div className="grid grid-cols-4 gap-1">
+                {[1, 3, 5, 8].map((tier) => {
+                  const isCur = Math.abs(fenceRadius - tier) < 0.2;
+                  return (
+                    <button
+                      key={tier}
+                      type="button"
+                      disabled={locationLocked}
+                      onClick={() => handleSelectTier(tier)}
+                      className={`py-1.5 rounded-xl font-mono font-bold text-xs border text-center transition-all cursor-pointer disabled:opacity-40 ${
+                        isCur
+                          ? 'bg-slate-900 text-emerald-400 border-slate-900 shadow-xs ring-1 ring-emerald-500'
+                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-white'
+                      }`}
+                      title={`${tier}.0 km`}
+                    >
+                      {tier}k
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* 滑块与步进纯图标按钮 */}
+              <div className="flex items-center gap-1.5 px-2 py-1.5 bg-slate-50 rounded-xl border border-slate-200">
+                <button
+                  type="button"
+                  disabled={locationLocked || fenceRadius <= 0.5}
+                  onClick={() => handleRadiusStep(-0.5)}
+                  className="w-6 h-6 bg-white border border-slate-200 rounded-lg flex items-center justify-center text-slate-700 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
+                  title="减小 0.5km"
+                >
+                  <Minus className="w-3 h-3" />
+                </button>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="15.0"
+                  step="0.1"
+                  value={fenceRadius}
+                  disabled={locationLocked}
+                  onChange={(e) => setFenceRadius(parseFloat(e.target.value))}
+                  className="flex-1 h-1.5 rounded-lg appearance-none cursor-pointer accent-slate-900 disabled:opacity-40"
+                />
+                <button
+                  type="button"
+                  disabled={locationLocked || fenceRadius >= 15.0}
+                  onClick={() => handleRadiusStep(0.5)}
+                  className="w-6 h-6 bg-white border border-slate-200 rounded-lg flex items-center justify-center text-slate-700 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
+                  title="增加 0.5km"
+                >
+                  <Plus className="w-3 h-3" />
+                </button>
               </div>
             </div>
+          </div>
 
-            {/* Impact Calculation Preview */}
-            <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 text-[11px] text-emerald-950 space-y-1">
-              <div className="flex items-center justify-between font-bold">
-                <span>配送圈预估覆盖效果:</span>
-                <span className="text-emerald-800">约 {(Math.PI * fenceRadius * fenceRadius).toFixed(1)} km² 辐射面积</span>
-              </div>
-              <p className="text-[10.5px] text-emerald-800 leading-tight">
-                预计送达时效: <span className="font-semibold">{Math.round(15 + fenceRadius * 4)} - {Math.round(22 + fenceRadius * 5)} 分钟</span> · 保温品质衰减控制优
-              </p>
-            </div>
-
+          {/* 底部操作条 (聚焦图标按钮 + 广播按钮) */}
+          <div className="p-2.5 bg-white border-t border-slate-200 shrink-0 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const config = allTrucks.find((t) => t.id === selectedTruckId);
+                if (config) {
+                  setFlyTo({ lat: config.latitude, lng: config.longitude, seq: Date.now() });
+                }
+              }}
+              className="w-9 h-9 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center cursor-pointer shrink-0"
+              title="聚焦当前餐车"
+            >
+              <Navigation className="w-4 h-4" />
+            </button>
             <button
               type="button"
               onClick={handleBroadcast}
               disabled={locationLocked || isBroadcasting}
-              className="w-full py-2.5 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-xs active:scale-98 disabled:cursor-not-allowed disabled:opacity-60 bg-black hover:bg-neutral-800"
+              className="flex-1 h-9 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed"
+              title="保存并全网广播"
             >
-              {locationLocked ? (
-                <>
-                  <Lock className="w-3.5 h-3.5 text-[#fde047]" />
-                  <span>已锁定 · 解锁后才能保存并广播位置/半径</span>
-                </>
-              ) : (
-                <>
-                  <Radio className="w-3.5 h-3.5 text-[#fde047]" />
-                  <span>{isBroadcasting ? '正在同步全网配置...' : `保存并广播【${currentTruckConfig.name}】外卖半径 (${fenceRadius.toFixed(1)}km)`}</span>
-                </>
-              )}
+              <Radio className="w-4 h-4 text-emerald-400" />
+              <span>{isBroadcasting ? '广播中…' : `广播同步 (${fenceRadius.toFixed(1)}k)`}</span>
             </button>
-            {!locationLocked && hasDraft && lastAutoSave && (
-              <p className="text-[9.5px] text-[#787774] text-center -mt-1">
-                当前为草稿(自动保存于 {lastAutoSave}); 点击上方按钮广播后即全网生效并清除草稿
-              </p>
-            )}
           </div>
         </div>
 
-        {/* Right: Commercial Preset Locations & Safety Checks */}
-        <div className="space-y-3">
-          {/* Preset Hotspots (点击同时飞达地图) */}
-          <div className="bg-white p-3.5 rounded-xl border border-[#e6e6e4] space-y-2.5 shadow-2xs">
-            <h4 className="font-bold text-xs text-[#37352f] flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5 text-[#d9730d]" />
-              <span>示例停靠商圈预设（点击 → 地图飞达 + 载入定位）:</span>
-            </h4>
-
-            <div className="space-y-1.5">
-              {PRESET_TRUCK_LOCATIONS.map((loc, idx) => (
-                <div
-                  key={idx}
-                  onClick={() => handlePresetLoad(loc)}
-                  className="p-2 bg-[#fbfbfa] hover:bg-[#efefed] border border-[#e6e6e4] rounded-lg cursor-pointer transition-all flex items-center justify-between gap-2"
-                >
-                  <div className="min-w-0">
-                    <p className="font-bold text-[#37352f] truncate">{loc.locationName}</p>
-                    <span className="text-[10px] text-[#787774] block">{loc.tag}</span>
-                  </div>
-                  <div className="text-right shrink-0 flex items-center gap-1.5">
-                    <span className="text-[10px] font-mono bg-emerald-50 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded font-bold">
-                      推荐 {loc.defaultRadiusKm}km
-                    </span>
-                    <Navigation className="w-3.5 h-3.5 text-emerald-700" />
-                  </div>
-                </div>
-              ))}
-            </div>
-            <p className="text-[10px] text-[#787774] leading-tight">
-              提示: 示例商圈仅供演示定位到真实地点; 实际出摊请用「我的GPS」或搜索你的真实地址(如杭州市三宝郡庭)。
-            </p>
-          </div>
-
-          {/* Safety Compliance Checklist */}
-          <div className="bg-white p-3 rounded-xl border border-[#e6e6e4] space-y-2 shadow-2xs">
-            <h4 className="font-bold text-xs text-[#37352f] flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#4dab63]" />
-              <span>出摊安全合规自检 (市食药监认证):</span>
-            </h4>
-
-            <div className="grid grid-cols-2 gap-1.5 text-[11px] text-[#2b593f]">
-              <span className="bg-[#edf3ec] p-1.5 rounded flex items-center gap-1">✓ 发电机油量充足</span>
-              <span className="bg-[#edf3ec] p-1.5 rounded flex items-center gap-1">✓ 冷链恒温合格</span>
-              <span className="bg-[#edf3ec] p-1.5 rounded flex items-center gap-1">✓ 燃气管路密封安全</span>
-              <span className="bg-[#edf3ec] p-1.5 rounded flex items-center gap-1">✓ 双级油烟消解开启</span>
-            </div>
-          </div>
+        {/* ------------------------------------------------------------
+         * 右边: 沉浸式地图视口 (Right Map Viewport)
+         * ------------------------------------------------------------ */}
+        <div className="flex-1 min-h-[420px] lg:min-h-0 h-[500px] lg:h-[calc(100vh-210px)] relative rounded-2xl border border-slate-200 overflow-hidden shadow-xs bg-slate-100">
+          <TruckLocationMapPicker
+            truckId={selectedTruckId}
+            initialLat={pinLat}
+            initialLng={pinLng}
+            radiusKm={fenceRadius}
+            locked={locationLocked}
+            truckName={currentTruckConfig.name}
+            allTrucks={allTrucks}
+            flyToTarget={flyTo}
+            onSelectTruck={handleTruckChange}
+            onPositionChange={(la, ln) => {
+              setPinLat(la);
+              setPinLng(ln);
+            }}
+            onAddressChange={(name, detail) => {
+              setLocationName(name);
+              if (detail) setLocationDetail(detail);
+            }}
+            onRadiusChange={(km) => setFenceRadius(km)}
+            onToggleLock={() => {
+              if (locationLocked) {
+                handleUnlock();
+              } else {
+                handleLock();
+              }
+            }}
+          />
         </div>
       </div>
     </div>

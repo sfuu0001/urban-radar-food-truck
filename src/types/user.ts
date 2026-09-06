@@ -28,6 +28,57 @@ export interface UserWalletTransaction {
   orderNo?: string;
 }
 
+export interface UserBoundDevice {
+  id: string;
+  deviceName: string;
+  hardwareHash: string;
+  deviceFingerprint: string;
+  gpuRenderer?: string;
+  physicalResolution?: string;
+  platform?: string;
+  boundAt: string;
+  isCurrent?: boolean;
+  status: 'trusted' | 'suspended';
+}
+
+export interface UserDeviceHardwareDetails {
+  hardwareHash: string;
+  deviceFingerprint: string;
+  confidenceScore: number;
+  gpuRenderer: string;
+  gpuVendor: string;
+  webglScore?: string;
+  audioDspHash: string;
+  canvasHash: string;
+  physicalResolution: string;
+  colorDepth: number;
+  pixelRatio: number;
+  cpuCores: number;
+  deviceMemoryGb?: number;
+  maxTouchPoints: number;
+  timezone: string;
+  platform: string;
+  languages: string[];
+  collectedAt: string;
+}
+
+export interface UserViolationLog {
+  id: string;
+  action: 'ban' | 'unban' | 'blacklist_hw' | 'unblacklist_hw' | 'asset_adjust' | 'points_adjust';
+  reason: string;
+  timestamp: string;
+  operator: string;
+}
+
+export interface UserViolationRecord {
+  status: 'normal' | 'banned' | 'hardware_blacklisted';
+  reason?: string;
+  bannedAt?: string;
+  operator?: string;
+  blacklistFingerprints?: string[];
+  history?: UserViolationLog[];
+}
+
 export interface UserProfile {
   uid: string;
   nickname: string;
@@ -49,6 +100,13 @@ export interface UserProfile {
   deviceFingerprint?: string;
   autoLoginScore?: number;
   createdAt: string;
+  hardwareDetails?: UserDeviceHardwareDetails;
+  boundDevices?: UserBoundDevice[];
+  pairingCode?: string;
+  crossBrowserTested?: boolean;
+  antiWipeRecoveryTested?: boolean;
+  status?: 'normal' | 'banned' | 'hardware_blacklisted';
+  violationRecord?: UserViolationRecord;
 }
 
 export interface CloudFunctionCallLog {
