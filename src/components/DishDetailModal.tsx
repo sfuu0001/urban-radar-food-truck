@@ -275,13 +275,13 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
       : variantBlueprintMedia.photoUrl;
 
   return (
-    <div className="fixed inset-0 z-[100] flex justify-center items-end sm:items-center p-3 sm:p-4 pointer-events-none">
-      {/* 极淡遮罩,点击关闭(仅遮罩层拦截,内嵌卡片不遮挡页面) */}
-      <div className="fixed inset-0 bg-black/15 pointer-events-auto" onClick={onClose} />
+    <div className="fixed inset-0 z-[100] flex justify-center items-end sm:items-center bg-[#121211]/70 backdrop-blur-xs font-sans antialiased overflow-y-auto p-0 sm:p-4">
+      {/* Background click to close */}
+      <div className="fixed inset-0" onClick={onClose} />
 
-      {/* Main Spec Modal Container - Embedded layout */}
+      {/* Main Spec Modal Container - Strict 0px Sharp Geometry */}
       <main
-        className="artisan-spec-modal pointer-events-auto w-full max-w-md bg-[#F9F9F7] border border-[#D3D1CB] flex flex-col max-h-[92vh] sm:max-h-[860px] shadow-xl relative overflow-hidden z-10 select-none [&_*]:rounded-none!"
+        className="artisan-spec-modal w-full max-w-md bg-[#F9F9F7] border border-[#D3D1CB] flex flex-col max-h-[94vh] sm:max-h-[890px] shadow-2xl relative overflow-hidden z-10 select-none [&_*]:rounded-none!"
         style={{ borderRadius: '0px' }}
       >
         {/* BEGIN: HeaderBar */}

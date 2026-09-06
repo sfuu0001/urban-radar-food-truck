@@ -23,6 +23,23 @@
         }
       }, true);
     </script>
+
+    <!-- Leaflet 真实地图 (中国可达 CDN + 真实瓦片, 取代硬编码上海 SVG) -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.bootcdn.net/ajax/libs/leaflet/1.9.4/leaflet.min.css"
+      crossorigin=""
+    />
+    <script
+      src="https://cdn.bootcdn.net/ajax/libs/leaflet/1.9.4/leaflet.min.js"
+      crossorigin=""
+    ></script>
+    <style>
+      /* 避免 Leaflet 图片被 Tailwind 的 img{max-width:100%} 压缩变形 */
+      .leaflet-container img { max-width: none !important; }
+      .leaflet-container { background: #eef0f2; font-family: inherit; }
+      .truck-pin { filter: drop-shadow(0 2px 3px rgba(0,0,0,0.35)); }
+    </style>
   </head>
   <body class="bg-[#f9f9f7] text-[#1a1c1b] antialiased selection:bg-neutral-900 selection:text-white">
     <div id="root"></div>

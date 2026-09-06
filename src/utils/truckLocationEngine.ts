@@ -27,6 +27,7 @@ export interface UserLocationState {
   addressDetail: string;
   source: 'gps' | 'preset' | 'manual';
   accuracy?: number; // 精度(米)
+  isFallback?: boolean; // 是否为降级/不可靠位置(无真实 GPS 或精度过低)
   isLocating?: boolean;
   lastUpdated: string;
 }
@@ -183,10 +184,11 @@ export const PRESET_DELIVERY_ADDRESSES: DeliveryAddressItem[] = [
 export const DEFAULT_USER_LOCATION: UserLocationState = {
   latitude: 31.2435,
   longitude: 121.4690,
-  locationName: '大悦城商务座',
-  addressDetail: '西藏北路 166 号大悦城商务座 1204 室',
-  source: 'gps',
-  accuracy: 15,
+  locationName: '尚未获取定位（请点 GPS 或检索地址）',
+  addressDetail: '',
+  source: 'preset',
+  accuracy: undefined,
+  isFallback: true,
   lastUpdated: new Date().toLocaleTimeString('zh-CN')
 };
 
@@ -492,66 +494,502 @@ export function subscribeTruckLocationEvents(callback: () => void): () => void {
   };
 }
 
+/* =========================================================================
+ * 坐标系工具: WGS-84 (GPS/OSM 原生) ↔ GCJ-02 (高德/国内地图加密坐标)
+ * 高德瓦片使用 GCJ-02; 浏览器 GPS 返回 WGS-84, 若直接叠加会偏移数百米。
+ * 本引擎统一约定: 面向地图的坐标一律先转 GCJ-02 再落盘/回调, 保证「所见即所存」。
+ * ========================================================================= */
+
+const GCJ_A = 6378245.0;
+const GCJ_EE = 0.00669342162296594323;
+const PI = Math.PI;
+
+function isOutOfChina(lat: number, lng: number): boolean {
+  return lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271;
+}
+
+function _transformLat(x: number, y: number): number {
+  let ret =
+    -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
+  ret += ((20.0 * Math.sin(6.0 * x * PI) + 20.0 * Math.sin(2.0 * x * PI)) * 2.0) / 3.0;
+  ret += ((20.0 * Math.sin(y * PI) + 40.0 * Math.sin((y / 3.0) * PI)) * 2.0) / 3.0;
+  ret += ((160.0 * Math.sin((y / 12.0) * PI) + 320.0 * Math.sin((y * PI) / 30.0)) * 2.0) / 3.0;
+  return ret;
+}
+
+function _transformLng(x: number, y: number): number {
+  let ret = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
+  ret += ((20.0 * Math.sin(6.0 * x * PI) + 20.0 * Math.sin(2.0 * x * PI)) * 2.0) / 3.0;
+  ret += ((20.0 * Math.sin(x * PI) + 40.0 * Math.sin((x / 3.0) * PI)) * 2.0) / 3.0;
+  ret += ((150.0 * Math.sin((x / 12.0) * PI) + 300.0 * Math.sin((x / 30.0) * PI)) * 2.0) / 3.0;
+  return ret;
+}
+
+/** WGS-84 → GCJ-02（境外坐标原样返回） */
+export function wgs84ToGcj02(
+  lat: number,
+  lng: number
+): { latitude: number; longitude: number } {
+  if (isOutOfChina(lat, lng)) return { latitude: lat, longitude: lng };
+  let dLat = _transformLat(lng - 105.0, lat - 35.0);
+  let dLng = _transformLng(lng - 105.0, lat - 35.0);
+  const radLat = (lat / 180.0) * PI;
+  let magic = Math.sin(radLat);
+  magic = 1 - GCJ_EE * magic * magic;
+  const sqrtMagic = Math.sqrt(magic);
+  dLat = (dLat * 180.0) / (((GCJ_A * (1 - GCJ_EE)) / (magic * sqrtMagic)) * PI);
+  dLng = (dLng * 180.0) / ((GCJ_A / sqrtMagic) * Math.cos(radLat) * PI);
+  return { latitude: lat + dLat, longitude: lng + dLng };
+}
+
+/** GCJ-02 → WGS-84（近似逆向，境外坐标原样返回） */
+export function gcj02ToWgs84(
+  lat: number,
+  lng: number
+): { latitude: number; longitude: number } {
+  if (isOutOfChina(lat, lng)) return { latitude: lat, longitude: lng };
+  const g = wgs84ToGcj02(lat, lng);
+  return {
+    latitude: lat * 2 - g.latitude,
+    longitude: lng * 2 - g.longitude
+  };
+}
+
+/** 便捷转换: 把「不确定来源」的坐标按境内规则安全转到 GCJ-02 */
+export function toGcj02(lat: number, lng: number): { latitude: number; longitude: number } {
+  return wgs84ToGcj02(lat, lng);
+}
+
+/* =========================================================================
+ * 高德开放平台 Key（可选增强）
+ * 无 Key: 高德瓦片照常显示(仅需 tile URL, 无需授权), 地理编码走 OSM Nominatim(免费)。
+ * 有 Key: 解锁高德 POI 联想 / 逆地理 / 结构化地址检索, 中文检索质量大幅提升。
+ * ========================================================================= */
+
+export const AMAP_KEY_STORAGE_KEY = 'obsidian_amap_web_key';
+export const AMAP_KEY_EVENT = 'obsidian_amap_key_changed';
+
+/** 内置默认高德 Key(项目方个人开发者 Key), 无需用户配置即可启用高德检索。
+ *  用户若在面板粘贴自己的 Key 会存入 localStorage 覆盖内置 Key。 */
+export const BUILTIN_AMAP_KEY = 'b0797b94709c104f0bfbaac1aa222a2a';
+
+/** 当前生效的高德 Key: localStorage 自定义 Key 优先, 否则回退内置 Key */
+export function getAmapWebKey(): string {
+  if (typeof window === 'undefined') return BUILTIN_AMAP_KEY;
+  try {
+    const custom = (window.localStorage.getItem(AMAP_KEY_STORAGE_KEY) || '').trim();
+    return custom || BUILTIN_AMAP_KEY;
+  } catch {
+    return BUILTIN_AMAP_KEY;
+  }
+}
+
+/** 是否使用内置 Key(用于 UI 展示来源) */
+export function isUsingBuiltinAmapKey(): boolean {
+  if (typeof window === 'undefined') return true;
+  try {
+    return !((window.localStorage.getItem(AMAP_KEY_STORAGE_KEY) || '').trim());
+  } catch {
+    return true;
+  }
+}
+
+export function saveAmapWebKey(key: string): string {
+  const trimmed = (key || '').trim();
+  try {
+    if (trimmed) window.localStorage.setItem(AMAP_KEY_STORAGE_KEY, trimmed);
+    else window.localStorage.removeItem(AMAP_KEY_STORAGE_KEY);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(AMAP_KEY_EVENT, { detail: trimmed }));
+    }
+  } catch {
+    /* storage 不可用时静默 */
+  }
+  return trimmed;
+}
+
+/** 带超时的 fetch JSON 助手 */
+async function fetchJson(url: string, timeoutMs = 8000): Promise<any> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal, headers: { Accept: 'application/json' } });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/* =========================================================================
+ * 环境检测: iframe 定位策略 / 权限状态 —— 决定 UI 该走「GPS / 新标签页授权 / 文本检索」
+ * ========================================================================= */
+
+export type GeoBlockReason = 'none' | 'unsupported' | 'denied' | 'iframe-policy' | 'timeout' | 'unavailable' | 'low-accuracy';
+
+export function isEmbeddedFrame(): boolean {
+  try {
+    return typeof window !== 'undefined' && window.self !== window.top;
+  } catch {
+    return true; // 跨源 iframe 访问 top 会抛错 → 视为嵌入
+  }
+}
+
+export function isGeolocationSupported(): boolean {
+  return typeof navigator !== 'undefined' && !!navigator.geolocation;
+}
+
+/** 预检定位权限: 返回 'granted' | 'prompt' | 'denied' | 'unsupported' */
+export async function detectGeoPermission(): Promise<'granted' | 'prompt' | 'denied' | 'unsupported'> {
+  if (!isGeolocationSupported()) return 'unsupported';
+  try {
+    const perms = (navigator as any).permissions;
+    if (perms && typeof perms.query === 'function') {
+      const status = await perms.query({ name: 'geolocation' });
+      if (status && status.state) return status.state;
+    }
+  } catch {
+    /* 部分浏览器不支持 permissions API, 继续走实际请求 */
+  }
+  return 'prompt';
+}
+
+/* =========================================================================
+ * GPS 高精度定位参数（收敛式定位, 解决「定位不精准」）
+ * ========================================================================= */
+const GPS_DESIRED_ACCURACY_M = 25; // 期望收敛精度(米): 达到即返回
+const GPS_ACCEPT_ACCURACY_M = 100; // 可接受最大误差(米): 超出视为不可靠(降级)
+const GPS_BUDGET_MS = 12000; // 整体收敛预算: 单次 getCurrentPosition + watchPosition 总时长
+const GPS_WATCH_MAX_MS = 9000; // watchPosition 持续监听最长时长
+const GPS_TIMEOUT_MS = 8000; // 单次请求超时(毫秒)
+
 /**
- * 触发浏览器真实 GPS 硬件定位
+ * 触发浏览器真实 GPS（WGS-84 原生）并转 GCJ-02 返回。
+ *
+ * 收敛式定位策略:
+ *  1. 先 getCurrentPosition 拿初值(高精度, 超时 8s);
+ *  2. 若初值精度 > 期望值, 自动升级为 watchPosition 持续监听,
+ *     在 GPS_WATCH_MAX_MS 内不断取精度更优的解, 达到 GPS_DESIRED_ACCURACY_M 即停;
+ *  3. 全程保留「误差最小」的一次结果, 结束统一转换 GCJ-02;
+ *  4. 精度 ≤ GPS_ACCEPT_ACCURACY_M 视为可靠; 否则 isFallback 标注;
+ *  5. 彻底失败时沿用上一次真实定位(降级) 或明确失败, 不伪造坐标;
+ *  6. 返回结构带 blockReason, 供 UI 判定 iframe 策略拦截并引导「新标签页授权」。
  */
 export async function requestBrowserGeolocation(): Promise<{
   success: boolean;
   latitude: number;
   longitude: number;
   accuracy: number;
+  isFallback?: boolean;
   error?: string;
+  blockReason?: GeoBlockReason;
 }> {
   return new Promise((resolve) => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      resolve({
-        success: false,
-        latitude: DEFAULT_USER_LOCATION.latitude,
-        longitude: DEFAULT_USER_LOCATION.longitude,
-        accuracy: 100,
-        error: '浏览器不支持 Geolocation API'
-      });
+    if (!isGeolocationSupported()) {
+      resolve({ success: false, latitude: 0, longitude: 0, accuracy: Infinity, error: '浏览器不支持 Geolocation API', blockReason: 'unsupported' });
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        const acc = Math.round(pos.coords.accuracy || 20);
+    let best: { lat: number; lng: number; acc: number } | null = null;
+    let watchId: number | null = null;
+    let settled = false;
+    const embedded = isEmbeddedFrame();
 
+    const cleanup = () => {
+      if (watchId !== null && typeof navigator !== 'undefined') {
+        try { navigator.geolocation.clearWatch(watchId); } catch { /* ignore */ }
+        watchId = null;
+      }
+    };
+
+    const finish = (blockReason: GeoBlockReason, lowAccOnly?: boolean) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+
+      if (best) {
+        const isReliable = best.acc <= GPS_ACCEPT_ACCURACY_M;
+        const gcj = wgs84ToGcj02(best.lat, best.lng);
         saveUserLocationState({
-          latitude: lat,
-          longitude: lng,
-          locationName: '高精度 GPS 实时定位',
+          latitude: gcj.latitude,
+          longitude: gcj.longitude,
+          locationName: isReliable ? '高精度 GPS 实时定位' : 'GPS 定位(精度较低)',
+          addressDetail: '',
           source: 'gps',
-          accuracy: acc
+          accuracy: best.acc,
+          isFallback: !isReliable
         });
-
         resolve({
-          success: true,
-          latitude: lat,
-          longitude: lng,
-          accuracy: acc
+          success: isReliable && !lowAccOnly,
+          latitude: gcj.latitude,
+          longitude: gcj.longitude,
+          accuracy: best.acc,
+          isFallback: !isReliable,
+          error: isReliable ? undefined : `定位精度不足(±${best.acc}m),建议到空旷处或授权后重试`,
+          blockReason
         });
-      },
-      (err) => {
-        console.warn('[Geolocation] 获取 GPS 定位失败，采用默认商圈位置:', err.message);
+        return;
+      }
+
+      // 彻底失败: 降级沿用上一次真实定位
+      const prev = getUserLocationState();
+      const hasReal = !!prev && prev.source === 'gps' && !!prev.latitude;
+      if (hasReal) {
         resolve({
           success: false,
-          latitude: DEFAULT_USER_LOCATION.latitude,
-          longitude: DEFAULT_USER_LOCATION.longitude,
-          accuracy: 50,
-          error: err.message
+          latitude: prev.latitude,
+          longitude: prev.longitude,
+          accuracy: prev.accuracy || Infinity,
+          isFallback: true,
+          error: blockReason === 'denied' ? '定位权限被拒绝,已沿用上次定位' : '定位超时/失败,已沿用上次定位',
+          blockReason
         });
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 5000,
-        maximumAge: 10000
+      } else {
+        resolve({ success: false, latitude: 0, longitude: 0, accuracy: Infinity, error: '定位失败,请检查权限或网络', blockReason });
       }
-    );
+    };
+
+    const startWatch = (deadline: number) => {
+      if (settled || watchId !== null) return;
+      try {
+        watchId = navigator.geolocation.watchPosition(
+          (pos) => {
+            const acc = Math.round(pos.coords.accuracy || 99999);
+            if (!best || acc < best.acc) {
+              best = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc };
+            }
+            if (best && best.acc <= GPS_DESIRED_ACCURACY_M) {
+              finish('none');
+            } else if (Date.now() >= deadline) {
+              finish(best && best.acc > GPS_ACCEPT_ACCURACY_M ? 'low-accuracy' : 'none', true);
+            }
+          },
+          (err) => {
+            const code = (err && err.code) || 0;
+            if (code === err.PERMISSION_DENIED || code === 1) {
+              finish(embedded ? 'iframe-policy' : 'denied');
+            } else if (Date.now() >= deadline) {
+              finish('timeout');
+            }
+          },
+          { enableHighAccuracy: true, timeout: GPS_TIMEOUT_MS, maximumAge: 0 }
+        );
+      } catch {
+        finish('unavailable');
+      }
+    };
+
+    // 阶段1: 快速单次定位
+    try {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const acc = Math.round(pos.coords.accuracy || 99999);
+          best = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc };
+          if (acc <= GPS_DESIRED_ACCURACY_M) {
+            finish('none');
+          } else {
+            // 精度不够 → 阶段2 watch 收敛
+            startWatch(Date.now() + GPS_WATCH_MAX_MS);
+          }
+        },
+        (err) => {
+          const code = (err && err.code) || 0;
+          if (code === 1 || code === err.PERMISSION_DENIED) {
+            // 权限拒绝: 嵌入态多半是 iframe 策略拦截
+            finish(embedded ? 'iframe-policy' : 'denied');
+          } else {
+            // 其它错误(超时/不可用): 仍尝试 watch 兜底
+            startWatch(Date.now() + GPS_WATCH_MAX_MS);
+          }
+        },
+        { enableHighAccuracy: true, timeout: GPS_TIMEOUT_MS, maximumAge: 0 }
+      );
+    } catch {
+      finish('unavailable');
+    }
+
+    // 安全兜底: 预算耗尽强制收尾(避免 watch 一直空转)
+    setTimeout(() => {
+      if (!settled) finish(best && best.acc > GPS_ACCEPT_ACCURACY_M ? 'low-accuracy' : 'timeout', true);
+    }, GPS_BUDGET_MS + 500);
   });
+}
+
+/* =========================================================================
+ * 地址检索 / 逆地理编码（多源级联: 高德 Key 优先, OSM Nominatim 兜底）
+ * 统一返回 GCJ-02 坐标, 与地图/存储口径一致。
+ * ========================================================================= */
+
+export interface PlaceSuggestion {
+  id: string;
+  title: string; // 主名: POI 名 / 地址名
+  detail: string; // 副描述: 区域 + 详细地址
+  latitude: number; // GCJ-02
+  longitude: number;
+  source: 'amap' | 'osm';
+  type?: string;
+}
+
+function _nominatimSuggestion(q: string): Promise<PlaceSuggestion[]> {
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=6&accept-language=zh-CN&q=${encodeURIComponent(q)}`;
+  return fetchJson(url).then((data: any) => {
+    if (!Array.isArray(data)) return [];
+    return data
+      .map((item: any, i: number) => {
+        const lat = parseFloat(item.lat);
+        const lon = parseFloat(item.lon);
+        if (isNaN(lat) || isNaN(lon)) return null;
+        const gcj = wgs84ToGcj02(lat, lon);
+        const parts: string[] = [];
+        const ad = item.address || {};
+        if (ad.country && ad.country !== '中国') parts.push(ad.country);
+        const region = ad.city || ad.state || ad.province || '';
+        const sub = ad.town || ad.county || ad.city_district || ad.suburb || '';
+        parts.push(region, sub);
+        const detail = parts.filter(Boolean).join(' ') || (item.display_name || '').slice(0, 40);
+        return {
+          id: `osm-${i}-${Date.now()}`,
+          title: item.name || sub || item.display_name?.split(',').slice(-3, -1).join('') || '检索结果',
+          detail,
+          latitude: Number(gcj.latitude.toFixed(6)),
+          longitude: Number(gcj.longitude.toFixed(6)),
+          source: 'osm' as const
+        };
+      })
+      .filter(Boolean) as PlaceSuggestion[];
+  });
+}
+
+async function _amapSuggestion(q: string): Promise<PlaceSuggestion[]> {
+  const key = getAmapWebKey();
+  if (!key) return [];
+  const url = `https://restapi.amap.com/v3/assistant/inputtips?keywords=${encodeURIComponent(q)}&key=${encodeURIComponent(key)}&datatype=all&citylimit=false`;
+  const data = await fetchJson(url);
+  if (!data || data.status !== '1' || !Array.isArray(data.tips)) return [];
+  return (data.tips as any[])
+    .filter((t: any) => t.location && t.location.includes(','))
+    .map((t: any, i: number) => {
+      const [lng, lat] = t.location.split(',').map(Number);
+      const title = t.name || '';
+      const district = t.district || '';
+      const address = t.address || '';
+      const detail = [district, address].filter(Boolean).join(' ') || district;
+      return {
+        id: `amap-${t.id || i}-${Date.now()}`,
+        title,
+        detail,
+        latitude: Number(lat.toFixed(6)),
+        longitude: Number(lng.toFixed(6)),
+        source: 'amap' as const,
+        type: (t.type || '').split(';').pop() || 'POI'
+      };
+    });
+}
+
+/**
+ * 地址联想（搜索框下拉）: 高德 inputtips → 失败/无 Key 自动降级 OSM Nominatim
+ */
+export async function suggestPlaces(query: string): Promise<PlaceSuggestion[]> {
+  const q = (query || '').trim();
+  if (!q || q.length < 1) return [];
+  if (getAmapWebKey()) {
+    const amap = await _amapSuggestion(q);
+    if (amap.length) return amap;
+  }
+  return _nominatimSuggestion(q);
+}
+
+/**
+ * 文本地址 → GCJ-02 经纬度（高德结构化地理编码优先, OSM 兜底并转 GCJ-02）
+ */
+export async function geocodeAddress(
+  text: string
+): Promise<{ latitude: number; longitude: number } | null> {
+  const q = (text || '').trim();
+  if (!q) return null;
+
+  // 高德结构化地址解析
+  const key = getAmapWebKey();
+  if (key) {
+    const url = `https://restapi.amap.com/v3/geocode/geo?address=${encodeURIComponent(q)}&key=${encodeURIComponent(key)}`;
+    const amap = await fetchJson(url);
+    const geocode = amap?.geocodes?.[0];
+    if (geocode?.location) {
+      const [lng, lat] = geocode.location.split(',').map(Number);
+      if (!isNaN(lat) && !isNaN(lng)) return { latitude: lat, longitude: lng };
+    }
+  }
+
+  // OSM 兜底
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=zh-CN&q=${encodeURIComponent(q)}`;
+  const data = await fetchJson(url);
+  if (Array.isArray(data) && data.length > 0) {
+    const lat = parseFloat(data[0].lat);
+    const lon = parseFloat(data[0].lon);
+    if (!isNaN(lat) && !isNaN(lon)) {
+      const gcj = wgs84ToGcj02(lat, lon);
+      return { latitude: gcj.latitude, longitude: gcj.longitude };
+    }
+  }
+  return null;
+}
+
+export interface ReverseGeocodeResult {
+  locationName: string; // 简短可读名称
+  addressDetail: string; // 完整地址
+  raw?: string;
+}
+
+/**
+ * 逆地理编码: GCJ-02 坐标 → 地址文本
+ * 高德 regeo 优先; 无 Key 时转 WGS-84 走 OSM reverse, 返回结果裁剪为中文短地址。
+ */
+export async function reverseGeocodeCoordinate(
+  latitude: number,
+  longitude: number
+): Promise<ReverseGeocodeResult | null> {
+  const key = getAmapWebKey();
+  if (key) {
+    const url = `https://restapi.amap.com/v3/geocode/regeo?location=${longitude.toFixed(6)},${latitude.toFixed(6)}&key=${encodeURIComponent(key)}&extensions=base&radius=1000`;
+    const data = await fetchJson(url);
+    const rc = data?.regeocode;
+    if (rc?.formatted_address) {
+      const ac = rc.addressComponent || {};
+      const district = ac.district || ac.township || '';
+      const road = (rc.roads && rc.roads[0] && rc.roads[0].name) || '';
+      const aois = rc.aois || [];
+      const poiName = aois[0]?.name || rc.pois?.[0]?.name || '';
+      return {
+        locationName: [district, road, poiName].filter(Boolean).join(' · ') || ac.city || '当前位置',
+        addressDetail: rc.formatted_address,
+        raw: rc.formatted_address
+      };
+    }
+  }
+
+  // OSM reverse 兜底
+  const wgs = gcj02ToWgs84(latitude, longitude);
+  const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&accept-language=zh-CN&lat=${wgs.latitude.toFixed(6)}&lon=${wgs.longitude.toFixed(6)}&zoom=18`;
+  const data = await fetchJson(url);
+  if (data && (data.display_name || data.name || data.address)) {
+    const ad = data.address || {};
+    const street = ad.road || ad.pedestrian || ad.footway || '';
+    const house = ad.house_number || '';
+    const district = ad.city_district || ad.suburb || ad.town || ad.county || '';
+    const city = ad.city || ad.state || '';
+    const poi = ad.amenity || ad.building || ad.shop || data.name || '';
+    const title = poi || (street && (house ? `${street}${house}` : street)) || district || city;
+    const detailParts = [city, district, street, house].filter(Boolean);
+    return {
+      locationName: title,
+      addressDetail: detailParts.join(' ') || (data.display_name || '').slice(0, 60),
+      raw: data.display_name
+    };
+  }
+  return null;
 }
 
 export const subscribeTruckConfigs = subscribeTruckLocationEvents;
