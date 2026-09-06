@@ -69,6 +69,9 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
   const [fenceRadius, setFenceRadius] = useState<number>(currentTruckConfig.deliveryRadiusKm);
   const [pinLat, setPinLat] = useState<number>(currentTruckConfig.latitude);
   const [pinLng, setPinLng] = useState<number>(currentTruckConfig.longitude);
+  // 镜像最新候选坐标: 广播时直接取 ref, 规避任何重渲染/闭包导致的旧值, 确保「修改即生效」
+  const pinRef = useRef<{ lat: number; lng: number }>({ lat: pinLat, lng: pinLng });
+  pinRef.current = { lat: pinLat, lng: pinLng };
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   // 位置锁定开关: 默认「查看模式」, 打开面板绝不改动餐车实际停靠点
   const [locationLocked, setLocationLocked] = useState<boolean>(true);
@@ -115,7 +118,7 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
 
   // 初始化/切换餐车: 重置到该车配置(仅编辑态恢复草稿)并让地图重挂载
   useEffect(() => {
-    const config = allTrucks.find((t) => t.id === selectedTruckId);
+    const config = getAllTruckConfigs().find((t) => t.id === selectedTruckId) || allTrucks.find((t) => t.id === selectedTruckId);
     if (!config) return;
     skipAutosaveRef.current = true;
     setLocationName(config.locationName);
@@ -140,7 +143,7 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
   // 解锁编辑: 进入编辑模式, 若该车存在未广播草稿则恢复以便继续
   const handleUnlock = () => {
     setLocationLocked(false);
-    const config = allTrucks.find((t) => t.id === selectedTruckId);
+    const config = getAllTruckConfigs().find((t) => t.id === selectedTruckId) || allTrucks.find((t) => t.id === selectedTruckId);
     if (config) {
       loadDraftFor(selectedTruckId, config);
     }
@@ -150,7 +153,7 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
   const handleLock = () => {
     setLocationLocked(true);
     // 回到查看: 丢弃未广播的本地候选(含草稿), 重新展示已保存位置
-    const config = allTrucks.find((t) => t.id === selectedTruckId);
+    const config = getAllTruckConfigs().find((t) => t.id === selectedTruckId) || allTrucks.find((t) => t.id === selectedTruckId);
     if (config) {
       skipAutosaveRef.current = true;
       setLocationName(config.locationName);
@@ -236,8 +239,8 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
         locationName,
         deliveryRadiusKm: fenceRadius,
         status: stallStatus,
-        latitude: pinLat,
-        longitude: pinLng,
+        latitude: pinRef.current.lat,
+        longitude: pinRef.current.lng,
         updatedAt: new Date().toISOString()
       };
 

@@ -64,59 +64,60 @@ export interface DeliveryRangeEvaluation {
   } | null;
 }
 
-// 预设全上海重点商圈流动餐车站台基准点
+// 餐车默认停靠点(中性演示基准, 可被用户「保存并广播」覆盖; 不再是写死上海)
+// 首启/清空后回退到这里; 用户保存后配置随部署链接 #cfg hash 稳定携带, 不再回退
 export const DEFAULT_TRUCK_CONFIGS: TruckLocationConfig[] = [
   {
     id: 'truck-01',
     name: '黑曜石 01 号流动餐车',
     code: 'OBSIDIAN-ALPHA-01',
-    locationName: '静安大悦城南广场 · 西藏北路曲阜路',
-    latitude: 31.2428,
-    longitude: 121.4682,
-    deliveryRadiusKm: 3.0, // 默认 3.0 公里
+    locationName: '示例停靠点 · 三宝郡庭(默认演示, 可编辑)',
+    latitude: 30.3008,
+    longitude: 120.1255,
+    deliveryRadiusKm: 3.0,
     status: 'open',
     minDeliveryAmount: 35,
     baseDeliveryFee: 5,
-    updatedAt: '2026-08-29 10:00:00'
+    updatedAt: '2026-09-06 00:00:00'
   },
   {
     id: 'truck-02',
     name: '黑曜石 02 号流动餐车',
     code: 'OBSIDIAN-BETA-02',
-    locationName: '陆家嘴金融城北塔下沉广场',
-    latitude: 31.2389,
-    longitude: 121.5032,
-    deliveryRadiusKm: 2.5, // 默认 2.5 公里
+    locationName: '示例停靠点 · 城北(默认演示, 可编辑)',
+    latitude: 30.3050,
+    longitude: 120.1300,
+    deliveryRadiusKm: 2.5,
     status: 'open',
     minDeliveryAmount: 40,
     baseDeliveryFee: 6,
-    updatedAt: '2026-08-29 10:00:00'
+    updatedAt: '2026-09-06 00:00:00'
   },
   {
     id: 'truck-03',
     name: '黑曜石 03 号流动餐车',
     code: 'OBSIDIAN-GAMMA-03',
-    locationName: '新天地南里 · 马当路兴业路交叉口',
-    latitude: 31.2185,
-    longitude: 121.4751,
-    deliveryRadiusKm: 3.5, // 默认 3.5 公里
+    locationName: '示例停靠点 · 城西(默认演示, 可编辑)',
+    latitude: 30.2960,
+    longitude: 120.1200,
+    deliveryRadiusKm: 3.5,
     status: 'open',
     minDeliveryAmount: 35,
     baseDeliveryFee: 5,
-    updatedAt: '2026-08-29 10:00:00'
+    updatedAt: '2026-09-06 00:00:00'
   },
   {
     id: 'truck-04',
     name: '黑曜石 04 号流动餐车',
     code: 'OBSIDIAN-DELTA-04',
-    locationName: '徐汇西岸穹顶艺术中心外广场',
-    latitude: 31.1684,
-    longitude: 121.4589,
-    deliveryRadiusKm: 4.0, // 默认 4.0 公里
+    locationName: '示例停靠点 · 城东(默认演示, 可编辑)',
+    latitude: 30.3100,
+    longitude: 120.1180,
+    deliveryRadiusKm: 4.0,
     status: 'open',
     minDeliveryAmount: 45,
     baseDeliveryFee: 8,
-    updatedAt: '2026-08-29 10:00:00'
+    updatedAt: '2026-09-06 00:00:00'
   }
 ];
 
@@ -181,9 +182,11 @@ export const PRESET_DELIVERY_ADDRESSES: DeliveryAddressItem[] = [
   }
 ];
 
+// 中性占位: 不再是「写死上海」。真实坐标始终来自 GPS 收敛定位或地址检索,
+// 不会在 0,0 时跳回某个写死城市。0,0 仅作「尚未定位」占位。
 export const DEFAULT_USER_LOCATION: UserLocationState = {
-  latitude: 31.2435,
-  longitude: 121.4690,
+  latitude: 0,
+  longitude: 0,
   locationName: '尚未获取定位（请点 GPS 或检索地址）',
   addressDetail: '',
   source: 'preset',
@@ -201,11 +204,67 @@ const STORAGE_KEY_ADDRESS_LIST = 'obsidian_saved_delivery_addresses';
 export const TRUCK_LOCATION_EVENT = 'obsidian_truck_location_changed';
 export const USER_LOCATION_EVENT = 'obsidian_user_location_changed';
 
+// —— URL hash 持久层 ——
+// 部署(CloudStudio / iframe)环境的 localStorage 在刷新/重开/跨会话后不持久,
+// 会导致 getAllTruckConfigs() 回退到 DEFAULT_TRUCK_CONFIGS(原写死上海「回上海」)。
+// 因此把餐车配置同时编码进部署链接的 #cfg, 打开页面优先从 hash 恢复,
+// 让「保存的真实坐标」随链接稳定携带, 彻底根治「回上海」。
+const HASH_CFG_KEY = 'cfg';
+
+function encodeHashConfigs(configs: TruckLocationConfig[]): string {
+  try {
+    return btoa(unescape(encodeURIComponent(JSON.stringify(configs))));
+  } catch {
+    return '';
+  }
+}
+
+function decodeHashConfigs(): TruckLocationConfig[] | null {
+  if (typeof window === 'undefined' || !window.location || !window.location.hash) return null;
+  try {
+    const m = window.location.hash.match(/cfg=([^&]+)/);
+    if (!m) return null;
+    const json = decodeURIComponent(escape(atob(m[1])));
+    const arr = JSON.parse(json);
+    if (Array.isArray(arr) && arr.length > 0 && arr[0] && typeof arr[0].id === 'string') {
+      return arr as TruckLocationConfig[];
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function writeHashConfigs(configs: TruckLocationConfig[]): void {
+  if (typeof window === 'undefined' || !window.history || !window.location) return;
+  try {
+    const encoded = encodeHashConfigs(configs);
+    if (!encoded) return;
+    const others = window.location.hash
+      .replace(/^#/, '')
+      .split('&')
+      .filter((p) => p && !p.startsWith(HASH_CFG_KEY + '='))
+      .join('&');
+    const newHash = (others ? others + '&' : '') + HASH_CFG_KEY + '=' + encoded;
+    window.history.replaceState(null, '', '#' + newHash);
+  } catch {
+    /* hash 写入失败静默忽略 */
+  }
+}
+
 /**
  * 获取所有餐车的定位与配送范围配置列表
+ * 读取优先级: URL hash → localStorage → 中性默认(杭州演示点, 可编辑)
  */
 export function getAllTruckConfigs(): TruckLocationConfig[] {
-  return safeGetStorage<TruckLocationConfig[]>(STORAGE_KEY_TRUCKS, DEFAULT_TRUCK_CONFIGS);
+  const fromHash = decodeHashConfigs();
+  if (fromHash && fromHash.length > 0) return fromHash;
+  const fromLs = safeGetStorage<TruckLocationConfig[]>(STORAGE_KEY_TRUCKS, DEFAULT_TRUCK_CONFIGS);
+  if (fromLs && fromLs.length > 0) {
+    writeHashConfigs(fromLs); // 把 localStorage 镜像进 hash, 后续刷新从 hash 读
+    return fromLs;
+  }
+  return DEFAULT_TRUCK_CONFIGS;
 }
 
 /**
@@ -213,6 +272,7 @@ export function getAllTruckConfigs(): TruckLocationConfig[] {
  */
 export function saveAllTruckConfigs(configs: TruckLocationConfig[]): void {
   safeSetStorage(STORAGE_KEY_TRUCKS, configs);
+  writeHashConfigs(configs); // 关键: 同步进部署链接 hash, 刷新/重开不丢
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(TRUCK_LOCATION_EVENT, { detail: configs }));
   }
@@ -1004,32 +1064,32 @@ export interface PresetTruckLocation {
 
 export const PRESET_TRUCK_LOCATIONS: PresetTruckLocation[] = [
   {
-    locationName: '静安大悦城南广场 · 西藏北路曲阜路',
-    tag: '核心商圈 / 年轻客群',
+    locationName: '三宝郡庭 · 拱墅核心区',
+    tag: '示例商圈 / 年轻客群',
     defaultRadiusKm: 3.0,
-    latitude: 31.2428,
-    longitude: 121.4682
+    latitude: 30.3008,
+    longitude: 120.1255
   },
   {
-    locationName: '陆家嘴金融城北塔下沉广场',
+    locationName: '西湖文化广场 · 武林商圈',
     tag: '白领午市 / 高客单价',
     defaultRadiusKm: 2.5,
-    latitude: 31.2389,
-    longitude: 121.5032
+    latitude: 30.2765,
+    longitude: 120.1540
   },
   {
-    locationName: '新天地南里 · 马当路兴业路交叉口',
+    locationName: '武林银泰 · 延安路步行街',
     tag: '夜市经济 / 夜宵微醺',
     defaultRadiusKm: 3.5,
-    latitude: 31.2185,
-    longitude: 121.4751
+    latitude: 30.2741,
+    longitude: 120.1650
   },
   {
-    locationName: '徐汇西岸穹顶艺术中心外广场',
+    locationName: '钱江新城 · 市民中心',
     tag: '周末市集 / 艺术展览',
     defaultRadiusKm: 4.0,
-    latitude: 31.1684,
-    longitude: 121.4589
+    latitude: 30.2460,
+    longitude: 120.2120
   }
 ];
 
@@ -1039,20 +1099,38 @@ export const PRESET_TRUCK_LOCATIONS: PresetTruckLocation[] = [
 export function saveTruckConfig(config: Partial<TruckLocationConfig> & { id: string }): void {
   const all = getAllTruckConfigs();
   const index = all.findIndex((t) => t.id === config.id);
+  const existing = index >= 0 ? all[index] : undefined;
+  // 关键: 绝不写死兜底坐标 —— 传入的坐标(经纬度)优先; 缺失时保留既有记录, 杜绝「跳回上海」
+  const pickLat = typeof config.latitude === 'number' ? config.latitude : existing?.latitude ?? 0;
+  const pickLng = typeof config.longitude === 'number' ? config.longitude : existing?.longitude ?? 0;
+  const pickName = config.locationName || existing?.locationName || '未命名停靠点';
+  const pickRadius =
+    typeof config.deliveryRadiusKm === 'number' ? config.deliveryRadiusKm : existing?.deliveryRadiusKm ?? 3.0;
+  const pickStatus = config.status || existing?.status || 'open';
+
   let updated: TruckLocationConfig[];
-  if (index >= 0) {
+  if (existing) {
     updated = [...all];
-    updated[index] = { ...updated[index], ...config, updatedAt: new Date().toLocaleString('zh-CN') };
+    updated[index] = {
+      ...existing,
+      ...config,
+      latitude: pickLat,
+      longitude: pickLng,
+      locationName: pickName,
+      deliveryRadiusKm: pickRadius,
+      status: pickStatus,
+      updatedAt: new Date().toLocaleString('zh-CN')
+    };
   } else {
     const fullConfig: TruckLocationConfig = {
       id: config.id,
       name: config.name || '流动餐车',
       code: config.code || 'TRUCK-NEW',
-      locationName: config.locationName || '上海核心商圈',
-      latitude: config.latitude || 31.2428,
-      longitude: config.longitude || 121.4682,
-      deliveryRadiusKm: config.deliveryRadiusKm || 3.0,
-      status: config.status || 'open',
+      locationName: pickName,
+      latitude: pickLat,
+      longitude: pickLng,
+      deliveryRadiusKm: pickRadius,
+      status: pickStatus,
       updatedAt: new Date().toLocaleString('zh-CN')
     };
     updated = [...all, fullConfig];

@@ -7,6 +7,7 @@ import {
   Radio,
   Tag,
   TrendingUp,
+  TrendingDown,
   ArrowLeft,
   Store,
   Sparkles,
@@ -85,6 +86,8 @@ import { MerchantPrintingHub } from './MerchantPrintingHub';
 import { MerchantCallingHub } from './MerchantCallingHub';
 import { MerchantContingencyHub } from './MerchantContingencyHub';
 import { MerchantMemberCRM } from './MerchantMemberCRM';
+import { MerchantUserDataCenter } from './MerchantUserDataCenter';
+import { getUserDataRecords } from '../../utils/userDataRegistry';
 import { MerchantStaffHub } from './MerchantStaffHub';
 import { MerchantTruckExpandSettings } from './MerchantTruckExpandSettings';
 import { MerchantCategoryBrandSettings } from './MerchantCategoryBrandSettings';
@@ -150,6 +153,7 @@ export type MerchantTab =
   | 'audit'
   | 'gps'
   | 'menu'
+  | 'user_data_mgmt'
   | 'analytics';
 
 // Storage helpers
@@ -515,48 +519,53 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
   };
 
   const allTabsConfig: TabItemConfig[] = [
-    // 营业管控
-    { id: 'tables', label: '堂食台位矩阵', category: '营业管控', icon: UtensilsCrossed, badge: tables.filter(t => t.status === 'dining').length },
-    { id: 'orders', label: '全渠道订单中心', category: '营业管控', icon: ShoppingBag, badge: scopedOrders.filter(o => o.status === 'cooking' || o.status === 'pending').length },
-    { id: 'contingency', label: '全链路突发情况兜底与审核中枢', category: '营业管控', icon: ShieldAlert, badge: scopedOrders.filter(o => (o.rejectionCount && o.rejectionCount > 0) || o.refundStatus === 'pending' || o.status === 'refund_pending').length, badgeAlert: true },
-    { id: 'payment_channels', label: '支付渠道与收款对接 (微信/支付宝/云闪付/数币)', category: '营业管控', icon: CreditCard },
-    { id: 'kds', label: 'KDS 后厨出餐看板', category: '营业管控', icon: ChefHat, badge: tickets.length },
-    { id: 'calling', label: '前台叫号取餐/等位', category: '营业管控', icon: Megaphone },
-    { id: 'printing', label: '多档口拆单打印/小票', category: '营业管控', icon: Printer },
-    { id: 'held', label: '未结账与风控', category: '营业管控', icon: ShieldAlert, badge: heldOrders.length, badgeAlert: true },
-    { id: 'scanner', label: '智能扫码枪硬件控制台', category: '营业管控', icon: Barcode },
+    // 实时经营 — 营业高峰期的核心作业链路
+    { id: 'tables', label: '堂食台位矩阵', category: '实时经营', icon: UtensilsCrossed, badge: tables.filter(t => t.status === 'dining').length },
+    { id: 'orders', label: '全渠道订单中心', category: '实时经营', icon: ShoppingBag, badge: scopedOrders.filter(o => o.status === 'cooking' || o.status === 'pending').length },
+    { id: 'kds', label: 'KDS 后厨出餐看板', category: '实时经营', icon: ChefHat, badge: tickets.length },
+    { id: 'calling', label: '前台叫号取餐/等位', category: '实时经营', icon: Megaphone },
+    { id: 'printing', label: '多档口拆单打印/小票', category: '实时经营', icon: Printer },
+    { id: 'held', label: '未结账与挂账风控', category: '实时经营', icon: Clock, badge: heldOrders.length, badgeAlert: true },
+    { id: 'contingency', label: '全链路突发情况兜底与审核中枢', category: '实时经营', icon: ShieldAlert, badge: scopedOrders.filter(o => (o.rejectionCount && o.rejectionCount > 0) || o.refundStatus === 'pending' || o.status === 'refund_pending').length, badgeAlert: true },
 
-    // 工艺与标准
-    { id: 'craft_standards', label: '制作工艺与配方标准', category: '工艺与标准', icon: BookOpen },
-    { id: 'processing_loss', label: '初加工出肉率核算', category: '工艺与标准', icon: Scale },
-    { id: 'materials', label: '原物料与安全库存', category: '工艺与标准', icon: Package },
-    { id: 'inventory_close', label: '每日打烊闭环盘点', category: '工艺与标准', icon: Shield },
-    { id: 'sku_params', label: '数字参数与标准管理', category: '工艺与标准', icon: Tag },
+    // 支付财务与报表
+    { id: 'payment_channels', label: '支付渠道与收款对接 (微信/支付宝/云闪付/数币)', category: '支付财务与报表', icon: CreditCard },
+    { id: 'shifts', label: '收银交班/退款/预定', category: '支付财务与报表', icon: RotateCcw },
+    { id: 'audit', label: '操作审计与离线队列', category: '支付财务与报表', icon: Shield },
+    { id: 'analytics', label: '营收与客流报表', category: '支付财务与报表', icon: TrendingUp },
 
-    // 损耗与运营
-    { id: 'cloud_sync', label: '腾讯云服务数据同步中枢 (CloudBase)', category: '损耗与运营', icon: Cloud },
-    { id: 'version_tracking', label: '数据修改指针与版本追踪修复', category: '损耗与运营', icon: GitBranch },
-    { id: 'loss', label: '全链路损耗监控', category: '损耗与运营', icon: Scale },
-    { id: 'shifts', label: '收银交班/退款/预定', category: '损耗与运营', icon: RotateCcw },
-    { id: 'staff', label: '员工花名册与岗位权限', category: '损耗与运营', icon: UserCheck },
-    { id: 'audit', label: '操作审计与离线队列', category: '损耗与运营', icon: Shield },
+    // 菜品供应链 — 菜品、工艺、原料、库存与损耗
+    { id: 'menu', label: '菜品多渠道与沽清', category: '菜品供应链', icon: Tag },
+    { id: 'menu_design', label: '菜单界面与活动轮播设计系统', category: '菜品供应链', icon: Palette, badge: 1 },
+    { id: 'craft_standards', label: '制作工艺与配方标准', category: '菜品供应链', icon: BookOpen },
+    { id: 'processing_loss', label: '初加工出肉率核算', category: '菜品供应链', icon: Scale },
+    { id: 'materials', label: '原物料与安全库存', category: '菜品供应链', icon: Package },
+    { id: 'sku_params', label: '数字参数与标准管理', category: '菜品供应链', icon: Layers },
+    { id: 'inventory_close', label: '每日打烊闭环盘点', category: '菜品供应链', icon: Shield },
+    { id: 'loss', label: '全链路损耗监控', category: '菜品供应链', icon: TrendingDown },
 
-    // 渠道与报表
-    { id: 'menu_design', label: '菜单界面与活动轮播设计系统', category: '渠道与报表', icon: Palette, badge: 1 },
-    { id: 'marketing', label: '优惠券发布与营销风控中枢', category: '渠道与报表', icon: SlidersHorizontal },
-    { id: 'category_brands', label: '分类品牌弹窗与类目故事管理', category: '渠道与报表', icon: Sparkles },
-    { id: 'truck_expand', label: '餐车展开与底栏气泡控制', category: '渠道与报表', icon: SlidersHorizontal },
-    { id: 'members', label: '会员储值卡与积分资产', category: '渠道与报表', icon: Users },
-    { id: 'menu', label: '菜品多渠道与沽清', category: '渠道与报表', icon: Tag },
-    { id: 'gps', label: '餐车停靠与 GPS 广播', category: '渠道与报表', icon: Radio },
-    { id: 'analytics', label: '营收与客流报表', category: '渠道与报表', icon: TrendingUp }
+    // 营销会员
+    { id: 'marketing', label: '优惠券发布与营销风控中枢', category: '营销会员', icon: SlidersHorizontal },
+    { id: 'category_brands', label: '分类品牌弹窗与类目故事管理', category: '营销会员', icon: Sparkles },
+    { id: 'members', label: '会员储值卡与积分资产', category: '营销会员', icon: Users },
+    { id: 'user_data_mgmt', label: '用户数据中心 (统一档案)', category: '营销会员', icon: Fingerprint, badge: getUserDataRecords().length },
+
+    // 门店与位置
+    { id: 'truck_expand', label: '餐车展开与底栏气泡控制', category: '门店与位置', icon: SlidersHorizontal },
+    { id: 'gps', label: '餐车停靠与 GPS 广播', category: '门店与位置', icon: Radio },
+
+    // 系统团队与硬件
+    { id: 'staff', label: '员工花名册与岗位权限', category: '系统团队与硬件', icon: UserCheck },
+    { id: 'cloud_sync', label: '腾讯云服务数据同步中枢 (CloudBase)', category: '系统团队与硬件', icon: Cloud },
+    { id: 'version_tracking', label: '数据修改指针与版本追踪修复', category: '系统团队与硬件', icon: GitBranch },
+    { id: 'scanner', label: '智能扫码枪硬件控制台', category: '系统团队与硬件', icon: Barcode }
   ];
 
   const currentTabConfig = allTabsConfig.find(t => t.id === activeTab) || allTabsConfig[0];
   const CurrentIcon = currentTabConfig.icon;
 
-  // Categories for grouped menu
-  const categories = ['营业管控', '工艺与标准', '损耗与运营', '渠道与报表'];
+  // Categories for grouped menu (ordered by merchant daily workflow)
+  const categories = ['实时经营', '支付财务与报表', '菜品供应链', '营销会员', '门店与位置', '系统团队与硬件'];
 
   // --- Handlers for Tables Matrix ---
   const handleOpenTable = (tableId: string, guests: number, server: string) => {
@@ -949,7 +958,7 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
             type="button"
             onClick={() => setIsMobileSidebarOpen(true)}
             className="md:hidden p-1.5 bg-[#f1f1ef] hover:bg-[#e8e8e6] text-[#37352f] rounded-[3px] transition-all cursor-pointer border border-[#d3d1cb] flex items-center justify-center shrink-0"
-            title="展开25个功能模块侧边栏"
+            title="展开28个功能模块侧边栏"
           >
             <MenuIcon className="w-4 h-4 text-[#37352f]" />
           </button>
@@ -1487,6 +1496,12 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
           <MerchantStallGPS
             truck={truck}
             onUpdateLocation={handleUpdateGPS}
+            showToast={showToast}
+          />
+        )}
+
+        {activeTab === 'user_data_mgmt' && (
+          <MerchantUserDataCenter
             showToast={showToast}
           />
         )}

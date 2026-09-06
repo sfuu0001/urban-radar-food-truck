@@ -67,6 +67,15 @@ export const AddressSelectorModal: React.FC<AddressSelectorModalProps> = ({
   const [mapFly, setMapFly] = useState<{ lat: number; lng: number; seq: number } | undefined>(undefined);
   const [mapOpen, setMapOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  // 地图初始居中坐标(仅视图中心, 不作为草稿): 优先用已记住 GPS, 否则用餐车位置
+  const [mapInitial, setMapInitial] = useState<{ lat: number; lng: number }>(() => {
+    const ul = getUserLocationState();
+    if (ul.source === 'gps' && ul.latitude && !ul.isFallback) return { lat: ul.latitude, lng: ul.longitude };
+    const t = getActiveTruckConfig();
+    return { lat: t.latitude, lng: t.longitude };
+  });
+  // 稳定 key: 避免每次坐标变化都重挂载地图导致选点被重置回初始位
+  const [mapKey] = useState(() => `addr-center-map-${Date.now()}`);
 
   const embed = isEmbeddedFrame();
 
@@ -77,20 +86,16 @@ export const AddressSelectorModal: React.FC<AddressSelectorModalProps> = ({
       setUserLocation(getUserLocationState());
       setGeoText('');
       setDraft(null);
-      setMapOpen(false);
+      setMapOpen(true);
       setMapFly(undefined);
-      // 若有已记住的定位, 打开时直接带入草稿供确认
+      // 地图初始居中: 仅视图中心, 不再自动生成「GPS 草稿」
+      // (防止一打开就默认把当前 GPS 当作送达地址, 用户确认后才保存 GPS —— 这正是「保存后变回原 GPS」的根因)
       const ul = getUserLocationState();
       if (ul.source === 'gps' && ul.latitude && !ul.isFallback) {
-        setDraft({
-          title: '我的实时位置',
-          detail: ul.addressDetail || ul.locationName || 'GPS 定位点',
-          latitude: ul.latitude,
-          longitude: ul.longitude,
-          source: 'gps',
-          accuracy: ul.accuracy
-        });
-        setMapOpen(true);
+        setMapInitial({ lat: ul.latitude, lng: ul.longitude });
+      } else {
+        const t = getActiveTruckConfig();
+        setMapInitial({ lat: t.latitude, lng: t.longitude });
       }
     }
   }, [isOpen]);
@@ -458,12 +463,12 @@ export const AddressSelectorModal: React.FC<AddressSelectorModalProps> = ({
           )}
 
           {/* 迷你中心锚定地图 */}
-          {draft && mapOpen && (
+          {mapOpen && (
             <div className="px-3.5 pt-2.5">
               <CenterAnchorMap
-                key={`${draft.latitude}-${draft.longitude}-${draft.source}`}
-                initialLat={draft.latitude}
-                initialLng={draft.longitude}
+                key={mapKey}
+                initialLat={mapInitial.lat}
+                initialLng={mapInitial.lng}
                 height={230}
                 flyTo={mapFly}
                 onResolve={handleMapResolve}

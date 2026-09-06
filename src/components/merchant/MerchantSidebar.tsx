@@ -35,10 +35,12 @@ interface MerchantSidebarProps {
 }
 
 const CATEGORY_STYLES: Record<string, { dot: string; text: string; bg: string; badge: string }> = {
-  '营业管控': { dot: 'bg-emerald-500', text: 'text-emerald-800', bg: 'bg-emerald-50', badge: 'bg-emerald-100 text-emerald-800' },
-  '工艺与标准': { dot: 'bg-amber-500', text: 'text-amber-800', bg: 'bg-amber-50', badge: 'bg-amber-100 text-amber-800' },
-  '损耗与运营': { dot: 'bg-sky-500', text: 'text-sky-800', bg: 'bg-sky-50', badge: 'bg-sky-100 text-sky-800' },
-  '渠道与报表': { dot: 'bg-purple-500', text: 'text-purple-800', bg: 'bg-purple-50', badge: 'bg-purple-100 text-purple-800' },
+  '实时经营': { dot: 'bg-emerald-500', text: 'text-emerald-800', bg: 'bg-emerald-50', badge: 'bg-emerald-100 text-emerald-800' },
+  '支付财务与报表': { dot: 'bg-amber-500', text: 'text-amber-800', bg: 'bg-amber-50', badge: 'bg-amber-100 text-amber-800' },
+  '菜品供应链': { dot: 'bg-sky-500', text: 'text-sky-800', bg: 'bg-sky-50', badge: 'bg-sky-100 text-sky-800' },
+  '营销会员': { dot: 'bg-purple-500', text: 'text-purple-800', bg: 'bg-purple-50', badge: 'bg-purple-100 text-purple-800' },
+  '门店与位置': { dot: 'bg-orange-500', text: 'text-orange-800', bg: 'bg-orange-50', badge: 'bg-orange-100 text-orange-800' },
+  '系统团队与硬件': { dot: 'bg-slate-500', text: 'text-slate-800', bg: 'bg-slate-50', badge: 'bg-slate-100 text-slate-800' },
 };
 
 export const MerchantSidebar: React.FC<MerchantSidebarProps> = ({
@@ -96,7 +98,7 @@ export const MerchantSidebar: React.FC<MerchantSidebarProps> = ({
               <div className="flex items-center gap-1.5">
                 <span className="font-bold text-xs text-[#201f1d] tracking-tight">功能导航</span>
                 <span className="text-[10px] font-mono px-1.5 py-0.2 bg-[#efefed] text-[#5a5854] rounded-[3px] font-bold">
-                  25模块
+                  28模块
                 </span>
               </div>
               {truckName && (
