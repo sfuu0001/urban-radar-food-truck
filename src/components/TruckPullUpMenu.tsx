@@ -4,7 +4,6 @@ import {
   MapPin,
   Compass,
   Flame,
-  Sparkles,
   Tag,
   ChevronDown,
   ChevronUp,
@@ -90,7 +89,7 @@ const HOT_PROMO_TICKER = [
     id: 'p4',
     tag: '爆款尝鲜',
     tagBg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    icon: Sparkles,
+    icon: Flame,
     title: '果木烟熏脆皮烤五花肉 现点现切',
     subText: '热度TOP1 · 主厨特制酱',
     discount: '立省¥8',
@@ -609,7 +608,7 @@ export const TruckPullUpMenu: React.FC<TruckPullUpMenuProps> = ({
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs text-neutral-500 font-medium px-1">
                     <span className="flex items-center gap-1">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                      <Flame className="w-3.5 h-3.5 text-amber-500" />
                       流动餐车现场炭烤现制精选
                     </span>
                     <button

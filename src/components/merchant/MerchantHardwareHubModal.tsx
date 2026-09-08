@@ -12,8 +12,8 @@ import {
   Volume2,
   CheckCircle2,
   X,
-  Sparkles,
-  RefreshCw
+  RefreshCw,
+  Megaphone
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MerchantSession } from '../../utils/staffAndRiderAuthEngine';
@@ -29,6 +29,7 @@ interface MerchantHardwareHubModalProps {
   onOpenScanner: () => void;
   onOpenMessageForm: () => void;
   onOpenCloudbaseModal: () => void;
+  onOpenQuickCall?: () => void;
   onSwitchToRider: () => void;
   merchantSession?: MerchantSession | null;
   onOpenPhoneAuth?: () => void;
@@ -46,6 +47,7 @@ export const MerchantHardwareHubModal: React.FC<MerchantHardwareHubModalProps> =
   onOpenScanner,
   onOpenMessageForm,
   onOpenCloudbaseModal,
+  onOpenQuickCall,
   onSwitchToRider,
   merchantSession,
   onOpenPhoneAuth,
@@ -148,6 +150,34 @@ export const MerchantHardwareHubModal: React.FC<MerchantHardwareHubModalProps> =
 
             {/* 2. 硬件与网络状态矩阵 */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {/* 方案 C：即时叫号广播小窗 */}
+              {onOpenQuickCall && (
+                <div
+                  onClick={() => {
+                    onClose();
+                    onOpenQuickCall();
+                  }}
+                  className="sm:col-span-2 p-3 bg-amber-50 hover:bg-amber-100/90 rounded-lg border border-amber-300 transition-all cursor-pointer shadow-2xs group flex flex-col justify-between"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Megaphone className="w-4 h-4 text-amber-700 animate-pulse shrink-0" />
+                      <span className="text-xs font-bold text-amber-950">即时叫号广播小窗 (快捷键: Alt+C)</span>
+                    </div>
+                    <span className="text-[10px] bg-amber-200 text-amber-900 font-bold px-1.5 py-0.5 rounded shrink-0">
+                      全域外放
+                    </span>
+                  </div>
+                  <div className="mt-1.5 text-[11px] text-amber-900 flex items-center justify-between">
+                    <span>自提取件 · 呼叫骑手 · 堂食传菜 · 促销自定义喊客</span>
+                    <span className="font-bold text-amber-800 group-hover:underline flex items-center gap-0.5 shrink-0 ml-2">
+                      <span>立即弹出</span>
+                      <span>→</span>
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Bluetooth Audio Hub */}
               <div
                 onClick={() => {

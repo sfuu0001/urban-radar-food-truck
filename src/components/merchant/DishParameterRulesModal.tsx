@@ -28,7 +28,9 @@ import {
   Trash2,
   SlidersHorizontal,
   ArrowRight,
-  Printer
+  Printer,
+  Crown,
+  Lock
 } from 'lucide-react';
 import {
   DishItem,
@@ -38,6 +40,7 @@ import {
   FieldSelectorMediaItem
 } from '../../types';
 import { globalScannerEngine } from '../../utils/barcodeScannerEngine';
+import { globalFranchiseEngine } from '../../utils/franchiseTenantEngine';
 import { DishPriceCalculator } from '../DishPriceCalculator';
 import { FlavorTagSelector } from './FlavorTagSelector';
 import {
@@ -163,13 +166,23 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
   const [selectorCategoryFilter, setSelectorCategoryFilter] = useState<'all' | 'variant' | 'flavor' | 'option' | 'spiciness'>('all');
   const [activeMediaEditingKey, setActiveMediaEditingKey] = useState<string | null>(null);
 
-  // Enhanced Operational Rules States (运营规则参数)
+  // Enhanced Operational Rules States (全渠道运营与风控规则参数)
   const [minOrderThreshold, setMinOrderThreshold] = useState<number>(0);
   const [peakThrottleLimit, setPeakThrottleLimit] = useState<number>(30); // 15分钟最大制作单数
   const [autoSoldOutThreshold, setAutoSoldOutThreshold] = useState<number>(5); // 安全库存触发自动沽清
   const [couponStackingAllowed, setCouponStackingAllowed] = useState<boolean>(true); // 是否允许与满减券叠加
   const [riderBoxCodeRequired, setRiderBoxCodeRequired] = useState<boolean>(true); // 是否强制骑手扫箱码防串单
   const [prepBufferWindow, setPrepBufferWindow] = useState<number>(3); // 高峰备餐延时缓冲（分钟）
+  const [nightCutoffEnabled, setNightCutoffEnabled] = useState<boolean>(true); // 晚市定时自动下架
+  const [nightCutoffTime, setNightCutoffTime] = useState<string>('21:30'); // 晚市下架截断时间
+  const [dailyQuotaEnabled, setDailyQuotaEnabled] = useState<boolean>(false); // 每日限量配额开关
+  const [dailyQuota, setDailyQuota] = useState<number>(50); // 每日供应配额上限
+  const [channelDeliveryEnabled, setChannelDeliveryEnabled] = useState<boolean>(dish.available !== false); // 外卖供售开关
+  const [channelDineInEnabled, setChannelDineInEnabled] = useState<boolean>(dish.available !== false); // 堂食供售开关
+  const [channelPickupEnabled, setChannelPickupEnabled] = useState<boolean>(dish.available !== false); // 自提供售开关
+  const [autoSubstituteEnabled, setAutoSubstituteEnabled] = useState<boolean>(true); // 缺货自动平替推荐
+  const [stationFuseEnabled, setStationFuseEnabled] = useState<boolean>(true); // 烤台过载排队熔断延时
+  const [packagingFee, setPackagingFee] = useState<string>('1.50'); // 打包餐盒费
 
   // Right Preview Simulation States
   const [rightPreviewChannel, setRightPreviewChannel] = useState<'delivery' | 'dine_in'>('delivery');
@@ -209,6 +222,13 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
     const dd = editDeliveryDiscount ? parseFloat(editDeliveryDiscount) : undefined;
     const did = editDineInDiscount ? parseFloat(editDineInDiscount) : undefined;
 
+    // Franchise Price Guard Check
+    const val = globalFranchiseEngine.validateDishPriceUpdate(dish.id, dish.name, p, dish.price);
+    if (!val.allowed) {
+      showToast(val.reason || '改价失败：超出总部价格管控合规红线！');
+      return;
+    }
+
     const updated: DishItem = {
       ...dish,
       variants: editVariants && editVariants.length > 0 ? editVariants : undefined,
@@ -231,7 +251,8 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
       craftStandardNote: editCraftStandardNote,
       badgeText: editBadgeText.trim() || undefined,
       prepTime: editPrepTime.trim() || '约8m',
-      barcode: editBarcode.trim() || undefined
+      barcode: editBarcode.trim() || undefined,
+      available: channelDeliveryEnabled || channelDineInEnabled || channelPickupEnabled
     };
 
     onSave(updated);
@@ -255,7 +276,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
       }}
     >
       <div
-        className="bg-[#ffffff] w-full max-w-5xl xl:max-w-6xl 2xl:max-w-[1260px] rounded-2xl sm:rounded-3xl border border-[#e2e3e1] shadow-urban-modal overflow-hidden flex flex-col max-h-[92vh] font-hanken text-[#1a1c1b]"
+        className="bg-[#ffffff] w-full max-w-5xl xl:max-w-6xl 2xl:max-w-[1260px] rounded-none border border-[#e2e3e1] shadow-2xl overflow-hidden flex flex-col max-h-[92vh] font-sans text-[#1a1c1b]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* MODAL HEADER - Urban Radar Minimalist Luxury Styling */}
@@ -264,7 +285,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
             {/* Dish Thumbnail */}
             <div
               onClick={() => onPreviewZoom && onPreviewZoom(dish)}
-              className="relative w-11 h-11 rounded-lg overflow-hidden border border-[#c8c7be] shrink-0 group cursor-pointer bg-[#eeeeec]"
+              className="relative w-11 h-11 rounded-none overflow-hidden border border-[#c8c7be] shrink-0 group cursor-pointer bg-[#eeeeec]"
               title="点击查看高清实拍原图"
             >
               <img
@@ -282,11 +303,11 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                 <h3 className="font-bold text-[18px] sm:text-[20px] text-[#1a1c1b] tracking-tight truncate leading-tight">
                   配置【{dish.name}】参数与运营规则
                 </h3>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#e6f4ea] text-[#006d36] border border-[#a8dab5] shrink-0">
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-none bg-[#e6f4ea] text-[#006d36] border border-[#a8dab5] shrink-0">
                   {dish.available !== false ? '在售生效中' : '全网沽清中'}
                 </span>
                 {dish.badgeText && (
-                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[#eeeeec] text-[#474741] shrink-0">
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-none bg-[#eeeeec] text-[#474741] shrink-0">
                     {dish.badgeText}
                   </span>
                 )}
@@ -302,20 +323,47 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden lg:flex items-center gap-2 text-[12px] text-[#006d36] bg-[#e6f4ea] px-3 py-1 rounded-full font-medium">
-              <span className="w-2 h-2 rounded-full bg-[#006d36] animate-pulse" />
+            <div className="hidden lg:flex items-center gap-2 text-[12px] text-[#006d36] bg-[#e6f4ea] px-3 py-1 rounded-none font-medium">
+              <span className="w-2 h-2 rounded-none bg-[#006d36] animate-pulse" />
               <span>左侧参数调节 · 右侧真机实时映射</span>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-[#787770] hover:text-[#1a1c1b] hover:bg-[#eeeeec] transition-colors cursor-pointer"
+              className="w-8 h-8 rounded-none flex items-center justify-center text-[#787770] hover:text-[#1a1c1b] hover:bg-[#eeeeec] transition-colors cursor-pointer"
               title="关闭弹窗"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
+
+        {/* Franchise HQ Lock Banner */}
+        {(() => {
+          const franchisePolicy = globalFranchiseEngine.getPolicy(dish.id);
+          const franchiseCtx = globalFranchiseEngine.getContext();
+          if (!franchisePolicy?.isHqLocked) return null;
+
+          return (
+            <div className="px-6 py-2 bg-amber-50 border-b border-amber-300 flex items-center justify-between text-xs text-amber-950 shrink-0">
+              <div className="flex items-center gap-2">
+                <Crown className="w-4 h-4 text-amber-700 shrink-0" />
+                <div>
+                  <span className="font-bold">👑 总部核心爆品强锁定 (HQ Locked)</span>: {franchisePolicy.lockedReason}
+                  <span className="text-amber-800 ml-2">
+                    全国统一定价: <strong>¥{franchisePolicy.hqBasePrice.toFixed(2)}</strong> |{' '}
+                    {franchisePolicy.allowFranchiseePriceOverride
+                      ? ` 允许加盟商微调区间: ¥${franchisePolicy.allowedMinPrice} ~ ¥${franchisePolicy.allowedMaxPrice}`
+                      : ' 严格禁止加盟商擅改售价'}
+                  </span>
+                </div>
+              </div>
+              <span className="font-mono text-[10px] px-2 py-0.5 bg-amber-200 text-amber-900 border border-amber-400 font-bold shrink-0 ml-2">
+                {franchiseCtx.isHqUser ? 'HQ 超管视角 (可调控)' : '加盟商只读受控'}
+              </span>
+            </div>
+          );
+        })()}
 
         {/* MODAL MAIN BODY: LEFT FORM + RIGHT LIVE SIMULATOR */}
         <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden bg-[#f9f9f7]">
@@ -385,7 +433,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                         setPreviewStyleMode('spec_modal');
                       }
                     }}
-                    className={`px-3 py-2 text-xs font-bold rounded-t-lg transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap -mb-[1px] ${
+                    className={`px-3 py-2 text-xs font-bold rounded-none transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap -mb-[1px] ${
                       isActive
                         ? 'bg-[#f9f9f7] text-[#000000] border-t-2 border-t-[#000000] border-x border-[#e2e3e1]'
                         : 'text-[#787770] hover:text-[#1a1c1b] hover:bg-[#f4f4f2]'
@@ -402,7 +450,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                     />
                     <span>{tab.label}</span>
                     {tab.badge && (
-                      <span className="text-[10px] bg-[#eeeeec] text-[#1a1c1b] px-1.5 py-0.2 rounded-full font-mono font-semibold">
+                      <span className="text-[10px] bg-[#eeeeec] text-[#1a1c1b] px-1.5 py-0.2 rounded-none font-mono font-semibold">
                         {tab.badge}
                       </span>
                     )}
@@ -417,10 +465,10 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
               {activeTab === 'parameters' && (
                 <div className="space-y-4">
                   {/* Spiciness Level Card */}
-                  <div className="p-5 bg-[#ffffff] rounded-xl border border-[#e2e3e1] shadow-urban space-y-3">
+                  <div className="p-5 bg-[#ffffff] rounded-none border border-[#e2e3e1] shadow-none space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-[#ffdad6] text-[#ba1a1a] flex items-center justify-center font-bold">
+                        <div className="w-7 h-7 rounded-none bg-[#ffdad6] text-[#ba1a1a] flex items-center justify-center font-bold">
                           <Flame className="w-4 h-4" />
                         </div>
                         <div>
@@ -432,7 +480,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                           </p>
                         </div>
                       </div>
-                      <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-[#f4f4f2] text-[#1a1c1b]">
+                      <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-none bg-[#f4f4f2] text-[#1a1c1b]">
                         当前: {editSpicinessLevel}
                       </span>
                     </div>
@@ -445,7 +493,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                             key={spice}
                             type="button"
                             onClick={() => setEditSpicinessLevel(spice)}
-                            className={`p-3 rounded-lg text-xs font-bold border text-left transition-all cursor-pointer flex items-center justify-between ${
+                            className={`p-3 rounded-none text-xs font-bold border text-left transition-all cursor-pointer flex items-center justify-between ${
                               isSelected
                                 ? 'bg-[#000000] text-[#ffffff] border-[#000000] shadow-sm'
                                 : 'bg-[#f9f9f7] text-[#1a1c1b] border-[#e2e3e1] hover:bg-[#f4f4f2]'
@@ -477,7 +525,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                         {editSpicinessOptions.map((opt) => (
                           <span
                             key={opt}
-                            className="bg-[#f4f4f2] text-[#1a1c1b] border border-[#e2e3e1] px-2.5 py-1 rounded-lg text-[11px] flex items-center gap-1.5 font-medium"
+                            className="bg-[#f4f4f2] text-[#1a1c1b] border border-[#e2e3e1] px-2.5 py-1 rounded-none text-[11px] flex items-center gap-1.5 font-medium"
                           >
                             <span>{opt}</span>
                             <button
@@ -516,7 +564,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                               setEditCustomSpiceInput('');
                             }
                           }}
-                          className="p-2 bg-[#f9f9f7] border border-[#c8c7be] focus:border-[#000000] rounded-lg text-xs flex-1 outline-none transition-colors"
+                          className="p-2 bg-[#f9f9f7] border border-[#c8c7be] focus:border-[#000000] rounded-none text-xs flex-1 outline-none transition-colors"
                         />
                         <button
                           type="button"
@@ -532,7 +580,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                               setEditCustomSpiceInput('');
                             }
                           }}
-                          className="px-3.5 py-2 bg-[#000000] text-white rounded-lg text-xs font-bold cursor-pointer hover:bg-neutral-800 transition-colors"
+                          className="px-3.5 py-2 bg-[#000000] text-white rounded-none text-xs font-bold cursor-pointer hover:bg-neutral-800 transition-colors"
                         >
                           添加
                         </button>
@@ -541,10 +589,10 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                   </div>
 
                   {/* Flavor Style Card */}
-                  <div className="p-5 bg-[#ffffff] rounded-xl border border-[#e2e3e1] shadow-urban space-y-3">
+                  <div className="p-5 bg-[#ffffff] rounded-none border border-[#e2e3e1] shadow-none space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-[#eeeeec] text-[#1a1c1b] flex items-center justify-center font-bold">
+                        <div className="w-7 h-7 rounded-none bg-[#eeeeec] text-[#1a1c1b] flex items-center justify-center font-bold">
                           <ChefHat className="w-4 h-4" />
                         </div>
                         <div>
@@ -556,7 +604,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                           </p>
                         </div>
                       </div>
-                      <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-[#f4f4f2] text-[#1a1c1b]">
+                      <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-none bg-[#f4f4f2] text-[#1a1c1b]">
                         当前: {editFlavor}
                       </span>
                     </div>
@@ -569,7 +617,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                             key={flv}
                             type="button"
                             onClick={() => setEditFlavor(flv)}
-                            className={`p-3 rounded-lg text-xs font-bold border text-left transition-all cursor-pointer flex items-center justify-between ${
+                            className={`p-3 rounded-none text-xs font-bold border text-left transition-all cursor-pointer flex items-center justify-between ${
                               isSelected
                                 ? 'bg-[#000000] text-[#ffffff] border-[#000000] shadow-sm'
                                 : 'bg-[#f9f9f7] text-[#1a1c1b] border-[#e2e3e1] hover:bg-[#f4f4f2]'
@@ -601,7 +649,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                         {editFlavorOptions.map((opt) => (
                           <span
                             key={opt}
-                            className="bg-[#f4f4f2] text-[#1a1c1b] border border-[#e2e3e1] px-2.5 py-1 rounded-lg text-[11px] flex items-center gap-1.5 font-medium"
+                            className="bg-[#f4f4f2] text-[#1a1c1b] border border-[#e2e3e1] px-2.5 py-1 rounded-none text-[11px] flex items-center gap-1.5 font-medium"
                           >
                             <span>{opt}</span>
                             <button
@@ -638,7 +686,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                               setEditCustomFlavorInput('');
                             }
                           }}
-                          className="p-2 bg-[#f9f9f7] border border-[#c8c7be] focus:border-[#000000] rounded-lg text-xs flex-1 outline-none transition-colors"
+                          className="p-2 bg-[#f9f9f7] border border-[#c8c7be] focus:border-[#000000] rounded-none text-xs flex-1 outline-none transition-colors"
                         />
                         <button
                           type="button"
@@ -654,7 +702,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                               setEditCustomFlavorInput('');
                             }
                           }}
-                          className="px-3.5 py-2 bg-[#000000] text-white rounded-lg text-xs font-bold cursor-pointer hover:bg-neutral-800 transition-colors"
+                          className="px-3.5 py-2 bg-[#000000] text-white rounded-none text-xs font-bold cursor-pointer hover:bg-neutral-800 transition-colors"
                         >
                           添加
                         </button>
@@ -667,7 +715,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
               {/* TAB 2: 风味标签库 */}
               {activeTab === 'flavor_tags' && (
                 <div className="space-y-4">
-                  <div className="p-5 bg-[#ffffff] rounded-xl border border-[#e2e3e1] shadow-urban">
+                  <div className="p-5 bg-[#ffffff] rounded-none border border-[#e2e3e1] shadow-none">
                     <FlavorTagSelector
                       selectedTags={editFlavorTags}
                       onChange={setEditFlavorTags}
@@ -681,10 +729,10 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
               {/* TAB 3: 制作工艺与SOP标准 */}
               {activeTab === 'cooking_sop' && (
                 <div className="space-y-4">
-                  <div className="p-5 bg-[#ffffff] rounded-xl border border-[#e2e3e1] shadow-urban space-y-3">
+                  <div className="p-5 bg-[#ffffff] rounded-none border border-[#e2e3e1] shadow-none space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-[#e6f4ea] text-[#006d36] flex items-center justify-center font-bold">
+                        <div className="w-7 h-7 rounded-none bg-[#e6f4ea] text-[#006d36] flex items-center justify-center font-bold">
                           <ChefHat className="w-4 h-4" />
                         </div>
                         <div>
@@ -696,7 +744,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                           </p>
                         </div>
                       </div>
-                      <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-[#f4f4f2] text-[#1a1c1b]">
+                      <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-none bg-[#f4f4f2] text-[#1a1c1b]">
                         当前: {editCookingStyle}
                       </span>
                     </div>
@@ -709,7 +757,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                             key={style}
                             type="button"
                             onClick={() => setEditCookingStyle(style)}
-                            className={`p-3 rounded-lg text-xs font-bold border text-left transition-all cursor-pointer flex items-center justify-between ${
+                            className={`p-3 rounded-none text-xs font-bold border text-left transition-all cursor-pointer flex items-center justify-between ${
                               isSelected
                                 ? 'bg-[#000000] text-[#ffffff] border-[#000000] shadow-sm'
                                 : 'bg-[#f9f9f7] text-[#1a1c1b] border-[#e2e3e1] hover:bg-[#f4f4f2]'
@@ -724,7 +772,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                   </div>
 
                   {/* Craft Standard Note & Prep Time Card */}
-                  <div className="p-5 bg-[#ffffff] rounded-xl border border-[#e2e3e1] shadow-urban space-y-4">
+                  <div className="p-5 bg-[#ffffff] rounded-none border border-[#e2e3e1] shadow-none space-y-4">
                     <div>
                       <label className="font-bold text-xs text-[#1a1c1b] block mb-1.5">
                         工艺 SOP 规范要点与主厨建议 (展示给食客及前台出餐核验):
@@ -734,7 +782,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                         value={editCraftStandardNote}
                         onChange={(e) => setEditCraftStandardNote(e.target.value)}
                         placeholder="如: 选用900℃高温果木炭慢烘烤制，外皮焦香内里肉汁丰沛，撒以秘制椒盐。"
-                        className="w-full p-3 bg-[#f9f9f7] border border-[#c8c7be] focus:border-[#000000] rounded-xl text-xs outline-none transition-colors leading-relaxed"
+                        className="w-full p-3 bg-[#f9f9f7] border border-[#c8c7be] focus:border-[#000000] rounded-none text-xs outline-none transition-colors leading-relaxed"
                       />
                     </div>
 
@@ -748,7 +796,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                           value={editPrepTime}
                           onChange={(e) => setEditPrepTime(e.target.value)}
                           placeholder="如: 约8m"
-                          className="w-full p-2.5 bg-[#f9f9f7] border border-[#c8c7be] focus:border-[#000000] rounded-lg text-xs outline-none font-mono"
+                          className="w-full p-2.5 bg-[#f9f9f7] border border-[#c8c7be] focus:border-[#000000] rounded-none text-xs outline-none font-mono"
                         />
                       </div>
                       <div>
@@ -760,7 +808,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                           value={editBadgeText}
                           onChange={(e) => setEditBadgeText(e.target.value)}
                           placeholder="如: 招牌必点 / 现烤热卖 / 5G极速"
-                          className="w-full p-2.5 bg-[#f9f9f7] border border-[#c8c7be] focus:border-[#000000] rounded-lg text-xs outline-none"
+                          className="w-full p-2.5 bg-[#f9f9f7] border border-[#c8c7be] focus:border-[#000000] rounded-none text-xs outline-none"
                         />
                       </div>
                     </div>
@@ -772,9 +820,9 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
               {activeTab === 'price_discount' && (
                 <div className="space-y-4">
                   {/* Base Pricing */}
-                  <div className="p-5 bg-[#ffffff] rounded-xl border border-[#e2e3e1] shadow-urban space-y-3">
+                  <div className="p-5 bg-[#ffffff] rounded-none border border-[#e2e3e1] shadow-none space-y-3">
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-[#eeeeec] text-[#1a1c1b] flex items-center justify-center font-bold">
+                      <div className="w-7 h-7 rounded-none bg-[#eeeeec] text-[#1a1c1b] flex items-center justify-center font-bold">
                         <Sliders className="w-4 h-4" />
                       </div>
                       <div>
@@ -788,7 +836,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                      <div className="p-3 bg-[#f9f9f7] rounded-xl border border-[#e2e3e1]">
+                      <div className="p-3 bg-[#f9f9f7] rounded-none border border-[#e2e3e1]">
                         <label className="font-bold text-xs text-[#1a1c1b] block mb-1">
                           当前销售价 (¥) *
                         </label>
@@ -801,12 +849,12 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                             step="0.1"
                             value={editPrice}
                             onChange={(e) => setEditPrice(e.target.value)}
-                            className="w-full pl-7 pr-3 py-2 bg-white border border-[#c8c7be] focus:border-[#000000] rounded-lg text-sm font-mono font-bold text-[#1a1c1b] outline-none"
+                            className="w-full pl-7 pr-3 py-2 bg-white border border-[#c8c7be] focus:border-[#000000] rounded-none text-sm font-mono font-bold text-[#1a1c1b] outline-none"
                           />
                         </div>
                       </div>
 
-                      <div className="p-3 bg-[#f9f9f7] rounded-xl border border-[#e2e3e1]">
+                      <div className="p-3 bg-[#f9f9f7] rounded-none border border-[#e2e3e1]">
                         <label className="font-bold text-xs text-[#787770] block mb-1">
                           划线原价 (¥)
                         </label>
@@ -820,12 +868,12 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                             placeholder="选填"
                             value={editOriginalPrice}
                             onChange={(e) => setEditOriginalPrice(e.target.value)}
-                            className="w-full pl-7 pr-3 py-2 bg-white border border-[#c8c7be] focus:border-[#000000] rounded-lg text-sm font-mono text-[#787770] outline-none"
+                            className="w-full pl-7 pr-3 py-2 bg-white border border-[#c8c7be] focus:border-[#000000] rounded-none text-sm font-mono text-[#787770] outline-none"
                           />
                         </div>
                       </div>
 
-                      <div className="p-3 bg-[#f9f9f7] rounded-xl border border-[#e2e3e1]">
+                      <div className="p-3 bg-[#f9f9f7] rounded-none border border-[#e2e3e1]">
                         <label className="font-bold text-xs text-[#787770] block mb-1">
                           环比对比价 (¥)
                         </label>
@@ -839,7 +887,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                             placeholder="选填"
                             value={editPrevPrice}
                             onChange={(e) => setEditPrevPrice(e.target.value)}
-                            className="w-full pl-7 pr-3 py-2 bg-white border border-[#c8c7be] focus:border-[#000000] rounded-lg text-sm font-mono text-[#787770] outline-none"
+                            className="w-full pl-7 pr-3 py-2 bg-white border border-[#c8c7be] focus:border-[#000000] rounded-none text-sm font-mono text-[#787770] outline-none"
                           />
                         </div>
                       </div>
@@ -849,10 +897,10 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                   {/* Channel-Specific Discount Rules */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Delivery Discount Rule */}
-                    <div className="p-5 bg-[#ffffff] rounded-xl border border-[#e2e3e1] shadow-urban space-y-3">
+                    <div className="p-5 bg-[#ffffff] rounded-none border border-[#e2e3e1] shadow-none space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-lg bg-[#e6f4ea] text-[#006d36] flex items-center justify-center font-bold">
+                          <div className="w-7 h-7 rounded-none bg-[#e6f4ea] text-[#006d36] flex items-center justify-center font-bold">
                             <Bike className="w-4 h-4" />
                           </div>
                           <div>
@@ -867,7 +915,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                               setEditDeliveryDiscount('5.00');
                               setEditDeliveryDiscountTag('外卖立减¥5');
                             }}
-                            className="text-[10px] px-2 py-0.5 bg-[#f4f4f2] text-[#1a1c1b] rounded-full border border-[#c8c7be] hover:bg-[#eeeeec] cursor-pointer font-bold"
+                            className="text-[10px] px-2 py-0.5 bg-[#f4f4f2] text-[#1a1c1b] rounded-none border border-[#c8c7be] hover:bg-[#eeeeec] cursor-pointer font-bold"
                           >
                             +¥5
                           </button>
@@ -877,7 +925,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                               setEditDeliveryDiscount('');
                               setEditDeliveryDiscountTag('');
                             }}
-                            className="text-[10px] px-2 py-0.5 bg-white text-[#787770] rounded-full border border-[#c8c7be] hover:text-[#ba1a1a] cursor-pointer"
+                            className="text-[10px] px-2 py-0.5 bg-white text-[#787770] rounded-none border border-[#c8c7be] hover:text-[#ba1a1a] cursor-pointer"
                           >
                             清空
                           </button>
@@ -901,7 +949,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                 setEditDeliveryDiscountTag(`外卖立减¥${val}`);
                               }
                             }}
-                            className="w-full p-2 bg-[#f9f9f7] border border-[#c8c7be] focus:border-[#000000] rounded-lg font-mono text-xs outline-none"
+                            className="w-full p-2 bg-[#f9f9f7] border border-[#c8c7be] focus:border-[#000000] rounded-none font-mono text-xs outline-none"
                           />
                         </div>
                         <div>
@@ -913,17 +961,17 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                             placeholder="如: 外卖立减¥5"
                             value={editDeliveryDiscountTag}
                             onChange={(e) => setEditDeliveryDiscountTag(e.target.value)}
-                            className="w-full p-2 bg-[#f9f9f7] border border-[#c8c7be] focus:border-[#000000] rounded-lg text-xs outline-none"
+                            className="w-full p-2 bg-[#f9f9f7] border border-[#c8c7be] focus:border-[#000000] rounded-none text-xs outline-none"
                           />
                         </div>
                       </div>
                     </div>
 
                     {/* Dine-In Discount Rule */}
-                    <div className="p-5 bg-[#ffffff] rounded-xl border border-[#e2e3e1] shadow-urban space-y-3">
+                    <div className="p-5 bg-[#ffffff] rounded-none border border-[#e2e3e1] shadow-none space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-lg bg-[#eeeeec] text-[#1a1c1b] flex items-center justify-center font-bold">
+                          <div className="w-7 h-7 rounded-none bg-[#eeeeec] text-[#1a1c1b] flex items-center justify-center font-bold">
                             <Utensils className="w-4 h-4" />
                           </div>
                           <div>
@@ -938,7 +986,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                               setEditDineInDiscount('3.00');
                               setEditDineInDiscountTag('堂食立减¥3');
                             }}
-                            className="text-[10px] px-2 py-0.5 bg-[#f4f4f2] text-[#1a1c1b] rounded-full border border-[#c8c7be] hover:bg-[#eeeeec] cursor-pointer font-bold"
+                            className="text-[10px] px-2 py-0.5 bg-[#f4f4f2] text-[#1a1c1b] rounded-none border border-[#c8c7be] hover:bg-[#eeeeec] cursor-pointer font-bold"
                           >
                             +¥3
                           </button>
@@ -948,7 +996,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                               setEditDineInDiscount('');
                               setEditDineInDiscountTag('');
                             }}
-                            className="text-[10px] px-2 py-0.5 bg-white text-[#787770] rounded-full border border-[#c8c7be] hover:text-[#ba1a1a] cursor-pointer"
+                            className="text-[10px] px-2 py-0.5 bg-white text-[#787770] rounded-none border border-[#c8c7be] hover:text-[#ba1a1a] cursor-pointer"
                           >
                             清空
                           </button>
@@ -972,7 +1020,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                 setEditDineInDiscountTag(`堂食立减¥${val}`);
                               }
                             }}
-                            className="w-full p-2 bg-[#f9f9f7] border border-[#c8c7be] focus:border-[#000000] rounded-lg font-mono text-xs outline-none"
+                            className="w-full p-2 bg-[#f9f9f7] border border-[#c8c7be] focus:border-[#000000] rounded-none font-mono text-xs outline-none"
                           />
                         </div>
                         <div>
@@ -984,7 +1032,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                             placeholder="如: 堂食立减¥3"
                             value={editDineInDiscountTag}
                             onChange={(e) => setEditDineInDiscountTag(e.target.value)}
-                            className="w-full p-2 bg-[#f9f9f7] border border-[#c8c7be] focus:border-[#000000] rounded-lg text-xs outline-none"
+                            className="w-full p-2 bg-[#f9f9f7] border border-[#c8c7be] focus:border-[#000000] rounded-none text-xs outline-none"
                           />
                         </div>
                       </div>
@@ -996,9 +1044,9 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
               {/* TAB 5: 运营与限流风控规则 (Operational Dispatch & Risk Control Rules) */}
               {activeTab === 'operating_rules' && (
                 <div className="space-y-4">
-                  <div className="p-5 bg-[#ffffff] rounded-xl border border-[#e2e3e1] shadow-urban space-y-4">
+                  <div className="p-5 bg-[#ffffff] rounded-none border border-[#e2e3e1] shadow-none space-y-4">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-[#000000] text-white flex items-center justify-center font-bold">
+                      <div className="w-8 h-8 rounded-none bg-[#000000] text-white flex items-center justify-center font-bold">
                         <Shield className="w-4 h-4" />
                       </div>
                       <div>
@@ -1011,11 +1059,73 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                       </div>
                     </div>
 
+                    {/* Channel Availability Switches Matrix */}
+                    <div className="p-4 bg-[#f9f9f7] rounded-none border border-[#D3D1CB] space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-[#1A1A17] flex items-center gap-1.5 font-mono">
+                          <Sliders className="w-3.5 h-3.5 text-neutral-700" />
+                          <span>全渠道实时供售通断矩阵 (CHANNEL AVAILABILITY)</span>
+                        </span>
+                        <span className="text-[11px] font-mono text-neutral-500">
+                          三端独立控制 · 毫秒级广播生效
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 font-mono">
+                        <button
+                          type="button"
+                          onClick={() => setChannelDeliveryEnabled(!channelDeliveryEnabled)}
+                          className={`p-3 border text-center rounded-none cursor-pointer transition-colors ${
+                            channelDeliveryEnabled
+                              ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
+                              : 'border-[#BA1A1A] bg-red-50 text-[#BA1A1A]'
+                          }`}
+                        >
+                          <div className="font-bold text-xs">外卖专送</div>
+                          <div className="text-[11px] mt-1 flex items-center justify-center gap-1">
+                            <span className={`w-1.5 h-1.5 rounded-none ${channelDeliveryEnabled ? 'bg-emerald-600' : 'bg-[#BA1A1A]'}`} />
+                            {channelDeliveryEnabled ? '在售正常' : '已沽清停售'}
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setChannelDineInEnabled(!channelDineInEnabled)}
+                          className={`p-3 border text-center rounded-none cursor-pointer transition-colors ${
+                            channelDineInEnabled
+                              ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
+                              : 'border-[#BA1A1A] bg-red-50 text-[#BA1A1A]'
+                          }`}
+                        >
+                          <div className="font-bold text-xs">车载堂食</div>
+                          <div className="text-[11px] mt-1 flex items-center justify-center gap-1">
+                            <span className={`w-1.5 h-1.5 rounded-none ${channelDineInEnabled ? 'bg-emerald-600' : 'bg-[#BA1A1A]'}`} />
+                            {channelDineInEnabled ? '在售正常' : '已沽清停售'}
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setChannelPickupEnabled(!channelPickupEnabled)}
+                          className={`p-3 border text-center rounded-none cursor-pointer transition-colors ${
+                            channelPickupEnabled
+                              ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
+                              : 'border-[#BA1A1A] bg-red-50 text-[#BA1A1A]'
+                          }`}
+                        >
+                          <div className="font-bold text-xs">预约自提</div>
+                          <div className="text-[11px] mt-1 flex items-center justify-center gap-1">
+                            <span className={`w-1.5 h-1.5 rounded-none ${channelPickupEnabled ? 'bg-emerald-600' : 'bg-[#BA1A1A]'}`} />
+                            {channelPickupEnabled ? '在售正常' : '已沽清停售'}
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                       {/* Rule 1: Peak Throttle Limit */}
-                      <div className="p-4 bg-[#f9f9f7] rounded-xl border border-[#e2e3e1] space-y-2">
+                      <div className="p-4 bg-[#f9f9f7] rounded-none border border-[#D3D1CB] space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-xs text-[#1a1c1b] flex items-center gap-1.5">
+                          <span className="font-bold text-xs text-[#1A1A17] flex items-center gap-1.5">
                             <Clock className="w-3.5 h-3.5 text-[#006d36]" />
                             <span>15分钟出餐峰值限流保护</span>
                           </span>
@@ -1033,14 +1143,14 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                           step="5"
                           value={peakThrottleLimit}
                           onChange={(e) => setPeakThrottleLimit(Number(e.target.value))}
-                          className="w-full accent-black cursor-pointer"
+                          className="w-full accent-black cursor-pointer rounded-none"
                         />
                       </div>
 
                       {/* Rule 2: Auto Stockout Threshold */}
-                      <div className="p-4 bg-[#f9f9f7] rounded-xl border border-[#e2e3e1] space-y-2">
+                      <div className="p-4 bg-[#f9f9f7] rounded-none border border-[#D3D1CB] space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-xs text-[#1a1c1b] flex items-center gap-1.5">
+                          <span className="font-bold text-xs text-[#1A1A17] flex items-center gap-1.5">
                             <AlertCircle className="w-3.5 h-3.5 text-[#ba1a1a]" />
                             <span>智能安全库存与自动沽清</span>
                           </span>
@@ -1058,22 +1168,75 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                           step="1"
                           value={autoSoldOutThreshold}
                           onChange={(e) => setAutoSoldOutThreshold(Number(e.target.value))}
-                          className="w-full accent-black cursor-pointer"
+                          className="w-full accent-black cursor-pointer rounded-none"
                         />
                       </div>
 
-                      {/* Rule 3: Coupon & Discount Stacking Matrix */}
-                      <div className="p-4 bg-[#f9f9f7] rounded-xl border border-[#e2e3e1] space-y-2">
+                      {/* Rule 3: Night Cutoff Limit */}
+                      <div className="p-4 bg-[#f9f9f7] rounded-none border border-[#D3D1CB] space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-xs text-[#1a1c1b] flex items-center gap-1.5">
-                            <Tag className="w-3.5 h-3.5 text-[#1a1c1b]" />
+                          <label className="font-bold text-xs text-[#1A1A17] flex items-center gap-1.5 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={nightCutoffEnabled}
+                              onChange={(e) => setNightCutoffEnabled(e.target.checked)}
+                              className="w-4 h-4 accent-black cursor-pointer rounded-none"
+                            />
+                            <span>晚市定时自动下架防过载</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={nightCutoffTime}
+                            onChange={(e) => setNightCutoffTime(e.target.value)}
+                            disabled={!nightCutoffEnabled}
+                            className="w-20 px-2 py-0.5 border border-[#D3D1CB] bg-white text-center font-mono text-xs font-bold rounded-none"
+                          />
+                        </div>
+                        <p className="text-[11px] text-[#787770]">
+                          到达指定晚市下架时间后，系统自动停止接现做繁复类菜品，避免后厨延时积压
+                        </p>
+                      </div>
+
+                      {/* Rule 4: Daily Quota Control */}
+                      <div className="p-4 bg-[#f9f9f7] rounded-none border border-[#D3D1CB] space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="font-bold text-xs text-[#1A1A17] flex items-center gap-1.5 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={dailyQuotaEnabled}
+                              onChange={(e) => setDailyQuotaEnabled(e.target.checked)}
+                              className="w-4 h-4 accent-black cursor-pointer rounded-none"
+                            />
+                            <span>每日限量供应配额控制</span>
+                          </label>
+                          <div className="flex items-center gap-1 font-mono text-xs">
+                            <input
+                              type="number"
+                              value={dailyQuota}
+                              onChange={(e) => setDailyQuota(Number(e.target.value))}
+                              disabled={!dailyQuotaEnabled}
+                              className="w-16 px-1.5 py-0.5 border border-[#D3D1CB] bg-white text-right font-bold rounded-none"
+                            />
+                            <span className="text-neutral-500">份/天</span>
+                          </div>
+                        </div>
+                        <p className="text-[11px] text-[#787770]">
+                          启用后，达到每日出单配额上限时全渠道自动显示售罄，保护核心原料配给
+                        </p>
+                      </div>
+
+                      {/* Rule 5: Coupon & Discount Stacking Matrix */}
+                      <div className="p-4 bg-[#f9f9f7] rounded-none border border-[#D3D1CB] space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-[#1A1A17] flex items-center gap-1.5">
+                            <Tag className="w-3.5 h-3.5 text-[#1A1A17]" />
                             <span>优惠券与渠道立减叠加同享</span>
                           </span>
                           <input
                             type="checkbox"
                             checked={couponStackingAllowed}
                             onChange={(e) => setCouponStackingAllowed(e.target.checked)}
-                            className="w-4 h-4 accent-black cursor-pointer rounded"
+                            className="w-4 h-4 accent-black cursor-pointer rounded-none"
                           />
                         </div>
                         <p className="text-[11px] text-[#787770]">
@@ -1081,10 +1244,10 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                         </p>
                       </div>
 
-                      {/* Rule 4: Rider Warm-box Verification */}
-                      <div className="p-4 bg-[#f9f9f7] rounded-xl border border-[#e2e3e1] space-y-2">
+                      {/* Rule 6: Rider Warm-box Verification */}
+                      <div className="p-4 bg-[#f9f9f7] rounded-none border border-[#D3D1CB] space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-xs text-[#1a1c1b] flex items-center gap-1.5">
+                          <span className="font-bold text-xs text-[#1A1A17] flex items-center gap-1.5">
                             <Zap className="w-3.5 h-3.5 text-[#006d36]" />
                             <span>极速专送恒温箱扫码取餐</span>
                           </span>
@@ -1092,11 +1255,52 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                             type="checkbox"
                             checked={riderBoxCodeRequired}
                             onChange={(e) => setRiderBoxCodeRequired(e.target.checked)}
-                            className="w-4 h-4 accent-black cursor-pointer rounded"
+                            className="w-4 h-4 accent-black cursor-pointer rounded-none"
                           />
                         </div>
                         <p className="text-[11px] text-[#787770]">
                           要求骑手必须扫描餐盒上的 69 码与车载保温箱定位码，彻底避免错拿与漏配
+                        </p>
+                      </div>
+
+                      {/* Rule 7: Auto Substitute Recommendation */}
+                      <div className="p-4 bg-[#f9f9f7] rounded-none border border-[#D3D1CB] space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-[#1A1A17] flex items-center gap-1.5">
+                            <Layers className="w-3.5 h-3.5 text-neutral-700" />
+                            <span>售罄自动平替推荐 (AUTO RECOMMEND)</span>
+                          </span>
+                          <input
+                            type="checkbox"
+                            checked={autoSubstituteEnabled}
+                            onChange={(e) => setAutoSubstituteEnabled(e.target.checked)}
+                            className="w-4 h-4 accent-black cursor-pointer rounded-none"
+                          />
+                        </div>
+                        <p className="text-[11px] text-[#787770]">
+                          当单品沽清时，顾客端详情页与加购弹窗自动推荐同类目相似味型在售单品
+                        </p>
+                      </div>
+
+                      {/* Rule 8: Dynamic Overflow Delay Buffer */}
+                      <div className="p-4 bg-[#f9f9f7] rounded-none border border-[#D3D1CB] space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-[#1A1A17] flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 text-neutral-700" />
+                            <span>烤台超负荷动态延时补偿</span>
+                          </span>
+                          <div className="flex items-center gap-1 font-mono text-xs">
+                            <input
+                              type="number"
+                              value={prepBufferWindow}
+                              onChange={(e) => setPrepBufferWindow(Number(e.target.value))}
+                              className="w-14 px-1.5 py-0.5 border border-[#D3D1CB] bg-white text-right font-bold rounded-none"
+                            />
+                            <span className="text-neutral-500">分钟</span>
+                          </div>
+                        </div>
+                        <p className="text-[11px] text-[#787770]">
+                          高峰烤台积压时，自动为专送调度预估增加缓冲时间，保障履约骑手准时到达
                         </p>
                       </div>
                     </div>
@@ -1107,10 +1311,10 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
               {/* TAB 6: 69码与扫码枪 */}
               {activeTab === 'barcode' && (
                 <div className="space-y-4">
-                  <div className="p-5 bg-[#ffffff] rounded-xl border border-[#e2e3e1] shadow-urban space-y-4">
+                  <div className="p-5 bg-[#ffffff] rounded-none border border-[#e2e3e1] shadow-none space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-[#000000] text-white flex items-center justify-center font-bold">
+                        <div className="w-8 h-8 rounded-none bg-[#000000] text-white flex items-center justify-center font-bold">
                           <Barcode className="w-4 h-4" />
                         </div>
                         <div>
@@ -1122,12 +1326,12 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                           </p>
                         </div>
                       </div>
-                      <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-[#f4f4f2] text-[#006d36]">
+                      <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-none bg-[#f4f4f2] text-[#006d36]">
                         即扫即录
                       </span>
                     </div>
 
-                    <div className="p-4 bg-[#f9f9f7] rounded-xl border border-[#e2e3e1] space-y-3">
+                    <div className="p-4 bg-[#f9f9f7] rounded-none border border-[#e2e3e1] space-y-3">
                       <label className="font-bold text-xs text-[#1a1c1b] block">
                         当前绑定的条码 / 69 码:
                       </label>
@@ -1137,7 +1341,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                           placeholder="例如: 6971234567890"
                           value={editBarcode}
                           onChange={(e) => setEditBarcode(e.target.value)}
-                          className="flex-1 p-2.5 bg-white border border-[#c8c7be] focus:border-[#000000] rounded-lg text-sm font-mono font-bold text-[#1a1c1b] outline-none"
+                          className="flex-1 p-2.5 bg-white border border-[#c8c7be] focus:border-[#000000] rounded-none text-sm font-mono font-bold text-[#1a1c1b] outline-none"
                         />
                         <button
                           type="button"
@@ -1145,7 +1349,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                             setIsListeningForBarcodeScan(true);
                             showToast('请使用硬件扫码枪对准条形码扫描，系统将自动录入...');
                           }}
-                          className={`px-4 py-2.5 rounded-lg text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
+                          className={`px-4 py-2.5 rounded-none text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
                             isListeningForBarcodeScan
                               ? 'bg-[#ba1a1a] text-white animate-pulse'
                               : 'bg-[#000000] text-white hover:bg-neutral-800'
@@ -1157,7 +1361,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                       </div>
 
                       {editBarcode && (
-                        <div className="p-3 bg-white rounded-lg border border-[#e2e3e1] flex items-center justify-between">
+                        <div className="p-3 bg-white rounded-none border border-[#e2e3e1] flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <span className="text-[11px] text-[#787770] font-mono">
                               CODE-128 / EAN-13:
@@ -1186,10 +1390,10 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
               {/* TAB 7: 规格变体与独立定价 */}
               {activeTab === 'variants' && (
                 <div className="space-y-4">
-                  <div className="p-5 bg-[#ffffff] rounded-xl border border-[#e2e3e1] shadow-urban space-y-4">
+                  <div className="p-5 bg-[#ffffff] rounded-none border border-[#e2e3e1] shadow-none space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-[#eeeeec] text-[#1a1c1b] flex items-center justify-center font-bold">
+                        <div className="w-8 h-8 rounded-none bg-[#eeeeec] text-[#1a1c1b] flex items-center justify-center font-bold">
                           <Layers className="w-4 h-4" />
                         </div>
                         <div>
@@ -1214,7 +1418,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                           setEditVariants([...editVariants, newVar]);
                           showToast('已新增规格变体，请设置名称与独立定价');
                         }}
-                        className="px-3 py-1.5 bg-[#000000] text-white rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-neutral-800 transition-colors cursor-pointer"
+                        className="px-3 py-1.5 bg-[#000000] text-white rounded-none text-xs font-bold flex items-center gap-1 hover:bg-neutral-800 transition-colors cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         <span>新增规格 ADD VARIANT</span>
@@ -1222,7 +1426,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                     </div>
 
                     {editVariants.length === 0 ? (
-                      <div className="p-8 text-center bg-[#f9f9f7] rounded-xl border border-dashed border-[#c8c7be] space-y-2">
+                      <div className="p-8 text-center bg-[#f9f9f7] rounded-none border border-dashed border-[#c8c7be] space-y-2">
                         <Layers className="w-8 h-8 text-[#787770] mx-auto opacity-50" />
                         <p className="text-xs text-[#787770]">
                           当前菜品为单一标准规格，点击上方按钮可扩展多规格变体矩阵
@@ -1233,7 +1437,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                         {editVariants.map((variant, idx) => (
                           <div
                             key={variant.id || idx}
-                            className="p-3 bg-[#f9f9f7] rounded-xl border border-[#e2e3e1] flex items-center justify-between gap-3"
+                            className="p-3 bg-[#f9f9f7] rounded-none border border-[#e2e3e1] flex items-center justify-between gap-3"
                           >
                             <div className="flex items-center gap-2 flex-1">
                               <span className="font-mono text-xs font-bold text-[#787770] w-6">
@@ -1248,7 +1452,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                   setEditVariants(updated);
                                 }}
                                 placeholder="规格名称 如: 大份 / 双拼"
-                                className="p-1.5 bg-white border border-[#c8c7be] focus:border-[#000000] rounded-lg text-xs flex-1 outline-none font-bold text-[#1a1c1b]"
+                                className="p-1.5 bg-white border border-[#c8c7be] focus:border-[#000000] rounded-none text-xs flex-1 outline-none font-bold text-[#1a1c1b]"
                               />
                             </div>
 
@@ -1263,7 +1467,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                   updated[idx].price = parseFloat(e.target.value) || 0;
                                   setEditVariants(updated);
                                 }}
-                                className="w-20 p-1.5 bg-white border border-[#c8c7be] focus:border-[#000000] rounded-lg text-xs font-mono font-bold text-[#1a1c1b] outline-none"
+                                className="w-20 p-1.5 bg-white border border-[#c8c7be] focus:border-[#000000] rounded-none text-xs font-mono font-bold text-[#1a1c1b] outline-none"
                               />
                             </div>
 
@@ -1272,7 +1476,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                               onClick={() => {
                                 setEditVariants(editVariants.filter((_, i) => i !== idx));
                               }}
-                              className="p-1.5 text-[#787770] hover:text-[#ba1a1a] rounded-lg hover:bg-white transition-colors cursor-pointer"
+                              className="p-1.5 text-[#787770] hover:text-[#ba1a1a] rounded-none hover:bg-white transition-colors cursor-pointer"
                               title="删除此规格"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -1289,10 +1493,10 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
               {activeTab === 'selector_media' && (
                 <div className="space-y-4">
                   {/* Top Header Card */}
-                  <div className="p-5 bg-[#ffffff] rounded-xl border border-[#e2e3e1] shadow-urban space-y-3">
+                  <div className="p-5 bg-[#ffffff] rounded-none border border-[#e2e3e1] shadow-none space-y-3">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-start gap-2.5">
-                        <div className="w-9 h-9 rounded-xl bg-[#006d36]/10 text-[#006d36] flex items-center justify-center font-bold shrink-0">
+                        <div className="w-9 h-9 rounded-none bg-[#006d36]/10 text-[#006d36] flex items-center justify-center font-bold shrink-0">
                           <Camera className="w-5 h-5" />
                         </div>
                         <div>
@@ -1300,7 +1504,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                             <h4 className="font-bold text-sm text-[#1a1c1b]">
                               字段选择器图纸与线稿自动化管理 SELECTOR MEDIA & BLUEPRINTS
                             </h4>
-                            <span className="text-[10px] bg-[#006d36] text-white px-2 py-0.2 rounded font-mono font-bold">
+                            <span className="text-[10px] bg-[#006d36] text-white px-2 py-0.2 rounded-none font-mono font-bold">
                               自动程序 LIVE ENGINE
                             </span>
                           </div>
@@ -1430,7 +1634,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                             showToast(`[自动化活程序] 已成功为 ${updatedCount} 项字段选择器自动生成工匠矢量线稿！`);
                             setPreviewStyleMode('spec_modal');
                           }}
-                          className="px-3 py-1.5 bg-[#006d36] text-white rounded-lg text-xs font-bold flex items-center gap-1.5 hover:bg-[#005429] transition-colors cursor-pointer shadow-sm"
+                          className="px-3 py-1.5 bg-[#006d36] text-white rounded-none text-xs font-bold flex items-center gap-1.5 hover:bg-[#005429] transition-colors cursor-pointer shadow-sm"
                           title="自动扫描并为所有尚未配置线稿的变体、口味和配菜生成专属工匠矢量蓝图"
                         >
                           <Sparkles className="w-3.5 h-3.5 text-amber-300" />
@@ -1455,7 +1659,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                           key={tab.id}
                           type="button"
                           onClick={() => setSelectorCategoryFilter(tab.id as any)}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shrink-0 ${
+                          className={`px-2.5 py-1 rounded-none text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shrink-0 ${
                             selectorCategoryFilter === tab.id
                               ? 'bg-[#1a1c1b] text-white'
                               : 'bg-[#f4f4f2] text-[#787770] hover:text-[#1a1c1b]'
@@ -1463,7 +1667,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                         >
                           <span>{tab.labelZh}</span>
                           <span className="text-[10px] opacity-75 font-mono">[{tab.labelEn}]</span>
-                          <span className="ml-0.5 text-[9px] px-1 bg-white/20 rounded-full font-mono">
+                          <span className="ml-0.5 text-[9px] px-1 bg-white/20 rounded-none font-mono">
                             {tab.count}
                           </span>
                         </button>
@@ -1473,7 +1677,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
 
                   {/* Section 1: 规格变体 (VARIANTS) */}
                   {(selectorCategoryFilter === 'all' || selectorCategoryFilter === 'variant') && (
-                    <div className="p-5 bg-[#ffffff] rounded-xl border border-[#e2e3e1] shadow-urban space-y-3">
+                    <div className="p-5 bg-[#ffffff] rounded-none border border-[#e2e3e1] shadow-none space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="w-2 h-2 bg-[#006d36]"></span>
@@ -1487,7 +1691,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                       </div>
 
                       {editVariants.length === 0 ? (
-                        <p className="text-xs text-[#787770] italic p-3 bg-[#f9f9f7] rounded-lg">
+                        <p className="text-xs text-[#787770] italic p-3 bg-[#f9f9f7] rounded-none">
                           暂无多规格变体，如需使用请在「规格变体」Tab 中添加变体。
                         </p>
                       ) : (
@@ -1498,7 +1702,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                             return (
                               <div
                                 key={variant.id || vIdx}
-                                className="p-3.5 bg-[#f9f9f7] rounded-xl border border-[#e2e3e1] space-y-3 transition-all"
+                                className="p-3.5 bg-[#f9f9f7] rounded-none border border-[#e2e3e1] space-y-3 transition-all"
                               >
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                                   <div className="flex items-center gap-2.5">
@@ -1506,7 +1710,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                     <div className="flex items-center gap-1.5 shrink-0">
                                       {/* Photo Window */}
                                       <div
-                                        className="w-14 h-14 rounded-lg bg-[#eeeeec] border border-[#c8c7be] overflow-hidden relative group"
+                                        className="w-14 h-14 rounded-none bg-[#eeeeec] border border-[#c8c7be] overflow-hidden relative group"
                                         title="实物照片 PHOTO"
                                       >
                                         <img
@@ -1520,7 +1724,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                       </div>
                                       {/* Blueprint Window */}
                                       <div
-                                        className="w-14 h-14 rounded-lg bg-[#041224] border border-[#00d4ff]/40 overflow-hidden relative"
+                                        className="w-14 h-14 rounded-none bg-[#041224] border border-[#00d4ff]/40 overflow-hidden relative"
                                         title="工匠蓝图 BLUEPRINT"
                                       >
                                         {variant.blueprintImageUrl ? (
@@ -1626,7 +1830,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                         setPreviewStyleMode('spec_modal');
                                         showToast(`[自动程序] 已为【${variant.name}】生成专属 CAD 工程图！`);
                                       }}
-                                      className="px-2.5 py-1 bg-[#082846] text-[#00d4ff] border border-[#00d4ff]/40 rounded-lg text-xs font-bold hover:bg-[#0b3c68] transition-colors cursor-pointer flex items-center gap-1"
+                                      className="px-2.5 py-1 bg-[#082846] text-[#00d4ff] border border-[#00d4ff]/40 rounded-none text-xs font-bold hover:bg-[#0b3c68] transition-colors cursor-pointer flex items-center gap-1"
                                       title="一键自动生成专属工匠 CAD 工程蓝图"
                                     >
                                       <Sparkles className="w-3 h-3 text-[#00d4ff]" />
@@ -1676,7 +1880,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                         setPreviewStyleMode('spec_modal');
                                         showToast(`[自动程序] 已为【${variant.name}】生成真实手绘素描！`);
                                       }}
-                                      className="px-2.5 py-1 bg-[#1a1c1b] text-[#f4f4f2] rounded-lg text-xs font-bold hover:bg-black transition-colors cursor-pointer flex items-center gap-1"
+                                      className="px-2.5 py-1 bg-[#1a1c1b] text-[#f4f4f2] rounded-none text-xs font-bold hover:bg-black transition-colors cursor-pointer flex items-center gap-1"
                                       title="一键自动生成专属工匠真实素描手稿"
                                     >
                                       <Sparkles className="w-3 h-3 text-amber-300" />
@@ -1700,7 +1904,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                           showToast(`[Canvas引擎] 实物照片已毫秒级转为手绘素描！`);
                                         }, { mode: 'pencil_sketch', titleZh: variant.name, titleEn: variant.enName });
                                       }}
-                                      className="px-2.5 py-1 bg-[#00d4ff]/15 text-[#006a80] border border-[#00d4ff]/40 rounded-lg text-xs font-bold hover:bg-[#00d4ff]/25 transition-colors cursor-pointer flex items-center gap-1"
+                                      className="px-2.5 py-1 bg-[#00d4ff]/15 text-[#006a80] border border-[#00d4ff]/40 rounded-none text-xs font-bold hover:bg-[#00d4ff]/25 transition-colors cursor-pointer flex items-center gap-1"
                                       title="纯前端 Canvas 滤镜算法：实物照片一键转素描手稿"
                                     >
                                       <span>照片转素描 PHOTO TO SKETCH</span>
@@ -1710,7 +1914,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                     <button
                                       type="button"
                                       onClick={() => setActiveMediaEditingKey(isEditing ? null : `variant_${variant.id}`)}
-                                      className="px-2.5 py-1 bg-white border border-[#c8c7be] text-[#1a1c1b] rounded-lg text-xs font-bold hover:bg-[#f4f4f2] transition-colors cursor-pointer"
+                                      className="px-2.5 py-1 bg-white border border-[#c8c7be] text-[#1a1c1b] rounded-none text-xs font-bold hover:bg-[#f4f4f2] transition-colors cursor-pointer"
                                     >
                                       {isEditing ? '收起 COLLAPSE' : '编辑参数 EDIT'}
                                     </button>
@@ -1719,7 +1923,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
 
                                 {/* Expanded Custom Inputs */}
                                 {isEditing && (
-                                  <div className="p-3 bg-white rounded-lg border border-[#e2e3e1] space-y-2.5 text-xs animate-in fade-in duration-150">
+                                  <div className="p-3 bg-white rounded-none border border-[#e2e3e1] space-y-2.5 text-xs animate-in fade-in duration-150">
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                       <div>
                                         <label className="text-[10px] text-[#787770] font-mono block">
@@ -1734,7 +1938,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                             setEditVariants(updated);
                                           }}
                                           placeholder="如: Double Patty Stack"
-                                          className="w-full p-1.5 border border-[#c8c7be] rounded-lg text-xs font-mono"
+                                          className="w-full p-1.5 border border-[#c8c7be] rounded-none text-xs font-mono"
                                         />
                                       </div>
                                       <div>
@@ -1750,7 +1954,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                             setEditVariants(updated);
                                           }}
                                           placeholder="如: ARTISAN #02"
-                                          className="w-full p-1.5 border border-[#c8c7be] rounded-lg text-xs font-mono"
+                                          className="w-full p-1.5 border border-[#c8c7be] rounded-none text-xs font-mono"
                                         />
                                       </div>
                                     </div>
@@ -1769,7 +1973,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                             setEditVariants(updated);
                                           }}
                                           placeholder="如: 56°C / 64°C"
-                                          className="w-full p-1.5 border border-[#c8c7be] rounded-lg text-xs font-mono"
+                                          className="w-full p-1.5 border border-[#c8c7be] rounded-none text-xs font-mono"
                                         />
                                       </div>
                                       <div>
@@ -1785,7 +1989,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                             setEditVariants(updated);
                                           }}
                                           placeholder="如: RATIO 7:3 (双层)"
-                                          className="w-full p-1.5 border border-[#c8c7be] rounded-lg text-xs font-mono"
+                                          className="w-full p-1.5 border border-[#c8c7be] rounded-none text-xs font-mono"
                                         />
                                       </div>
                                     </div>
@@ -1803,7 +2007,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                           setEditVariants(updated);
                                         }}
                                         placeholder="https://..."
-                                        className="w-full p-1.5 border border-[#c8c7be] rounded-lg text-xs font-mono"
+                                        className="w-full p-1.5 border border-[#c8c7be] rounded-none text-xs font-mono"
                                       />
                                     </div>
 
@@ -1820,7 +2024,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                           setEditVariants(updated);
                                         }}
                                         placeholder="data:image/svg+xml;... 或 https://..."
-                                        className="w-full p-1.5 border border-[#c8c7be] rounded-lg text-xs font-mono truncate"
+                                        className="w-full p-1.5 border border-[#c8c7be] rounded-none text-xs font-mono truncate"
                                       />
                                     </div>
                                   </div>
@@ -1835,7 +2039,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
 
                   {/* Section 2: 口味风格选择器 (FLAVORS) */}
                   {(selectorCategoryFilter === 'all' || selectorCategoryFilter === 'flavor') && (
-                    <div className="p-5 bg-[#ffffff] rounded-xl border border-[#e2e3e1] shadow-urban space-y-3">
+                    <div className="p-5 bg-[#ffffff] rounded-none border border-[#e2e3e1] shadow-none space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="w-2 h-2 bg-[#d9730d]"></span>
@@ -1849,7 +2053,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                       </div>
 
                       {editFlavorOptions.length === 0 ? (
-                        <p className="text-xs text-[#787770] italic p-3 bg-[#f9f9f7] rounded-lg">
+                        <p className="text-xs text-[#787770] italic p-3 bg-[#f9f9f7] rounded-none">
                           当前未配置多口味选项，可在基础参数中开启。
                         </p>
                       ) : (
@@ -1862,12 +2066,12 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                             return (
                               <div
                                 key={flavor || fIdx}
-                                className="p-3 bg-[#f9f9f7] rounded-xl border border-[#e2e3e1] space-y-2"
+                                className="p-3 bg-[#f9f9f7] rounded-none border border-[#e2e3e1] space-y-2"
                               >
                                 <div className="flex items-center justify-between gap-2">
                                   <div className="flex items-center gap-2">
                                     {/* Blueprint Mini Icon */}
-                                    <div className="w-10 h-10 rounded-lg bg-[#041224] border border-[#00d4ff]/40 overflow-hidden shrink-0 flex items-center justify-center">
+                                    <div className="w-10 h-10 rounded-none bg-[#041224] border border-[#00d4ff]/40 overflow-hidden shrink-0 flex items-center justify-center">
                                       {mediaItem?.blueprintImageUrl ? (
                                         <img
                                           src={mediaItem.blueprintImageUrl}
@@ -1934,7 +2138,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                         setPreviewStyleMode('spec_modal');
                                         showToast(`[自动程序] 已生成【${flavor}】工匠线稿图纸！`);
                                       }}
-                                      className="p-1 bg-[#1a1c1b] text-white rounded hover:bg-black transition-colors cursor-pointer"
+                                      className="p-1 bg-[#1a1c1b] text-white rounded-none hover:bg-black transition-colors cursor-pointer"
                                       title="自动生成工匠线稿"
                                     >
                                       <Sparkles className="w-3 h-3 text-[#00d4ff]" />
@@ -1942,7 +2146,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                     <button
                                       type="button"
                                       onClick={() => setActiveMediaEditingKey(isEditing ? null : mediaKey)}
-                                      className="px-2 py-1 bg-white border border-[#c8c7be] rounded text-[10px] font-mono hover:bg-[#f4f4f2] cursor-pointer"
+                                      className="px-2 py-1 bg-white border border-[#c8c7be] rounded-none text-[10px] font-mono hover:bg-[#f4f4f2] cursor-pointer"
                                     >
                                       {isEditing ? '收起 COLLAPSE' : '配置设置 CONFIGURE'}
                                     </button>
@@ -1950,7 +2154,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                 </div>
 
                                 {isEditing && (
-                                  <div className="p-2 bg-white rounded border border-[#e2e3e1] space-y-1.5 text-xs animate-in fade-in duration-150">
+                                  <div className="p-2 bg-white rounded-none border border-[#e2e3e1] space-y-1.5 text-xs animate-in fade-in duration-150">
                                     <div>
                                       <span className="text-[9px] text-[#787770] font-mono block">
                                         英文标签 ENGLISH LABEL:
@@ -1977,7 +2181,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                           });
                                         }}
                                         placeholder="如: Truffle Garlic"
-                                        className="w-full p-1 border border-[#c8c7be] rounded text-xs font-mono"
+                                        className="w-full p-1 border border-[#c8c7be] rounded-none text-xs font-mono"
                                       />
                                     </div>
                                     <div>
@@ -2006,7 +2210,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                           });
                                         }}
                                         placeholder="如: 手刨黑松露融合蒜香，醇郁回甘。"
-                                        className="w-full p-1 border border-[#c8c7be] rounded text-xs"
+                                        className="w-full p-1 border border-[#c8c7be] rounded-none text-xs"
                                       />
                                     </div>
                                   </div>
@@ -2021,7 +2225,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
 
                   {/* Section 3: 定制配菜选项组 (OPTION GROUPS) */}
                   {(selectorCategoryFilter === 'all' || selectorCategoryFilter === 'option') && (
-                    <div className="p-5 bg-[#ffffff] rounded-xl border border-[#e2e3e1] shadow-urban space-y-3">
+                    <div className="p-5 bg-[#ffffff] rounded-none border border-[#e2e3e1] shadow-none space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="w-2 h-2 bg-[#006d36]"></span>
@@ -2035,7 +2239,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                       </div>
 
                       {editOptionGroups.length === 0 ? (
-                        <p className="text-xs text-[#787770] italic p-3 bg-[#f9f9f7] rounded-lg">
+                        <p className="text-xs text-[#787770] italic p-3 bg-[#f9f9f7] rounded-none">
                           当前菜品暂无定制配菜组。可在主菜品数据中添加选项组（如配菜随心选）。
                         </p>
                       ) : (
@@ -2043,7 +2247,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                           {editOptionGroups.map((group, gIdx) => (
                             <div
                               key={group.name || gIdx}
-                              className="p-3 bg-[#f9f9f7] rounded-xl border border-[#e2e3e1] space-y-2"
+                              className="p-3 bg-[#f9f9f7] rounded-none border border-[#e2e3e1] space-y-2"
                             >
                               <div className="flex items-center justify-between">
                                 <span className="font-bold text-xs text-[#1a1c1b]">
@@ -2061,10 +2265,10 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                   return (
                                     <div
                                       key={choice.label || cIdx}
-                                      className="p-2.5 bg-white rounded-lg border border-[#e2e3e1] flex items-center justify-between gap-2"
+                                      className="p-2.5 bg-white rounded-none border border-[#e2e3e1] flex items-center justify-between gap-2"
                                     >
                                       <div className="flex items-center gap-2">
-                                        <div className="w-9 h-9 rounded bg-[#041224] border border-[#00d4ff]/40 overflow-hidden shrink-0 flex items-center justify-center">
+                                        <div className="w-9 h-9 rounded-none bg-[#041224] border border-[#00d4ff]/40 overflow-hidden shrink-0 flex items-center justify-center">
                                           {choice.blueprintImageUrl || mediaItem?.blueprintImageUrl ? (
                                             <img
                                               src={choice.blueprintImageUrl || mediaItem?.blueprintImageUrl}
@@ -2132,7 +2336,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                           setPreviewStyleMode('spec_modal');
                                           showToast(`[自动程序] 已生成【${choice.label}】专属配菜工匠线稿！`);
                                         }}
-                                        className="p-1.5 bg-[#1a1c1b] text-white rounded hover:bg-black transition-colors cursor-pointer flex items-center gap-1 text-[10px] font-mono"
+                                        className="p-1.5 bg-[#1a1c1b] text-white rounded-none hover:bg-black transition-colors cursor-pointer flex items-center gap-1 text-[10px] font-mono"
                                         title="自动生成配菜线稿"
                                       >
                                         <Sparkles className="w-3 h-3 text-[#00d4ff]" />
@@ -2153,7 +2357,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
 
               {/* TAB 8: 前台即时预览说明 */}
               {activeTab === 'preview' && (
-                <div className="p-5 bg-[#ffffff] rounded-xl border border-[#e2e3e1] shadow-urban space-y-4">
+                <div className="p-5 bg-[#ffffff] rounded-none border border-[#e2e3e1] shadow-none space-y-4">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-5 h-5 text-[#006d36]" />
                     <h4 className="font-bold text-sm text-[#1a1c1b]">前台实机双模联动预览中</h4>
@@ -2165,7 +2369,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                     <button
                       type="button"
                       onClick={() => setPreviewStyleMode('hud_card')}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                      className={`px-3.5 py-2 rounded-none text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
                         previewStyleMode === 'hud_card'
                           ? 'bg-[#000000] text-white border-[#000000] shadow-sm'
                           : 'bg-[#f9f9f7] text-[#1a1c1b] border-[#e2e3e1] hover:bg-[#f4f4f2]'
@@ -2176,7 +2380,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                     <button
                       type="button"
                       onClick={() => setPreviewStyleMode('spec_modal')}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                      className={`px-3.5 py-2 rounded-none text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
                         previewStyleMode === 'spec_modal'
                           ? 'bg-[#000000] text-white border-[#000000] shadow-sm'
                           : 'bg-[#f9f9f7] text-[#1a1c1b] border-[#e2e3e1] hover:bg-[#f4f4f2]'
@@ -2196,11 +2400,11 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
             {/* Simulator Top Mode Bar */}
             <div className="px-4 py-2.5 bg-[#ffffff] border-b border-[#e2e3e1] flex items-center justify-between gap-2 shrink-0 flex-wrap">
               {/* Channel Selector */}
-              <div className="flex items-center gap-1 bg-[#f4f4f2] p-0.5 rounded-xl border border-[#e2e3e1]">
+              <div className="flex items-center gap-1 bg-[#f4f4f2] p-0.5 rounded-none border border-[#e2e3e1]">
                 <button
                   type="button"
                   onClick={() => setRightPreviewChannel('delivery')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                  className={`px-2.5 py-1 rounded-none text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
                     rightPreviewChannel === 'delivery'
                       ? 'bg-[#000000] text-white shadow-sm'
                       : 'text-[#787770] hover:text-[#1a1c1b]'
@@ -2212,7 +2416,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                 <button
                   type="button"
                   onClick={() => setRightPreviewChannel('dine_in')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                  className={`px-2.5 py-1 rounded-none text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
                     rightPreviewChannel === 'dine_in'
                       ? 'bg-[#000000] text-white shadow-sm'
                       : 'text-[#787770] hover:text-[#1a1c1b]'
@@ -2224,11 +2428,11 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
               </div>
 
               {/* View Mode Toggle: 卡片 vs 选规格 */}
-              <div className="flex items-center gap-1 bg-[#f4f4f2] p-0.5 rounded-xl border border-[#e2e3e1]">
+              <div className="flex items-center gap-1 bg-[#f4f4f2] p-0.5 rounded-none border border-[#e2e3e1]">
                 <button
                   type="button"
                   onClick={() => setPreviewStyleMode('hud_card')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                  className={`px-2.5 py-1 rounded-none text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
                     previewStyleMode === 'hud_card'
                       ? 'bg-[#000000] text-white shadow-sm'
                       : 'text-[#787770] hover:text-[#1a1c1b]'
@@ -2240,7 +2444,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                 <button
                   type="button"
                   onClick={() => setPreviewStyleMode('spec_modal')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                  className={`px-2.5 py-1 rounded-none text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
                     previewStyleMode === 'spec_modal'
                       ? 'bg-[#000000] text-white shadow-sm'
                       : 'text-[#787770] hover:text-[#1a1c1b]'
@@ -2257,7 +2461,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
             <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 hide-scrollbar">
               {/* Toast simulated notification */}
               {previewToastMessage && (
-                <div className="p-3 bg-[#e6f4ea] text-[#006d36] border border-[#a8dab5] rounded-xl text-xs font-bold flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="p-3 bg-[#e6f4ea] text-[#006d36] border border-[#a8dab5] rounded-none text-xs font-bold flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
                   <span className="flex items-center gap-1.5 min-w-0 truncate">
                     <CheckCircle2 className="w-4 h-4 shrink-0" />
                     <span className="truncate">{previewToastMessage}</span>
@@ -2274,21 +2478,21 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
 
               {/* MODE A: HUD CARD VIEW */}
               {previewStyleMode === 'hud_card' && (
-                <div className="bg-[#ffffff] rounded-2xl p-5 border border-[#e2e3e1] shadow-urban space-y-4">
+                <div className="bg-[#ffffff] rounded-none p-5 border border-[#e2e3e1] shadow-none space-y-4">
                   {/* Hero Image Container */}
-                  <div className="relative aspect-16/10 rounded-xl overflow-hidden bg-[#eeeeec] border border-[#e2e3e1]">
+                  <div className="relative aspect-16/10 rounded-none overflow-hidden bg-[#eeeeec] border border-[#e2e3e1]">
                     <img
                       src={currentVariant?.imageUrl || dish.imageUrl}
                       alt={dish.name}
                       className="w-full h-full object-cover"
                     />
                     {(currentVariant?.badgeText || editBadgeText) && (
-                      <span className="absolute top-3 left-3 bg-[#000000] text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
+                      <span className="absolute top-3 left-3 bg-[#000000] text-white text-[10px] font-bold px-2.5 py-1 rounded-none uppercase tracking-wider">
                         {currentVariant?.badgeText || editBadgeText}
                       </span>
                     )}
                     {currentDiscount > 0 && (
-                      <span className="absolute top-3 right-3 bg-[#ba1a1a] text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
+                      <span className="absolute top-3 right-3 bg-[#ba1a1a] text-white text-[10px] font-bold px-2.5 py-1 rounded-none">
                         {rightPreviewChannel === 'delivery'
                           ? editDeliveryDiscountTag || `立减 ¥${currentDiscount}`
                           : editDineInDiscountTag || `堂食立减 ¥${currentDiscount}`}
@@ -2302,7 +2506,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                       <h3 className="text-[19px] font-bold text-[#1a1c1b] tracking-tight leading-tight flex items-center gap-1.5 flex-wrap">
                         <span>{dish.name}</span>
                         {currentVariant && (
-                          <span className="text-xs font-bold bg-[#f4f4f2] text-[#1a1c1b] px-2 py-0.5 rounded-md border border-[#e2e3e1]">
+                          <span className="text-xs font-bold bg-[#f4f4f2] text-[#1a1c1b] px-2 py-0.5 rounded-none border border-[#e2e3e1]">
                             {currentVariant.name}
                           </span>
                         )}
@@ -2316,15 +2520,15 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
 
                   {/* SOP & Taste Meta Tag Strip */}
                   <div className="flex flex-wrap gap-1.5">
-                    <span className="px-2.5 py-1 rounded-full bg-[#f4f4f2] text-[#1a1c1b] text-[11px] font-medium border border-[#e2e3e1] flex items-center gap-1">
+                    <span className="px-2.5 py-1 rounded-none bg-[#f4f4f2] text-[#1a1c1b] text-[11px] font-medium border border-[#e2e3e1] flex items-center gap-1">
                       <Flame className="w-3 h-3 text-[#ba1a1a]" />
                       <span>{editSpicinessLevel}</span>
                     </span>
-                    <span className="px-2.5 py-1 rounded-full bg-[#f4f4f2] text-[#1a1c1b] text-[11px] font-medium border border-[#e2e3e1] flex items-center gap-1">
+                    <span className="px-2.5 py-1 rounded-none bg-[#f4f4f2] text-[#1a1c1b] text-[11px] font-medium border border-[#e2e3e1] flex items-center gap-1">
                       <ChefHat className="w-3 h-3 text-[#006d36]" />
                       <span>{editFlavor}</span>
                     </span>
-                    <span className="px-2.5 py-1 rounded-full bg-[#f4f4f2] text-[#787770] text-[11px] font-mono border border-[#e2e3e1]">
+                    <span className="px-2.5 py-1 rounded-none bg-[#f4f4f2] text-[#787770] text-[11px] font-mono border border-[#e2e3e1]">
                       ⏱️ {editPrepTime}
                     </span>
                   </div>
@@ -2335,7 +2539,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                       {editFlavorTags.slice(0, 4).map((tag) => (
                         <span
                           key={tag}
-                          className="text-[10px] bg-[#eeeeec] text-[#474741] px-2 py-0.5 rounded-full font-medium"
+                          className="text-[10px] bg-[#eeeeec] text-[#474741] px-2 py-0.5 rounded-none font-medium"
                         >
                           #{tag}
                         </span>
@@ -2362,7 +2566,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                         <button
                           type="button"
                           onClick={() => setRightActiveVariantIndex(-1)}
-                          className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                          className={`p-2.5 rounded-none border text-left cursor-pointer transition-all ${
                             rightActiveVariantIndex === -1
                               ? 'border-[#000000] bg-[#000000] text-white font-bold'
                               : 'border-[#e2e3e1] bg-[#f9f9f7] text-[#1a1c1b]'
@@ -2379,7 +2583,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                             key={v.id || i}
                             type="button"
                             onClick={() => setRightActiveVariantIndex(i)}
-                            className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                            className={`p-2.5 rounded-none border text-left cursor-pointer transition-all ${
                               rightActiveVariantIndex === i
                                 ? 'border-[#000000] bg-[#000000] text-white font-bold'
                                 : 'border-[#e2e3e1] bg-[#f9f9f7] text-[#1a1c1b]'
@@ -2420,7 +2624,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                       <button
                         type="button"
                         onClick={() => setPreviewStyleMode('spec_modal')}
-                        className="px-4 py-2.5 bg-[#000000] text-[#ffffff] rounded-xl font-bold text-xs hover:bg-neutral-800 transition-colors cursor-pointer shadow-sm active:scale-95 flex items-center gap-1.5"
+                        className="px-4 py-2.5 bg-[#000000] text-[#ffffff] rounded-none font-bold text-xs hover:bg-neutral-800 transition-colors cursor-pointer shadow-sm active:scale-95 flex items-center gap-1.5"
                       >
                         <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                         <span>{editVariants.length > 0 ? '选规格' : '个性化定制'}</span>
@@ -2432,16 +2636,16 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
 
               {/* MODE B: URBAN RADAR SPEC MODAL (选规格与个性化定制弹窗预览) */}
               {previewStyleMode === 'spec_modal' && (
-                <div className="bg-[#ffffff] rounded-2xl border border-[#e2e3e1] shadow-urban overflow-hidden flex flex-col animate-in fade-in duration-200">
+                <div className="bg-[#ffffff] rounded-none border border-[#e2e3e1] shadow-none overflow-hidden flex flex-col animate-in fade-in duration-200">
                   {/* Simulated Mobile Status Bar */}
                   <div className="bg-[#1a1c1b] text-[#c8c7be] px-4 py-1.5 text-[10px] flex items-center justify-between font-mono select-none">
                     <span className="font-bold">09:41</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-[9px] bg-[#006d36] text-white px-1.5 py-0.2 rounded font-sans font-bold">
+                      <span className="text-[9px] bg-[#006d36] text-white px-1.5 py-0.2 rounded-none font-sans font-bold">
                         5G GPS 极速专送
                       </span>
-                      <div className="w-4 h-2 border border-[#787770] rounded-[2px] relative p-[1px]">
-                        <div className="bg-white h-full w-3/4 rounded-[1px]" />
+                      <div className="w-4 h-2 border border-[#787770] rounded-none relative p-[1px]">
+                        <div className="bg-white h-full w-3/4 rounded-none" />
                       </div>
                     </div>
                   </div>
@@ -2449,12 +2653,12 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                   {/* Modal Title Bar */}
                   <div className="px-4 py-2.5 bg-[#f9f9f7] border-b border-[#e2e3e1] flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="w-2 h-2 rounded-full bg-[#006d36] shrink-0" />
+                      <span className="w-2 h-2 rounded-none bg-[#006d36] shrink-0" />
                       <span className="font-bold text-xs text-[#1a1c1b] truncate">
                         选规格与个性化定制
                       </span>
                       <span
-                        className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                        className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded-none shrink-0 ${
                           rightPreviewChannel === 'delivery'
                             ? 'bg-[#e6f4ea] text-[#006d36] border border-[#a8dab5]'
                             : 'bg-[#f4f4f2] text-[#1a1c1b] border border-[#e2e3e1]'
@@ -2467,7 +2671,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                     <button
                       type="button"
                       onClick={() => setPreviewStyleMode('hud_card')}
-                      className="text-[11px] font-bold text-[#787770] hover:text-[#000000] px-2 py-1 rounded-lg hover:bg-[#eeeeec] transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+                      className="text-[11px] font-bold text-[#787770] hover:text-[#000000] px-2 py-1 rounded-none hover:bg-[#eeeeec] transition-colors cursor-pointer flex items-center gap-1 shrink-0"
                       title="切换回菜品卡片样式"
                     >
                       <span>切回卡片</span>
@@ -2492,7 +2696,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                         <div className="flex gap-3 items-start pb-3.5 border-b border-[#e2e3e1]">
                           {/* Product Photo / Blueprint Window */}
                           <div className="flex flex-col items-center gap-1.5 shrink-0">
-                            <div className={`relative w-22 h-22 sm:w-24 sm:h-24 rounded-xl overflow-hidden shrink-0 border transition-all ${
+                            <div className={`relative w-22 h-22 sm:w-24 sm:h-24 rounded-none overflow-hidden shrink-0 border transition-all ${
                               previewBlueprintMode === 'blueprint'
                                 ? 'bg-[#041224] border-[#00d4ff]/40 shadow-inner'
                                 : 'bg-[#eeeeec] border-[#e2e3e1]'
@@ -2503,7 +2707,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                 className={`w-full h-full ${previewBlueprintMode === 'blueprint' ? 'object-contain scale-105 p-1' : 'object-cover'}`}
                               />
                               {(currentVariant?.badgeText || editBadgeText) && (
-                                <span className="absolute top-1 left-1 bg-[#000000] text-white text-[8.5px] font-bold px-1.5 py-0.2 rounded-full uppercase tracking-wider">
+                                <span className="absolute top-1 left-1 bg-[#000000] text-white text-[8.5px] font-bold px-1.5 py-0.2 rounded-none uppercase tracking-wider">
                                   {currentVariant?.badgeText || editBadgeText}
                                 </span>
                               )}
@@ -2517,7 +2721,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                     name: `${dish.name}${currentVariant ? ` - ${currentVariant.name}` : ''} (${previewBlueprintMode === 'blueprint' ? '工匠蓝图' : '实物'})`
                                   })
                                 }
-                                className="absolute bottom-1 right-1 p-1 bg-black/60 text-white rounded text-[10px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center cursor-pointer"
+                                className="absolute bottom-1 right-1 p-1 bg-black/60 text-white rounded-none text-[10px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center cursor-pointer"
                                 title="查看高清"
                               >
                                 <ZoomIn className="w-3 h-3" />
@@ -2525,11 +2729,11 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                             </div>
 
                             {/* Dual-Mode Switcher Pills (中文在前，英文在后) */}
-                            <div className="flex items-center bg-[#f4f4f2] p-0.5 rounded-lg border border-[#e2e3e1] text-[9.5px] font-mono">
+                            <div className="flex items-center bg-[#f4f4f2] p-0.5 rounded-none border border-[#e2e3e1] text-[9.5px] font-mono">
                               <button
                                 type="button"
                                 onClick={() => setPreviewBlueprintMode('photo')}
-                                className={`px-2 py-0.5 rounded transition-all font-bold cursor-pointer ${
+                                className={`px-2 py-0.5 rounded-none transition-all font-bold cursor-pointer ${
                                   previewBlueprintMode === 'photo'
                                     ? 'bg-white text-[#1a1c1b] shadow-xs'
                                     : 'text-[#787770] hover:text-[#1a1c1b]'
@@ -2540,7 +2744,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                               <button
                                 type="button"
                                 onClick={() => setPreviewBlueprintMode('blueprint')}
-                                className={`px-2 py-0.5 rounded transition-all font-bold cursor-pointer flex items-center gap-0.5 ${
+                                className={`px-2 py-0.5 rounded-none transition-all font-bold cursor-pointer flex items-center gap-0.5 ${
                                   previewBlueprintMode === 'blueprint'
                                     ? 'bg-[#041224] text-[#00d4ff] shadow-xs'
                                     : 'text-[#787770] hover:text-[#1a1c1b]'
@@ -2558,7 +2762,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                               <h4 className="font-bold text-sm text-[#1a1c1b] leading-tight flex items-center gap-1.5 flex-wrap">
                                 <span>{dish.name}</span>
                                 {currentVariant && (
-                                  <span className="text-[10px] font-bold bg-[#f4f4f2] text-[#1a1c1b] px-1.5 py-0.5 rounded border border-[#e2e3e1]">
+                                  <span className="text-[10px] font-bold bg-[#f4f4f2] text-[#1a1c1b] px-1.5 py-0.5 rounded-none border border-[#e2e3e1]">
                                     {currentVariant.name}
                                   </span>
                                 )}
@@ -2570,7 +2774,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
 
                             {/* Blueprint Specs Note if in blueprint mode */}
                             {previewBlueprintMode === 'blueprint' && (
-                              <div className="p-1.5 bg-[#041224]/5 rounded border border-[#041224]/10 text-[9.5px] font-mono text-[#006d36] flex items-center gap-1.5 flex-wrap">
+                              <div className="p-1.5 bg-[#041224]/5 rounded-none border border-[#041224]/10 text-[9.5px] font-mono text-[#006d36] flex items-center gap-1.5 flex-wrap">
                                 <span>料号: {resolvedMedia.artisanCode}</span>
                                 <span>•</span>
                                 <span>温控: {resolvedMedia.coreTemp}</span>
@@ -2591,7 +2795,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                             </span>
                           )}
                           {currentDiscount > 0 && (
-                            <span className="text-[9.5px] font-bold text-[#ba1a1a] bg-[#ffdad6] border border-[#ffb4ab] px-1.5 py-0.2 rounded-full">
+                            <span className="text-[9.5px] font-bold text-[#ba1a1a] bg-[#ffdad6] border border-[#ffb4ab] px-1.5 py-0.2 rounded-none">
                               {rightPreviewChannel === 'delivery'
                                 ? editDeliveryDiscountTag || `立减 ¥${currentDiscount}`
                                 : editDineInDiscountTag || `堂食立减 ¥${currentDiscount}`}
@@ -2636,13 +2840,13 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                           <button
                             type="button"
                             onClick={() => setRightActiveVariantIndex(-1)}
-                            className={`shrink-0 w-13 h-13 rounded-xl border p-0.5 cursor-pointer transition-all text-center ${
+                            className={`shrink-0 w-13 h-13 rounded-none border p-0.5 cursor-pointer transition-all text-center ${
                               rightActiveVariantIndex === -1
                                 ? 'border-[#000000] bg-[#f4f4f2] ring-2 ring-black/10'
                                 : 'border-[#e2e3e1] bg-[#ffffff] hover:border-[#c8c7be]'
                             }`}
                           >
-                            <img src={dish.imageUrl} alt="标准" className="w-full h-7 object-cover rounded-lg" />
+                            <img src={dish.imageUrl} alt="标准" className="w-full h-7 object-cover rounded-none" />
                             <div className="text-[8.5px] font-bold truncate mt-0.5 text-[#1a1c1b]">标准份</div>
                           </button>
 
@@ -2651,7 +2855,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                               key={v.id || vIdx}
                               type="button"
                               onClick={() => setRightActiveVariantIndex(vIdx)}
-                              className={`shrink-0 w-13 h-13 rounded-xl border p-0.5 cursor-pointer transition-all text-center ${
+                              className={`shrink-0 w-13 h-13 rounded-none border p-0.5 cursor-pointer transition-all text-center ${
                                 rightActiveVariantIndex === vIdx
                                   ? 'border-[#000000] bg-[#f4f4f2] ring-2 ring-black/10'
                                   : 'border-[#e2e3e1] bg-[#ffffff] hover:border-[#c8c7be]'
@@ -2660,7 +2864,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                               <img
                                 src={v.imageUrl || dish.imageUrl}
                                 alt={v.name}
-                                className="w-full h-7 object-cover rounded-lg"
+                                className="w-full h-7 object-cover rounded-none"
                               />
                               <div className="text-[8.5px] font-bold truncate mt-0.5 text-[#1a1c1b]">{v.name}</div>
                             </button>
@@ -2687,7 +2891,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                         <button
                           type="button"
                           onClick={() => setRightActiveVariantIndex(-1)}
-                          className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all flex flex-col justify-between ${
+                          className={`p-2.5 rounded-none border text-left cursor-pointer transition-all flex flex-col justify-between ${
                             rightActiveVariantIndex === -1
                               ? 'border-[#000000] bg-[#000000] text-white shadow-xs font-bold'
                               : 'border-[#e2e3e1] bg-[#ffffff] text-[#1a1c1b] hover:border-[#c8c7be]'
@@ -2713,7 +2917,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                               key={v.id || vIdx}
                               type="button"
                               onClick={() => setRightActiveVariantIndex(vIdx)}
-                              className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all flex flex-col justify-between ${
+                              className={`p-2.5 rounded-none border text-left cursor-pointer transition-all flex flex-col justify-between ${
                                 isSel
                                   ? 'border-[#000000] bg-[#000000] text-white shadow-xs font-bold'
                                   : 'border-[#e2e3e1] bg-[#ffffff] text-[#1a1c1b] hover:border-[#c8c7be]'
@@ -2735,7 +2939,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                       </div>
 
                       {editVariants.length === 0 && (
-                        <div className="p-2 bg-[#f4f4f2] rounded-xl border border-dashed border-[#c8c7be] flex items-center justify-between text-[10.5px]">
+                        <div className="p-2 bg-[#f4f4f2] rounded-none border border-dashed border-[#c8c7be] flex items-center justify-between text-[10.5px]">
                           <span className="text-[#787770]">尚未添加副规格（如大份/双拼/升级套餐）</span>
                           <button
                             type="button"
@@ -2771,7 +2975,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                 setPreviewSelectedSpice(opt);
                                 setEditSpicinessLevel(opt);
                               }}
-                              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer flex items-center justify-between ${
+                              className={`px-2.5 py-1.5 rounded-none text-xs font-bold border transition-all cursor-pointer flex items-center justify-between ${
                                 isSel
                                   ? 'bg-[#000000] text-white border-[#000000] shadow-xs'
                                   : 'bg-[#ffffff] text-[#1a1c1b] border-[#e2e3e1] hover:bg-[#f4f4f2]'
@@ -2808,7 +3012,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                 setPreviewSelectedFlavor(fOpt);
                                 setEditFlavor(fOpt);
                               }}
-                              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer flex items-center justify-between ${
+                              className={`px-2.5 py-1.5 rounded-none text-xs font-bold border transition-all cursor-pointer flex items-center justify-between ${
                                 isSel
                                   ? 'bg-[#000000] text-white border-[#000000] shadow-xs'
                                   : 'bg-[#ffffff] text-[#1a1c1b] border-[#e2e3e1] hover:bg-[#f4f4f2]'
@@ -2823,7 +3027,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                     </div>
 
                     {/* 5. CRAFT & FLAVOR TAGS */}
-                    <div className="p-2.5 bg-[#f9f9f7] rounded-xl border border-[#e2e3e1] space-y-1 text-[10.5px]">
+                    <div className="p-2.5 bg-[#f9f9f7] rounded-none border border-[#e2e3e1] space-y-1 text-[10.5px]">
                       <div className="flex items-center justify-between text-[#1a1c1b] font-bold">
                         <span className="flex items-center gap-1">
                           <Zap className="w-3 h-3 text-[#006d36]" />
@@ -2841,7 +3045,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                           {editFlavorTags.map((tag) => (
                             <span
                               key={tag}
-                              className="bg-[#f4f4f2] text-[#474741] px-1.5 py-0.2 rounded-full text-[9.5px] font-medium border border-[#e2e3e1]"
+                              className="bg-[#f4f4f2] text-[#474741] px-1.5 py-0.2 rounded-none text-[9.5px] font-medium border border-[#e2e3e1]"
                             >
                               #{tag}
                             </span>
@@ -2859,11 +3063,11 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5 bg-[#f4f4f2] p-1 rounded-xl border border-[#e2e3e1]">
+                      <div className="flex items-center gap-1.5 bg-[#f4f4f2] p-1 rounded-none border border-[#e2e3e1]">
                         <button
                           type="button"
                           onClick={() => setPreviewQuantity((prev) => Math.max(minOrderThreshold || 1, prev - 1))}
-                          className="w-6 h-6 rounded-lg bg-white hover:bg-neutral-200 flex items-center justify-center font-bold text-[#1a1c1b] shadow-xs cursor-pointer active:scale-95 transition-all"
+                          className="w-6 h-6 rounded-none bg-white hover:bg-neutral-200 flex items-center justify-center font-bold text-[#1a1c1b] shadow-xs cursor-pointer active:scale-95 transition-all"
                           title="减少"
                         >
                           <Minus className="w-3 h-3" />
@@ -2874,7 +3078,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                         <button
                           type="button"
                           onClick={() => setPreviewQuantity((prev) => Math.min(99, prev + 1))}
-                          className="w-6 h-6 rounded-lg bg-white hover:bg-neutral-200 flex items-center justify-center font-bold text-[#1a1c1b] shadow-xs cursor-pointer active:scale-95 transition-all"
+                          className="w-6 h-6 rounded-none bg-white hover:bg-neutral-200 flex items-center justify-center font-bold text-[#1a1c1b] shadow-xs cursor-pointer active:scale-95 transition-all"
                           title="增加"
                         >
                           <Plus className="w-3 h-3" />
@@ -2916,7 +3120,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                         setPreviewToastMessage(`✨ 模拟加购成功：【${dish.name} (${specName})】× ${previewQuantity} 份已加入${rightPreviewChannel === 'delivery' ? '外卖专送' : '堂食现场'}点餐车！`);
                         setTimeout(() => setPreviewToastMessage(null), 3000);
                       }}
-                      className="px-4 py-2.5 bg-[#000000] hover:bg-neutral-800 text-white rounded-xl font-bold text-xs shadow-sm cursor-pointer active:scale-95 transition-all flex items-center gap-1.5"
+                      className="px-4 py-2.5 bg-[#000000] hover:bg-neutral-800 text-white rounded-none font-bold text-xs shadow-sm cursor-pointer active:scale-95 transition-all flex items-center gap-1.5"
                     >
                       <ShoppingBag className="w-3.5 h-3.5" />
                       <span>
@@ -2930,38 +3134,38 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
               )}
 
               {/* Real-time Parameter Mapping Inspector */}
-              <div className="p-4 bg-[#ffffff] rounded-2xl border border-[#e2e3e1] shadow-urban text-xs space-y-2.5">
+              <div className="p-4 bg-[#ffffff] rounded-none border border-[#e2e3e1] shadow-none text-xs space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-[#1a1c1b] flex items-center gap-1.5">
                     <Sliders className="w-3.5 h-3.5 text-[#006d36]" />
                     <span>参数联动与风控状态</span>
                   </span>
                   <span className="text-[11px] font-bold text-[#006d36] flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#006d36] animate-pulse" />
+                    <span className="w-1.5 h-1.5 rounded-none bg-[#006d36] animate-pulse" />
                     即时同步生效
                   </span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-[11px]">
-                  <div className="p-2 bg-[#f9f9f7] rounded-lg border border-[#e2e3e1]">
+                  <div className="p-2 bg-[#f9f9f7] rounded-none border border-[#e2e3e1]">
                     <span className="text-[#787770] block">基准单价:</span>
                     <span className="font-bold font-mono text-[#1a1c1b]">
                       ¥{parseFloat(editPrice || '0').toFixed(2)}
                     </span>
                   </div>
-                  <div className="p-2 bg-[#f9f9f7] rounded-lg border border-[#e2e3e1]">
+                  <div className="p-2 bg-[#f9f9f7] rounded-none border border-[#e2e3e1]">
                     <span className="text-[#787770] block">69商品条码:</span>
                     <span className="font-mono text-[#1a1c1b] truncate block font-semibold">
                       {editBarcode || '未录入'}
                     </span>
                   </div>
-                  <div className="p-2 bg-[#f9f9f7] rounded-lg border border-[#e2e3e1]">
+                  <div className="p-2 bg-[#f9f9f7] rounded-none border border-[#e2e3e1]">
                     <span className="text-[#787770] block">外卖实收:</span>
                     <span className="font-bold font-mono text-[#006d36]">
                       ¥{Math.max(0, parseFloat(editPrice || '0') - (parseFloat(editDeliveryDiscount) || 0)).toFixed(2)}
                     </span>
                   </div>
-                  <div className="p-2 bg-[#f9f9f7] rounded-lg border border-[#e2e3e1]">
+                  <div className="p-2 bg-[#f9f9f7] rounded-none border border-[#e2e3e1]">
                     <span className="text-[#787770] block">堂食实收:</span>
                     <span className="font-bold font-mono text-[#1a1c1b]">
                       ¥{Math.max(0, parseFloat(editPrice || '0') - (parseFloat(editDineInDiscount) || 0)).toFixed(2)}
@@ -2987,14 +3191,14 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 bg-[#f4f4f2] text-[#1a1c1b] hover:bg-[#eeeeec] border border-[#e2e3e1] rounded-xl font-bold text-xs cursor-pointer transition-colors"
+              className="px-5 py-2.5 bg-[#f4f4f2] text-[#1a1c1b] hover:bg-[#eeeeec] border border-[#e2e3e1] rounded-none font-bold text-xs cursor-pointer transition-colors"
             >
               取消
             </button>
             <button
               type="button"
               onClick={handleSave}
-              className="px-6 py-2.5 bg-[#000000] text-white hover:bg-neutral-800 rounded-xl font-bold text-xs cursor-pointer transition-colors shadow-sm flex items-center gap-1.5"
+              className="px-6 py-2.5 bg-[#000000] text-white hover:bg-neutral-800 rounded-none font-bold text-xs cursor-pointer transition-colors shadow-sm flex items-center gap-1.5"
             >
               <Check className="w-4 h-4" />
               <span>保存并同步至前台</span>

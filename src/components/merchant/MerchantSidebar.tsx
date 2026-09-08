@@ -9,9 +9,12 @@ import {
   Truck,
   Check,
   PanelLeftClose,
-  PanelLeft
+  PanelLeft,
+  Lock
 } from 'lucide-react';
 import { MerchantTab } from './MerchantSystemView';
+import { canAccessMerchantTab } from '../../utils/rbacEngine';
+import { MerchantSession } from '../../utils/staffAndRiderAuthEngine';
 
 export interface TabItemConfig {
   id: MerchantTab;
@@ -32,6 +35,7 @@ interface MerchantSidebarProps {
   isOpenMobile: boolean;
   onCloseMobile: () => void;
   truckName?: string;
+  merchantSession?: MerchantSession | null;
 }
 
 const CATEGORY_STYLES: Record<string, { dot: string; text: string; bg: string; badge: string }> = {
@@ -52,7 +56,8 @@ export const MerchantSidebar: React.FC<MerchantSidebarProps> = ({
   onToggleCollapse,
   isOpenMobile,
   onCloseMobile,
-  truckName
+  truckName,
+  merchantSession
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
@@ -238,6 +243,9 @@ export const MerchantSidebar: React.FC<MerchantSidebarProps> = ({
                     }
 
                     // Full Detailed Mode
+                    const accessCheck = canAccessMerchantTab(tab.id, merchantSession);
+                    const isRestricted = !accessCheck.allowed;
+
                     return (
                       <button
                         key={tab.id}
@@ -249,19 +257,33 @@ export const MerchantSidebar: React.FC<MerchantSidebarProps> = ({
                         className={`w-full px-2.5 py-1.5 rounded-[4px] text-xs font-medium flex items-center justify-between gap-2 transition-all cursor-pointer text-left ${
                           isSelected
                             ? 'bg-[#201f1d] text-white font-semibold shadow-xs'
+                            : isRestricted
+                            ? 'text-[#787774] hover:bg-[#efefed] hover:text-[#37352f]'
                             : 'text-[#45433d] hover:bg-[#efefed] hover:text-[#191918]'
                         }`}
                       >
                         <div className="flex items-center gap-2 min-w-0 truncate">
                           <Icon
                             className={`w-3.5 h-3.5 shrink-0 transition-colors ${
-                              isSelected ? 'text-emerald-400' : 'text-[#787774]'
+                              isSelected
+                                ? 'text-emerald-400'
+                                : isRestricted
+                                ? 'text-neutral-400'
+                                : 'text-[#787774]'
                             }`}
                           />
                           <span className="truncate">{tab.label}</span>
                         </div>
 
                         <div className="flex items-center gap-1.5 shrink-0">
+                          {isRestricted && (
+                            <span
+                              title={`岗位受限: 需更高权限或店长临时放行`}
+                              className="p-0.5 rounded text-amber-600 bg-amber-50 border border-amber-200/60"
+                            >
+                              <Lock className="w-2.5 h-2.5" />
+                            </span>
+                          )}
                           {tab.badge !== undefined && tab.badge > 0 && (
                             <span
                               className={`text-[9.5px] font-mono font-bold px-1.5 py-0.2 rounded-[3px] ${

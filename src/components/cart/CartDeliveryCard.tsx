@@ -15,6 +15,8 @@ interface CartDeliveryCardProps {
   distanceDesc?: string;
   recipientName?: string;
   recipientPhone?: string;
+  houseNumber?: string;
+  remarks?: string;
 }
 
 export const CartDeliveryCard: React.FC<CartDeliveryCardProps> = ({
@@ -28,7 +30,9 @@ export const CartDeliveryCard: React.FC<CartDeliveryCardProps> = ({
   truckLocation = '静安大悦城北座 1F 中庭',
   distanceDesc = '直距 420m',
   recipientName = '张先生',
-  recipientPhone = '138****8821'
+  recipientPhone = '138****8821',
+  houseNumber,
+  remarks
 }) => {
   if (diningMode === 'delivery') {
     return (
@@ -78,13 +82,19 @@ export const CartDeliveryCard: React.FC<CartDeliveryCardProps> = ({
             {/* Destination */}
             <div className="flex items-center justify-between text-xs">
               <div className="truncate pr-2">
-                <span className="inline-block text-[10px] text-emerald-800 bg-emerald-50 border border-emerald-200 px-1 py-0.5 rounded mr-1 font-bold">
+                <span className="inline-block text-[10px] text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded mr-1 font-bold">
                   收货点
                 </span>
                 <span className="font-bold text-neutral-900 truncate">{deliveryAddress}</span>
                 <div className="text-neutral-500 text-[11px] mt-0.5 font-normal">
                   {recipientName} · {recipientPhone}
+                  {houseNumber ? ` · ${houseNumber}` : ''}
                 </div>
+                {remarks && (
+                  <div className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded mt-0.5 inline-block border border-emerald-100 font-medium">
+                    备注: {remarks}
+                  </div>
+                )}
               </div>
               <button
                 type="button"

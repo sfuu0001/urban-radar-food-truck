@@ -35,11 +35,24 @@ import { PaymentChannelId, PaymentVoucher } from '../types/payment';
 import { ElectronicPaymentVoucherModal } from './payment/ElectronicPaymentVoucherModal';
 import { PaymentConfirmCashierModal } from './payment/PaymentConfirmCashierModal';
 import { matchDishImageUrl } from '../utils/dishImageMatcher';
+import { getSavedAddresses, DeliveryAddressItem } from '../utils/truckLocationEngine';
+import { userJourneyTracker } from '../utils/userJourneyTracker';
+import { CouponItem, UserCouponRecord } from '../types/coupon';
+import {
+  getAvailableUserCoupons,
+  getMerchantCoupons,
+  getUserCouponRecords,
+  saveUserCouponRecords,
+  pickBestAvailableCoupon,
+  resolveCouponByCode,
+  isCouponEligible
+} from '../utils/couponEngine';
 
 export interface CheckoutPageViewProps {
   items: CartItem[];
   deliveryAddress: string;
   onChangeAddress: (newAddress: string) => void;
+  onOpenAddressModal?: () => void;
   diningMode: DiningMode;
   onDiningModeChange: (mode: DiningMode) => void;
   isVIPActive: boolean;
@@ -62,6 +75,7 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
   items,
   deliveryAddress,
   onChangeAddress,
+  onOpenAddressModal,
   diningMode,
   onDiningModeChange,
   isVIPActive,
@@ -94,8 +108,8 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
   const [remarkInput, setRemarkInput] = useState('');
 
   // 优惠券状态
-  const [couponCode, setCouponCode] = useState(isVIPActive ? 'UR-VIP5' : 'UR-VIP5');
-  const [couponDiscount, setCouponDiscount] = useState(5.0);
+  // FIX(审计P0-1): 券码/抵扣额改为从用户真实券包读取并按订单条件动态解析，取代硬编码假券
+  const [couponCode, setCouponCode] = useState<string>('');
   const [customCouponInput, setCustomCouponInput] = useState('');
 
   // 支付渠道状态
@@ -105,9 +119,36 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
   const [boundTable, setBoundTable] = useState<BoundTableInfo | null>(() => getCurrentBoundTable());
   const [isTableBindModalOpen, setIsTableBindModalOpen] = useState(false);
 
-  // 地址内联快速切换
+  // 地址内联快速切换与已保存地址匹配
   const [isAddressPromptOpen, setIsAddressPromptOpen] = useState(false);
   const [newAddressInput, setNewAddressInput] = useState('');
+  const savedAddresses = useMemo(() => getSavedAddresses(), [deliveryAddress, isAddressPromptOpen]);
+  const matchedSaved = useMemo(() => {
+    return (
+      savedAddresses.find(
+        (a) =>
+          a.detail === deliveryAddress ||
+          deliveryAddress.includes(a.detail) ||
+          deliveryAddress.includes(a.title)
+      ) || savedAddresses[0]
+    );
+  }, [savedAddresses, deliveryAddress]);
+
+  const [inlineHouseNo, setInlineHouseNo] = useState('');
+  const [inlineReceiverName, setInlineReceiverName] = useState('');
+  const [inlineReceiverPhone, setInlineReceiverPhone] = useState('');
+  const [inlineRemarks, setInlineRemarks] = useState('');
+
+  // 打开内联编辑时同步当前数据
+  useEffect(() => {
+    if (isAddressPromptOpen) {
+      setNewAddressInput(deliveryAddress || matchedSaved?.title || '');
+      setInlineHouseNo(matchedSaved?.houseNumber || '');
+      setInlineReceiverName(matchedSaved?.receiverName || '张先生');
+      setInlineReceiverPhone(matchedSaved?.receiverPhone || '138-8888-9201');
+      setInlineRemarks(matchedSaved?.remarks || '');
+    }
+  }, [isAddressPromptOpen, deliveryAddress, matchedSaved]);
 
   // 支付结果与凭证
   const [isPaidSuccess, setIsPaidSuccess] = useState(false);
@@ -191,12 +232,82 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
   const channelName = selectedChannelKey ? paymentChannels[selectedChannelKey].name : '未选择';
 
   // 优惠券立减
-  const effectiveCoupon = totalQuantity === 0 ? 0 : couponDiscount;
+  // FIX(审计P0-1): 根据当前选中的券码 + 订单小计/配送费/履约模式，从用户券包真实解析抵扣金额
+  const itemCategoryList = useMemo(() => items.map((i) => i.dish?.category as string), [items]);
+  const couponEligibility = useMemo(() => {
+    if (!couponCode || totalQuantity === 0) return null;
+    return resolveCouponByCode(couponCode, {
+      subtotal,
+      deliveryFee: activeDeliveryFee,
+      diningMode: diningMode as any,
+      itemCategories: itemCategoryList
+    });
+  }, [couponCode, subtotal, activeDeliveryFee, diningMode, totalQuantity, itemCategoryList]);
+  const effectiveCoupon = totalQuantity === 0
+    ? 0
+    : couponEligibility?.record && couponEligibility.eligibility.usable
+    ? couponEligibility.eligibility.maxDiscount
+    : 0;
 
   // 原总额与总优惠
   const originalTotal = subtotal + activeDeliveryFee;
   const totalSaved = ladderDiscount + effectiveCoupon + vipDiscount + channelDiscount;
   const finalAmount = Math.max(0, originalTotal - totalSaved);
+
+  // FIX(审计P0-1): 结算页优惠券列表 = 用户券包中全部「可用」券（含各自可用性评估），动态渲染
+  const walletCouponRows = useMemo(() => {
+    return getAvailableUserCoupons().map((rec) => {
+      const elig = isCouponEligible(rec, {
+        subtotal,
+        deliveryFee: activeDeliveryFee,
+        diningMode: diningMode as any,
+        itemCategories: itemCategoryList
+      });
+      return { record: rec, elig };
+    });
+  }, [subtotal, activeDeliveryFee, diningMode, itemCategoryList]);
+
+  const handleSelectWalletCoupon = (rec: UserCouponRecord) => {
+    const elig = isCouponEligible(rec, {
+      subtotal,
+      deliveryFee: activeDeliveryFee,
+      diningMode: diningMode as any,
+      itemCategories: itemCategoryList
+    });
+    if (!elig.usable) {
+      toast.warning('该券暂不可用', elig.reason || '请查看券的使用规则');
+      return;
+    }
+    setCouponCode(rec.coupon.code);
+    userJourneyTracker.trackAction('apply_coupon', `结算选用券包 [${rec.coupon.code}] (立减 ¥${elig.maxDiscount.toFixed(2)})`, { code: rec.coupon.code, discount: elig.maxDiscount }, 'checkout');
+    toast.success(`已选用 [${rec.coupon.code}] 立减 ¥${elig.maxDiscount.toFixed(2)}`);
+  };
+
+  // FIX(审计P0-1): 结算页首次加载（或购物车内容变化）时自动推荐并选用券包中抵扣最大的可用券
+  useEffect(() => {
+    if (totalQuantity === 0) return;
+    const currentElig = couponCode
+      ? resolveCouponByCode(couponCode, {
+          subtotal,
+          deliveryFee: activeDeliveryFee,
+          diningMode: diningMode as any,
+          itemCategories: itemCategoryList
+        })
+      : null;
+    if (currentElig?.record && currentElig.eligibility.usable) return; // 当前所选仍可用则不干预
+    const best = pickBestAvailableCoupon({
+      subtotal,
+      deliveryFee: activeDeliveryFee,
+      diningMode: diningMode as any,
+      itemCategories: itemCategoryList
+    });
+    if (best) {
+      setCouponCode(best.coupon.code);
+    } else if (couponCode) {
+      setCouponCode('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subtotal, totalQuantity, activeDeliveryFee, diningMode, itemCategoryList]);
 
   // 环保偏好描述文案
   const ecoPreferenceTitle = ecoPref === 1 ? '提供环保餐具' : '无需一次性餐具';
@@ -204,28 +315,48 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
     ? `${ecoPreferenceTitle} · 备注: ${remarkInput.trim()}`
     : `${ecoPreferenceTitle} · 无特殊备注`;
 
+  // 安全返回菜单并追踪放弃事件
+  const handleBackWithTrack = () => {
+    userJourneyTracker.trackAction(
+      'cancel_checkout',
+      `在收银结算台点击返回菜单，放弃付款 (当前餐品 ${items.length} 件，应付总额 ¥${finalAmount.toFixed(2)})`,
+      { itemsCount: items.length, payable: finalAmount },
+      'checkout'
+    );
+    onBackToMenu();
+  };
+
   // 切换履约模式
   const handleFulfillmentSelect = (mode: DiningMode) => {
+    const label = mode === 'delivery' ? '外卖专送' : mode === 'dine_in' ? '现场堂食' : '到车自提';
+    userJourneyTracker.trackAction('switch_dining_mode', `结算台切换就餐模式为: ${label}`, { mode }, 'checkout');
     onDiningModeChange(mode);
     if (mode === 'dine_in' && !boundTable) {
       setIsTableBindModalOpen(true);
     }
-    const label = mode === 'delivery' ? '外卖专送' : mode === 'dine_in' ? '现场堂食' : '到车自提';
     toast.info(`履约方式已切换为: ${label}`);
   };
 
   // 切换支付渠道
   const handleSelectChannel = (key: PaymentChannelKey) => {
     if (selectedChannelKey === key) {
+      userJourneyTracker.trackAction('select_payment_method', '取消选用支付方式: ' + paymentChannels[key].name, { key }, 'checkout');
       setSelectedChannelKey(null);
       toast.info('已取消选择支付方式');
     } else {
+      userJourneyTracker.trackAction(
+        'select_payment_method',
+        `选择支付渠道: ${paymentChannels[key].name} (立减 ¥${paymentChannels[key].discount.toFixed(2)})`,
+        { key, discount: paymentChannels[key].discount },
+        'checkout'
+      );
       setSelectedChannelKey(key);
       toast.success(`已选用 ${paymentChannels[key].name} · 立减 ¥${paymentChannels[key].discount.toFixed(2)}`);
     }
   };
 
   // 兑换自定义优惠券
+  // FIX(审计P0-1): 从商家券池真实匹配兑换码；匹配失败不再凭空立减 ¥10
   const handleApplyCustomCoupon = () => {
     const code = customCouponInput.trim().toUpperCase();
     if (!code) {
@@ -233,19 +364,52 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
       return;
     }
 
-    if (code === 'RADAR10' || code.includes('10')) {
-      setCouponDiscount(10.0);
-      setCouponCode(code);
-      toast.success(`兑换码 [${code}] 兑换成功，已立减 ¥10.00`);
-      setCustomCouponInput('');
-    } else if (code.includes('VIP') || code === 'UR-VIP5') {
-      setCouponDiscount(5.0);
-      setCouponCode(code);
-      toast.success(`兑换码 [${code}] 生效，已立减 ¥5.00`);
-      setCustomCouponInput('');
-    } else {
-      toast.error('兑换码无效或已过期', '请尝试输入 RADAR10 或 UR-VIP5');
+    // 1) 已在用户券包且可用 → 直接选用
+    const inWallet = resolveCouponByCode(code, {
+      subtotal,
+      deliveryFee: activeDeliveryFee,
+      diningMode: diningMode as any,
+      itemCategories: itemCategoryList
+    });
+    if (inWallet?.record) {
+      if (inWallet.eligibility.usable) {
+        userJourneyTracker.trackAction('apply_coupon', `核销兑换码 [${code}] (立减 ¥${inWallet.eligibility.maxDiscount.toFixed(2)})`, { code, discount: inWallet.eligibility.maxDiscount }, 'checkout');
+        setCouponCode(code);
+        toast.success(`兑换码 [${code}] 生效，已立减 ¥${inWallet.eligibility.maxDiscount.toFixed(2)}`);
+        setCustomCouponInput('');
+      } else {
+        toast.error('该券当前不可用', inWallet.eligibility.reason || '请查看券规则');
+      }
+      return;
     }
+
+    // 2) 商家券池存在该模板 → 领取进券包后自动选用（等价于领券中心兑换）
+    const merchant = getMerchantCoupons().find((m) => m.code.toUpperCase() === code && m.status === 'active');
+    if (merchant) {
+      const existing = getUserCouponRecords().find((r) => r.couponId === merchant.id && r.status === 'available');
+      if (existing) {
+        setCouponCode(code);
+        toast.success(`券 [${code}] 已在券包，本次订单已应用`);
+        setCustomCouponInput('');
+        return;
+      }
+      const newRecord: UserCouponRecord = {
+        userCouponId: `uc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        couponId: merchant.id,
+        coupon: merchant,
+        status: 'available',
+        acquiredAt: new Date().toISOString().slice(0, 10)
+      };
+      saveUserCouponRecords([newRecord, ...getUserCouponRecords()]);
+      setCouponCode(code);
+      userJourneyTracker.trackAction('apply_coupon', `兑换码 [${code}] 领券成功并已应用`, { code }, 'checkout');
+      toast.success(`兑换码 [${code}] 兑换成功，本次订单已自动应用`);
+      setCustomCouponInput('');
+      return;
+    }
+
+    // 3) 无此券
+    toast.error('兑换码无效或已过期', '请前往「优惠券中心」查看可领取的券码');
   };
 
   // 点击安全支付主按钮：在安全支付上方弹出上拉菜单（复刻1号位置内容）
@@ -479,43 +643,46 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
   // 3. 全新订单结算主界面 (Conforming to user's exact provided HTML Design)
   return (
     <div className="min-h-screen bg-[#F9F9F7] pb-32 text-[#1A1C1B] font-sans antialiased selection:bg-charcoal selection:text-white">
-      <div className="max-w-[420px] mx-auto min-h-screen bg-[#F9F9F7] flex flex-col justify-between relative shadow-sm">
+      <div className="w-full max-w-xl md:max-w-3xl lg:max-w-4xl mx-auto min-h-screen bg-[#F9F9F7] flex flex-col justify-between relative shadow-sm">
         {/* BEGIN: TopNavigationBar */}
-        <header className="sticky top-0 z-30 bg-[#F9F9F7]/90 backdrop-blur-md px-4 py-3.5 border-b border-[#E8E8E6] flex items-center justify-between">
+        <header className="sticky top-0 z-30 bg-[#F9F9F7]/95 backdrop-blur-md px-4 sm:px-6 py-3.5 border-b border-[#E8E8E6] flex items-center justify-between">
           <button
             type="button"
             aria-label="返回上一页"
-            onClick={onBackToMenu}
-            className="w-8 h-8 -ml-1 flex items-center justify-center rounded-full hover:bg-black/5 active:scale-95 transition-transform cursor-pointer"
+            onClick={handleBackWithTrack}
+            className="w-9 h-9 -ml-1 flex items-center justify-center rounded-xl hover:bg-black/5 active:scale-95 transition-all cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4 text-[#1A1C1B]" />
           </button>
-          <h1 className="text-sm font-semibold tracking-tight text-[#1A1C1B]">订单结算</h1>
-          <div className="flex items-center gap-1 text-[11px] text-[#7E7E7A] font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#006D36]" />
+          <div className="text-center">
+            <h1 className="text-sm sm:text-base font-bold tracking-tight text-[#1A1C1B]">订单结算</h1>
+            <p className="text-[10px] text-[#7E7E7A] hidden sm:block">黑曜石流动餐车 · 极速专线</p>
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-[#006D36] font-medium bg-[#EBF7EF] px-2.5 py-1 rounded-full border border-[#c4dcbc]/40">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#006D36] animate-pulse" />
             <span>加密保障</span>
           </div>
         </header>
         {/* END: TopNavigationBar */}
 
         {/* Main Content Area */}
-        <main className="p-3.5 space-y-2.5 flex-1">
-          {/* 1. 履约模式与地址 (紧凑一体化) */}
-          <section className="bg-white p-3 border border-[#E8E8E6] shadow-sm space-y-2.5">
-            {/* 极简轻量分段胶囊 */}
-            <div className="grid grid-cols-3 gap-1 p-0.5 bg-[#F9F9F7] border border-[#F0F0EE] text-xs font-medium max-w-[280px] subtle-rounded">
+        <main className="p-3.5 sm:p-5 md:p-6 space-y-4 flex-1">
+          {/* 1. 履约模式与地址 (现代卡片式设计) */}
+          <section className="bg-white p-4 sm:p-5 rounded-2xl border border-[#E8E8E6] shadow-xs space-y-4">
+            {/* 顶部分段胶囊选择器 */}
+            <div className="grid grid-cols-3 gap-1.5 p-1 bg-[#F5F5F3] rounded-xl border border-[#E8E8E6] text-xs font-medium max-w-sm sm:max-w-md">
               <button
                 type="button"
                 id="tab-delivery"
                 onClick={() => handleFulfillmentSelect('delivery')}
-                className={`py-1.5 px-2 text-center transition-all subtle-rounded-inner flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`py-2 px-3 text-center rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer font-medium ${
                   diningMode === 'delivery'
-                    ? 'bg-white text-[#1A1C1B] font-semibold shadow-xs border border-charcoal/10'
+                    ? 'bg-white text-[#1A1C1B] font-bold shadow-xs border border-charcoal/10'
                     : 'text-[#7E7E7A] hover:text-[#1A1C1B]'
                 }`}
               >
                 <Bike
-                  className={`w-3.5 h-3.5 shrink-0 ${diningMode === 'delivery' ? 'text-[#006D36]' : 'text-[#9E9E98]'}`}
+                  className={`w-4 h-4 shrink-0 ${diningMode === 'delivery' ? 'text-[#006D36]' : 'text-[#9E9E98]'}`}
                 />
                 <span>外卖专送</span>
               </button>
@@ -524,14 +691,14 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                 type="button"
                 id="tab-dinein"
                 onClick={() => handleFulfillmentSelect('dine_in')}
-                className={`py-1.5 px-2 text-center transition-all subtle-rounded-inner flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`py-2 px-3 text-center rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer font-medium ${
                   diningMode === 'dine_in'
-                    ? 'bg-white text-[#1A1C1B] font-semibold shadow-xs border border-charcoal/10'
+                    ? 'bg-white text-[#1A1C1B] font-bold shadow-xs border border-charcoal/10'
                     : 'text-[#7E7E7A] hover:text-[#1A1C1B]'
                 }`}
               >
                 <Utensils
-                  className={`w-3.5 h-3.5 shrink-0 ${diningMode === 'dine_in' ? 'text-[#006D36]' : 'text-[#9E9E98]'}`}
+                  className={`w-4 h-4 shrink-0 ${diningMode === 'dine_in' ? 'text-[#006D36]' : 'text-[#9E9E98]'}`}
                 />
                 <span>现场堂食</span>
               </button>
@@ -540,39 +707,52 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                 type="button"
                 id="tab-pickup"
                 onClick={() => handleFulfillmentSelect('pickup')}
-                className={`py-1.5 px-2 text-center transition-all subtle-rounded-inner flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`py-2 px-3 text-center rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer font-medium ${
                   diningMode === 'pickup'
-                    ? 'bg-white text-[#1A1C1B] font-semibold shadow-xs border border-charcoal/10'
+                    ? 'bg-white text-[#1A1C1B] font-bold shadow-xs border border-charcoal/10'
                     : 'text-[#7E7E7A] hover:text-[#1A1C1B]'
                 }`}
               >
                 <ShoppingBag
-                  className={`w-3.5 h-3.5 shrink-0 ${diningMode === 'pickup' ? 'text-[#006D36]' : 'text-[#9E9E98]'}`}
+                  className={`w-4 h-4 shrink-0 ${diningMode === 'pickup' ? 'text-[#006D36]' : 'text-[#9E9E98]'}`}
                 />
                 <span>到车自提</span>
               </button>
             </div>
 
-            {/* 地址与履约时效单行展示 */}
-            <div className="flex items-center justify-between gap-2.5 pt-0.5 px-0.5">
-              <div className="min-w-0 flex-1 flex items-start gap-2">
-                <div className="w-7 h-7 bg-[#F9F9F7] border border-[#F0F0EE] flex items-center justify-center shrink-0 mt-0.5">
-                  <MapPin className="w-4 h-4 text-[#1A1C1B]" />
+            {/* 地址与履约时效展示 */}
+            <div className="flex items-start justify-between gap-3 pt-1">
+              <div
+                className={`min-w-0 flex-1 flex items-start gap-3 ${diningMode === 'delivery' ? 'cursor-pointer group' : ''}`}
+                onClick={() => {
+                  if (diningMode === 'delivery') {
+                    if (onOpenAddressModal) {
+                      onOpenAddressModal();
+                    } else {
+                      setIsAddressPromptOpen((v) => !v);
+                    }
+                  } else if (diningMode === 'dine_in') {
+                    setIsTableBindModalOpen(true);
+                  }
+                }}
+              >
+                <div className="w-10 h-10 rounded-xl bg-[#EBF7EF] border border-[#c4dcbc]/40 flex items-center justify-center shrink-0 mt-0.5 text-[#006D36]">
+                  <MapPin className="w-5 h-5" />
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span
                       id="delivery-tag"
-                      className="text-[10px] font-semibold text-[#006D36] bg-[#EBF7EF] px-1.5 py-0.5 leading-none flex items-center gap-1 shrink-0"
+                      className="text-[11px] font-bold text-[#006D36] bg-[#EBF7EF] px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0"
                     >
-                      <Clock className="w-2.5 h-2.5" />
+                      <Clock className="w-3 h-3" />
                       {diningMode === 'delivery'
                         ? '约12分送达'
                         : diningMode === 'dine_in'
                         ? '免配送费'
                         : '即刻自提'}
                     </span>
-                    <p id="location-text" className="text-xs font-semibold text-[#1A1C1B] truncate">
+                    <p id="location-text" className="text-sm sm:text-base font-bold text-[#1A1C1B] truncate group-hover:text-[#006D36] transition-colors">
                       {diningMode === 'delivery'
                         ? deliveryAddress || '静安大悦城北座 1F 中庭黑曜石餐车站'
                         : diningMode === 'dine_in'
@@ -582,14 +762,36 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                         : '静安大悦城北座 1F 中庭黑曜石餐车专用取餐口'}
                     </p>
                   </div>
-                  <p id="location-sub" className="text-[11px] text-[#7E7E7A] mt-1 truncate flex items-center gap-1">
-                    <ShieldCheck className="w-3 h-3 text-[#006D36] shrink-0" />
-                    {diningMode === 'delivery'
-                      ? '专人送至工位前台 · 保温锁鲜'
-                      : diningMode === 'dine_in'
-                      ? '中庭露营外摆位 · 扫码入座 · 现烹传菜'
-                      : '黑曜石餐车专用取餐口取餐 · 提货码秒取'}
-                  </p>
+
+                  {diningMode === 'delivery' ? (
+                    <div className="text-xs text-[#7E7E7A] space-y-1">
+                      <p className="flex items-center gap-2 text-neutral-800 font-medium flex-wrap">
+                        <span className="font-semibold text-[#1A1C1B]">{matchedSaved?.receiverName || '张先生'}</span>
+                        <span className="font-mono text-neutral-500">{matchedSaved?.receiverPhone || '138-8888-9201'}</span>
+                        {matchedSaved?.tag && (
+                          <span className="text-[10px] px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded-md font-bold">
+                            {matchedSaved.tag}
+                          </span>
+                        )}
+                        {matchedSaved?.remarks && (
+                          <span className="text-[10px] text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md truncate max-w-[180px]">
+                            备注: {matchedSaved.remarks}
+                          </span>
+                        )}
+                      </p>
+                      <p className="flex items-center gap-1.5 text-[11px] text-emerald-800">
+                        <ShieldCheck className="w-3.5 h-3.5 text-[#006D36] shrink-0" />
+                        <span>极速骑手直配 · 保温锁鲜送达</span>
+                      </p>
+                    </div>
+                  ) : (
+                    <p id="location-sub" className="text-xs text-[#7E7E7A] truncate flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-[#006D36] shrink-0" />
+                      {diningMode === 'dine_in'
+                        ? '中庭露营外摆位 · 扫码入座 · 现烹传菜'
+                        : '黑曜石餐车专用取餐口取餐 · 提货码秒取'}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -599,48 +801,184 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                   if (diningMode === 'dine_in') {
                     setIsTableBindModalOpen(true);
                   } else if (diningMode === 'delivery') {
-                    setIsAddressPromptOpen(true);
+                    if (onOpenAddressModal) {
+                      onOpenAddressModal();
+                    } else {
+                      setIsAddressPromptOpen((v) => !v);
+                    }
                   } else {
                     toast.info('自提点固定为黑曜石 01 号餐车车窗取餐口');
                   }
                 }}
-                className="text-xs text-[#1A1C1B] font-medium underline underline-offset-2 shrink-0 opacity-80 hover:opacity-100 flex items-center gap-1 py-1 px-1.5 hover:bg-black/5 cursor-pointer"
+                className="text-xs text-[#1A1C1B] font-semibold bg-neutral-100 hover:bg-neutral-200 px-3 py-1.5 rounded-xl shrink-0 flex items-center gap-1.5 cursor-pointer transition-colors"
               >
-                <Edit2 className="w-3 h-3 text-[#7E7E7A]" />
+                <Edit2 className="w-3.5 h-3.5 text-[#7E7E7A]" />
                 <span>修改</span>
               </button>
             </div>
 
-            {/* 内联修改地址抽屉 */}
+            {/* 内联修改地址与表单抽屉 */}
             {isAddressPromptOpen && (
-              <div className="pt-2 border-t border-[#F0F0EE] flex gap-2 animate-in fade-in duration-150">
-                <input
-                  type="text"
-                  value={newAddressInput}
-                  onChange={(e) => setNewAddressInput(e.target.value)}
-                  placeholder="输入详细配送地址（如：大悦城商务座 1204 室）"
-                  className="flex-1 text-xs border border-[#E8E8E6] bg-white p-2 outline-none focus:border-[#1A1C1B]"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (newAddressInput.trim()) {
-                      onChangeAddress(newAddressInput.trim());
-                      setIsAddressPromptOpen(false);
-                      toast.success('配送地址已更新');
-                    }
-                  }}
-                  className="px-3 py-1.5 bg-[#1A1C1B] text-white text-xs font-semibold cursor-pointer"
-                >
-                  确定
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsAddressPromptOpen(false)}
-                  className="px-2 py-1.5 text-xs text-[#7E7E7A] hover:text-[#1A1C1B] cursor-pointer"
-                >
-                  取消
-                </button>
+              <div className="pt-3 border-t border-[#F0F0EE] space-y-2.5 animate-in fade-in duration-150">
+                {/* 快捷历史地址列表 */}
+                {savedAddresses.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between text-[10px] text-[#787770] mb-1">
+                      <span>常用地址簿快速切换:</span>
+                      {onOpenAddressModal && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAddressPromptOpen(false);
+                            onOpenAddressModal();
+                          }}
+                          className="text-emerald-700 font-bold hover:underline cursor-pointer"
+                        >
+                          管理与GPS选点 &rarr;
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pb-1">
+                      {savedAddresses.map((addr) => (
+                        <button
+                          key={addr.id}
+                          type="button"
+                          onClick={() => {
+                            onChangeAddress(addr.detail);
+                            setNewAddressInput(addr.detail);
+                            setInlineHouseNo(addr.houseNumber || '');
+                            setInlineReceiverName(addr.receiverName || '张先生');
+                            setInlineReceiverPhone(addr.receiverPhone || '138-8888-9201');
+                            setInlineRemarks(addr.remarks || '');
+                            toast.success(`已切换至: ${addr.title}`);
+                          }}
+                          className={`px-2 py-1 rounded text-xs shrink-0 border text-left transition-colors cursor-pointer ${
+                            deliveryAddress === addr.detail
+                              ? 'bg-emerald-50 text-emerald-900 border-emerald-300 font-bold'
+                              : 'bg-white text-neutral-700 border-neutral-200 hover:bg-neutral-50'
+                          }`}
+                        >
+                          <span className="font-bold block text-[11px] truncate max-w-[120px]">{addr.title}</span>
+                          <span className="text-[9.5px] text-[#787770] block truncate max-w-[120px]">
+                            {addr.houseNumber || addr.receiverName || '常用'}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 详细门牌号、联系人、电话、备注微表单 */}
+                <div className="space-y-2 bg-[#fbfbfa] p-2.5 rounded-xl border border-[#e2e3e1]">
+                  <div>
+                    <label className="text-[10px] font-bold text-neutral-700 block mb-0.5">
+                      小区/道路地址
+                    </label>
+                    <input
+                      type="text"
+                      value={newAddressInput}
+                      onChange={(e) => setNewAddressInput(e.target.value)}
+                      placeholder="基础位置（如：西藏北路166号大悦城）"
+                      className="w-full text-xs border border-[#d3d1cb] bg-white p-1.5 rounded-lg outline-none focus:border-[#1A1C1B]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-bold text-neutral-700 block mb-0.5">
+                        门牌号 / 几幢几室
+                      </label>
+                      <input
+                        type="text"
+                        value={inlineHouseNo}
+                        onChange={(e) => setInlineHouseNo(e.target.value)}
+                        placeholder="例：3号楼1204室"
+                        className="w-full text-xs border border-[#d3d1cb] bg-white p-1.5 rounded-lg outline-none focus:border-[#1A1C1B]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-neutral-700 block mb-0.5">
+                        配送备注
+                      </label>
+                      <input
+                        type="text"
+                        value={inlineRemarks}
+                        onChange={(e) => setInlineRemarks(e.target.value)}
+                        placeholder="例：放门口即可"
+                        className="w-full text-xs border border-[#d3d1cb] bg-white p-1.5 rounded-lg outline-none focus:border-[#1A1C1B]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-bold text-neutral-700 block mb-0.5">
+                        收货人姓名
+                      </label>
+                      <input
+                        type="text"
+                        value={inlineReceiverName}
+                        onChange={(e) => setInlineReceiverName(e.target.value)}
+                        placeholder="例：张先生"
+                        className="w-full text-xs border border-[#d3d1cb] bg-white p-1.5 rounded-lg outline-none focus:border-[#1A1C1B]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-neutral-700 block mb-0.5">
+                        联系电话
+                      </label>
+                      <input
+                        type="tel"
+                        value={inlineReceiverPhone}
+                        onChange={(e) => setInlineReceiverPhone(e.target.value)}
+                        placeholder="例：138-8888-9201"
+                        className="w-full text-xs border border-[#d3d1cb] bg-white p-1.5 rounded-lg outline-none focus:border-[#1A1C1B] font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    {onOpenAddressModal && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAddressPromptOpen(false);
+                          onOpenAddressModal();
+                        }}
+                        className="text-xs text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-1 cursor-pointer"
+                      >
+                        <MapPin className="w-3 h-3" />
+                        <span>完整地图与地址管理</span>
+                      </button>
+                    )}
+                    <div className="flex items-center gap-1.5 ml-auto">
+                      <button
+                        type="button"
+                        onClick={() => setIsAddressPromptOpen(false)}
+                        className="px-2.5 py-1 text-xs text-[#7E7E7A] hover:text-[#1A1C1B] cursor-pointer"
+                      >
+                        取消
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const base = newAddressInput.trim() || deliveryAddress;
+                          const full = inlineHouseNo.trim()
+                            ? `${base.replace(inlineHouseNo.trim(), '').trim()} ${inlineHouseNo.trim()}`.trim()
+                            : base;
+                          if (full) {
+                            onChangeAddress(full);
+                            setIsAddressPromptOpen(false);
+                            toast.success('配送地址与收件信息已更新');
+                          }
+                        }}
+                        className="px-3.5 py-1.5 bg-[#1A1C1B] text-white text-xs font-semibold rounded-lg cursor-pointer"
+                      >
+                        确定更新
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </section>
@@ -648,15 +986,15 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
           {/* 2. 综合订单卡片 (Unified Order Container) */}
           <section
             id="unified-order-container"
-            className="bg-white border border-[#E8E8E6] shadow-sm overflow-hidden divide-y divide-[#F0F0EE]"
+            className="bg-white rounded-2xl border border-[#E8E8E6] shadow-xs overflow-hidden divide-y divide-[#F0F0EE]"
           >
             {/* 1. 已选餐品明细 */}
-            <div id="meal-card-section" className="p-3 space-y-2.5">
-              <div className="flex items-center justify-between border-b border-[#F0F0EE] pb-2">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-3 bg-[#1A1C1B]" />
-                  <span className="text-xs font-bold text-[#1A1C1B]">已选餐品明细</span>
-                  <span className="text-[10px] text-[#7E7E7A] bg-[#F9F9F7] px-1.5 py-0.5 border border-[#F0F0EE] font-medium">
+            <div id="meal-card-section" className="p-4 sm:p-5 space-y-3.5">
+              <div className="flex items-center justify-between border-b border-[#F0F0EE] pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-3.5 bg-[#1A1C1B] rounded-full" />
+                  <span className="text-sm font-bold text-[#1A1C1B]">已选餐品明细</span>
+                  <span className="text-xs text-[#7E7E7A] bg-[#F5F5F3] px-2 py-0.5 rounded-full border border-[#E8E8E6] font-medium">
                     共 {totalQuantity} 件
                   </span>
                 </div>
@@ -667,20 +1005,20 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                     setIsTextOnlyView(!isTextOnlyView);
                     toast.info(isTextOnlyView ? '已切换至图文详情视图' : '已切换至纯文字紧凑视图');
                   }}
-                  className="flex items-center gap-1 text-[11px] font-medium text-[#7E7E7A] hover:text-[#1A1C1B] bg-[#F9F9F7] border border-[#E8E8E6] hover:border-charcoal/30 px-2 py-1 transition-all cursor-pointer subtle-rounded"
+                  className="flex items-center gap-1.5 text-xs font-medium text-[#7E7E7A] hover:text-[#1A1C1B] bg-[#F9F9F7] border border-[#E8E8E6] hover:border-charcoal/30 px-2.5 py-1.5 rounded-xl transition-all cursor-pointer shadow-2xs"
                 >
                   {isTextOnlyView ? (
-                    <AlignLeft className="w-3 h-3 text-[#7E7E7A]" />
+                    <AlignLeft className="w-3.5 h-3.5 text-[#7E7E7A]" />
                   ) : (
-                    <ImageIcon className="w-3 h-3 text-[#7E7E7A]" />
+                    <ImageIcon className="w-3.5 h-3.5 text-[#7E7E7A]" />
                   )}
                   <span id="view-mode-text">{isTextOnlyView ? '纯文字视图' : '图文详情视图'}</span>
-                  <ChevronDown className="w-2.5 h-2.5 text-[#9E9E98]" />
+                  <ChevronDown className="w-3 h-3 text-[#9E9E98]" />
                 </button>
               </div>
 
               {/* 餐品列表循环 */}
-              <div className="space-y-3 divide-y divide-[#F0F0EE]/60">
+              <div className="space-y-3.5 divide-y divide-[#F0F0EE]/80">
                 {items.map((item) => {
                   const dishImg = matchDishImageUrl(item.dish);
                   const itemUnitPrice = item.calculatedPrice / item.quantity;
@@ -689,14 +1027,14 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                   return (
                     <div
                       key={item.cartItemId}
-                      className="flex items-center gap-3 pt-2 first:pt-0"
+                      className="flex items-center gap-3.5 pt-3 first:pt-0"
                       id="meal-item-content"
                     >
                       {/* 缩略图 (纯文字视图下隐藏) */}
                       {!isTextOnlyView && (
                         <div
                           id="meal-thumbnail"
-                          className="w-16 h-16 overflow-hidden bg-[#F9F9F7] shrink-0 border border-[#F0F0EE] relative"
+                          className="w-18 h-18 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-[#F9F9F7] shrink-0 border border-[#F0F0EE] relative shadow-2xs"
                         >
                           <img
                             alt={item.dish.name}
@@ -704,40 +1042,40 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                             src={dishImg}
                             referrerPolicy="no-referrer"
                           />
-                          <div className="absolute bottom-0 left-0 right-0 bg-[#1A1C1B]/80 text-[8px] text-white font-medium flex items-center justify-center gap-0.5 py-0.5">
-                            <Sparkles className="w-2 h-2 text-[#d97706]" />
+                          <div className="absolute bottom-0 left-0 right-0 bg-neutral-900/80 backdrop-blur-xs text-[9px] text-white font-medium flex items-center justify-center gap-1 py-0.5">
+                            <Sparkles className="w-2.5 h-2.5 text-[#d97706]" />
                             <span>主厨现烤</span>
                           </div>
                         </div>
                       )}
 
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1">
-                          <h2 className="text-xs font-semibold text-[#1A1C1B] truncate">
+                        <div className="flex items-center gap-1.5">
+                          <h2 className="text-sm font-bold text-[#1A1C1B] truncate">
                             {item.dish.name}
                           </h2>
-                          <span className="shrink-0 inline-flex items-center text-[9px] px-1 py-0.5 bg-[#edf5fe] text-[#1677ff] font-medium">
-                            <Check className="w-2.5 h-2.5 mr-0.5" />
+                          <span className="shrink-0 inline-flex items-center text-[10px] px-1.5 py-0.5 bg-[#edf5fe] text-[#1677ff] font-medium rounded-md">
+                            <Check className="w-3 h-3 mr-0.5" />
                             黑卡臻选
                           </span>
                         </div>
-                        <p className="text-[11px] text-[#7E7E7A] mt-0.5 truncate">
+                        <p className="text-xs text-[#7E7E7A] mt-1 truncate">
                           {optionsList.length > 0 ? optionsList.join(' · ') : 'Truffle Fries · 标准现烤制作'}
                         </p>
 
-                        <div className="flex items-center justify-between mt-2">
-                          <span className="text-xs font-semibold text-[#1A1C1B]">
-                            ¥
-                            <span id="single-unit-price" className="text-sm font-bold tracking-tight">
+                        <div className="flex items-center justify-between mt-2.5">
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-xs font-bold text-[#1A1C1B]">¥</span>
+                            <span id="single-unit-price" className="text-base font-extrabold tracking-tight text-[#1A1C1B]">
                               {item.calculatedPrice.toFixed(2)}
                             </span>
-                            <span className="text-[10px] text-[#9E9E98] font-normal ml-1">
+                            <span className="text-[11px] text-[#9E9E98] font-normal ml-1">
                               (¥{itemUnitPrice.toFixed(2)}/份)
                             </span>
-                          </span>
+                          </div>
 
-                          <div className="flex items-center gap-1.5">
-                            <div className="flex items-center border border-[#E8E8E6] bg-[#F9F9F7]/50 h-6">
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center border border-[#E8E8E6] bg-neutral-50 rounded-xl p-0.5">
                               <button
                                 type="button"
                                 aria-label="减少份数"
@@ -749,13 +1087,13 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                                     onUpdateCartQuantity(item.cartItemId, item.quantity - 1);
                                   }
                                 }}
-                                className="w-6 h-full flex items-center justify-center text-[#7E7E7A] hover:text-[#1A1C1B] active:scale-90 transition-transform cursor-pointer"
+                                className="w-7 h-7 rounded-lg bg-white shadow-2xs flex items-center justify-center text-[#7E7E7A] hover:text-[#1A1C1B] active:scale-90 transition-all cursor-pointer"
                               >
-                                <Minus className="w-3 h-3" />
+                                <Minus className="w-3.5 h-3.5" />
                               </button>
                               <span
                                 id="display-quantity"
-                                className="w-5 text-center text-xs font-semibold text-[#1A1C1B]"
+                                className="w-7 text-center text-xs font-bold text-[#1A1C1B]"
                               >
                                 {item.quantity}
                               </span>
@@ -763,9 +1101,9 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                                 type="button"
                                 aria-label="增加份数"
                                 onClick={() => onUpdateCartQuantity(item.cartItemId, item.quantity + 1)}
-                                className="w-6 h-full flex items-center justify-center text-[#7E7E7A] hover:text-[#1A1C1B] active:scale-90 transition-transform cursor-pointer"
+                                className="w-7 h-7 rounded-lg bg-white shadow-2xs flex items-center justify-center text-[#7E7E7A] hover:text-[#1A1C1B] active:scale-90 transition-all cursor-pointer"
                               >
-                                <Plus className="w-3 h-3" />
+                                <Plus className="w-3.5 h-3.5" />
                               </button>
                             </div>
                             <button
@@ -775,9 +1113,9 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                                 onRemoveCartItem(item.cartItemId);
                                 toast.info(`已移除【${item.dish.name}】`);
                               }}
-                              className="w-6 h-6 flex items-center justify-center border border-[#E8E8E6] bg-[#F9F9F7]/50 text-[#7E7E7A] hover:text-[#1A1C1B] hover:bg-black/5 active:scale-90 transition-all cursor-pointer"
+                              className="w-8 h-8 rounded-xl flex items-center justify-center border border-[#E8E8E6] bg-neutral-50 text-[#7E7E7A] hover:text-rose-600 hover:bg-rose-50 active:scale-90 transition-all cursor-pointer"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
@@ -921,147 +1259,78 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                   className="accordion-content border-t border-[#F0F0EE] p-3 bg-[#F9F9F7]/30 space-y-2 animate-in fade-in duration-150"
                 >
                   <div id="coupon-list-group" className="space-y-2">
-                    {/* 券 1 */}
-                    <div
-                      className={`p-2.5 bg-white flex items-center justify-between transition-all relative overflow-hidden ${
-                        couponCode === 'UR-VIP5'
-                          ? 'border-2 border-[#1A1C1B]'
-                          : 'border border-[#E8E8E6] hover:border-charcoal/40'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                        <div className="w-8 h-8 bg-[#1A1C1B] text-white flex items-center justify-center shrink-0">
-                          <Tag className="w-4 h-4" />
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-bold text-[#1A1C1B] truncate">UR-VIP5 优选券</span>
-                            {couponCode === 'UR-VIP5' && (
-                              <span className="text-[10px] font-semibold text-[#006D36] bg-[#EBF7EF] px-1.5 py-0.5 leading-none flex items-center gap-0.5 shrink-0">
-                                <Check className="w-2.5 h-2.5" />
-                                使用中
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-[11px] text-[#7E7E7A] mt-0.5 truncate">无门槛立减 · 全单通用</p>
-                        </div>
+                    {/* FIX(审计P0-1): 优惠券列表改为渲染用户券包中的真实可用券；取代硬编码的 UR-VIP5/RADAR-NEW/CHEF-3 假券 */}
+                    {walletCouponRows.length === 0 ? (
+                      <div className="p-3 bg-white border border-dashed border-[#E0E0DC] text-center text-[11px] text-[#9E9E98]">
+                        券包暂无可用券，可在「优惠券中心」领取或输入下方兑换码
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-xs font-bold text-[#006D36]">-¥5.00</span>
-                        {couponCode === 'UR-VIP5' ? (
-                          <span className="text-[11px] font-semibold bg-[#1A1C1B] text-white px-2.5 py-1 flex items-center gap-1 subtle-rounded">
-                            <Check className="w-2.5 h-2.5 text-[#006D36]" />
-                            已选
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setCouponCode('UR-VIP5');
-                              setCouponDiscount(5.0);
-                              toast.success('已切换至 [UR-VIP5 优选券]');
-                            }}
-                            className="text-[11px] font-medium text-[#1A1C1B] border border-[#E8E8E6] bg-[#F9F9F7] hover:bg-black/5 active:scale-95 px-2.5 py-1 subtle-rounded transition-all cursor-pointer"
+                    ) : (
+                      walletCouponRows.map(({ record, elig }) => {
+                        const isActive = couponCode === record.coupon.code;
+                        const savingText = elig.usable
+                          ? `-¥${elig.maxDiscount.toFixed(2)}`
+                          : record.coupon.couponType === 'delivery_free'
+                          ? '免运费'
+                          : `满¥${record.coupon.minSpend}`;
+                        return (
+                          <div
+                            key={record.userCouponId}
+                            className={`p-2.5 bg-white flex items-center justify-between transition-all relative overflow-hidden ${
+                              isActive
+                                ? 'border-2 border-[#1A1C1B]'
+                                : elig.usable
+                                ? 'border border-[#E8E8E6] hover:border-charcoal/40'
+                                : 'border border-[#EFEFED] opacity-60'
+                            }`}
                           >
-                            切换
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* 券 2 */}
-                    <div
-                      className={`p-2.5 bg-white flex items-center justify-between transition-all relative overflow-hidden ${
-                        couponCode === 'RADAR-NEW'
-                          ? 'border-2 border-[#1A1C1B]'
-                          : 'border border-[#E8E8E6] hover:border-charcoal/40'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                        <div className="w-8 h-8 bg-[#F9F9F7] border border-[#F0F0EE] text-[#1A1C1B] flex items-center justify-center shrink-0">
-                          <Gift className="w-4 h-4 text-[#7E7E7A]" />
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-semibold text-[#1A1C1B] truncate">RADAR-NEW 新客专享</span>
-                            <span className="text-[10px] font-medium text-[#7E7E7A] bg-[#F9F9F7] px-1.5 py-0.5 leading-none border border-[#F0F0EE] shrink-0">
-                              满¥50可用
-                            </span>
+                            <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                              <div className={`w-8 h-8 flex items-center justify-center shrink-0 ${elig.usable ? 'bg-[#1A1C1B] text-white' : 'bg-[#F4F4F2] text-[#9E9E98]'}`}>
+                                {record.coupon.couponType === 'delivery_free' ? (
+                                  <Bike className="w-4 h-4" />
+                                ) : record.coupon.couponType === 'discount_percent' ? (
+                                  <Sparkles className="w-4 h-4" />
+                                ) : (
+                                  <Tag className="w-4 h-4" />
+                                )}
+                              </div>
+                              <div className="flex flex-col min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-bold text-[#1A1C1B] truncate">{record.coupon.code} · {record.coupon.title}</span>
+                                  {isActive && (
+                                    <span className="text-[10px] font-semibold text-[#006D36] bg-[#EBF7EF] px-1.5 py-0.5 leading-none flex items-center gap-0.5 shrink-0">
+                                      <Check className="w-2.5 h-2.5" />
+                                      使用中
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-[#7E7E7A] mt-0.5 truncate">
+                                  {record.coupon.subtitle || '全单通用'}
+                                  {!elig.usable && elig.reason ? ` · ${elig.reason}` : ''}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className={`text-xs font-bold ${elig.usable ? 'text-[#006D36]' : 'text-[#B5B5B0]'}`}>{savingText}</span>
+                              {isActive ? (
+                                <span className="text-[11px] font-semibold bg-[#1A1C1B] text-white px-2.5 py-1 flex items-center gap-1 subtle-rounded">
+                                  <Check className="w-2.5 h-2.5 text-[#006D36]" />
+                                  已选
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={!elig.usable}
+                                  onClick={() => handleSelectWalletCoupon(record)}
+                                  className="text-[11px] font-medium text-[#1A1C1B] border border-[#E8E8E6] bg-[#F9F9F7] hover:bg-black/5 active:scale-95 px-2.5 py-1 subtle-rounded transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  切换
+                                </button>
+                              )}
+                            </div>
                           </div>
-                          <p className="text-[11px] text-[#7E7E7A] mt-0.5 truncate">限首次点单黑曜石餐车餐品</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-xs font-bold text-[#006D36]">-¥8.00</span>
-                        {couponCode === 'RADAR-NEW' ? (
-                          <span className="text-[11px] font-semibold bg-[#1A1C1B] text-white px-2.5 py-1 flex items-center gap-1 subtle-rounded">
-                            <Check className="w-2.5 h-2.5 text-[#006D36]" />
-                            已选
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (subtotal < 50) {
-                                toast.warning('未满起用门槛', '该券需餐品原价满 ¥50.00 方可使用');
-                                return;
-                              }
-                              setCouponCode('RADAR-NEW');
-                              setCouponDiscount(8.0);
-                              toast.success('已切换至 [RADAR-NEW] 新客专享券');
-                            }}
-                            className="text-[11px] font-medium text-[#1A1C1B] border border-[#E8E8E6] bg-[#F9F9F7] hover:bg-black/5 active:scale-95 px-2.5 py-1 subtle-rounded transition-all cursor-pointer"
-                          >
-                            切换
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* 券 3 */}
-                    <div
-                      className={`p-2.5 bg-white flex items-center justify-between transition-all relative overflow-hidden ${
-                        couponCode === 'CHEF-3'
-                          ? 'border-2 border-[#1A1C1B]'
-                          : 'border border-[#E8E8E6] hover:border-charcoal/40'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                        <div className="w-8 h-8 bg-[#F9F9F7] border border-[#F0F0EE] text-[#1A1C1B] flex items-center justify-center shrink-0">
-                          <Sparkles className="w-4 h-4 text-[#7E7E7A]" />
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-semibold text-[#1A1C1B] truncate">CHEF-3 炭烤尝鲜券</span>
-                            <span className="text-[10px] font-medium text-[#7E7E7A] bg-[#F9F9F7] px-1.5 py-0.5 leading-none border border-[#F0F0EE] shrink-0">
-                              无门槛
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-[#7E7E7A] mt-0.5 truncate">指定主厨汉堡专享折扣</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-xs font-bold text-[#006D36]">-¥3.00</span>
-                        {couponCode === 'CHEF-3' ? (
-                          <span className="text-[11px] font-semibold bg-[#1A1C1B] text-white px-2.5 py-1 flex items-center gap-1 subtle-rounded">
-                            <Check className="w-2.5 h-2.5 text-[#006D36]" />
-                            已选
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setCouponCode('CHEF-3');
-                              setCouponDiscount(3.0);
-                              toast.success('已切换至 [CHEF-3] 尝鲜券');
-                            }}
-                            className="text-[11px] font-medium text-[#1A1C1B] border border-[#E8E8E6] bg-[#F9F9F7] hover:bg-black/5 active:scale-95 px-2.5 py-1 subtle-rounded transition-all cursor-pointer"
-                          >
-                            切换
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                        );
+                      })
+                    )}
                   </div>
 
                   {/* 兑换码输入框 */}
@@ -1338,7 +1607,7 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
         {/* Slide-up Detail Sheet */}
         <div
           id="cost-detail-sheet"
-          className={`fixed bottom-0 left-0 right-0 z-40 max-w-[420px] mx-auto bg-white border-t border-[#E8E8E6] shadow-lg transition-transform duration-300 ease-out pb-20 ${
+          className={`fixed bottom-0 left-0 right-0 z-40 max-w-xl md:max-w-3xl lg:max-w-4xl mx-auto bg-white border-t border-[#E8E8E6] shadow-xl transition-transform duration-300 ease-out pb-24 rounded-t-3xl overflow-hidden ${
             isCostSheetOpen ? 'translate-y-0' : 'translate-y-full'
           }`}
         >
@@ -1458,23 +1727,23 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
         {/* 上拉菜单主体容器 (在安全支付按钮上方滑出，贴合底部工具栏) */}
         <div
           id="payment-channel-sheet"
-          className={`fixed bottom-0 left-0 right-0 z-40 max-w-[420px] mx-auto bg-white border-t border-[#E8E8E6] shadow-[0_-8px_30px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-out pb-20 rounded-t-2xl overflow-hidden ${
+          className={`fixed bottom-0 left-0 right-0 z-40 max-w-xl md:max-w-3xl lg:max-w-4xl mx-auto bg-white border-t border-[#E8E8E6] shadow-[0_-8px_30px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-out pb-24 rounded-t-3xl overflow-hidden ${
             isPaymentSheetOpen ? 'translate-y-0' : 'translate-y-full'
           }`}
         >
           {/* 顶部指示把手 */}
-          <div className="pt-2.5 pb-1 flex justify-center bg-[#F9F9F7]">
-            <div className="w-10 h-1 rounded-full bg-[#DCDCD8]" />
+          <div className="pt-3 pb-1 flex justify-center bg-[#F9F9F7]">
+            <div className="w-12 h-1.5 rounded-full bg-[#DCDCD8]" />
           </div>
 
-          <div className="px-4 py-2.5 border-b border-[#F0F0EE] flex items-center justify-between bg-[#F9F9F7]">
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded-full bg-[#006D36]/10 flex items-center justify-center">
-                <Lock className="w-3 h-3 text-[#006D36]" />
+          <div className="px-5 py-3 border-b border-[#F0F0EE] flex items-center justify-between bg-[#F9F9F7]">
+            <div className="flex items-center gap-2.5">
+              <div className="w-6 h-6 rounded-full bg-[#006D36]/10 flex items-center justify-center">
+                <Lock className="w-3.5 h-3.5 text-[#006D36]" />
               </div>
               <div>
-                <h3 className="text-xs font-bold text-[#1A1C1B] tracking-tight">安全支付 · 选择渠道</h3>
-                <p className="text-[10px] text-[#7E7E7A]">选择支付方式可享立减优惠</p>
+                <h3 className="text-sm font-bold text-[#1A1C1B] tracking-tight">安全支付 · 选择渠道</h3>
+                <p className="text-xs text-[#7E7E7A]">选择支付方式可享立减优惠</p>
               </div>
             </div>
             <button
@@ -1482,33 +1751,33 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
               id="btn-close-payment-sheet"
               aria-label="关闭支付方式选择"
               onClick={() => setIsPaymentSheetOpen(false)}
-              className="w-6 h-6 flex items-center justify-center border border-[#E8E8E6] bg-white text-[#7E7E7A] hover:text-[#1A1C1B] hover:bg-black/5 active:scale-95 transition-all cursor-pointer rounded-full"
+              className="w-7 h-7 flex items-center justify-center border border-[#E8E8E6] bg-white text-[#7E7E7A] hover:text-[#1A1C1B] hover:bg-black/5 active:scale-95 transition-all cursor-pointer rounded-full"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
 
           {/* 1号位置内容完整复刻：4个支付渠道卡片网格 */}
-          <div className="p-4 space-y-3 bg-white">
-            <div className="grid grid-cols-4 gap-2" data-purpose="sheet-payment-channel-grid">
+          <div className="p-4 sm:p-5 space-y-3 bg-white">
+            <div className="grid grid-cols-4 gap-2.5" data-purpose="sheet-payment-channel-grid">
               {/* 微信支付 */}
               <button
                 type="button"
                 id="sheet-pay-wx"
                 onClick={() => handleSelectChannel('wx')}
-                className={`pay-option p-2 flex flex-col items-center justify-center gap-1 transition-all relative cursor-pointer subtle-rounded ${
+                className={`pay-option p-3 flex flex-col items-center justify-center gap-1.5 transition-all relative cursor-pointer rounded-xl ${
                   selectedChannelKey === 'wx'
                     ? paymentChannels.wx.activeBorder
                     : paymentChannels.wx.border
                 }`}
               >
-                <div className="w-6 h-6 rounded-full bg-[#07c160] flex items-center justify-center shadow-xs">
-                  <svg className="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <div className="w-7 h-7 rounded-full bg-[#07c160] flex items-center justify-center shadow-xs">
+                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M8.691 2.188C3.891 2.188 0 5.478 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.59.59 0 0 1 .213.665l-.534 1.996c-.05.188.15.342.316.241l2.368-1.428a.63.63 0 0 1 .536-.053c.895.27 1.848.419 2.84.419.467 0 .924-.034 1.372-.095a6.452 6.452 0 0 1-.223-1.688c0-3.69 3.42-6.68 7.64-6.68.328 0 .65.018.968.051C17.702 5.163 13.567 2.188 8.691 2.188zm-2.03 4.29c.633 0 1.146.513 1.146 1.147a1.147 1.147 0 0 1-2.293 0c0-.634.513-1.147 1.147-1.147zm5.156 0c.633 0 1.146.513 1.146 1.147a1.147 1.147 0 0 1-2.292 0c0-.634.513-1.147 1.146-1.147zM16.5 9.774c-3.664 0-6.635 2.502-6.635 5.589 0 1.705.908 3.235 2.32 4.275a.49.49 0 0 1 .17.514l-.412 1.542c-.04.145.116.264.244.186l1.83-1.103a.49.49 0 0 1 .414-.041c.692.208 1.428.322 2.193.322 3.665 0 6.635-2.503 6.635-5.59 0-3.086-2.97-5.588-6.635-5.588zm-1.895 3.327c.489 0 .885.396.885.885a.885.885 0 1 1-1.77 0c0-.49.396-.885.885-.885zm4.128 0c.489 0 .885.396.885.885a.885.885 0 1 1-1.77 0c0-.49.396-.885.885-.885z" />
                   </svg>
                 </div>
                 <span className="text-xs font-bold text-[#07c160]">微信支付</span>
-                <span className="text-[9px] text-[#07c160]/80 font-semibold">-¥3.00</span>
+                <span className="text-[10px] text-[#07c160]/90 font-bold">-¥3.00</span>
               </button>
 
               {/* 支付宝 */}
@@ -1516,19 +1785,19 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                 type="button"
                 id="sheet-pay-alipay"
                 onClick={() => handleSelectChannel('alipay')}
-                className={`pay-option p-2 flex flex-col items-center justify-center gap-1 transition-all relative cursor-pointer subtle-rounded ${
+                className={`pay-option p-3 flex flex-col items-center justify-center gap-1.5 transition-all relative cursor-pointer rounded-xl ${
                   selectedChannelKey === 'alipay'
                     ? paymentChannels.alipay.activeBorder
                     : paymentChannels.alipay.border
                 }`}
               >
-                <div className="w-6 h-6 rounded-full bg-[#1677ff] flex items-center justify-center shadow-xs">
-                  <svg className="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <div className="w-7 h-7 rounded-full bg-[#1677ff] flex items-center justify-center shadow-xs">
+                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M20.67 15.18c-1.39-.52-3.13-1.2-4.9-1.92 1.07-2.07 1.83-4.4 2.17-6.89h-5.26V4.5h-2.14v1.87H4.88v2.01h5.66c-.32 1.88-.89 3.66-1.68 5.25-1.57-.75-3.03-1.61-4.14-2.55L3.2 12.63c1.54 1.25 3.51 2.35 5.62 3.26C5.9 17.65 3.4 19.34 1.5 20.9l1.6 1.63c2.09-1.66 4.95-3.57 8.35-5.3 2.76 1.34 5.37 2.27 7.54 2.77l1.68-2.12c-.67-.22-1.42-.51-2.22-.92l2.22-1.78z" />
                   </svg>
                 </div>
                 <span className="text-xs font-medium text-[#1677ff]">支付宝</span>
-                <span className="text-[9px] text-[#1677ff]/80 font-medium">-¥2.50</span>
+                <span className="text-[10px] text-[#1677ff]/90 font-medium">-¥2.50</span>
               </button>
 
               {/* 银联卡 */}
@@ -1536,20 +1805,20 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                 type="button"
                 id="sheet-pay-unionpay"
                 onClick={() => handleSelectChannel('unionpay')}
-                className={`pay-option p-2 flex flex-col items-center justify-center gap-1 transition-all relative cursor-pointer subtle-rounded ${
+                className={`pay-option p-3 flex flex-col items-center justify-center gap-1.5 transition-all relative cursor-pointer rounded-xl ${
                   selectedChannelKey === 'unionpay'
                     ? paymentChannels.unionpay.activeBorder
                     : paymentChannels.unionpay.border
                 }`}
               >
-                <div className="w-6 h-6 rounded-full bg-[#e60012] flex items-center justify-center shadow-xs">
-                  <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <div className="w-7 h-7 rounded-full bg-[#e60012] flex items-center justify-center shadow-xs">
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                     <rect height="14" rx="2" width="20" x="2" y="5" />
                     <line x1="2" x2="22" y1="10" y2="10" />
                   </svg>
                 </div>
                 <span className="text-xs font-medium text-[#b51221]">银联卡</span>
-                <span className="text-[9px] text-[#b51221]/80 font-medium">-¥2.00</span>
+                <span className="text-[10px] text-[#b51221]/90 font-medium">-¥2.00</span>
               </button>
 
               {/* 企业餐补 */}
@@ -1557,36 +1826,36 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                 type="button"
                 id="sheet-pay-corp"
                 onClick={() => handleSelectChannel('corp')}
-                className={`pay-option p-2 flex flex-col items-center justify-center gap-1 transition-all relative cursor-pointer subtle-rounded ${
+                className={`pay-option p-3 flex flex-col items-center justify-center gap-1.5 transition-all relative cursor-pointer rounded-xl ${
                   selectedChannelKey === 'corp'
                     ? paymentChannels.corp.activeBorder
                     : paymentChannels.corp.border
                 }`}
               >
-                <div className="w-6 h-6 rounded-full bg-[#d97706] flex items-center justify-center shadow-xs">
-                  <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <div className="w-7 h-7 rounded-full bg-[#d97706] flex items-center justify-center shadow-xs">
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                     <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </div>
                 <span className="text-xs font-medium text-[#b45309]">企业餐补</span>
-                <span className="text-[9px] text-[#b45309]/80 font-medium">-¥5.00</span>
+                <span className="text-[10px] text-[#b45309]/90 font-medium">-¥5.00</span>
               </button>
             </div>
 
             {/* 选中渠道与立减说明 */}
-            <div className="p-2.5 bg-[#F9F9F7] rounded border border-[#F0F0EE] flex items-center justify-between text-xs">
-              <div className="flex items-center gap-1.5 text-[#7E7E7A]">
+            <div className="p-3 bg-[#F9F9F7] rounded-xl border border-[#F0F0EE] flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2 text-[#7E7E7A]">
                 <span>已选方式:</span>
-                <span className="font-semibold text-[#1A1C1B]">{channelName}</span>
+                <span className="font-bold text-[#1A1C1B]">{channelName}</span>
                 {channelDiscount > 0 && (
-                  <span className="text-[10px] text-[#006D36] bg-[#EBF7EF] px-1.5 py-0.5 rounded font-medium">
+                  <span className="text-[11px] text-[#006D36] bg-[#EBF7EF] px-2 py-0.5 rounded-full font-bold">
                     立减¥{channelDiscount.toFixed(2)}
                   </span>
                 )}
               </div>
               <div className="text-right">
-                <span className="text-[#7E7E7A] text-[11px]">实付 </span>
-                <span className="text-sm font-black text-[#1A1C1B]">¥{finalAmount.toFixed(2)}</span>
+                <span className="text-[#7E7E7A] text-xs">实付 </span>
+                <span className="text-base font-black text-[#1A1C1B]">¥{finalAmount.toFixed(2)}</span>
               </div>
             </div>
 
@@ -1595,14 +1864,14 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
         </div>
 
         {/* Sticky Fixed Bottom Bar */}
-        <footer className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-[#E8E8E6] px-4 py-3">
-          <div className="max-w-[420px] mx-auto flex items-center justify-between gap-3">
+        <footer className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-[#E8E8E6] px-4 sm:px-6 py-3.5">
+          <div className="w-full max-w-xl md:max-w-3xl lg:max-w-4xl mx-auto flex items-center justify-between gap-4">
             {/* 价格与明细快捷展开 */}
             <div className="flex flex-col">
               <div className="flex items-baseline gap-1.5">
-                <span className="text-[10px] text-[#7E7E7A] tracking-tight uppercase">实付</span>
-                <span className="text-xl font-black text-[#1A1C1B] tracking-tight leading-none">
-                  <span className="text-xs font-semibold">¥</span>
+                <span className="text-[11px] text-[#7E7E7A] tracking-tight font-medium">实付</span>
+                <span className="text-2xl font-black text-[#1A1C1B] tracking-tight leading-none">
+                  <span className="text-sm font-bold">¥</span>
                   <span id="final-payable-amount">{finalAmount.toFixed(2)}</span>
                 </span>
               </div>
@@ -1613,14 +1882,14 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                   setIsCostSheetOpen(!isCostSheetOpen);
                   setIsPaymentSheetOpen(false);
                 }}
-                className="text-[11px] text-[#7E7E7A] hover:text-[#1A1C1B] flex items-center gap-0.5 mt-0.5 text-left cursor-pointer group"
+                className="text-xs text-[#7E7E7A] hover:text-[#1A1C1B] flex items-center gap-1 mt-1 text-left cursor-pointer group"
               >
                 <span className="group-hover:text-[#1A1C1B] transition-colors">
                   省¥<span id="total-savings">{totalSaved.toFixed(2)}</span> · 明细
                 </span>
                 <ChevronDown
                   id="footer-detail-arrow"
-                  className={`w-3 h-3 text-[#9E9E98] transition-transform duration-200 ${
+                  className={`w-3.5 h-3.5 text-[#9E9E98] transition-transform duration-200 ${
                     isCostSheetOpen ? 'rotate-180' : ''
                   }`}
                 />
@@ -1633,11 +1902,11 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
               id="btn-confirm-pay"
               onClick={handleClickSafePay}
               disabled={totalQuantity === 0}
-              className={`flex-1 max-w-[200px] h-11 bg-[#1A1C1B] text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98] transition-all hover:bg-black subtle-rounded cursor-pointer ${
+              className={`flex-1 sm:flex-none sm:min-w-[220px] h-12 bg-[#1A1C1B] text-white text-sm font-bold flex items-center justify-center gap-2 shadow-md active:scale-[0.98] transition-all hover:bg-black rounded-xl cursor-pointer ${
                 totalQuantity === 0 ? 'opacity-40 pointer-events-none' : ''
               }`}
             >
-              <Lock className="w-3.5 h-3.5 text-white/90" />
+              <Lock className="w-4 h-4 text-white/90" />
               <span>
                 {isPaymentSheetOpen ? '确认支付' : '安全支付'} ¥<span id="btn-pay-price">{finalAmount.toFixed(2)}</span>
               </span>

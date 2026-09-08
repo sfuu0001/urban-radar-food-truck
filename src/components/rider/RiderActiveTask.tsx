@@ -338,7 +338,23 @@ export const RiderActiveTask: React.FC<RiderActiveTaskProps> = ({
           </div>
           <button
             type="button"
-            onClick={() => showToast('已自动矫正最新餐车取餐路线')}
+            onClick={() => {
+              // FIX(审计P1): "校准路线"真实化——基于餐车移位广播地址重建导航目标并唤起导航 HUD（取代"仅提示已矫正"假实现）
+              const target = activeOrders.find((o) => o.id === selectedOrderId) || activeOrders[0] || activeOrder;
+              if (target) {
+                const newAddress = truckRelocationWarning?.newAddress || target.truckAddress;
+                setNavTarget({
+                  orderId: target.id,
+                  targetName: target.truckName || '黑曜石流动餐车',
+                  targetAddress: newAddress,
+                  targetType: 'truck',
+                  distanceMeters: truckRelocationWarning ? Math.max(0, truckRelocationWarning.offsetMeters) : target.truckDistanceMeters
+                });
+                showToast(`已按最新餐车坐标重新规划取餐路线：${newAddress}`);
+              } else {
+                showToast('当前无在途任务，无需校准路线');
+              }
+            }}
             className="px-2 py-0.5 bg-white hover:bg-[#fbf3db] border border-[#ecd9a8] text-[#8f6412] rounded-[2px] font-semibold text-[10.5px] shrink-0 cursor-pointer transition-colors whitespace-nowrap"
           >
             校准路线

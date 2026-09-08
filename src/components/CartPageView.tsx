@@ -41,6 +41,7 @@ import { CartMinOrderBanner } from './cart/CartMinOrderBanner';
 import { CartPriceBreakdownCard } from './cart/CartPriceBreakdownCard';
 import { CartBottomCheckoutBar } from './cart/CartBottomCheckoutBar';
 import { CartNoteModal, CartCouponModal, CartClearConfirmModal } from './cart/CartModals';
+import { getSavedAddresses } from '../utils/truckLocationEngine';
 
 export interface CartPageViewProps {
   items: CartItem[];
@@ -162,6 +163,16 @@ export const CartPageView: React.FC<CartPageViewProps> = ({
     effectiveDeliveryFee,
     grandTotal
   } = thresholdCalc;
+
+  // Retrieve matched address with details (name, phone, houseNumber, remarks)
+  const matchedAddr = useMemo(() => {
+    const list = getSavedAddresses();
+    return list.find(a => 
+      deliveryAddress.includes(a.title) || 
+      a.title.includes(deliveryAddress) ||
+      deliveryAddress.includes(a.detail)
+    ) || list.find(a => a.isDefault) || list[0];
+  }, [deliveryAddress]);
 
   // Quick add-on recommendations for quick cart upsell
   const upsellDishes = useMemo(() => {
@@ -341,6 +352,10 @@ export const CartPageView: React.FC<CartPageViewProps> = ({
             truckName="黑曜石 01 号餐车"
             truckLocation="静安大悦城北座 1F 中庭"
             distanceDesc="直距 420m"
+            recipientName={matchedAddr?.receiverName || '张先生'}
+            recipientPhone={matchedAddr?.receiverPhone || '138****8821'}
+            houseNumber={matchedAddr?.houseNumber}
+            remarks={matchedAddr?.remarks}
           />
 
           {/* Ordered Dish List with Rich/Compact View Switcher, Modifiers, and Stepper Controls */}

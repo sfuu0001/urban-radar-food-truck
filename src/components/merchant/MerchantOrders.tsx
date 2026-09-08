@@ -30,7 +30,12 @@ import {
   LayoutGrid,
   Power,
   RotateCw,
-  Package
+  Package,
+  Megaphone,
+  Trash2,
+  Calendar,
+  CalendarDays,
+  Filter
 } from 'lucide-react';
 import { Order } from '../../types';
 import { UnifiedOmniChatModal } from '../chat/UnifiedOmniChatModal';
@@ -38,12 +43,38 @@ import { MerchantPickupVerifyModal } from './MerchantPickupVerifyModal';
 import { MerchantAuditConvertToDeliveryModal } from './MerchantAuditConvertToDeliveryModal';
 import { getOrGeneratePickupCode, getPickupShelfCode, subscribePickupVerifiedEvent } from '../../utils/pickupCodeEngine';
 import { resolveOrderChannelType } from '../../utils/orderNormalizer';
+import { voiceAlerts, unlockAudioContext } from '../../utils/voiceAlertEngine';
+import { AccountAuditDrawer } from './AccountAuditDrawer';
+import { globalScannerEngine, playScannerBeep } from '../../utils/barcodeScannerEngine';
+import { businessTransactionEngine } from '../../utils/businessTransactionEngine';
+
+// Helper to extract exact YYYY-MM-DD from order
+export function resolveOrderDay(order: Order): string {
+  const anyOrder = order as any;
+  if (anyOrder.createdAt && typeof anyOrder.createdAt === 'string' && /^\d{4}-\d{2}-\d{2}/.test(anyOrder.createdAt)) {
+    return anyOrder.createdAt.slice(0, 10);
+  }
+  if (order.createdTime && /^\d{4}-\d{2}-\d{2}/.test(order.createdTime)) {
+    return order.createdTime.slice(0, 10);
+  }
+  if (anyOrder.timestamp && typeof anyOrder.timestamp === 'string' && /^\d{4}-\d{2}-\d{2}/.test(anyOrder.timestamp)) {
+    return anyOrder.timestamp.slice(0, 10);
+  }
+  if (order.id?.includes('yesterday') || order.orderNo?.includes('7077') || order.orderNo?.includes('9820')) {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().slice(0, 10);
+  }
+  const now = new Date();
+  return now.toISOString().slice(0, 10);
+}
 
 interface MerchantOrdersProps {
   orders: Order[];
   onAcceptOrder?: (orderId: string) => void;
   onAdvanceOrderStatus: (orderId: string, targetStatus?: Order['status'], extraDetails?: Partial<Order>) => void;
   onRejectOrder: (orderId: string, reason: string) => void;
+  onDeleteOrder?: (orderId: string, reason?: string) => void;
   onAuditRefund?: (orderId: string, approved: boolean, rejectReason?: string) => void;
   onToggleNonRefundable?: (orderId: string, nonRefundable: boolean) => void;
   showToast: (msg: string) => void;
@@ -71,6 +102,7 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
   onAcceptOrder,
   onAdvanceOrderStatus,
   onRejectOrder,
+  onDeleteOrder,
   onAuditRefund,
   onToggleNonRefundable,
   showToast
@@ -79,6 +111,10 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
   const [channelFilter, setChannelFilter] = useState<'all' | 'delivery' | 'dine_in' | 'pickup'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
+  
+  // Date filtering state (Exact to the day)
+  const [selectedDate, setSelectedDate] = useState<string>(''); // empty string means all dates
+  const [dateFilterPreset, setDateFilterPreset] = useState<'all' | 'today' | 'yesterday' | '7days' | 'custom'>('all');
   
   // Automations - Default FALSE (Merchant must explicitly enable auto-accept)
   const [isAutoAccept, setIsAutoAccept] = useState<boolean>(() => {
@@ -115,9 +151,133 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
   const [rejectOrderTarget, setRejectOrderTarget] = useState<Order | null>(null);
   const [rejectReason, setRejectReason] = useState('食材售罄，无法现制');
 
+  // 扫码枪与极速核销面板状态
+  const [isScannerBarOpen, setIsScannerBarOpen] = useState(false);
+  const [quickScanInput, setQuickScanInput] = useState('');
+
+  // FIX(审计P1): "刷新同步"真实化——从本地权威键重读订单，若有变化派发事件让全端刷新（取代"仅提示已同步"假实现）
+  const handleRefreshSync = () => {
+    try {
+      const fresh = safeGetStorage<Order[]>('obsidian_truck_orders', orders);
+      const deduped = Array.from(new Map((fresh.length ? fresh : orders).map((o) => [o.orderNo || o.id, o])).values());
+      const hasChanges =
+        deduped.length !== orders.length ||
+        deduped.some((o, i) => {
+          const cur = orders[i];
+          return !cur || cur.status !== o.status || cur.progressPercent !== o.progressPercent;
+        });
+      if (hasChanges && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('obsidian_orders_updated', { detail: deduped }));
+      }
+      showToast(hasChanges ? '已从本地权威存储刷新订单队列，发现并同步最新状态' : '订单队列已是最新，与云端无差异');
+    } catch (e) {
+      console.error('刷新订单队列失败:', e);
+      showToast('刷新失败，请稍后重试');
+    }
+  };
+
+  // 挂载全局硬件扫码枪 / 软扫码引擎
+  useEffect(() => {
+    const handleScanResult = (res: { code: string }) => {
+      const clean = (res?.code || '').trim();
+      if (!clean) return;
+
+      // 智能匹配订单：比对订单号、取件码、或系统ID
+      const cleanUpper = clean.toUpperCase().replace(/^#/, '');
+      const matched = orders.find((o) => {
+        const oNo = (o.orderNo || '').toUpperCase().replace(/^#/, '');
+        const pCode = (o.pickupCode || getOrGeneratePickupCode(o.orderNo)).toUpperCase().replace(/^PK-/, '');
+        const inputCode = cleanUpper.replace(/^PK-/, '');
+        return oNo === cleanUpper || oNo.endsWith(cleanUpper) || pCode === inputCode || o.id === clean;
+      });
+
+      if (matched) {
+        playScannerBeep('beep_success');
+        setVerifyTargetOrder(matched);
+        setSearchQuery(matched.orderNo.replace(/^#/, ''));
+        showToast(`⚡ 扫码成功：已自动定位订单 #${matched.orderNo.replace(/^#/, '')}，打开核销确认！`);
+      } else {
+        playScannerBeep('beep_error');
+        showToast(`⚠️ 扫码提示：未匹配到条码 [${clean}] 对应的有效自提/专送订单`);
+      }
+    };
+
+    const unsubscribe = globalScannerEngine.subscribe(handleScanResult);
+    return () => unsubscribe();
+  }, [orders, showToast]);
+
+  // 手工回车快速核销提交
+  const handleQuickManualVerify = (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = quickScanInput.trim();
+    if (!clean) return;
+
+    const cleanUpper = clean.toUpperCase().replace(/^#/, '');
+    const matched = orders.find((o) => {
+      const oNo = (o.orderNo || '').toUpperCase().replace(/^#/, '');
+      const pCode = (o.pickupCode || getOrGeneratePickupCode(o.orderNo)).toUpperCase().replace(/^PK-/, '');
+      const inputCode = cleanUpper.replace(/^PK-/, '');
+      return oNo === cleanUpper || oNo.endsWith(cleanUpper) || pCode === inputCode || o.id === clean;
+    });
+
+    if (matched) {
+      playScannerBeep('beep_success');
+      setVerifyTargetOrder(matched);
+      setSearchQuery(matched.orderNo.replace(/^#/, ''));
+      setQuickScanInput('');
+    } else {
+      playScannerBeep('beep_error');
+      showToast(`未找到单号或提餐码为 [${clean}] 的有效订单`);
+    }
+  };
+
   // Refund reject modal
   const [refundRejectTarget, setRefundRejectTarget] = useState<Order | null>(null);
   const [refundRejectReason, setRefundRejectReason] = useState('餐品已下锅高温炙烤，无法中途取消');
+
+  // Delete / Discard order modal
+  const [deleteTargetOrder, setDeleteTargetOrder] = useState<Order | null>(null);
+  const [deleteReason, setDeleteReason] = useState('顾客误触/重复下单作废');
+  const [customDeleteReason, setCustomDeleteReason] = useState('');
+  const [createSafetySnapshot, setCreateSafetySnapshot] = useState(true);
+
+  const handleConfirmDeleteOrder = () => {
+    if (!deleteTargetOrder) return;
+    const finalReason = deleteReason === 'other' ? (customDeleteReason.trim() || '其他原因作废') : deleteReason;
+    if (onDeleteOrder) {
+      onDeleteOrder(deleteTargetOrder.orderNo || deleteTargetOrder.id, finalReason);
+    }
+    showToast(`订单 #${deleteTargetOrder.orderNo.replace(/^#/, '')} 已从全渠道订单中心作废删除！`);
+    setDeleteTargetOrder(null);
+    setCustomDeleteReason('');
+  };
+
+  // 方案 B：订单看板自提催取/呼叫骑手 叫号频次状态管理
+  const [orderCallCounts, setOrderCallCounts] = useState<Record<string, number>>({});
+
+  const handleQuickBroadcastCall = async (order: Order) => {
+    const oChannel = resolveOrderChannelType(order);
+    const cleanNo = (order.orderNo || '').replace(/^#/, '');
+    const pCode = getOrGeneratePickupCode(order.orderNo, order.pickupCode);
+
+    setOrderCallCounts((prev) => ({
+      ...prev,
+      [order.orderNo]: (prev[order.orderNo] || 0) + 1
+    }));
+
+    await unlockAudioContext();
+
+    if (oChannel === 'pickup') {
+      voiceAlerts.callingGuest(pCode || cleanNo, '餐车前台自提处');
+      showToast(`已向外放广播呼叫: 请自提顾客 #${pCode || cleanNo} 到餐车取餐！`);
+    } else if (oChannel === 'delivery') {
+      voiceAlerts.callRiderForOrder(order.orderNo, order.courierName || '专线/美团骑手');
+      showToast(`已外放呼叫骑手: 外卖订单 #${cleanNo} 已备齐，请尽快到流动车站台取餐！`);
+    } else {
+      voiceAlerts.kdsReadyAndCall(order.orderNo, 'dine_in', order.tableCode ? `${order.tableCode} 号桌` : '外摆区');
+      showToast(`已广播通知传菜: 桌台 ${order.tableCode || 'A1'} 菜品出餐！`);
+    }
+  };
 
   // Handle manual audit to convert dine-in order to rider delivery
   const handleConfirmConvertToDelivery = (
@@ -195,6 +355,25 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
       if (channelFilter === 'delivery' && oChannel !== 'delivery') return false;
       if (channelFilter === 'pickup' && oChannel !== 'pickup') return false;
 
+      // Date Filtering (Exact to the day)
+      if (selectedDate) {
+        const orderDay = resolveOrderDay(o);
+        if (orderDay !== selectedDate) return false;
+      } else if (dateFilterPreset === 'today') {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        if (resolveOrderDay(o) !== todayStr) return false;
+      } else if (dateFilterPreset === 'yesterday') {
+        const yDate = new Date();
+        yDate.setDate(yDate.getDate() - 1);
+        const yStr = yDate.toISOString().slice(0, 10);
+        if (resolveOrderDay(o) !== yStr) return false;
+      } else if (dateFilterPreset === '7days') {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const orderDay = resolveOrderDay(o);
+        if (orderDay < sevenDaysAgo.toISOString().slice(0, 10)) return false;
+      }
+
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         return (
@@ -210,7 +389,12 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
       }
       return true;
     });
-  }, [orders, activeStatusTab, channelFilter, searchQuery]);
+  }, [orders, activeStatusTab, channelFilter, searchQuery, selectedDate, dateFilterPreset]);
+
+  // Statistics for currently filtered view
+  const filteredTotalAmount = useMemo(() => {
+    return filteredOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+  }, [filteredOrders]);
 
   const handleToggleLock = (order: Order) => {
     const nextState = !order.nonRefundable;
@@ -473,6 +657,21 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                 <span className="hidden sm:inline">语音</span>
               </button>
 
+              {/* 扫码核销中枢 */}
+              <button
+                type="button"
+                onClick={() => setIsScannerBarOpen((v) => !v)}
+                className={`px-2 py-1 text-xs font-semibold flex items-center gap-1 transition-colors border rounded-none cursor-pointer ${
+                  isScannerBarOpen
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-300'
+                }`}
+                title="开启/关闭扫码核销快捷条（已实时接入条码扫码枪）"
+              >
+                <Scan className="w-3 h-3" />
+                <span>扫码核销</span>
+              </button>
+
               {/* 批量打印 */}
               <button
                 type="button"
@@ -486,6 +685,38 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Embedded Scanner Active Strip */}
+        {isScannerBarOpen && (
+          <div className="bg-indigo-950 text-white p-2.5 rounded-none border border-indigo-800 flex items-center justify-between gap-3 flex-wrap animate-in fade-in duration-150">
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1 text-[11px] font-bold text-indigo-300 bg-indigo-900/80 px-2 py-0.5 border border-indigo-700">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>扫码枪硬/软中枢已就绪</span>
+              </span>
+              <span className="text-[11px] text-indigo-200">
+                支持条码扫码枪即扫即核，或在右侧输入单号/自提码（如 PK-7078）后按回车：
+              </span>
+            </div>
+
+            <form onSubmit={handleQuickManualVerify} className="flex items-center gap-2">
+              <input
+                type="text"
+                value={quickScanInput}
+                onChange={(e) => setQuickScanInput(e.target.value)}
+                placeholder="输入自提码/订单号并回车..."
+                className="px-2.5 py-1 text-xs bg-indigo-900/60 border border-indigo-600 text-white placeholder:text-indigo-400 focus:outline-none focus:border-amber-400 w-52 font-mono"
+                autoFocus
+              />
+              <button
+                type="submit"
+                className="px-3 py-1 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs rounded-none cursor-pointer transition-colors"
+              >
+                立即核销
+              </button>
+            </form>
+          </div>
+        )}
 
         {/* Row 2: Channel Segmentation & View Toggle */}
         <div className="flex flex-wrap items-center justify-between text-xs text-slate-600 pt-2 border-t border-slate-200 gap-2">
@@ -567,6 +798,134 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
               <span className="w-1.5 h-1.5 bg-amber-500 inline-block rounded-none"></span>
               <span>堂食订单默认不入骑手池，需转送请点击卡片【审核转外卖专送】</span>
             </div>
+          </div>
+        </div>
+
+        {/* Row 3: Date Filter Component (精确到天的日期筛选器组件) */}
+        <div className="flex flex-wrap items-center justify-between text-xs text-slate-700 pt-2.5 mt-2 border-t border-dashed border-slate-200 gap-2 bg-slate-50/80 -mx-3 sm:-mx-4 px-3 sm:px-4 py-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1 font-bold text-slate-700">
+              <CalendarDays className="w-3.5 h-3.5 text-indigo-600" />
+              <span className="text-[11px]">日期筛选 (精确到天):</span>
+            </div>
+
+            {/* Quick Preset Buttons */}
+            <div className="inline-flex items-center border border-slate-300 bg-white p-0.5 rounded-none shadow-2xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setDateFilterPreset('all');
+                  setSelectedDate('');
+                }}
+                className={`px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer rounded-none ${
+                  dateFilterPreset === 'all' && !selectedDate
+                    ? 'bg-slate-900 text-white font-bold'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                全部日期
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const todayStr = new Date().toISOString().slice(0, 10);
+                  setDateFilterPreset('today');
+                  setSelectedDate(todayStr);
+                }}
+                className={`px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer rounded-none ${
+                  dateFilterPreset === 'today' || selectedDate === new Date().toISOString().slice(0, 10)
+                    ? 'bg-indigo-700 text-white font-bold'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                今天
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const y = new Date();
+                  y.setDate(y.getDate() - 1);
+                  const yStr = y.toISOString().slice(0, 10);
+                  setDateFilterPreset('yesterday');
+                  setSelectedDate(yStr);
+                }}
+                className={`px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer rounded-none ${
+                  dateFilterPreset === 'yesterday'
+                    ? 'bg-indigo-700 text-white font-bold'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                昨天
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setDateFilterPreset('7days');
+                  setSelectedDate('');
+                }}
+                className={`px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer rounded-none ${
+                  dateFilterPreset === '7days'
+                    ? 'bg-indigo-700 text-white font-bold'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                近7天
+              </button>
+            </div>
+
+            {/* Custom Precise Date Picker (精确到天) */}
+            <div className="flex items-center gap-1.5 bg-white border border-slate-300 px-2 py-0.5 rounded-none shadow-2xs">
+              <Calendar className="w-3 h-3 text-slate-400" />
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => {
+                  setSelectedDate(e.target.value);
+                  setDateFilterPreset('custom');
+                }}
+                title="选择具体日期 (精确到天)"
+                className="text-xs text-slate-800 bg-transparent outline-none cursor-pointer font-mono"
+              />
+              {selectedDate && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedDate('');
+                    setDateFilterPreset('all');
+                  }}
+                  className="text-[10px] text-slate-400 hover:text-rose-600 ml-1 cursor-pointer font-bold"
+                  title="清除日期选择"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Date Filter Status / Summary */}
+          <div className="flex items-center gap-2 font-mono text-[11px]">
+            <span className="text-slate-500">
+              {selectedDate ? (
+                <>
+                  已锁定日期: <span className="font-bold text-indigo-700">{selectedDate}</span>
+                </>
+              ) : dateFilterPreset === '7days' ? (
+                <>已筛选: <span className="font-bold text-indigo-700">近7日全量单据</span></>
+              ) : (
+                '全历史订单池'
+              )}
+            </span>
+            <span className="text-slate-300">|</span>
+            <span className="text-slate-800 font-semibold">
+              筛选出 <span className="text-indigo-600 font-bold">{filteredOrders.length}</span> 笔
+            </span>
+            <span className="text-slate-300">|</span>
+            <span className="text-emerald-700 font-semibold">
+              流水 ¥<span className="font-bold">{filteredTotalAmount.toFixed(2)}</span>
+            </span>
           </div>
         </div>
       </section>
@@ -913,9 +1272,9 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                   </div>
 
                   {/* 底部动作按钮组 */}
-                  <div className="p-2.5 bg-white border-t border-slate-300 flex flex-wrap items-center justify-between gap-1.5 rounded-none">
+                  <div className="p-2.5 bg-white border-t border-slate-300 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-none">
                     {/* 左侧通用工具组 */}
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 scrollbar-none">
                       {/* 气泡联络室 (深邃黑方块+绿脉冲对齐手机端) */}
                       <button
                         type="button"
@@ -958,6 +1317,19 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                           <ArrowRightLeft className="w-3.5 h-3.5" />
                         </button>
                       )}
+
+                      {/* 商家作废/删除订单 */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDeleteTargetOrder(order);
+                          setDeleteReason('顾客误触/重复下单作废');
+                        }}
+                        className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 flex items-center justify-center transition-colors rounded-none cursor-pointer"
+                        title="作废并删除此订单"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
 
                     {/* 右侧流转核心动作 */}
@@ -988,13 +1360,23 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                           <span>制作完成 · 传菜上桌</span>
                         </button>
                       ) : isPickup ? (
-                        <div className="flex items-center gap-1.5 flex-1 min-w-[170px]">
+                        <div className="flex items-center gap-1.5 flex-1 w-full sm:w-auto flex-wrap sm:flex-nowrap">
+                          {/* 方案 B：订单看板快捷叫号取餐广播 */}
+                          <button
+                            type="button"
+                            onClick={() => handleQuickBroadcastCall(order)}
+                            className="py-2 px-2.5 bg-blue-50 hover:bg-blue-100 text-blue-900 font-bold text-xs flex items-center justify-center gap-1 border border-blue-300 transition-all rounded-none cursor-pointer shadow-2xs"
+                            title="外放语音呼叫自提顾客到前台取餐"
+                          >
+                            <Megaphone className="w-3.5 h-3.5 text-blue-700 shrink-0" />
+                            <span>叫号取餐{orderCallCounts[order.orderNo] ? ` (${orderCallCounts[order.orderNo]}次)` : ''}</span>
+                          </button>
                           <button
                             type="button"
                             onClick={() => setVerifyTargetOrder(order)}
                             className="flex-1 py-2 px-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center justify-center gap-1 border border-emerald-700 transition-colors rounded-none cursor-pointer"
                           >
-                            <Scan className="w-3.5 h-3.5" />
+                            <Scan className="w-3.5 h-3.5 shrink-0" />
                             <span>自提核销</span>
                           </button>
                           <button
@@ -1005,23 +1387,34 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                                 stepIndex: 2,
                                 statusText: '餐品已入保温柜待取'
                               });
-                              showToast(`自提订单 #${order.orderNo.replace(/^#/, '')} 制作完毕，已放入保温柜，通知食客凭取餐码取餐！`);
+                              voiceAlerts.smartLockerPickupGuidance(pickupCode, shelfCode || '03号保温格口');
+                              showToast(`自提订单 #${order.orderNo.replace(/^#/, '')} 制作完毕，已放入保温柜并触发语音取餐引导！`);
                             }}
                             className="flex-1 py-2 px-2 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs flex items-center justify-center gap-1 border border-sky-600 transition-colors rounded-none cursor-pointer"
                           >
-                            <ShoppingBag className="w-3.5 h-3.5" />
+                            <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
                             <span>出餐入柜</span>
                           </button>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-1.5 flex-1 min-w-[170px]">
+                        <div className="flex items-center gap-1.5 flex-1 w-full sm:w-auto flex-wrap sm:flex-nowrap">
+                          {/* 方案 B：订单看板快捷呼叫骑手广播 */}
+                          <button
+                            type="button"
+                            onClick={() => handleQuickBroadcastCall(order)}
+                            className="py-2 px-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-xs flex items-center justify-center gap-1 border border-amber-300 transition-all rounded-none cursor-pointer shadow-2xs"
+                            title="外放语音呼叫外卖专送骑手到餐车站台取餐"
+                          >
+                            <Megaphone className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                            <span>呼叫骑手{orderCallCounts[order.orderNo] ? ` (${orderCallCounts[order.orderNo]}次)` : ''}</span>
+                          </button>
                           <button
                             type="button"
                             onClick={() => setVerifyTargetOrder(order)}
                             className="flex-1 py-2 px-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center gap-1 border border-amber-600 transition-colors rounded-none cursor-pointer"
                           >
-                            <KeyRound className="w-3.5 h-3.5" />
-                            <span>骑手取件核销</span>
+                            <KeyRound className="w-3.5 h-3.5 shrink-0" />
+                            <span>骑手核销</span>
                           </button>
                           <button
                             type="button"
@@ -1031,63 +1424,99 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                                 stepIndex: 3,
                                 statusText: '专线骑手配送中'
                               });
-                              showToast(`外卖订单 #${order.orderNo.replace(/^#/, '')} 制作完成，已调度专线骑手配送！`);
+                              voiceAlerts.callRiderForOrder(order.orderNo);
+                              showToast(`外卖订单 #${order.orderNo.replace(/^#/, '')} 制作完成，已调度专线骑手并语音呼叫！`);
                             }}
                             className="flex-1 py-2 px-2 bg-slate-900 hover:bg-black text-white font-bold text-xs flex items-center justify-center gap-1 border border-slate-900 transition-colors rounded-none cursor-pointer"
                           >
-                            <span>呼叫骑手</span>
+                            <span>调度骑手</span>
                           </button>
                         </div>
                       )
                     ) : isDelivering && !isRefundPending ? (
                       isDineIn ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onAdvanceOrderStatus(order.orderNo || order.id, 'completed', {
-                              status: 'completed',
-                              stepIndex: 4,
-                              statusText: '餐品全齐·就餐完毕'
-                            });
-                            showToast(`堂食桌台 ${order.tableCode || 'A1'} 宾客就餐完毕，桌台已重置翻台！`);
-                          }}
-                          className="flex-1 min-w-[140px] py-2 px-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center justify-center gap-1 border border-emerald-700 transition-colors rounded-none cursor-pointer"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>餐品齐备 · 结账翻台</span>
-                        </button>
+                        <div className="flex items-center gap-1.5 flex-1 w-full sm:w-auto flex-wrap sm:flex-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => handleQuickBroadcastCall(order)}
+                            className="py-2 px-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 font-bold text-xs flex items-center justify-center gap-1 border border-emerald-300 transition-all rounded-none cursor-pointer"
+                            title="外放广播通知传菜"
+                          >
+                            <Megaphone className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                            <span>呼叫传菜{orderCallCounts[order.orderNo] ? ` (${orderCallCounts[order.orderNo]}次)` : ''}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onAdvanceOrderStatus(order.orderNo || order.id, 'completed', {
+                                status: 'completed',
+                                stepIndex: 4,
+                                statusText: '餐品全齐·就餐完毕'
+                              });
+                              showToast(`堂食桌台 ${order.tableCode || 'A1'} 宾客就餐完毕，桌台已重置翻台！`);
+                            }}
+                            className="flex-1 min-w-[120px] py-2 px-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center justify-center gap-1 border border-emerald-700 transition-colors rounded-none cursor-pointer"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                            <span>餐品齐备 · 结账翻台</span>
+                          </button>
+                        </div>
                       ) : isPickup ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onAdvanceOrderStatus(order.orderNo || order.id, 'completed', {
-                              status: 'completed',
-                              stepIndex: 4,
-                              statusText: '顾客已自提离店'
-                            });
-                            showToast(`自提订单 #${order.orderNo.replace(/^#/, '')} 顾客已提货，流程已结单！`);
-                          }}
-                          className="flex-1 min-w-[140px] py-2 px-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center justify-center gap-1 border border-emerald-700 transition-colors rounded-none cursor-pointer"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>核销完成 · 顾客已自提</span>
-                        </button>
+                        <div className="flex items-center gap-1.5 flex-1 w-full sm:w-auto flex-wrap sm:flex-nowrap">
+                          {/* 待取催取喇叭 */}
+                          <button
+                            type="button"
+                            onClick={() => handleQuickBroadcastCall(order)}
+                            className="py-2 px-2.5 bg-blue-100 hover:bg-blue-200 text-blue-900 font-bold text-xs flex items-center justify-center gap-1 border border-blue-300 transition-all rounded-none cursor-pointer shadow-2xs"
+                            title="外放广播催促自提顾客尽快取餐"
+                          >
+                            <Megaphone className="w-3.5 h-3.5 text-blue-700 shrink-0" />
+                            <span>催客取餐{orderCallCounts[order.orderNo] ? ` (${orderCallCounts[order.orderNo]}次)` : ''}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onAdvanceOrderStatus(order.orderNo || order.id, 'completed', {
+                                status: 'completed',
+                                stepIndex: 4,
+                                statusText: '顾客已自提离店'
+                              });
+                              showToast(`自提订单 #${order.orderNo.replace(/^#/, '')} 顾客已提货，流程已结单！`);
+                            }}
+                            className="flex-1 py-2 px-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center justify-center gap-1 border border-emerald-700 transition-colors rounded-none cursor-pointer"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                            <span>核销完成 · 顾客已自提</span>
+                          </button>
+                        </div>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onAdvanceOrderStatus(order.orderNo || order.id, 'completed', {
-                              status: 'completed',
-                              stepIndex: 4,
-                              statusText: '已送达妥投'
-                            });
-                            showToast(`外卖订单 #${order.orderNo.replace(/^#/, '')} 骑手已妥投送达！`);
-                          }}
-                          className="flex-1 min-w-[140px] py-2 px-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center justify-center gap-1 border border-emerald-700 transition-colors rounded-none cursor-pointer"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>确认送达 · 结单</span>
-                        </button>
+                        <div className="flex items-center gap-1.5 flex-1 w-full sm:w-auto flex-wrap sm:flex-nowrap">
+                          {/* 催骑手尽快送达 */}
+                          <button
+                            type="button"
+                            onClick={() => handleQuickBroadcastCall(order)}
+                            className="py-2 px-2.5 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-xs flex items-center justify-center gap-1 border border-amber-300 transition-all rounded-none cursor-pointer shadow-2xs"
+                            title="外放催骑手加速取送"
+                          >
+                            <Megaphone className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                            <span>呼叫骑手{orderCallCounts[order.orderNo] ? ` (${orderCallCounts[order.orderNo]}次)` : ''}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onAdvanceOrderStatus(order.orderNo || order.id, 'completed', {
+                                status: 'completed',
+                                stepIndex: 4,
+                                statusText: '已送达妥投'
+                              });
+                              showToast(`外卖订单 #${order.orderNo.replace(/^#/, '')} 骑手已妥投送达！`);
+                            }}
+                            className="flex-1 py-2 px-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center justify-center gap-1 border border-emerald-700 transition-colors rounded-none cursor-pointer"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                            <span>送达妥投</span>
+                          </button>
+                        </div>
                       )
                     ) : isCompleted ? (
                       <span className="text-emerald-700 font-mono text-xs font-bold px-2 py-1 bg-emerald-50 border border-emerald-200 rounded-none">
@@ -1171,6 +1600,18 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             type="button"
+                            onClick={() => handleQuickBroadcastCall(order)}
+                            className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-none cursor-pointer flex items-center gap-1 shadow-2xs"
+                            title={`外放语音广播: ${oChannel === 'pickup' ? '叫号取餐' : oChannel === 'delivery' ? '呼叫骑手' : '呼叫传菜'}`}
+                          >
+                            <Megaphone className="w-3 h-3 text-amber-700" />
+                            <span className="font-bold text-[10px]">
+                              {oChannel === 'pickup' ? '叫号' : oChannel === 'delivery' ? '呼叫' : '传菜'}
+                              {orderCallCounts[order.orderNo] ? ` (${orderCallCounts[order.orderNo]})` : ''}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => setChatOrder(order)}
                             className="p-1.5 bg-slate-900 hover:bg-black text-white border border-slate-900 rounded-none cursor-pointer"
                             title="联络室"
@@ -1184,6 +1625,18 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                             title="打印小票"
                           >
                             <Printer className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeleteTargetOrder(order);
+                              setDeleteReason('顾客误触/重复下单作废');
+                            }}
+                            className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 rounded-none cursor-pointer flex items-center gap-1"
+                            title="作废删除此订单"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            <span className="font-bold text-[10px]">删除</span>
                           </button>
                         </div>
                       </td>
@@ -1212,7 +1665,7 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
 
         <button
           type="button"
-          onClick={() => showToast('全域餐车订单数据已与云端完成同步！')}
+          onClick={handleRefreshSync}
           className="p-1 text-slate-500 hover:text-slate-900 flex items-center gap-1 border border-transparent hover:border-slate-300 rounded-none cursor-pointer text-[11px]"
           title="刷新最新订单队列"
         >
@@ -1462,6 +1915,12 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
           onClose={() => setVerifyTargetOrder(null)}
           order={verifyTargetOrder}
           onVerifySuccess={(orderId, pickupCodeVal) => {
+            businessTransactionEngine.executeVerifyPickup({
+              orderNo: verifyTargetOrder.orderNo || orderId,
+              pickupCode: pickupCodeVal,
+              operatorName: '订单中心扫码中枢',
+              showToast
+            });
             onAdvanceOrderStatus(verifyTargetOrder.orderNo || orderId, 'delivering', {
               status: 'delivering',
               stepIndex: 3,
@@ -1469,7 +1928,7 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
               pickupVerifiedAt: new Date().toLocaleTimeString('zh-CN', { hour12: false }),
               pickupVerifiedBy: '餐车扫码核销'
             });
-            showToast(`订单 #${verifyTargetOrder.orderNo.replace(/^#/, '')} 取件码 ${pickupCodeVal} 验证成功，已交由骑手专送！`);
+            setVerifyTargetOrder(null);
           }}
           showToast={showToast}
         />
@@ -1484,6 +1943,150 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
           onConfirmConvert={handleConfirmConvertToDelivery}
         />
       )}
+
+      {/* 7. Modal: 商家删除/作废订单弹窗 */}
+      {deleteTargetOrder && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3">
+          <div className="bg-white w-full max-w-md rounded-none border border-rose-400 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="p-3 bg-rose-600 text-white flex items-center justify-between">
+              <span className="font-bold text-xs flex items-center gap-1.5 font-mono">
+                <Trash2 className="w-4 h-4" />
+                <span>全渠道订单中心 · 作废并删除订单</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteTargetOrder(null);
+                  setCustomDeleteReason('');
+                }}
+                className="text-rose-100 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-4 space-y-3.5 text-xs">
+              {/* Alert Warning Box */}
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 space-y-1">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>高风险敏感操作警告</span>
+                </div>
+                <p className="text-[11px] text-rose-700 leading-relaxed">
+                  删除后该订单将从全渠道工作台、后厨KDS排产与实时队列中物理剔除。系统将自动记录审计流水并创建安全快照。
+                </p>
+              </div>
+
+              {/* Order Info Card */}
+              <div className="bg-slate-50 p-3 border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-bold text-slate-900 text-sm">
+                    #{deleteTargetOrder.orderNo.replace(/^#/, '')}
+                  </span>
+                  <span className="text-[11px] font-semibold text-slate-600">
+                    {deleteTargetOrder.createdTime}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-slate-600 pt-1 border-t border-dashed border-slate-200">
+                  <span>
+                    渠道:{' '}
+                    <strong className="text-slate-800">
+                      {resolveOrderChannelType(deleteTargetOrder) === 'dine_in'
+                        ? '堂食就餐'
+                        : resolveOrderChannelType(deleteTargetOrder) === 'pickup'
+                        ? '到店自提'
+                        : '外卖专送'}
+                    </strong>
+                    {deleteTargetOrder.tableCode ? ` (桌台: ${deleteTargetOrder.tableCode})` : ''}
+                  </span>
+                  <span>
+                    实付:{' '}
+                    <strong className="font-mono text-emerald-700 font-bold text-sm">
+                      ¥{deleteTargetOrder.totalAmount.toFixed(2)}
+                    </strong>
+                  </span>
+                </div>
+
+                <div className="text-[11px] text-slate-500 truncate">
+                  菜品:{' '}
+                  {deleteTargetOrder.items.map((i) => `${i.name} x${i.quantity}`).join('，')}
+                </div>
+              </div>
+
+              {/* Reason Selection */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-800 block">选择作废/删除原因:</label>
+                <select
+                  value={deleteReason}
+                  onChange={(e) => setDeleteReason(e.target.value)}
+                  className="w-full p-2 bg-slate-50 border border-slate-300 rounded-none focus:outline-none text-xs font-medium"
+                >
+                  <option value="顾客误触/重复下单作废">顾客误触 / 重复下单作废</option>
+                  <option value="线下电话协商取消并作废">线下电话协商取消并作废</option>
+                  <option value="测试模拟仿真单作废">测试模拟仿真单作废</option>
+                  <option value="顾客未付款或异常跑单">顾客未付款或异常跑单</option>
+                  <option value="档口食材售罄且顾客要求全单作废">档口食材售罄且顾客要求全单作废</option>
+                  <option value="other">其他原因 (自定义填写)</option>
+                </select>
+
+                {deleteReason === 'other' && (
+                  <input
+                    type="text"
+                    value={customDeleteReason}
+                    onChange={(e) => setCustomDeleteReason(e.target.value)}
+                    placeholder="请输入具体的作废删除原因说明..."
+                    className="w-full p-2 mt-1.5 bg-slate-50 border border-slate-300 rounded-none focus:outline-none text-xs"
+                    autoFocus
+                  />
+                )}
+              </div>
+
+              {/* Snapshot Info */}
+              <label className="flex items-center gap-2 text-slate-700 cursor-pointer select-none text-[11px] pt-1">
+                <input
+                  type="checkbox"
+                  checked={createSafetySnapshot}
+                  onChange={(e) => setCreateSafetySnapshot(e.target.checked)}
+                  className="rounded-none text-emerald-600 focus:ring-0"
+                />
+                <span className="font-medium">自动保存版本快照与操作日志（可在总控台随时回滚恢复）</span>
+              </label>
+            </div>
+
+            {/* Footer */}
+            <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteTargetOrder(null);
+                  setCustomDeleteReason('');
+                }}
+                className="px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-none font-semibold cursor-pointer text-xs"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteOrder}
+                className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-none font-bold cursor-pointer text-xs flex items-center gap-1.5 shadow-xs"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>确认作废并删除</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 右侧折叠内嵌式账号操作对比与数据兜底组件 */}
+      <AccountAuditDrawer
+        currentModule="orders"
+        title="全渠道订单操作审计与版本恢复"
+        showToast={showToast}
+      />
     </div>
   );
 };

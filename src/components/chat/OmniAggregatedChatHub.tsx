@@ -54,6 +54,7 @@ import {
   formatRelativeTime
 } from '../../utils/chatHub';
 import { voiceMessageEngine } from '../../utils/voiceMessageEngine';
+import { fallbackToast } from '../../utils/fallbackToast';
 
 export interface OmniAggregatedChatHubProps {
   orders: Order[];
@@ -72,7 +73,7 @@ export const OmniAggregatedChatHub: React.FC<OmniAggregatedChatHubProps> = ({
   onAdvanceOrderStatus,
   onRejectOrder,
   onAuditRefund,
-  showToast = (msg: string) => console.log(msg),
+  showToast = (msg: string) => fallbackToast(msg),
   onClose,
   isModalMode = false
 }) => {

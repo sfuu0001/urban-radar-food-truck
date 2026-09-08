@@ -148,7 +148,7 @@ export const RiderMultiTaskHeader: React.FC<RiderMultiTaskHeaderProps> = ({
           <div className="flex items-center gap-1.5">
             <Navigation className="w-3.5 h-3.5 text-[#2b593f]" />
             <span className="text-xs font-bold text-[#37352f]">
-              AI 顺路路线规划
+              最优顺路路线规划
             </span>
             <span className="text-[10.5px] text-[#787774] font-mono">
               (预计全程 {waypoints.filter(w => !w.isCompleted).reduce((acc, cur) => acc + cur.estimatedMinutes, 0)} 分钟)

@@ -7,6 +7,10 @@ export interface UserAddress {
   detail: string;
   isDefault: boolean;
   createdAt?: string;
+  remarks?: string;
+  houseNumber?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface UserPreferences {
@@ -83,6 +87,7 @@ export interface UserProfile {
   uid: string;
   nickname: string;
   phone: string;
+  password?: string;
   avatar: string;
   bio: string;
   gender: 'secret' | 'male' | 'female';

@@ -35,7 +35,7 @@ import { INITIAL_USER_PROFILE } from './data/mockUser';
 import { CategoryType, DishItem, Order, ViewMode, CartItem, TruckInfo, UserProfile, DishVariant, TableDishItem } from './types';
 import { PaymentVoucher } from './types/payment';
 import { FilterOptions, INITIAL_FILTER_OPTIONS } from './types/filter';
-import { UtensilsCrossed, RefreshCw, Sparkles, FilterX, CheckSquare, Square } from 'lucide-react';
+import { UtensilsCrossed, RefreshCw, FilterX, CheckSquare, Square } from 'lucide-react';
 import { FlyingCartProvider } from './utils/FlyingCartContext';
 import { ToastProvider, useToast } from './components/ui/ToastContext';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
@@ -43,13 +43,19 @@ import { DishSkeletonGrid } from './components/ui/DishSkeletonGrid';
 import { safeGetStorage, safeSetStorage } from './utils/safeStorage';
 import { applyAvailabilityOverrides, setAvailabilityOverride } from './utils/dishAvailability';
 import { applyDishFieldOverrides } from './utils/dishFieldOverrides';
+import { resolveCouponByCode, markCouponUsed } from './utils/couponEngine';
 import { getTruckInfo, saveTruckInfo } from './utils/truckInfo';
 import { isOrderMatch, normalizeOrderKey, getCanonicalOrderNo } from './utils/orderNormalizer';
 import { getCurrentBoundTable, bindOrderToMerchantTable } from './utils/tableStorage';
 import { sendOrderChatMessage } from './utils/chatHub';
 import { rematchAllDishImages } from './utils/dishImageMatcher';
+import { merchantBackupEngine } from './utils/merchantBackupEngine';
 import { performAutoLogin } from './utils/autoAuthEngine';
 import { StaffRiderPhoneAuthModal } from './components/auth/StaffRiderPhoneAuthModal';
+import { PlatformAuthModal } from './components/auth/PlatformAuthModal';
+import { isPlatformAuthorized } from './utils/platformAuthEngine';
+import { automatedSentinel, SentinelSystemState } from './utils/automatedSentinelEngine';
+import { reactiveSyncBus } from './utils/reactiveSyncBus';
 import {
   isMerchantLoggedIn,
   isRiderLoggedIn,
@@ -77,6 +83,8 @@ import {
 } from './utils/cloudbase';
 import { syncEngine } from './utils/syncEngine';
 import { globalScannerEngine, ensureDishBarcodes } from './utils/barcodeScannerEngine';
+import { globalFranchiseEngine } from './utils/franchiseTenantEngine';
+import { globalFranchiseSplitEngine } from './utils/franchiseSplitPayEngine';
 import { INITIAL_TABLES } from './data/posMockData';
 import {
   TruckExpandConfig,
@@ -93,6 +101,7 @@ import {
   recordCategoryBrandModalSeen,
   resetSingleCategorySeenRecord
 } from './utils/categoryBrandSettings';
+import { userJourneyTracker } from './utils/userJourneyTracker';
 import { CategoryBrandModal } from './components/CategoryBrandModal';
 import { StoreCampaignCarousel } from './components/StoreCampaignCarousel';
 import {
@@ -156,6 +165,11 @@ function MainAppContent() {
     const raw = safeGetStorage<Order[]>('obsidian_truck_orders', INITIAL_ORDERS);
     return deduplicateOrders(raw);
   });
+  // FIX(审计P0): 最新订单引用（供 mount 期订阅闭包读取最新值，避免 stale closure）
+  const ordersRef = useRef<Order[]>(orders);
+  useEffect(() => {
+    ordersRef.current = orders;
+  }, [orders]);
   const [userProfile, setUserProfile] = useState<UserProfile>(() => {
     return safeGetStorage<UserProfile>('obsidian_user_profile', INITIAL_USER_PROFILE);
   });
@@ -195,6 +209,7 @@ function MainAppContent() {
 
   // Staff & Rider Phone Authentication Gating States (强制手机号实名登录，设备硬件指纹保持绑定不变)
   const [isStaffRiderAuthModalOpen, setIsStaffRiderAuthModalOpen] = useState(false);
+  const [isPlatformAuthModalOpen, setIsPlatformAuthModalOpen] = useState(false);
   const [targetAuthRole, setTargetAuthRole] = useState<'merchant' | 'rider'>('merchant');
   const [merchantSession, setMerchantSession] = useState<MerchantSession | null>(() => getMerchantSession());
   const [riderSession, setRiderSession] = useState<RiderSession | null>(() => getRiderSession());
@@ -211,6 +226,58 @@ function MainAppContent() {
     return () => {
       window.removeEventListener(EVENT_MERCHANT_AUTH_CHANGED, handleMerchantChange);
       window.removeEventListener(EVENT_RIDER_AUTH_CHANGED, handleRiderChange);
+    };
+  }, []);
+
+  // 自动化安全中枢 (Automated Sentinel) 状态与反应式总线监听
+  const [sentinelState, setSentinelState] = useState<SentinelSystemState>(() => automatedSentinel.getState());
+  const [peakMitigationNotice, setPeakMitigationNotice] = useState<{
+    isActive: boolean;
+    queueDelayMinutes: number;
+    reason: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const unsubSentinel = automatedSentinel.subscribe((next) => {
+      setSentinelState({ ...next });
+    });
+    const unsubBus = reactiveSyncBus.subscribe('EMERGENCY_PEAK_MITIGATION', (payload) => {
+      if (payload.isActive) {
+        setPeakMitigationNotice(payload);
+      } else {
+        setPeakMitigationNotice(null);
+      }
+    });
+    // FIX(审计P0): 补齐孤儿事件订阅，使已发布的总线事件产生真实联动副作用
+    const unsubTruckMoved = reactiveSyncBus.subscribe('TRUCK_LOCATION_MOVED', () => {
+      // 餐车 GPS 变更 -> 触发配送范围评估/多餐车配置版本刷新
+      setTruckConfigVersion((v) => v + 1);
+    });
+    const unsubDishChanged = reactiveSyncBus.subscribe('DISH_PRICE_CHANGED', (payload) => {
+      // 商家改价/下架 -> 食客菜单即时刷新（含本地覆盖层）
+      setDishes((prev) => {
+        const mapped = prev.map((d) => {
+          if (d.id !== payload.dishId) return d;
+          return {
+            ...d,
+            available: payload.isSoldOut !== undefined ? !payload.isSoldOut : d.available,
+            price: payload.newPrice !== undefined ? payload.newPrice : d.price
+          };
+        });
+        safeSetStorage('obsidian_truck_dishes', applyDishFieldOverrides(mapped));
+        return mapped;
+      });
+    });
+    const unsubOrderMutated = reactiveSyncBus.subscribe('ORDER_STATUS_MUTATED', () => {
+      // 订单流转 -> 广播同步引擎，追踪视图读取最新 orders 自动刷新
+      syncEngine.broadcast('ORDERS_CHANGED', ordersRef.current);
+    });
+    return () => {
+      unsubSentinel();
+      unsubBus();
+      unsubTruckMoved();
+      unsubDishChanged();
+      unsubOrderMutated();
     };
   }, []);
 
@@ -259,9 +326,41 @@ function MainAppContent() {
     if (tab !== 'home' && truckExpandConfig.collapseOnNavigate && isPullUpMenuOpen) {
       setIsPullUpMenuOpen(false);
     }
+
+    // 全程监听用户流转节点
+    if (tab === 'checkout') {
+      userJourneyTracker.trackAction(
+        'enter_checkout',
+        '进入收银台准备结账',
+        { cartItemsCount: cart.length, totalCartPrice },
+        'checkout'
+      );
+    } else if (tab === 'cart') {
+      userJourneyTracker.trackAction(
+        'view_cart',
+        '打开选购单抽屉',
+        { cartItemsCount: cart.length, totalCartPrice },
+        'cart_active'
+      );
+    } else if (tab === 'tracking') {
+      userJourneyTracker.trackAction(
+        'view_tracking',
+        '查看雷达配送实时轨迹',
+        {},
+        'completed'
+      );
+    }
   };
 
   const handleBackNav = () => {
+    if (activeNavTab === 'checkout') {
+      userJourneyTracker.trackAction(
+        'cancel_checkout',
+        '在结算页面未确认支付，点击返回',
+        { cartItemsCount: cart.length, totalCartPrice },
+        'checkout'
+      );
+    }
     setNavHistory((prev) => {
       if (prev.length <= 1) {
         setActiveNavTab('home');
@@ -291,6 +390,12 @@ function MainAppContent() {
       setCategoryBrandConfigs(newConfigs);
     });
     return unsub;
+  }, []);
+
+  // 全程监听食客端端操作行为会话
+  useEffect(() => {
+    userJourneyTracker.initCurrentSession(userProfile?.nickname || '先锋食客');
+    userJourneyTracker.generateMockSessionsIfEmpty();
   }, []);
 
   const [menuDesignSystem, setMenuDesignSystem] = useState<MenuDesignSystem>(() =>
@@ -455,7 +560,34 @@ function MainAppContent() {
       }
     };
     window.addEventListener('obsidian_data_restored', handleDataRestored);
-    return () => window.removeEventListener('obsidian_data_restored', handleDataRestored);
+
+    // FIX(审计P0): 补订商家业务引擎已派发但无人消费的 CustomEvent，
+    // 解决"商家端改单/改菜后，同标签页已挂载的食客/商家视图不即时刷新"问题。
+    const handleDishesUpdated = (e: Event) => {
+      const detail = (e as CustomEvent<DishItem[]>).detail;
+      if (Array.isArray(detail) && detail.length > 0) {
+        setDishes(applyDishFieldOverrides(applyAvailabilityOverrides(rematchAllDishImages(detail))));
+      } else {
+        const fresh = safeGetStorage<DishItem[]>('obsidian_truck_dishes', INITIAL_DISHES);
+        setDishes(applyDishFieldOverrides(applyAvailabilityOverrides(rematchAllDishImages(fresh))));
+      }
+    };
+    const handleOrdersUpdated = (e: Event) => {
+      const detail = (e as CustomEvent<Order[]>).detail;
+      if (Array.isArray(detail) && detail.length > 0) {
+        setOrders(deduplicateOrders(detail));
+      } else {
+        const freshOrders = safeGetStorage<Order[]>('obsidian_truck_orders', INITIAL_ORDERS);
+        setOrders(deduplicateOrders(freshOrders));
+      }
+    };
+    window.addEventListener('obsidian_dishes_updated', handleDishesUpdated);
+    window.addEventListener('obsidian_orders_updated', handleOrdersUpdated);
+    return () => {
+      window.removeEventListener('obsidian_data_restored', handleDataRestored);
+      window.removeEventListener('obsidian_dishes_updated', handleDishesUpdated);
+      window.removeEventListener('obsidian_orders_updated', handleOrdersUpdated);
+    };
   }, []);
 
   // 7. 智能餐车自动展开与多场景智能收起策略引擎
@@ -659,6 +791,11 @@ function MainAppContent() {
         setIsStaffRiderAuthModalOpen(true);
         return;
       }
+    } else if (role === 'platform') {
+      if (!isPlatformAuthorized()) {
+        setIsPlatformAuthModalOpen(true);
+        return;
+      }
     }
     setCurrentRole(role);
   };
@@ -681,6 +818,16 @@ function MainAppContent() {
       const nextState = !target.available;
       setAvailabilityOverride(dishId, nextState);
       toast.info(nextState ? `已上架: ${target.name}` : `已下架: ${target.name}`);
+      // FIX(审计P0): 上/下架属售罄状态变更，广播给食客端菜单与购物车实时联动
+      try {
+        reactiveSyncBus.publish('DISH_PRICE_CHANGED', {
+          dishId,
+          isSoldOut: !nextState,
+          operator: 'merchant'
+        });
+      } catch {
+        // 总线异常静默降级
+      }
     }
     setDishes((prev) =>
       prev.map((d) => {
@@ -890,6 +1037,7 @@ function MainAppContent() {
         type: 'text',
         text: `【终止申请】顾客已提交申请终止订单，理由：${updateData.refundReason}。请餐车主理人加急审核处理！`
       });
+      userJourneyTracker.markOrderCancelled(targetNo, extraDetails?.refundReason || '客户申请终止订单');
     } else if (nextStatus === 'merchant_rejected') {
       toast.error(`订单 ${targetNo}：商家已拒单`, '餐车已驳回订单，款项已全额原路退还至支付账户');
       updateData = {
@@ -979,6 +1127,18 @@ function MainAppContent() {
     updateCloudOrderStatus(targetId, updateData, 'merchant_admin');
     if (targetNo && targetNo !== targetId) {
       updateCloudOrderStatus(targetNo, updateData, 'merchant_admin');
+    }
+
+    // FIX(审计P0): 订单状态真实流转后发布反应式总线事件，供食客追踪/骑手派送池等联动刷新
+    try {
+      reactiveSyncBus.publish('ORDER_STATUS_MUTATED', {
+        orderId: targetNo || targetId,
+        oldStatus: targetOrder?.status || 'unknown',
+        newStatus: nextStatus,
+        updatedAt: new Date().toLocaleTimeString('zh-CN', { hour12: false })
+      });
+    } catch {
+      // 总线异常静默降级
     }
   };
 
@@ -1119,6 +1279,13 @@ function MainAppContent() {
     );
     // 同步退款申请至云端 (sanitize 已放行 customer 发起 refund_pending 申请)
     updateCloudOrderStatus(cleanId, refundPayload, 'customer');
+
+    // 注入五维自动化安全风控感知 (异动退款监测)
+    const targetOrder = orders.find((o) => isOrderMatch(o, cleanId));
+    if (targetOrder) {
+      automatedSentinel.reportRefundEvent(targetOrder.totalAmount || 0, reason || '食客申请退款');
+    }
+
     toast.success('退单申请已提交', `已在节点 ${passedStep} 提交反馈，等待商家审核处理`);
   };
 
@@ -1127,6 +1294,20 @@ function MainAppContent() {
     setTruck((prev) => {
       const updated = { ...prev, currentLocationName: newLocation };
       saveTruckInfo(updated); // 商家修改餐车停靠点需落盘，刷新后保留
+
+      // 联动五维自动化安全中枢 (定位合规判定) 与全域反应式总线
+      const coords: [number, number] = [
+        updated.longitude ?? 121.4737,
+        updated.latitude ?? 31.2304
+      ];
+      automatedSentinel.reportTruckGPS(coords);
+      reactiveSyncBus.publish('TRUCK_LOCATION_MOVED', {
+        truckId: updated.id || 'truck-01',
+        coordinates: coords,
+        radiusKm: automatedSentinel.getState().activeDynamicDeliveryRadiusKm,
+        address: newLocation
+      });
+
       return updated;
     });
     toast.success('餐车停靠位置与GPS已全网广播', `新停靠点：${newLocation}`);
@@ -1160,6 +1341,41 @@ function MainAppContent() {
       }, 'merchant_admin');
     }
     toast.error('订单已取消退款', `订单已拒单并原路退款：${reason}`);
+  };
+
+  // Delete / Discard order flow (Omnichannel & KDS synchronized deletion)
+  const handleDeleteOrder = (orderId: string, reason?: string) => {
+    const target = orders.find((o) => isOrderMatch(o, orderId));
+    const cleanId = orderId.replace(/^#/, '');
+
+    // 1. 留存安全回滚快照与操作日志
+    if (target) {
+      merchantBackupEngine.createSnapshot(
+        `删除订单 #${cleanId} 快照`,
+        `删除理由: ${reason || '商家后台手动删除作废'} (原金额 ¥${target.totalAmount.toFixed(2)})`,
+        orders,
+        dishes
+      );
+      const currentDeleted = merchantBackupEngine.getDeletedOrderIds();
+      if (!currentDeleted.includes(target.orderNo)) {
+        merchantBackupEngine.saveDeletedOrderIds([...currentDeleted, target.orderNo]);
+      }
+      merchantBackupEngine.logAction(
+        '全渠道订单',
+        'delete',
+        `作废删除订单 #${target.orderNo.replace(/^#/, '')}`,
+        `操作人: 商家管理员, 原因: ${reason || '手动作废删除'}, 金额: ¥${target.totalAmount.toFixed(2)}`
+      );
+    }
+
+    // 2. 本地物理移除并持久化存储
+    setOrders((prev) => {
+      const next = prev.filter((o) => !isOrderMatch(o, orderId));
+      safeSetStorage('obsidian_truck_orders', next);
+      return next;
+    });
+
+    toast.success(`订单 #${cleanId} 已从系统删除作废！`, reason ? `作废原因: ${reason}` : '已归档并生成安全快照');
   };
 
   // Active Filter Count
@@ -1476,6 +1692,14 @@ function MainAppContent() {
       const variantTitle = selectedVariant ? ` (${selectedVariant.name})` : '';
       toast.success('已加入选购单', `${dish.name}${variantTitle} x${quantity} (¥${totalPrice.toFixed(2)})`);
     }
+
+    // 全程监听食客加购行为
+    userJourneyTracker.trackAction(
+      'add_to_cart',
+      `加购餐品: ${dish.name} x${quantity} (¥${totalPrice.toFixed(2)})`,
+      { dishId: dish.id, dishName: dish.name, quantity, price: totalPrice, diningMode },
+      'cart_active'
+    );
   };
 
   const handleQuickAdd = (dish: DishItem, e: React.MouseEvent) => {
@@ -1498,6 +1722,12 @@ function MainAppContent() {
   };
 
   const handleUpdateCartQuantity = (cartItemId: string, newQty: number) => {
+    userJourneyTracker.trackAction(
+      'modify_cart_qty',
+      `修改选购项数量为: ${newQty}`,
+      { cartItemId, newQty },
+      'cart_active'
+    );
     if (newQty <= 0) {
       setCart((prev) => prev.filter((i) => i.cartItemId !== cartItemId));
       toast.info('已移除餐品');
@@ -1524,6 +1754,7 @@ function MainAppContent() {
   };
 
   const handleClearCart = () => {
+    userJourneyTracker.trackAction('clear_cart', '主动清空选购单', {}, 'cart_active');
     setCart([]);
     toast.info('选购单已清空');
   };
@@ -1550,7 +1781,25 @@ function MainAppContent() {
       .toString()
       .padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
 
-    const discount = (couponCode || isVIPActive) ? 5 : 0;
+    // FIX(审计P0): 结算优惠券必须从用户券包真实解析抵扣金额并核销，
+    // 取代原先写死 `(couponCode || isVIPActive) ? 5 : 0` 的假实现。
+    const itemCategories = cart.map((i) => i.dish.category as string);
+    const deliveryFee0 = diningMode === 'delivery' ? (totalCartPrice >= 80 ? 0 : 5) : 0;
+    const resolvedCoupon = resolveCouponByCode(couponCode, {
+      subtotal: totalCartPrice,
+      deliveryFee: deliveryFee0,
+      diningMode,
+      itemCategories
+    });
+    let couponSaving = 0;
+    let appliedCouponCode: string | undefined;
+    if (resolvedCoupon?.record && resolvedCoupon.eligibility.usable) {
+      couponSaving = resolvedCoupon.eligibility.maxDiscount;
+      appliedCouponCode = resolvedCoupon.record.coupon.code;
+    } else if (resolvedCoupon?.record) {
+      appliedCouponCode = couponCode;
+    }
+    const discount = couponSaving > 0 ? couponSaving : appliedCouponCode ? 0 : isVIPActive ? 5 : 0;
     const deliveryFee = diningMode === 'delivery' ? (totalCartPrice >= 80 ? 0 : 5) : 0;
     const finalAmount = Math.max(0, totalCartPrice + deliveryFee - discount);
 
@@ -1619,6 +1868,36 @@ function MainAppContent() {
     setActiveTrackingOrderId(newOrder.id);
     createCloudOrder(newOrder, userProfile.uid);
     setCart([]);
+
+    // FIX(审计P0): 真实券结算后核销该券（标记已使用 + 绑定订单号）
+    if (appliedCouponCode && couponSaving > 0) {
+      markCouponUsed(appliedCouponCode, newOrderNo);
+      userJourneyTracker.trackAction(
+        'apply_coupon',
+        `结算成功核销优惠券 [${appliedCouponCode}] (立减 ¥${couponSaving.toFixed(2)})`,
+        { code: appliedCouponCode, saving: couponSaving, orderNo: newOrderNo },
+        'completed'
+      );
+    }
+
+    // 自动接入特许加盟分账清算引擎 (Phase 4 自动化 D+1 细账归集)
+    try {
+      const tenantCtx = globalFranchiseEngine.getContext();
+      const targetFranId = tenantCtx.isHqUser ? 'FRAN-SH-001' : tenantCtx.currentFranchiseeId;
+      globalFranchiseSplitEngine.recordOrderSplit(newOrder, targetFranId, tenantCtx.currentTruckId);
+    } catch {
+      // 容灾静默降级
+    }
+
+    // 全程监听：记录订单成功提交节点
+    userJourneyTracker.trackAction(
+      'submit_order',
+      `成功提交并支付订单: ${newOrderNo} (¥${finalAmount.toFixed(2)})`,
+      { orderNo: newOrderNo, amount: finalAmount, channel: diningMode, itemsCount: newOrder.items.length },
+      'completed'
+    );
+    userJourneyTracker.markOrderSuccess(newOrderNo, finalAmount);
+
     toast.success(
       isDineIn ? '堂食订单已成功提交！' : '订单已成功提交并同步至腾讯云！',
       isDineIn
@@ -1637,6 +1916,14 @@ function MainAppContent() {
     setOnlyDiscountFilter(false);
     setCategoryScrollProgress(0);
     setHighlightedCategorySection(cat);
+
+    // 监听分类切换
+    userJourneyTracker.trackAction(
+      'select_category',
+      `切换并浏览品类: ${CATEGORY_TAXONOMY[cat]?.name || cat}`,
+      { category: cat },
+      'browsing'
+    );
 
     if (soundFeedbackEnabled) {
       playCategorySnapSound();
@@ -1861,6 +2148,7 @@ function MainAppContent() {
           onUpdateDishes={setDishes}
           onAdvanceOrderStatus={handleAdvanceOrderStatus}
           onRejectOrder={handleRejectOrder}
+          onDeleteOrder={handleDeleteOrder}
           onUpdateTruckLocation={handleUpdateTruckLocation}
           onSwitchRole={handleSelectRole}
           onAuditRefund={handleAuditRefund}
@@ -2016,13 +2304,30 @@ function MainAppContent() {
           isCloudbaseConnected={isCloudbaseConnected}
           deliveryEvaluation={deliveryEvaluation}
         />
+
+        {/* 自动化安全与高峰削峰感知自适应通知横幅 (Sentinel Auto-Mitigation Banner) */}
+        {(peakMitigationNotice?.isActive || sentinelState.threatLevel === 'CRITICAL' || sentinelState.isOnlineOrderAdmissionPaused) && (
+          <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-xs text-amber-900 flex items-center justify-between shadow-2xs">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping shrink-0" />
+              <span className="font-bold">
+                {sentinelState.isOnlineOrderAdmissionPaused
+                  ? '⚠️ 餐车当前暂停线上接单（驻点复核中），仅支持现场咨询'
+                  : `⚡ 后厨高峰自适应限流已介入：预估等候时长附加 +${sentinelState.adaptiveExtraQueueMinutes} 分钟，极速配送半径自适应调节至 ${sentinelState.activeDynamicDeliveryRadiusKm}km`}
+              </span>
+            </div>
+            <span className="text-[11px] font-mono opacity-75 hidden sm:inline">
+              自动化安全评分: {sentinelState.overallHealthScore} / 100
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Main Content Area - Independently scrollable, flex-1, strictly bounded above bottom navbar so navbar never covers content */}
       <main 
         id="main-content-scroll-area"
         ref={mainScrollContainerRef}
-        className="flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden max-w-7xl mx-auto px-1.5 sm:px-3 pt-0 pb-6 sm:pb-8 space-y-1 sm:space-y-1.5 scroll-smooth"
+        className="flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden max-w-7xl mx-auto px-[2px] pt-0 pb-[3px] space-y-[2px] scroll-smooth"
       >
         {activeNavTab === 'checkout' ? (
           <CheckoutPageView
@@ -2032,6 +2337,7 @@ function MainAppContent() {
               setDeliveryAddress(addr);
               toast.info('配送地址已修改');
             }}
+            onOpenAddressModal={() => setIsAddressModalOpen(true)}
             diningMode={diningMode}
             onDiningModeChange={handleDiningModeChange}
             isVIPActive={isVIPActive}
@@ -2809,6 +3115,17 @@ function MainAppContent() {
         role={targetAuthRole}
         onClose={() => setIsStaffRiderAuthModalOpen(false)}
         onSuccess={handleStaffRiderAuthSuccess}
+      />
+
+      {/* Platform Level-4 Security Access Gatekeeper */}
+      <PlatformAuthModal
+        isOpen={isPlatformAuthModalOpen}
+        onClose={() => setIsPlatformAuthModalOpen(false)}
+        onSuccess={() => {
+          setCurrentRole('platform');
+          toast.success('平台总控安全门禁认证通过');
+        }}
+        showToast={(msg) => toast.info(msg)}
       />
     </div>
   );

@@ -352,6 +352,9 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
               initialDistanceMeters={statusConfig.key === 'delivering' ? 450 : statusConfig.key === 'waiting_pickup' ? 30 : 150}
               destinationLabel={order?.deliveryAddress?.slice(0, 14) || '大悦城商务座'}
               truckName={order?.truckName || truck?.name || '流动餐车'}
+              truck={truck}
+              order={order}
+              deliveryAddress={order?.deliveryAddress || deliveryAddress}
               onSimulate={handleSimulateSpeed}
               isSimulating={isSimulating}
             />

@@ -126,6 +126,53 @@ export const CraftDetailModal: React.FC<CraftDetailModalProps> = ({
     showToast('配方与 SOP 已成功复制到剪贴板');
   };
 
+  // FIX(审计P1): SOP 打印真实化——渲染打印友好视图并调用浏览器系统打印（替代"仅提示已发送打印指令"假实现）
+  const handlePrintSop = () => {
+    try {
+      const stepsHtml = (editedItem.prepSteps && editedItem.prepSteps.length > 0 ? editedItem.prepSteps : displaySteps)
+        .map(
+          (s) =>
+            `<li style="margin:6px 0"><b>步骤${s.step} · ${s.title}</b>（约 ${s.durationMin || '-'} 分钟，关键指标 ${s.keyMetric || '-'}）<br/>${s.desc || ''}</li>`
+        )
+        .join('');
+      const printWin = window.open('', '_blank', 'width=720,height=920');
+      if (!printWin) {
+        showToast('浏览器拦截了打印窗口，请允许弹窗后重试');
+        return;
+      }
+      printWin.document.write(`<!doctype html><html><head><meta charset="utf-8"/><title>${editedItem.name} · 烤制SOP</title>
+<style>body{font-family:'Microsoft YaHei',system-ui,sans-serif;padding:28px;color:#1a1c1b;line-height:1.7}
+h1{font-size:20px;border-bottom:3px solid #1a1c1b;padding-bottom:8px;margin:0 0 14px}
+table{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0}
+td,th{border:1px solid #c6c6c4;padding:6px 8px;text-align:left;font-size:13px}
+th{background:#f2f2ef}ol{padding-left:20px;font-size:13px}.muted{color:#767673}</style></head><body>
+<h1>${editedItem.name} · 标准烤制 SOP 作业卡</h1>
+<p class="muted">打印时间：${new Date().toLocaleString('zh-CN', { hour12: false })} ｜ 黑曜石餐车后厨标准工艺</p>
+<table><tr><th>味型</th><td>${displayFlavor}</td><th>出肉率标杆</th><td>${yieldVal}%</td></tr>
+<tr><th>标准售价</th><td>¥${editedItem.pricePerSkewer}/串</td><th>单串克重</th><td>${editedItem.standardWeightG || 30}g</td></tr>
+<tr><th>温控标准</th><td>${editedItem.grillTemp || '200℃'}</td><th>烤制时长</th><td>${editedItem.grillTimeMin || 5} 分钟</td></tr></table>
+<p><b>配方（每 kg 原料）：</b>${editedItem.marinadeIngredients.map((i) => `${i.name} ${i.qtyPerKg}${i.unit}`).join('、') || '按标准腌制配比'}</p>
+<p><b>穿串/切割要领：</b>${editedItem.threadingMethod || editedItem.cutDirection || '按标准切割，中火快烤'}</p>
+<p><b>标准作业步骤：</b></p><ol>${stepsHtml}</ol>
+<p style="margin-top:18px;font-size:11px" class="muted">本 SOP 由平台工艺标准中心生成，请后厨打印签收后置于工位可见处</p>
+</body></html>`);
+      printWin.document.close();
+      printWin.focus();
+      // 等待内容渲染完成后调起系统打印对话框
+      setTimeout(() => {
+        try {
+          printWin.print();
+        } catch {
+          showToast('打印对话框唤起失败，请检查系统打印队列');
+        }
+      }, 350);
+      showToast(`已将【${editedItem.name}】SOP 发送至系统打印队列`);
+    } catch (e) {
+      console.error('SOP 打印异常:', e);
+      showToast('SOP 打印失败，请重试');
+    }
+  };
+
   const toggleStepExpand = (index: number) => {
     setExpandedStepIndex(expandedStepIndex === index ? null : index);
   };
@@ -729,9 +776,7 @@ export const CraftDetailModal: React.FC<CraftDetailModalProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => {
-                showToast('已向后厨热敏标签与 A4 打印机发送 SOP 打印指令');
-              }}
+              onClick={handlePrintSop}
               className="h-9 px-4 rounded-[4px] text-[13px] font-bold border border-[#e2e8f0] bg-[#f8fafc] text-[#0f172a] hover:bg-[#f1f5f9] transition-colors flex items-center gap-1.5 cursor-pointer"
             >
               <Printer className="w-[17px] h-[17px]" />

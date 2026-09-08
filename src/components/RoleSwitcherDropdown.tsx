@@ -21,6 +21,10 @@ import {
   EVENT_MERCHANT_AUTH_CHANGED,
   EVENT_RIDER_AUTH_CHANGED
 } from '../utils/staffAndRiderAuthEngine';
+import {
+  getPlatformSession,
+  EVENT_PLATFORM_AUTH_CHANGED
+} from '../utils/platformAuthEngine';
 
 export type UserRole = 'customer' | 'merchant' | 'rider' | 'platform';
 
@@ -45,15 +49,21 @@ export const RoleSwitcherDropdown: React.FC<RoleSwitcherDropdownProps> = ({
 
   const [merchantSession, setMerchantSession] = useState(getMerchantSession());
   const [riderSession, setRiderSession] = useState(getRiderSession());
+  const [platformSession, setPlatformSession] = useState(getPlatformSession());
 
   useEffect(() => {
     const handleMerchantChange = () => setMerchantSession(getMerchantSession());
     const handleRiderChange = () => setRiderSession(getRiderSession());
+    const handlePlatformChange = () => setPlatformSession(getPlatformSession());
+
     window.addEventListener(EVENT_MERCHANT_AUTH_CHANGED, handleMerchantChange);
     window.addEventListener(EVENT_RIDER_AUTH_CHANGED, handleRiderChange);
+    window.addEventListener(EVENT_PLATFORM_AUTH_CHANGED, handlePlatformChange);
+
     return () => {
       window.removeEventListener(EVENT_MERCHANT_AUTH_CHANGED, handleMerchantChange);
       window.removeEventListener(EVENT_RIDER_AUTH_CHANGED, handleRiderChange);
+      window.removeEventListener(EVENT_PLATFORM_AUTH_CHANGED, handlePlatformChange);
     };
   }, []);
 
@@ -73,7 +83,8 @@ export const RoleSwitcherDropdown: React.FC<RoleSwitcherDropdownProps> = ({
     {
       key: 'customer' as UserRole,
       title: '客户端',
-      badge: '当前顾客端',
+      levelTag: 'L0 · 顾客端',
+      badge: '免密安全通行',
       desc: '智能餐车发现、选购点餐与实时配送追踪',
       icon: Smartphone,
       iconBox: 'bg-[#1a1a17] text-white',
@@ -82,9 +93,10 @@ export const RoleSwitcherDropdown: React.FC<RoleSwitcherDropdownProps> = ({
     {
       key: 'merchant' as UserRole,
       title: '商家端',
-      badge: merchantSession ? `${maskPhoneNumber(merchantSession.phone)} (已手机验真)` : '需手机号登录',
+      levelTag: 'L2 · 餐车工作站',
+      badge: merchantSession ? `${merchantSession.name} (${maskPhoneNumber(merchantSession.phone)})` : '需手机号登录',
       desc: merchantSession
-        ? `${merchantSession.name} · 接单出餐与库存管理`
+        ? `${merchantSession.roleTitle} · RBAC 岗位精细分级管控`
         : '黑曜石01号店长工作台 · 须通过手机号验证码登录 (指纹保持绑定)',
       icon: House,
       iconBox: 'bg-[#faf4ec] text-[#b86200] border border-[#f0dfc8]',
@@ -95,7 +107,8 @@ export const RoleSwitcherDropdown: React.FC<RoleSwitcherDropdownProps> = ({
     {
       key: 'rider' as UserRole,
       title: '骑手端',
-      badge: riderSession ? `${maskPhoneNumber(riderSession.phone)} (已手机验真)` : '需手机号登录',
+      levelTag: 'L1 · 物流骑士',
+      badge: riderSession ? `${maskPhoneNumber(riderSession.phone)} (已验真)` : '需手机号登录',
       desc: riderSession
         ? `${riderSession.name} · 导航接单与极速配送`
         : '闪送骑士配送工作台 · 须通过手机号验证码登录 (指纹保持绑定)',
@@ -108,11 +121,16 @@ export const RoleSwitcherDropdown: React.FC<RoleSwitcherDropdownProps> = ({
     {
       key: 'platform' as UserRole,
       title: '平台总控端',
-      badge: '全域运营中心',
-      desc: '管理全部商家端口 · 订单抽佣设置 · 财务清算与SLA监控',
+      levelTag: 'L4 · 平台监管',
+      badge: platformSession ? `${platformSession.name.slice(0, 3)} (门禁已准入)` : '需安全门禁PIN',
+      desc: platformSession
+        ? `${platformSession.roleTitle} · 抽佣清算与全域调度`
+        : '平台最高监管中心 · 须通过专员工号与 6 位 PIN 门禁鉴权',
       icon: ShieldCheck,
       iconBox: 'bg-[#f1f1fe] text-[#4d47eb] border border-[#dadafd]',
-      badgeStyle: 'bg-indigo-50 text-indigo-800 border border-indigo-200/60'
+      badgeStyle: platformSession
+        ? 'bg-indigo-50 text-indigo-800 border border-indigo-200/60 font-semibold'
+        : 'bg-amber-50 text-amber-800 border border-amber-200/60 font-medium'
     }
   ];
 
@@ -210,7 +228,7 @@ export const RoleSwitcherDropdown: React.FC<RoleSwitcherDropdownProps> = ({
 
                     {/* Role Meta Info */}
                     <div className="flex-1 min-w-0 pr-1">
-                      <div className="flex items-center gap-2 mb-0.5">
+                      <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
                         <h2
                           className={`text-sm tracking-tight text-[#1a1a17] ${
                             isSelected ? 'font-bold' : 'font-semibold'
@@ -218,6 +236,9 @@ export const RoleSwitcherDropdown: React.FC<RoleSwitcherDropdownProps> = ({
                         >
                           {roleItem.title}
                         </h2>
+                        <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-neutral-100 text-neutral-600 border border-neutral-200">
+                          {roleItem.levelTag}
+                        </span>
                         <span
                           className={`inline-flex items-center px-1.5 py-0.2 rounded text-[10px] tracking-wider shrink-0 ${
                             isSelected

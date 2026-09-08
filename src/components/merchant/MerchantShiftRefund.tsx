@@ -27,6 +27,7 @@ import { ShiftRecord, RefundRecord, ReservationItem, Order } from '../../types';
 import { INITIAL_SHIFTS, INITIAL_REFUNDS, INITIAL_RESERVATIONS } from '../../data/mockEnhancedData';
 import { exportToCsv } from '../../utils/dataExportEngine';
 import { executeRealPayRefund } from '../../utils/realPaymentCloudEngine';
+import { businessTransactionEngine } from '../../utils/businessTransactionEngine';
 
 interface MerchantShiftRefundProps {
   showToast: (msg: string) => void;
@@ -435,7 +436,9 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
       </div>
 
       {/* 2. Modal / Form: Shift Close */}
-      {isClosingShift && subTab === 'shift' && (
+      {isClosingShift && subTab === 'shift' && (() => {
+        const precheck = businessTransactionEngine.executeShiftPrecheck();
+        return (
         <form
           onSubmit={handleCloseShiftSubmit}
           className="bg-[#fbfbfa] p-4 rounded-[3px] border border-[#2b593f] space-y-3 shadow-sm animate-in fade-in duration-150"
@@ -448,6 +451,28 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
             <span className="text-[10px] text-[#787774]">
               系统将比对钱箱实点现金并生成交班小票
             </span>
+          </div>
+
+          {/* 关账风控预检审查条 */}
+          <div className={`p-2.5 rounded-[3px] border text-xs flex items-start gap-2 ${
+            precheck.canProceed
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+              : 'bg-amber-50 border-amber-300 text-amber-900'
+          }`}>
+            <ShieldCheck className={`w-4 h-4 shrink-0 mt-0.5 ${precheck.canProceed ? 'text-emerald-600' : 'text-amber-600'}`} />
+            <div className="flex-1 space-y-0.5">
+              <div className="flex items-center justify-between">
+                <span className="font-bold">
+                  {precheck.canProceed ? '✅ 关账预检合规达标' : '⚠️ 关账合规警报与挂账排查'}
+                </span>
+                <span className="text-[10px] font-mono">
+                  挂账: {precheck.heldOrdersCount} 笔 · 待退: {precheck.pendingRefundCount} 笔
+                </span>
+              </div>
+              <p className="text-[11px] leading-relaxed">
+                {precheck.message}
+              </p>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -538,7 +563,8 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
             </button>
           </div>
         </form>
-      )}
+        );
+      })()}
 
       {/* 3. Modal / Form: Refund */}
       {isCreatingRefund && subTab === 'refund' && (

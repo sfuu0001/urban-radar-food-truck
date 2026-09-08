@@ -276,7 +276,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
         {/* Bottom Industrial Navigation Bar: 5 Equal Columns */}
         <div
           id="bottom-main-dock-nav"
-          className="grid grid-cols-5 bg-paper-card pt-0 pb-[2px] px-0 h-[45.9px] text-center font-mono text-[9px] text-stone-500 border-t border-line"
+          className="grid grid-cols-5 bg-paper-card pt-0 pb-[2px] px-0 h-[48px] text-center font-mono text-[9px] text-stone-500 border-t border-line"
         >
           {/* Tab 1: 点餐 */}
           <button
@@ -300,29 +300,24 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
                 ? '点单 (点击切换首页/展开餐车)'
                 : `点单 (点击${truckExpandConfig.delaySeconds.toFixed(1)}秒后展开餐车菜单，长按直接打开)`
             }
-            className={`flex flex-col items-center py-1 relative group cursor-pointer transition-colors ${
+            className={`flex flex-col items-center justify-center py-1 relative group cursor-pointer transition-colors ${
               activeTab === 'home'
                 ? 'text-pitch border-b-2 border-pitch bg-techTag/30 font-bold'
                 : 'text-stone-500 hover:text-pitch'
             }`}
           >
             <div className="w-5 h-5 flex items-center justify-center relative">
-              <svg
-                className={`w-4 h-4 ${activeTab === 'home' ? 'text-pitch' : 'text-stone-700'}`}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="square"
-                strokeLinejoin="miter"
-                viewBox="0 0 24 24"
-              >
-                <path d="M18 2L6 14l-2 6 6-2L22 6l-4-4z" strokeDasharray="20" strokeDashoffset="0"></path>
-                <line x1="15" y1="5" x2="19" y2="9"></line>
-                <line x1="4" y1="20" x2="8" y2="16" strokeDasharray="1 1"></line>
-              </svg>
-              <span className="absolute -top-0.5 -right-0.5 text-[6px] text-stone-400 font-mono">+</span>
+              <UtensilsCrossed
+                className={`w-4 h-4 transition-all duration-200 group-hover:scale-110 group-active:scale-95 ${
+                  activeTab === 'home'
+                    ? 'text-pitch stroke-[2.2] scale-105'
+                    : 'text-stone-600 stroke-[1.6]'
+                }`}
+              />
             </div>
-            <span className="mt-0.5 font-bold tracking-tight text-[9px]">点餐</span>
+            <span className={`mt-0.5 tracking-tight text-[9px] ${activeTab === 'home' ? 'font-bold text-pitch' : 'font-medium'}`}>
+              点餐
+            </span>
           </button>
 
           {/* Tab 2: 专送 */}
@@ -330,28 +325,24 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
             type="button"
             id="bottom-nav-tracking-tab"
             onClick={() => onSelectTab('tracking')}
-            className={`flex flex-col items-center py-1 relative group cursor-pointer transition-colors ${
+            className={`flex flex-col items-center justify-center py-1 relative group cursor-pointer transition-colors ${
               activeTab === 'tracking'
                 ? 'text-pitch border-b-2 border-pitch bg-techTag/30 font-bold'
                 : 'text-stone-500 hover:text-pitch'
             }`}
           >
             <div className="w-5 h-5 flex items-center justify-center relative">
-              <svg
-                className={`w-4 h-4 ${activeTab === 'tracking' ? 'text-pitch' : 'text-stone-700'}`}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="square"
-                strokeLinejoin="miter"
-                viewBox="0 0 24 24"
-              >
-                <path d="M13 2L4 14h7l-2 8 11-12h-7l2-8z"></path>
-                <line x1="2" y1="14" x2="4" y2="14" strokeDasharray="1 1"></line>
-                <line x1="20" y1="10" x2="22" y2="10" strokeDasharray="1 1"></line>
-              </svg>
+              <Bike
+                className={`w-4 h-4 transition-all duration-200 group-hover:scale-110 group-active:scale-95 ${
+                  activeTab === 'tracking'
+                    ? 'text-pitch stroke-[2.2] scale-105'
+                    : 'text-stone-600 stroke-[1.6]'
+                }`}
+              />
             </div>
-            <span className="mt-0.5 tracking-tight text-[9px]">专送</span>
+            <span className={`mt-0.5 tracking-tight text-[9px] ${activeTab === 'tracking' ? 'font-bold text-pitch' : 'font-medium'}`}>
+              专送
+            </span>
           </button>
 
           {/* Tab 3: 动态 / 联络室 */}
@@ -365,30 +356,29 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
               onSelectTab('order_messages');
             }}
             title={totalUnreadMessages > 0 ? `消息中心 (${totalUnreadMessages}条未读)` : '消息中心'}
-            className={`flex flex-col items-center py-1 relative group cursor-pointer transition-colors ${
+            className={`flex flex-col items-center justify-center py-1 relative group cursor-pointer transition-colors ${
               activeTab === 'order_messages'
                 ? 'text-pitch border-b-2 border-pitch bg-techTag/30 font-bold'
                 : 'text-stone-500 hover:text-pitch'
             }`}
           >
             <div className="w-5 h-5 flex items-center justify-center relative">
-              <svg
-                className={`w-4 h-4 ${activeTab === 'order_messages' ? 'text-pitch' : 'text-stone-700'}`}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="square"
-                strokeLinejoin="miter"
-                viewBox="0 0 24 24"
-              >
-                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
-                <line x1="8" y1="12" x2="16" y2="12" strokeDasharray="2 2"></line>
-              </svg>
+              <MessageSquareText
+                className={`w-4 h-4 transition-all duration-200 group-hover:scale-110 group-active:scale-95 ${
+                  activeTab === 'order_messages'
+                    ? 'text-pitch stroke-[2.2] scale-105'
+                    : 'text-stone-600 stroke-[1.6]'
+                }`}
+              />
               {totalUnreadMessages > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-600 rounded-full border border-white animate-pulse" />
+                <span className="absolute -top-1 -right-1 min-w-[13px] h-[13px] px-0.5 bg-red-600 text-white text-[7.5px] font-bold font-mono rounded-full border border-white flex items-center justify-center animate-pulse shadow-xs">
+                  {totalUnreadMessages > 9 ? '9+' : totalUnreadMessages}
+                </span>
               )}
             </div>
-            <span className="mt-0.5 tracking-tight text-[9px]">动态</span>
+            <span className={`mt-0.5 tracking-tight text-[9px] ${activeTab === 'order_messages' ? 'font-bold text-pitch' : 'font-medium'}`}>
+              动态
+            </span>
           </button>
 
           {/* Tab 4: 工单 / 订单 */}
@@ -397,35 +387,29 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
             id="bottom-nav-orders-tab"
             onClick={() => onSelectTab('orders')}
             title={activeOrders.length > 0 ? `历史与工单 (${activeOrders.length}笔在制)` : '工单'}
-            className={`flex flex-col items-center py-1 relative group cursor-pointer transition-colors ${
+            className={`flex flex-col items-center justify-center py-1 relative group cursor-pointer transition-colors ${
               activeTab === 'orders'
                 ? 'text-pitch border-b-2 border-pitch bg-techTag/30 font-bold'
                 : 'text-stone-500 hover:text-pitch'
             }`}
           >
             <div className="w-5 h-5 flex items-center justify-center relative">
-              <svg
-                className={`w-4 h-4 ${activeTab === 'orders' ? 'text-pitch' : 'text-stone-700'}`}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="square"
-                strokeLinejoin="miter"
-                viewBox="0 0 24 24"
-              >
-                <rect x="5" y="4" width="14" height="18" strokeDasharray="20"></rect>
-                <path d="M9 4V2h6v2"></path>
-                <line x1="8" y1="9" x2="16" y2="9" strokeDasharray="1 1"></line>
-                <line x1="8" y1="13" x2="16" y2="13" strokeDasharray="1 1"></line>
-                <line x1="8" y1="17" x2="13" y2="17" strokeDasharray="1 1"></line>
-              </svg>
+              <ClipboardList
+                className={`w-4 h-4 transition-all duration-200 group-hover:scale-110 group-active:scale-95 ${
+                  activeTab === 'orders'
+                    ? 'text-pitch stroke-[2.2] scale-105'
+                    : 'text-stone-600 stroke-[1.6]'
+                }`}
+              />
               {activeOrders.length > 0 && (
-                <span className="absolute -top-0.5 -right-1 bg-amber-500 text-white text-[7px] px-1 font-bold">
+                <span className="absolute -top-1 -right-1.5 bg-amber-500 text-white text-[7.5px] font-bold font-mono px-1 py-0 rounded-[1px] leading-tight shadow-xs border border-white">
                   {activeOrders.length}
                 </span>
               )}
             </div>
-            <span className="mt-0.5 tracking-tight text-[9px]">工单</span>
+            <span className={`mt-0.5 tracking-tight text-[9px] ${activeTab === 'orders' ? 'font-bold text-pitch' : 'font-medium'}`}>
+              工单
+            </span>
           </button>
 
           {/* Tab 5: 工匠档案 / 个人中心 */}
@@ -434,31 +418,27 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
             id="bottom-nav-profile-tab"
             onClick={() => onSelectTab('profile')}
             title="工匠档案与会员中心"
-            className={`flex flex-col items-center py-1 relative group cursor-pointer transition-colors ${
+            className={`flex flex-col items-center justify-center py-1 relative group cursor-pointer transition-colors ${
               activeTab === 'profile'
                 ? 'text-pitch border-b-2 border-pitch bg-techTag/30 font-bold'
                 : 'text-stone-500 hover:text-pitch'
             }`}
           >
             <div className="w-5 h-5 flex items-center justify-center relative">
-              <svg
-                className={`w-4 h-4 ${activeTab === 'profile' ? 'text-pitch' : 'text-stone-700'}`}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="square"
-                strokeLinejoin="miter"
-                viewBox="0 0 24 24"
-              >
-                <circle cx="12" cy="7" r="4"></circle>
-                <path d="M4 21v-2a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v2"></path>
-                <line x1="10" y1="18" x2="14" y2="18" strokeDasharray="1 1"></line>
-              </svg>
+              <User
+                className={`w-4 h-4 transition-all duration-200 group-hover:scale-110 group-active:scale-95 ${
+                  activeTab === 'profile'
+                    ? 'text-pitch stroke-[2.2] scale-105'
+                    : 'text-stone-600 stroke-[1.6]'
+                }`}
+              />
               {isVIPActive && (
-                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500 border border-white" />
+                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500 border border-white" title="VIP已激活" />
               )}
             </div>
-            <span className="mt-0.5 tracking-tight text-[9px]">工匠档案</span>
+            <span className={`mt-0.5 tracking-tight text-[9px] ${activeTab === 'profile' ? 'font-bold text-pitch' : 'font-medium'}`}>
+              工匠档案
+            </span>
           </button>
         </div>
       </footer>

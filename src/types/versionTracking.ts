@@ -18,6 +18,10 @@ export type VersionModuleType =
   | 'coupons'
   | 'marketing'
   | 'tables'
+  | 'orders'
+  | 'calling_queue'
+  | 'kds'
+  | 'fallback'
   | 'staff'
   | 'delivery'
   | 'payments'
@@ -29,6 +33,11 @@ export type VersionActionType =
   | 'create'
   | 'update'
   | 'delete'
+  | 'void_ticket'
+  | 'void_order'
+  | 'discount_override'
+  | 'table_transfer'
+  | 'force_clean'
   | 'batch_adjust'
   | 'rollback'
   | 'snapshot_restore'
@@ -65,6 +74,11 @@ export interface VersionPointer {
   isRevertible: boolean;
   integrityHash: string;
   status: 'active' | 'reverted' | 'superseded';
+  riskLevel?: 'normal' | 'sensitive' | 'high_risk';
+  isSuspectedMistake?: boolean;
+  mistakeReason?: string;
+  revertedAt?: string;
+  revertedBy?: string;
 }
 
 export interface MilestoneSnapshot {

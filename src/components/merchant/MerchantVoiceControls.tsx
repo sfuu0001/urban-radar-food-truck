@@ -6,7 +6,6 @@ import {
   Check, 
   X, 
   Bell, 
-  Sparkles, 
   Megaphone,
   Radio,
   UserCheck,
@@ -14,10 +13,14 @@ import {
   Clock,
   Sliders,
   ShieldCheck,
+  CheckCircle2,
   ChevronDown,
   Bluetooth,
   Speaker,
-  Smartphone
+  Smartphone,
+  Activity,
+  RefreshCw,
+  HelpCircle
 } from 'lucide-react';
 import { 
   VoiceConfig, 
@@ -31,7 +34,10 @@ import {
   VOICE_PERSONAS,
   VoicePersonaId,
   getAvailableSystemVoices,
-  findBestPersonaVoice
+  findBestPersonaVoice,
+  unlockAudioContext,
+  diagnoseAndRepairVoiceEngine,
+  VoiceEngineDiagnosis
 } from '../../utils/voiceAlertEngine';
 import { 
   globalBluetoothAudio,
@@ -52,6 +58,17 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
   const [isBluetoothModalOpen, setIsBluetoothModalOpen] = useState<boolean>(false);
   const [btConfig, setBtConfig] = useState<BluetoothAudioConfig>(() => globalBluetoothAudio.getConfig());
   const [activeBtDevice, setActiveBtDevice] = useState<BluetoothSpeakerDevice | null>(() => globalBluetoothAudio.getActiveDevice());
+  const [diagnosis, setDiagnosis] = useState<VoiceEngineDiagnosis | null>(null);
+  const [isDiagnosing, setIsDiagnosing] = useState<boolean>(false);
+
+  const runDiagnosis = async () => {
+    setIsDiagnosing(true);
+    await unlockAudioContext();
+    const res = await diagnoseAndRepairVoiceEngine();
+    setDiagnosis(res);
+    setIsDiagnosing(false);
+    showToast(res.repaired ? '已完成声学自检并成功修复挂起通道！' : '声学引擎自检完毕，系统已就绪！');
+  };
 
   // 监听外部配置变动事件，保持全局一致
   useEffect(() => {
@@ -146,14 +163,12 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
           {config.enabled ? (
             <div className="flex items-center gap-1">
               <Volume2 className="w-3.5 h-3.5 text-emerald-600 animate-pulse shrink-0" />
-              <span className="hidden md:inline font-semibold">
-                {currentPersona.avatarIcon} {currentPersona.name.slice(0, 4)}
-              </span>
+              <span className="hidden md:inline font-semibold">语音</span>
             </div>
           ) : (
             <div className="flex items-center gap-1">
               <VolumeX className="w-3.5 h-3.5 text-[#787774] shrink-0" />
-              <span className="hidden md:inline">语音静音</span>
+              <span className="hidden md:inline font-semibold">静音</span>
             </div>
           )}
         </button>
@@ -164,35 +179,10 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
           type="button"
           onClick={() => setIsOpen(!isOpen)}
           className="text-[#37352f] hover:text-black p-0.5 cursor-pointer shrink-0 flex items-center gap-0.5"
-          title="真人语音播报设置 (去除人机声)"
+          title="语音播报设置"
         >
           <Settings2 className="w-3.5 h-3.5" />
-          <Sparkles className="w-2.5 h-2.5 text-amber-600 shrink-0" />
         </button>
-
-        {/* Quick Bluetooth Speaker Status */}
-        {activeBtDevice && activeBtDevice.status === 'connected' && (
-          <>
-            <span className="text-[#d3d1cb]">|</span>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsBluetoothModalOpen(true);
-              }}
-              className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-colors ${
-                btConfig.routingMode === 'voice_only'
-                  ? 'bg-blue-100 hover:bg-blue-200 text-blue-900 border border-blue-200'
-                  : 'bg-neutral-200/80 hover:bg-neutral-300 text-neutral-800'
-              }`}
-              title={`已连接蓝牙音箱: ${activeBtDevice.name} · 点击管理声学专属路由`}
-            >
-              <Bluetooth className="w-2.5 h-2.5 text-blue-700 shrink-0" />
-              <span className="hidden lg:inline">{btConfig.routingMode === 'voice_only' ? '仅系统语音' : '统一混合'}</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-            </button>
-          </>
-        )}
       </div>
 
       {/* Voice Settings Backdrop on Mobile */}
@@ -233,6 +223,42 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
           </div>
 
           <div className="space-y-4 text-xs">
+            {/* 声学自检与挂起自愈卡片 (解决播放不生效与浏览器挂起) */}
+            <div className="p-2.5 bg-[#fbfbfa] rounded-lg border border-[#e3e2e0] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-emerald-600" />
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold text-[#37352f]">声学引擎状态诊断</span>
+                    {diagnosis && (
+                      <span className={`text-[9px] px-1 py-0.2 rounded font-semibold ${
+                        diagnosis.speechSynthesisState === 'ready' || diagnosis.speechSynthesisState === 'speaking'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {diagnosis.speechSynthesisState === 'ready' ? '就绪' : diagnosis.speechSynthesisState === 'speaking' ? '播报中' : '已挂起'}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-[#787774] block">
+                    {diagnosis 
+                      ? `中文音源 ${diagnosis.availableVoicesCount} 个 · AudioContext: ${diagnosis.audioContextState}` 
+                      : '检测浏览器自动播放授权与语音合成通道'}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={runDiagnosis}
+                disabled={isDiagnosing}
+                className="px-2 py-1 bg-white hover:bg-[#f1f1ef] text-[#37352f] rounded border border-[#d3d1cb] font-medium text-[11px] flex items-center gap-1 cursor-pointer shadow-2xs active:scale-95 transition-all"
+                title="一键诊断声学通道并强制激活挂起的音频服务"
+              >
+                <RefreshCw className={`w-3 h-3 text-emerald-600 ${isDiagnosing ? 'animate-spin' : ''}`} />
+                <span>{isDiagnosing ? '诊断中' : '自检修复'}</span>
+              </button>
+            </div>
+
             {/* Master Switch */}
             <div className="flex items-center justify-between p-2.5 bg-[#f7f7f5] rounded-lg border border-[#e3e2e0]">
               <div className="flex items-center gap-2">
@@ -387,8 +413,8 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
                           </div>
                           <p className="text-[10px] text-[#787774] line-clamp-1 mt-0.5">{p.description}</p>
                           <div className="text-[9px] text-[#908e89] flex items-center gap-1 mt-0.5">
-                            <Sparkles className="w-2.5 h-2.5 text-amber-600 shrink-0" />
-                            <span className="text-emerald-700 font-medium">✨ 独立真人录音母带 (WAV高保真)</span>
+                            <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                            <span className="text-emerald-700 font-medium">独立真人录音母带 (WAV高保真)</span>
                           </div>
                         </div>
                       </div>
@@ -420,7 +446,7 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
             <div className="p-2.5 bg-emerald-50/60 rounded-lg border border-emerald-200/80 space-y-1">
               <label className="flex items-center justify-between cursor-pointer">
                 <div className="flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                  <Sliders className="w-3.5 h-3.5 text-emerald-600" />
                   <div>
                     <span className="font-semibold text-emerald-950 block">真人呼吸韵律与单号口语化</span>
                     <span className="text-[10px] text-emerald-700 block">
@@ -567,7 +593,8 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
               <div className="grid grid-cols-2 gap-1.5">
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
+                    await unlockAudioContext();
                     voiceAlerts.newSelfOperatedOrder('9821', 128.0, '先锋食客');
                     showToast('正在播报【自营新订单】真人语音...');
                   }}
@@ -584,8 +611,9 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
 
                 <button
                   type="button"
-                  onClick={() => {
-                    voiceAlerts.callingGuest('A01', '餐车取餐窗口');
+                  onClick={async () => {
+                    await unlockAudioContext();
+                    voiceAlerts.callingGuest('P08', '餐车取餐窗口');
                     showToast('正在播报【前台取餐叫号】真人语音...');
                   }}
                   className="p-2 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-lg border border-amber-200 flex flex-col items-start gap-0.5 cursor-pointer text-left transition-colors"
@@ -595,13 +623,14 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
                     <span>前台取餐叫号</span>
                   </div>
                   <span className="text-[10px] text-amber-700 line-clamp-1">
-                    “请——A 零一号顾客，到餐车取餐窗口...”
+                    “请——P 零八号顾客，到餐车取餐窗口...”
                   </span>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
+                    await unlockAudioContext();
                     voiceAlerts.callingWaitTable('B02', 3, '露天餐吧堂食区');
                     showToast('正在播报【等位到号入座】真人语音...');
                   }}
@@ -618,7 +647,8 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
 
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
+                    await unlockAudioContext();
                     voiceAlerts.riderNewDeliveryPool('9825', 16.5, 650);
                     showToast('正在播报【骑手新单派发】真人语音...');
                   }}
@@ -637,7 +667,8 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
               <div className="grid grid-cols-2 gap-1.5 pt-1">
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
+                    await unlockAudioContext();
                     voiceAlerts.waitingQueueReminder('A05', 2);
                     showToast('正在播报【等位候餐进度】...');
                   }}
@@ -649,7 +680,8 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
 
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
+                    await unlockAudioContext();
                     voiceAlerts.riderOrderDelivered('9821', 15.0);
                     showToast('正在播报【骑手妥投确认】...');
                   }}

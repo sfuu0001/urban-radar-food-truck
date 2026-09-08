@@ -34,6 +34,7 @@ import { normalizeOrderKey, isOrderMatch } from '../../utils/orderNormalizer';
 import { UnifiedOmniChatModal } from './UnifiedOmniChatModal';
 import { ActiveMessageFormModal } from './ActiveMessageFormModal';
 import { OmniAggregatedChatHub } from './OmniAggregatedChatHub';
+import { fallbackToastCompat } from '../../utils/fallbackToast';
 
 export interface OrderHistoryMessagesViewProps {
   orders: Order[];
@@ -145,7 +146,7 @@ export const OrderHistoryMessagesView: React.FC<OrderHistoryMessagesViewProps> =
   onAdvanceOrderStatus,
   onRejectOrder,
   onAuditRefund,
-  showToast = (t, d) => console.log(t, d)
+  showToast = (t, d) => fallbackToastCompat(t, d)
 }) => {
   const [activeMainTab, setActiveMainTab] = useState<MainTabType>('all_orders');
   const [searchQuery, setSearchQuery] = useState('');

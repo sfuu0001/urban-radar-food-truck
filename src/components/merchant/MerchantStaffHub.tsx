@@ -13,11 +13,14 @@ import {
   Award,
   Sparkles,
   Sliders,
-  ChevronRight
+  ChevronRight,
+  ShieldAlert,
+  RefreshCw
 } from 'lucide-react';
 import { StaffMember, StaffRole } from '../../types';
 import { INITIAL_STAFF_MEMBERS } from '../../data/merchantExtendedMockData';
 import { playChimeSound } from '../../utils/voiceAlertEngine';
+import { getSecurityAuditLogs, SecurityAuditEvent } from '../../utils/rbacEngine';
 
 interface MerchantStaffHubProps {
   showToast: (msg: string) => void;
@@ -29,7 +32,8 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
     return raw ? JSON.parse(raw) : INITIAL_STAFF_MEMBERS;
   });
 
-  const [activeTab, setActiveTab] = useState<'roster' | 'rbac' | 'clockin'>('roster');
+  const [activeTab, setActiveTab] = useState<'roster' | 'rbac' | 'clockin' | 'audit'>('roster');
+  const [auditLogs, setAuditLogs] = useState<SecurityAuditEvent[]>(() => getSecurityAuditLogs());
   const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(staffList[0] || null);
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
 
@@ -190,6 +194,20 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
           >
             <span className="hidden sm:inline">岗位角色权限矩阵 (RBAC)</span>
             <span className="sm:hidden">权限矩阵</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setAuditLogs(getSecurityAuditLogs());
+              setActiveTab('audit');
+            }}
+            className={`px-3 py-1.5 text-xs font-semibold rounded cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
+              activeTab === 'audit' ? 'bg-[#37352f] text-white' : 'text-[#787774] hover:bg-[#f7f7f5]'
+            }`}
+          >
+            <ShieldAlert className="w-3.5 h-3.5 text-amber-500" />
+            <span className="hidden sm:inline">安全审计与越权追溯 ({auditLogs.length})</span>
+            <span className="sm:hidden">安全审计 ({auditLogs.length})</span>
           </button>
         </div>
 
@@ -432,6 +450,112 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
                       </td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* 3. Security Audit & Permission Log Trace */}
+        {activeTab === 'audit' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-[#787774]">
+                记录餐车全生命周期关键安全事件：越权拦截、店长临时授权、岗位交接班及平台准入。
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuditLogs(getSecurityAuditLogs());
+                  showToast('安全审计日志已刷新');
+                }}
+                className="px-2.5 py-1 text-xs rounded border border-[#d3d1cb] hover:bg-[#f7f7f5] text-[#37352f] font-medium flex items-center gap-1 cursor-pointer"
+              >
+                <RefreshCw className="w-3 h-3" />
+                <span>刷新日志</span>
+              </button>
+            </div>
+
+            <div className="border border-[#e3e2e0] rounded-lg overflow-x-auto">
+              <table className="w-full text-xs text-left min-w-[620px]">
+                <thead className="bg-[#f7f7f5] text-[#37352f] font-bold border-b border-[#e3e2e0]">
+                  <tr>
+                    <th className="py-2.5 px-3">时间</th>
+                    <th className="py-2.5 px-3">事件类型</th>
+                    <th className="py-2.5 px-3">操作人 / 身份</th>
+                    <th className="py-2.5 px-3">受控目标</th>
+                    <th className="py-2.5 px-3 text-center">状态</th>
+                    <th className="py-2.5 px-3">详细审计信息</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#f1f1ef]">
+                  {auditLogs.map((log) => {
+                    const isDenied = log.status === 'denied';
+                    const isGranted = log.status === 'granted';
+                    const isAllowed = log.status === 'allowed';
+
+                    return (
+                      <tr key={log.id} className="hover:bg-[#fbfbfa]">
+                        <td className="py-2.5 px-3 font-mono text-[11px] text-[#787774] whitespace-nowrap">
+                          {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        </td>
+                        <td className="py-2.5 px-3 font-medium whitespace-nowrap">
+                          {log.action === 'tab_access_denied' && (
+                            <span className="text-red-700 font-bold">越权拦截阻断</span>
+                          )}
+                          {log.action === 'manager_override_granted' && (
+                            <span className="text-amber-700 font-bold">店长紧急放行</span>
+                          )}
+                          {log.action === 'manager_override_failed' && (
+                            <span className="text-red-600 font-bold">提权密码错误</span>
+                          )}
+                          {log.action === 'platform_access_granted' && (
+                            <span className="text-indigo-700 font-bold">平台门禁准入</span>
+                          )}
+                          {log.action === 'platform_access_denied' && (
+                            <span className="text-red-600 font-bold">平台门禁拦截</span>
+                          )}
+                          {log.action === 'auth_login' && (
+                            <span className="text-emerald-700 font-bold">员工实名登入</span>
+                          )}
+                          {log.action === 'auth_logout' && (
+                            <span className="text-neutral-500 font-medium">安全注销退出</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 font-semibold text-[#37352f] whitespace-nowrap">
+                          {log.operator}
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-[11px] text-[#787774]">
+                          {log.target}
+                        </td>
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                          {isDenied && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-50 text-red-700 border border-red-200">
+                              阻断
+                            </span>
+                          )}
+                          {isGranted && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                              授权
+                            </span>
+                          )}
+                          {isAllowed && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                              通过
+                            </span>
+                          )}
+                          {log.status === 'revoked' && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-neutral-100 text-neutral-600">
+                              注销
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 text-[11px] text-[#5a5854]">
+                          {log.details}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

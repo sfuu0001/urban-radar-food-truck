@@ -69,6 +69,11 @@ import {
 } from '../../utils/chatHub';
 import { OmniAggregatedChatHub } from '../chat/OmniAggregatedChatHub';
 import { UnifiedOmniChatModal } from '../chat/UnifiedOmniChatModal';
+import { DigitalTwinCommandCockpit } from './DigitalTwinCommandCockpit';
+import { FranchiseComplianceRadar } from './FranchiseComplianceRadar';
+import { SurgePricingAndKillSwitch } from './SurgePricingAndKillSwitch';
+import { exportToCsv } from '../../utils/dataExportEngine';
+import { fallbackToast } from '../../utils/fallbackToast';
 
 export interface PlatformSystemViewProps {
   orders: Order[];
@@ -79,12 +84,20 @@ export interface PlatformSystemViewProps {
 export const PlatformSystemView: React.FC<PlatformSystemViewProps> = ({
   orders,
   onSelectRole,
-  showToast = (msg: string) => console.log(msg)
+  showToast = (msg: string) => fallbackToast(msg)
 }) => {
   // Navigation tabs (Following merchant token convention)
   const [activeTab, setActiveTab] = useState<
-    'merchants' | 'truck_matrix' | 'commission' | 'sla_monitor' | 'finance' | 'arbitration'
-  >('truck_matrix');
+    | 'digital_twin'
+    | 'truck_matrix'
+    | 'merchants'
+    | 'commission'
+    | 'compliance_radar'
+    | 'surge_emergency'
+    | 'sla_monitor'
+    | 'finance'
+    | 'arbitration'
+  >('digital_twin');
 
   // Commission configs
   const [globalSettings, setGlobalSettings] = useState<GlobalCommissionSettings>(getGlobalCommissionSettings());
@@ -209,6 +222,36 @@ export const PlatformSystemView: React.FC<PlatformSystemViewProps> = ({
     showToast('已更新全平台默认抽佣与结算规则！');
   };
 
+  // FIX(审计P1): 财务分账对账表真实导出 CSV（替代"仅弹提示"假实现）
+  const handleExportFinanceCsv = () => {
+    const rows = orders.map((ord) => {
+      const matchedMerchant = merchants.find((m) => m.truckName === ord.truckName) || merchants[0];
+      const split = calculateOrderCommissionSplit(ord, matchedMerchant);
+      return {
+        订单号: ord.orderNo || ord.id,
+        餐车商户: ord.truckName || matchedMerchant?.truckName || '-',
+        实收金额: ord.totalAmount?.toFixed(2) ?? '0.00',
+        商户净入: split.merchantNetPayout?.toFixed(2) ?? '0.00',
+        骑手赏金: split.riderDeliveryFee?.toFixed(2) ?? '0.00',
+        平台佣金: split.platformCommission?.toFixed(2) ?? '0.00',
+        履约模式: ord.channelType || 'delivery',
+        创建时间: ord.createdTime || '',
+        状态: ord.statusText || ord.status || ''
+      };
+    });
+    try {
+      exportToCsv(
+        `平台分账对账_${new Date().toISOString().slice(0, 10)}.csv`,
+        (rows[0] ? Object.keys(rows[0]) : ['订单号', '餐车商户', '实收金额']).map((k) => ({ label: k, key: k })),
+        rows
+      );
+      showToast(`已导出分账对账表，共 ${rows.length} 条结算记录`);
+    } catch (e) {
+      console.error('导出账单失败:', e);
+      showToast('导出失败，请稍后重试');
+    }
+  };
+
   // Handle Save Single Merchant
   const handleSaveMerchantEdit = () => {
     if (!editingMerchant) return;
@@ -321,6 +364,22 @@ export const PlatformSystemView: React.FC<PlatformSystemViewProps> = ({
         <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-[#f1f1ef] overflow-x-auto no-scrollbar py-0.5">
           <button
             type="button"
+            onClick={() => setActiveTab('digital_twin')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 whitespace-nowrap cursor-pointer border ${
+              activeTab === 'digital_twin'
+                ? 'bg-slate-900 border-2 border-slate-700 text-emerald-400 shadow-2xs font-black'
+                : 'bg-[#f7f6f3] border-[#e2e3e1] text-[#787774] hover:bg-neutral-100 hover:text-[#37352f]'
+            }`}
+          >
+            <Activity className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'digital_twin' ? 'text-emerald-400 animate-pulse' : 'text-[#787770]'}`} />
+            <span>数字孪生指挥大屏</span>
+            <span className="text-[9px] font-mono px-1 rounded bg-emerald-500/20 text-emerald-600 font-bold">
+              LIVE
+            </span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('truck_matrix')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 whitespace-nowrap cursor-pointer border ${
               activeTab === 'truck_matrix'
@@ -333,6 +392,32 @@ export const PlatformSystemView: React.FC<PlatformSystemViewProps> = ({
             <span className={`text-[9px] font-mono px-1 rounded ${activeTab === 'truck_matrix' ? 'bg-emerald-500 text-white' : 'bg-[#e6e6e4] text-[#37352f]'}`}>
               {getAllTruckConfigs().length}
             </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('compliance_radar')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 whitespace-nowrap cursor-pointer border ${
+              activeTab === 'compliance_radar'
+                ? 'bg-red-50/80 border-2 border-red-500 text-red-700 shadow-2xs font-black'
+                : 'bg-[#f7f6f3] border-[#e2e3e1] text-[#787774] hover:bg-neutral-100 hover:text-[#37352f]'
+            }`}
+          >
+            <ShieldCheck className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'compliance_radar' ? 'text-red-600' : 'text-[#787770]'}`} />
+            <span>脱圈与品控合规雷达</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('surge_emergency')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 whitespace-nowrap cursor-pointer border ${
+              activeTab === 'surge_emergency'
+                ? 'bg-orange-50/80 border-2 border-orange-500 text-orange-700 shadow-2xs font-black'
+                : 'bg-[#f7f6f3] border-[#e2e3e1] text-[#787774] hover:bg-neutral-100 hover:text-[#37352f]'
+            }`}
+          >
+            <Zap className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'surge_emergency' ? 'text-orange-600' : 'text-[#787770]'}`} />
+            <span>动态运价与应急熔断</span>
           </button>
 
           <button
@@ -409,6 +494,21 @@ export const PlatformSystemView: React.FC<PlatformSystemViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Tab -1: 数字孪生指挥大屏 */}
+      {activeTab === 'digital_twin' && (
+        <DigitalTwinCommandCockpit orders={orders} showToast={showToast} />
+      )}
+
+      {/* Tab -2: 加盟商违规脱圈与品控合规雷达 */}
+      {activeTab === 'compliance_radar' && (
+        <FranchiseComplianceRadar showToast={showToast} />
+      )}
+
+      {/* Tab -3: 全域动态运价与突发应急熔断器 */}
+      {activeTab === 'surge_emergency' && (
+        <SurgePricingAndKillSwitch showToast={showToast} />
+      )}
 
       {/* Tab 0: 餐车全域矩阵与转单调度 */}
       {activeTab === 'truck_matrix' && (
@@ -1046,7 +1146,7 @@ export const PlatformSystemView: React.FC<PlatformSystemViewProps> = ({
               </div>
               <button
                 type="button"
-                onClick={() => showToast('财务分账对账表已导出为 CSV / Excel 报表')}
+                onClick={handleExportFinanceCsv}
                 className="w-full sm:w-auto px-3 py-1.5 bg-[#f7f6f3] border border-[#e3e2de] text-[#37352f] text-xs font-bold rounded-lg hover:bg-[#f1f1ef] flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5 text-[#2b593f]" />

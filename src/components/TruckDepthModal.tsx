@@ -21,6 +21,7 @@ import {
   Radio
 } from 'lucide-react';
 import { TruckInfo } from '../types';
+import { getAmapNavigationUrls } from '../utils/truckLocationEngine';
 
 interface TruckDepthModalProps {
   isOpen: boolean;
@@ -41,7 +42,19 @@ export const TruckDepthModal: React.FC<TruckDepthModalProps> = ({
   if (!isOpen) return null;
 
   const handleNavigate = () => {
-    setCopiedToast('已获取餐车实时导航路线');
+    const lat = truck.latitude || 31.2425;
+    const lng = truck.longitude || 121.4678;
+    const urls = getAmapNavigationUrls(lat, lng, truck.name || '流动餐车停靠点');
+    if (typeof window !== 'undefined') {
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      if (isMobile) {
+        window.location.href = urls.amapUri;
+        setTimeout(() => window.open(urls.webNavUrl, '_blank'), 1200);
+      } else {
+        window.open(urls.webNavUrl, '_blank');
+      }
+    }
+    setCopiedToast(`已启动高德地图导航至：${truck.name}`);
     setTimeout(() => setCopiedToast(null), 2500);
   };
 

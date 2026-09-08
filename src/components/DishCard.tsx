@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Clock, Check, Bike, Utensils, ShoppingBag, Plus, Flame, Sparkles, ChefHat, TrendingDown, TrendingUp, Tag } from 'lucide-react';
+import { Clock, Check, Bike, Utensils, ShoppingBag, Plus, Flame, ChefHat, TrendingDown, TrendingUp, Tag } from 'lucide-react';
 import { motion } from 'motion/react';
 import { DishItem, DiningMode } from '../types';
 import { useFlyingCart } from '../utils/FlyingCartContext';
@@ -317,7 +317,7 @@ export const DishCard: React.FC<DishCardProps> = ({
               {/* Special Micro Badge inline with dish title */}
               {isDiscountState && (
                 <span className="inline-flex items-center gap-0.5 ml-1 px-1 py-0.2 rounded-none text-[8px] font-extrabold text-rose-700 bg-rose-50 border border-rose-200/90 align-middle leading-none shadow-2xs shrink-0">
-                  <Sparkles className="w-2 h-2 text-rose-600 shrink-0" />
+                  <Tag className="w-2 h-2 text-rose-600 shrink-0" />
                   <span>特惠</span>
                 </span>
               )}

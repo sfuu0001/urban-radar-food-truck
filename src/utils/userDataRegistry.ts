@@ -112,6 +112,7 @@ export function ensureUserHardwareDetails(u: UserProfile): UserProfile {
 
   return {
     ...u,
+    password: u.password || (u.phone ? `Pass@${u.phone.replace(/[^0-9]/g, '').slice(-4) || '8888'}` : 'Radar#2026'),
     hardwareHash: hw,
     deviceFingerprint: dev,
     pairingCode: pairing,
@@ -131,6 +132,7 @@ const DEMO_USERS: UserProfile[] = [
     uid: 'tcb_u_demo_silver',
     nickname: '陈先生 (银卡会员)',
     phone: '137-2233-4455',
+    password: 'Pass@4455',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
     bio: '每周三固定光顾午餐档, 偏好轻辣。',
     gender: 'male',

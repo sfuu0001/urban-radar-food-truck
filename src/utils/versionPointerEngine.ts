@@ -148,11 +148,15 @@ const FIELD_LABEL_MAP: Record<string, string> = {
 
 // Module names mapping
 export const MODULE_NAME_MAP: Record<VersionModuleType, string> = {
+  orders: '全渠道订单数据',
+  calling_queue: '前台排队与叫号中心',
+  tables: '堂食桌台与就餐流转',
+  kds: '后厨制作与划菜工单',
+  fallback: '全系统数据安全兜底',
   dishes: '菜品与菜单管理',
   materials: '原料与库存资产',
   coupons: '优惠券与营销发券',
   marketing: '阶梯满减与叠享规则',
-  tables: '桌台与餐车点位',
   staff: '员工花名册与RBAC',
   delivery: '外卖配送与运费配置',
   payments: '支付渠道与结算',
@@ -166,6 +170,11 @@ export const ACTION_NAME_MAP: Record<VersionActionType, string> = {
   create: '新增录入',
   update: '字段修改',
   delete: '删除/注销',
+  void_ticket: '作废号牌/工单',
+  void_order: '作废堂食订单',
+  discount_override: '修改折扣/优惠',
+  table_transfer: '转台/换桌',
+  force_clean: '强制完成保洁',
   batch_adjust: '批量调价/盘点',
   rollback: '版本回滚修复',
   snapshot_restore: '全量快照还原',
@@ -249,6 +258,195 @@ export function computeFieldDiffs(beforeObj: any, afterObj: any): FieldDiff[] {
 
 // Initial Mock Version Pointers (Rich timeline of historical operations)
 const INITIAL_VERSION_POINTERS: VersionPointer[] = [
+  {
+    pointerId: 'rev_call_void_9918',
+    versionTag: 'v2.6.53',
+    timestamp: '2026-09-07 14:32:10',
+    formattedTime: '14:32 (28分钟前)',
+    operator: DEFAULT_MERCHANT_OPERATORS[2], // 李晓萌 (收银)
+    module: 'calling_queue',
+    moduleName: '前台排队与叫号中心',
+    actionType: 'void_ticket',
+    actionName: '作废号牌/工单',
+    entityId: 'q-A08',
+    entityName: '等位号牌 #A08 (小桌 2人)',
+    summary: '收银员李晓萌 将排队号牌 #A08 设置为【临时作废(暂挂)】，原因：过号2次呼叫未应答',
+    fieldDiffs: [
+      {
+        field: 'status',
+        fieldLabel: '排队号状态',
+        diffType: 'modified',
+        oldValue: 'waiting',
+        newValue: 'temp_void',
+        oldValueDisplay: '等待叫号中',
+        newValueDisplay: '临时作废 (暂挂保留)'
+      },
+      {
+        field: 'voidReason',
+        fieldLabel: '作废原因说明',
+        diffType: 'added',
+        oldValue: null,
+        newValue: '过号2次呼叫未应答',
+        oldValueDisplay: '无',
+        newValueDisplay: '过号2次呼叫未应答'
+      }
+    ],
+    beforeSnapshot: {
+      id: 'q-A08',
+      queueNo: 'A08',
+      guestName: '孙女士',
+      partySize: 2,
+      status: 'waiting',
+      waitTimeMin: 22
+    },
+    afterSnapshot: {
+      id: 'q-A08',
+      queueNo: 'A08',
+      guestName: '孙女士',
+      partySize: 2,
+      status: 'temp_void',
+      voidReason: '过号2次呼叫未应答',
+      waitTimeMin: 22
+    },
+    isRevertible: true,
+    integrityHash: 'sha256_call9918_a1b2c3',
+    status: 'active',
+    riskLevel: 'sensitive',
+    isSuspectedMistake: true,
+    mistakeReason: '顾客已到前台窗口，员工可能误判为弃号，建议快速一键恢复！'
+  },
+  {
+    pointerId: 'rev_order_discount_8801',
+    versionTag: 'v2.6.52',
+    timestamp: '2026-09-07 13:45:20',
+    formattedTime: '13:45 (1小时前)',
+    operator: DEFAULT_MERCHANT_OPERATORS[2], // 李晓萌 (收银)
+    module: 'orders',
+    moduleName: '全渠道订单数据',
+    actionType: 'discount_override',
+    actionName: '修改折扣/优惠',
+    entityId: 'ord-UR-DIN-9821',
+    entityName: '堂食订单 #UR-DIN-9821 (A1桌)',
+    summary: '收银员李晓萌 执行结账改价，折扣率从 1.0 (原价) 误改为 0.5 (5折特惠)，实付降为 ¥94.00',
+    fieldDiffs: [
+      {
+        field: 'discount',
+        fieldLabel: '结账折扣率',
+        diffType: 'modified',
+        oldValue: 1.0,
+        newValue: 0.5,
+        oldValueDisplay: '无折扣 (100%)',
+        newValueDisplay: '5折特权优惠 (50%)'
+      },
+      {
+        field: 'totalAmount',
+        fieldLabel: '应付实结金额 (¥)',
+        diffType: 'modified',
+        oldValue: 188.0,
+        newValue: 94.0,
+        oldValueDisplay: '¥188.00',
+        newValueDisplay: '¥94.00'
+      }
+    ],
+    beforeSnapshot: {
+      orderNo: 'UR-DIN-9821',
+      tableCode: 'A1',
+      totalAmount: 188.0,
+      discount: 1.0,
+      status: 'dining'
+    },
+    afterSnapshot: {
+      orderNo: 'UR-DIN-9821',
+      tableCode: 'A1',
+      totalAmount: 94.0,
+      discount: 0.5,
+      status: 'dining'
+    },
+    isRevertible: true,
+    integrityHash: 'sha256_ord8801_f5e4d3',
+    status: 'active',
+    riskLevel: 'high_risk',
+    isSuspectedMistake: true,
+    mistakeReason: '折扣幅度异常过大 (>30%)，且缺少店长授权工单凭证，疑似误操作！'
+  },
+  {
+    pointerId: 'rev_table_transfer_3312',
+    versionTag: 'v2.6.51',
+    timestamp: '2026-09-07 12:50:05',
+    formattedTime: '12:50 (2小时前)',
+    operator: DEFAULT_MERCHANT_OPERATORS[0], // 张磊 (店长)
+    module: 'tables',
+    moduleName: '堂食桌台与就餐流转',
+    actionType: 'table_transfer',
+    actionName: '转台/换桌',
+    entityId: 'tbl-A2',
+    entityName: '桌台 A2 换至 B1 (餐车内卡座)',
+    summary: '店长张磊 将 A2桌 (4人) 顾客整体转台至 B1大卡座，关联订单自动合并流转',
+    fieldDiffs: [
+      {
+        field: 'tableCode',
+        fieldLabel: '绑定台位编号',
+        diffType: 'modified',
+        oldValue: 'A2',
+        newValue: 'B1',
+        oldValueDisplay: 'A2 (外摆小桌)',
+        newValueDisplay: 'B1 (餐车内卡座)'
+      }
+    ],
+    beforeSnapshot: {
+      sourceTable: 'A2',
+      targetTable: 'B1',
+      status: 'dining'
+    },
+    afterSnapshot: {
+      sourceTable: 'A2',
+      targetTable: 'B1',
+      status: 'dining'
+    },
+    isRevertible: true,
+    integrityHash: 'sha256_tbl3312_c9b8a7',
+    status: 'active',
+    riskLevel: 'normal'
+  },
+  {
+    pointerId: 'rev_kds_item_scratch_1102',
+    versionTag: 'v2.6.50',
+    timestamp: '2026-09-07 12:20:15',
+    formattedTime: '12:20 (2.5小时前)',
+    operator: DEFAULT_MERCHANT_OPERATORS[1], // 王师傅 (后厨)
+    module: 'kds',
+    moduleName: '后厨制作与划菜工单',
+    actionType: 'update',
+    actionName: '字段修改',
+    entityId: 'kds-K103',
+    entityName: '后厨工单 #K103 (安格斯汉堡)',
+    summary: '后厨王师傅 完成「双层安格斯厚牛堡」出餐制作划菜，用时 7分32秒',
+    fieldDiffs: [
+      {
+        field: 'isCompleted',
+        fieldLabel: '菜品制作划菜状态',
+        diffType: 'modified',
+        oldValue: false,
+        newValue: true,
+        oldValueDisplay: '烹制制作中',
+        newValueDisplay: '已划菜出餐'
+      }
+    ],
+    beforeSnapshot: {
+      ticketNo: 'K103',
+      dishName: '双层安格斯厚牛堡',
+      isCompleted: false
+    },
+    afterSnapshot: {
+      ticketNo: 'K103',
+      dishName: '双层安格斯厚牛堡',
+      isCompleted: true
+    },
+    isRevertible: true,
+    integrityHash: 'sha256_kds1102_e2d1c0',
+    status: 'active',
+    riskLevel: 'normal'
+  },
   {
     pointerId: 'rev_9a4f2101_1725189200',
     versionTag: 'v2.6.48',
@@ -607,11 +805,23 @@ class VersionPointerEngine {
     );
   }
 
-  // Save all version pointers
+  // Save all version pointers with Storage safety LRU pruning
   public savePointers(pointers: VersionPointer[]): void {
-    safeSetStorage(STORAGE_KEY_POINTERS, pointers);
+    // 限制最大存储量 60 条，超过 25 条的旧快照执行轻量脱水，防止 LocalStorage 配额崩溃
+    const pruned = pointers.slice(0, 60).map((ptr, idx) => {
+      if (idx > 25 && ptr.beforeSnapshot && typeof ptr.beforeSnapshot === 'object') {
+        return {
+          ...ptr,
+          beforeSnapshot: { summary: ptr.summary, entityId: ptr.entityId },
+          afterSnapshot: { summary: ptr.summary, entityId: ptr.entityId }
+        };
+      }
+      return ptr;
+    });
+
+    safeSetStorage(STORAGE_KEY_POINTERS, pruned);
     window.dispatchEvent(
-      new CustomEvent('obsidian_version_pointers_updated', { detail: pointers })
+      new CustomEvent('obsidian_version_pointers_updated', { detail: pruned })
     );
   }
 
@@ -772,7 +982,15 @@ class VersionPointerEngine {
             safeSetStorage('obsidian_activity_rules', beforeSnapshot.activityRules);
           }
           if (beforeSnapshot.stackCouponWithPayment !== undefined) {
-            safeSetStorage('obsidian_promotion_stacking', beforeSnapshot);
+            // FIX(审计P0): 原写入不存在的键 'obsidian_promotion_stacking'(全仓0读取)。
+            // 实际配置键为 'obsidian_stacking_settings' (promotionEngine.ts getStoredStackingSettings),
+            // 快照布尔字段 stackCouponWithPayment 对应叠享配置 allowPaymentStackAll。
+            const current = safeGetStorage<any>('obsidian_stacking_settings', {});
+            const restored = { ...current, allowPaymentStackAll: !!beforeSnapshot.stackCouponWithPayment };
+            safeSetStorage('obsidian_stacking_settings', restored);
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('PROMOTION_SETTINGS_CHANGED', { detail: restored }));
+            }
           }
         }
         restoredSuccessfully = true;
@@ -1065,3 +1283,33 @@ class VersionPointerEngine {
 }
 
 export const globalVersionEngine = new VersionPointerEngine();
+
+// Convenience helper exports for components
+export const getVersionPointers = (): VersionPointer[] => globalVersionEngine.getAllPointers();
+export const getMilestoneSnapshots = (): MilestoneSnapshot[] => globalVersionEngine.getMilestoneSnapshots();
+export const createMilestoneSnapshot = (
+  title: string,
+  description: string = '手动创建快照',
+  tag: MilestoneSnapshot['tag'] = 'manual'
+): MilestoneSnapshot => globalVersionEngine.createManualSnapshot(title, description, tag);
+export const restoreMilestoneSnapshot = (snapshotId: string) => globalVersionEngine.restoreMilestoneSnapshot(snapshotId);
+export const rollbackVersionPointer = (pointerId: string, _reason?: string) => {
+  const res = globalVersionEngine.rollbackPointer(pointerId);
+  return {
+    success: res.success,
+    message: res.message,
+    revertedPointer: res.newPointer,
+    error: res.success ? undefined : res.message
+  };
+};
+export const getActiveMerchantOperator = () => globalVersionEngine.getActiveOperator();
+export const setActiveMerchantOperator = (opIdOrOperator: string | MerchantOperator) => {
+  if (typeof opIdOrOperator === 'string') {
+    const found = DEFAULT_MERCHANT_OPERATORS.find(op => op.id === opIdOrOperator);
+    if (found) {
+      globalVersionEngine.setActiveOperator(found);
+    }
+  } else {
+    globalVersionEngine.setActiveOperator(opIdOrOperator);
+  }
+};

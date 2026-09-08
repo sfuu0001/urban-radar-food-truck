@@ -12,6 +12,9 @@ import {
   Check,
   Eye,
   EyeOff,
+  Key,
+  Copy,
+  RotateCcw,
   Flame,
   Utensils,
   History,
@@ -35,6 +38,9 @@ export const UserDataProfileForm: React.FC<UserDataProfileFormProps> = ({
   showToast
 }) => {
   const [showFullPhone, setShowFullPhone] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [isEditingPassword, setIsEditingPassword] = useState(false);
+  const [editingPasswordVal, setEditingPasswordVal] = useState(user.password || 'Radar#8888');
 
   // 资产调整表单状态
   const [adjustKind, setAdjustKind] = useState<'balance' | 'points'>('balance');
@@ -178,6 +184,106 @@ export const UserDataProfileForm: React.FC<UserDataProfileFormProps> = ({
                 >
                   {showFullPhone ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>
+              </div>
+            </div>
+
+            {/* 账户密码 / 登录凭证 (支持查看密码明文、复制、快速重置) */}
+            <div className="py-2.5 flex items-center justify-between gap-3 bg-neutral-50/80 -mx-3 px-3 border-y border-neutral-100">
+              <div className="flex items-center gap-1.5 whitespace-nowrap shrink-0">
+                <Key className="w-3.5 h-3.5 text-neutral-700 shrink-0" />
+                <span className="font-bold text-neutral-800">账户密码凭证</span>
+                <span className="text-[10px] bg-neutral-200 text-neutral-700 px-1 py-0.2 rounded-none font-mono">
+                  {showPassword ? '明文已公开' : '密文保护中'}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {isEditingPassword ? (
+                  <div className="flex items-center gap-1 font-mono">
+                    <input
+                      type="text"
+                      value={editingPasswordVal}
+                      onChange={(e) => setEditingPasswordVal(e.target.value)}
+                      placeholder="设置新密码..."
+                      className="w-32 sm:w-40 px-1.5 py-0.5 border border-neutral-400 bg-white text-xs font-bold font-mono text-neutral-900 rounded-none focus:outline-none focus:border-black"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!editingPasswordVal.trim()) {
+                          showToast('密码不能为空');
+                          return;
+                        }
+                        handleFieldChange('password', editingPasswordVal.trim());
+                        setIsEditingPassword(false);
+                        showToast('已更新该食客登录密码');
+                      }}
+                      className="px-2 py-0.5 bg-black text-white text-[11px] font-bold rounded-none hover:bg-neutral-800 cursor-pointer"
+                    >
+                      保存
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingPasswordVal(user.password || 'Radar#8888');
+                        setIsEditingPassword(false);
+                      }}
+                      className="px-1.5 py-0.5 border border-neutral-300 text-[11px] text-neutral-600 rounded-none hover:bg-neutral-100 cursor-pointer"
+                    >
+                      取消
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <span className="font-mono font-bold text-neutral-900 text-xs tracking-wider bg-white px-2 py-0.5 border border-neutral-300 rounded-none select-all min-w-[90px] text-center">
+                      {showPassword ? (user.password || '未设置密码') : '••••••••••••'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="p-1 text-neutral-600 hover:text-black hover:bg-neutral-200 rounded-none transition-colors cursor-pointer"
+                      title={showPassword ? '隐藏密码' : '点击查看密码明文'}
+                    >
+                      {showPassword ? <EyeOff className="w-3.5 h-3.5 text-neutral-800" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const pwd = user.password || 'Radar#8888';
+                        navigator.clipboard?.writeText(pwd);
+                        showToast(`密码已复制: ${pwd}`);
+                      }}
+                      className="p-1 text-neutral-600 hover:text-black hover:bg-neutral-200 rounded-none transition-colors cursor-pointer"
+                      title="复制密码到剪贴板"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingPasswordVal(user.password || 'Radar#8888');
+                        setIsEditingPassword(true);
+                      }}
+                      className="text-[11px] px-1.5 py-0.5 border border-neutral-300 hover:border-black text-neutral-700 hover:text-black rounded-none transition-colors cursor-pointer font-medium"
+                      title="重置或修改密码"
+                    >
+                      修改
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const randomPwd = `Radar@${Math.floor(1000 + Math.random() * 9000)}`;
+                        handleFieldChange('password', randomPwd);
+                        setEditingPasswordVal(randomPwd);
+                        setShowPassword(true);
+                        showToast(`已一键重置临时密码: ${randomPwd}`);
+                      }}
+                      className="p-1 text-neutral-500 hover:text-neutral-900 rounded-none transition-colors cursor-pointer"
+                      title="一键生成随机临时密码"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 

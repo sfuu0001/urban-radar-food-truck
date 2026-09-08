@@ -41,6 +41,7 @@ import { Order } from '../../types';
 import { UnifiedOmniChatModal } from '../chat/UnifiedOmniChatModal';
 import { getOrGeneratePickupCode, getPickupShelfCode } from '../../utils/pickupCodeEngine';
 import { resolveOrderChannelType } from '../../utils/orderNormalizer';
+import { safeGetStorage } from '../../utils/safeStorage';
 
 interface MerchantContingencyHubProps {
   orders: Order[];
@@ -373,7 +374,19 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
 
             <button
               type="button"
-              onClick={() => showToast('全链路工单状态机双向握手同步完成，数据源实时一致！')}
+              onClick={() => {
+                // FIX(审计P1): "全屏刷新"真实化——从本地权威存储重读并派发订单更新事件，驱动全域工单状态机视图一致
+                try {
+                  const fresh = safeGetStorage<Order[]>('obsidian_truck_orders', orders);
+                  if (typeof window !== 'undefined' && fresh.length > 0) {
+                    window.dispatchEvent(new CustomEvent('obsidian_orders_updated', { detail: fresh }));
+                  }
+                  showToast(`全链路工单状态同步完成，已载入 ${fresh.length} 笔本地权威订单`);
+                } catch (e) {
+                  console.error('全屏刷新失败:', e);
+                  showToast('全屏刷新失败，请稍后重试');
+                }
+              }}
               className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-3 py-1.5 text-xs font-medium inline-flex items-center space-x-1.5 rounded-none cursor-pointer"
               title="强制同步流转状态"
             >

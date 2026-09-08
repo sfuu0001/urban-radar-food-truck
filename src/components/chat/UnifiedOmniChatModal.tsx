@@ -82,6 +82,7 @@ import {
 import { getCanonicalOrderNo, isOrderMatch } from '../../utils/orderNormalizer';
 import { safeGetStorage } from '../../utils/safeStorage';
 import { INITIAL_ORDERS } from '../../data/mockData';
+import { fallbackToast } from '../../utils/fallbackToast';
 
 export interface UnifiedOmniChatModalProps {
   isOpen: boolean;
@@ -172,7 +173,7 @@ export const UnifiedOmniChatModal: React.FC<UnifiedOmniChatModalProps> = ({
   onAcceptOrder,
   onRejectOrder,
   onAuditRefund,
-  showToast = (msg: string) => console.log(msg),
+  showToast = (msg: string) => fallbackToast(msg),
   isInline = false
 }) => {
   const currentOrderNo = getCanonicalOrderNo(order?.orderNo || orderNo || (order as any)?.id);

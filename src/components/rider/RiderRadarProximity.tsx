@@ -171,12 +171,27 @@ export const RiderRadarProximity: React.FC<RiderRadarProximityProps> = ({
             type="button"
             onClick={() => {
               onNavigateToTruck();
-              showToast(`已开启高精骑行导航跟随至餐车！`);
+              const lat = truck.latitude || 31.2425;
+              const lng = truck.longitude || 121.4678;
+              const name = truck.name || '流动餐车取餐点';
+              if (typeof window !== 'undefined') {
+                const encName = encodeURIComponent(name);
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                if (isMobile) {
+                  window.location.href = `amapuri://route/plan?sourceApplication=UrbanRadar&dlat=${lat.toFixed(6)}&dlon=${lng.toFixed(6)}&dname=${encName}&dev=0&t=3`;
+                  setTimeout(() => {
+                    window.open(`https://uri.amap.com/navigation?to=${lng.toFixed(6)},${lat.toFixed(6)},${encName}&mode=ride&callnative=1`, '_blank');
+                  }, 1200);
+                } else {
+                  window.open(`https://uri.amap.com/navigation?to=${lng.toFixed(6)},${lat.toFixed(6)},${encName}&mode=ride&callnative=1`, '_blank');
+                }
+              }
+              showToast(`已开启高德骑行绿波专送导航至：${name}！`);
             }}
             className="w-full py-2 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-[3px] font-semibold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
           >
             <Navigation className="w-3.5 h-3.5 text-[#fde047]" />
-            <span>一键导航跟随流动餐车</span>
+            <span>高德导航跟随流动餐车</span>
           </button>
         </div>
       </div>

@@ -43,12 +43,22 @@ import {
   Power,
   Image as ImageIcon,
   AlertCircle,
-  Minus
+  Minus,
+  Printer,
+  Filter,
+  ChevronLeft,
+  ChevronRight,
+  MoreVertical,
+  ExternalLink,
+  FileText,
+  CheckCircle,
+  Trash2
 } from 'lucide-react';
 import { DishItem, CategoryType, SubCategoryType, DishVariant } from '../../types';
 import { CATEGORY_TAXONOMY, getCategoryDef } from '../../data/categoryTaxonomy';
 import { rematchAllDishImages } from '../../utils/dishImageMatcher';
 import { seedDishesToCloud } from '../../utils/cloudbase';
+import { globalFranchiseEngine } from '../../utils/franchiseTenantEngine';
 import { generateEan13Barcode, globalScannerEngine, playScannerBeep } from '../../utils/barcodeScannerEngine';
 import { DishPriceCalculator } from '../DishPriceCalculator';
 import { DishDiscountBanner } from '../DishDiscountBanner';
@@ -58,12 +68,16 @@ import { DishImageUploadModal, FOOD_PRESET_GALLERY } from './DishImageUploadModa
 import { DishParameterRulesModal } from './DishParameterRulesModal';
 import { FlavorTagSelector } from './FlavorTagSelector';
 import { DishVariantEditor } from './DishVariantEditor';
+import { AccountAuditDrawer } from './AccountAuditDrawer';
 import {
   getVariantBorderClass,
   getVariantFitClass,
   getVariantFilterClass,
   getVariantBadgeClasses
 } from '../../utils/variantStyleHelper';
+import { MerchantMenuHeaderDeck } from './MerchantMenuHeaderDeck';
+import { MerchantDishListView } from './MerchantDishListView';
+import { MerchantMenuPagination } from './MerchantMenuPagination';
 
 // Standard Preset Options for quick selection
 export const SPICINESS_PRESETS = [
@@ -229,6 +243,60 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
     'all_in_stock' | 'all_sold_out' | 'delivery_only' | 'dinein_only' | 'pickup_only'
   >('all_in_stock');
 
+  // Layout view mode state: 'auto' (table on lg, card on mobile), 'table' (force table), 'card' (force card)
+  const [viewMode, setViewMode] = useState<'auto' | 'table' | 'card'>('auto');
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+
+  // Advanced filter states
+  const [isAdvancedFilterOpen, setIsAdvancedFilterOpen] = useState(false);
+  const [advPriceMin, setAdvPriceMin] = useState('');
+  const [advPriceMax, setAdvPriceMax] = useState('');
+  const [advHasVariants, setAdvHasVariants] = useState(false);
+  const [advHasBarcode, setAdvHasBarcode] = useState(false);
+  const [advHasDiscount, setAdvHasDiscount] = useState(false);
+
+  // Quick Price Adjust Modal
+  const [isQuickPriceModalOpen, setIsQuickPriceModalOpen] = useState(false);
+  const [quickPriceMode, setQuickPriceMode] = useState<'offset' | 'fixed'>('offset');
+  const [quickPriceValue, setQuickPriceValue] = useState('-3.00');
+
+  // Thermal Label Print Preview
+  const [labelPreviewDish, setLabelPreviewDish] = useState<DishItem | null>(null);
+
+  // Interactive Parameter Drawer
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [drawerDish, setDrawerDish] = useState<DishItem | null>(null);
+  const [drawerActiveTab, setDrawerActiveTab] = useState<'params' | 'sop' | 'pricing' | 'rules'>('params');
+  const [drawerSpiciness, setDrawerSpiciness] = useState('微辣 (推荐)');
+  const [drawerFlavor, setDrawerFlavor] = useState('秘制黑椒酱香');
+  const [drawerTags, setDrawerTags] = useState<string[]>([]);
+  const [drawerCookingStyle, setDrawerCookingStyle] = useState('炭火现烤 (果木炭慢烘)');
+  const [drawerPrepTime, setDrawerPrepTime] = useState('约8m');
+  const [drawerCraftNote, setDrawerCraftNote] = useState('高温果木炭慢火烘烤，双面翻烤锁住汁水，出炉撒秘制调料');
+  const [drawerStation, setDrawerStation] = useState('炭火烤台');
+  const [drawerPackaging, setDrawerPackaging] = useState('耐热食品级锡纸保温盒');
+  const [drawerPackagingFee, setDrawerPackagingFee] = useState('1.50');
+  const [drawerBarcode, setDrawerBarcode] = useState('');
+  const [drawerDailyQuota, setDrawerDailyQuota] = useState('50');
+  const [drawerSafetyStock, setDrawerSafetyStock] = useState('3');
+  const [drawerNightCutoff, setDrawerNightCutoff] = useState('21:30');
+  const [drawerDineInPrice, setDrawerDineInPrice] = useState('58.00');
+  const [drawerDeliveryPrice, setDrawerDeliveryPrice] = useState('63.00');
+  const [drawerMiniappPrice, setDrawerMiniappPrice] = useState('59.80');
+  const [drawerDeliveryAvail, setDrawerDeliveryAvail] = useState(true);
+  const [drawerDineInAvail, setDrawerDineInAvail] = useState(true);
+  const [drawerPickupAvail, setDrawerPickupAvail] = useState(true);
+  const [drawerAutoSoldout, setDrawerAutoSoldout] = useState(true);
+  const [drawerNightLimit, setDrawerNightLimit] = useState(false);
+  const [drawerPeakFuse, setDrawerPeakFuse] = useState(false);
+  const [drawerNewTagInput, setDrawerNewTagInput] = useState('');
+
+  // More menu dropdown tracking
+  const [moreActionDishId, setMoreActionDishId] = useState<string | null>(null);
+
   // New Dish Form State
   const [newDishName, setNewDishName] = useState('');
   const [newDishEnName, setNewDishEnName] = useState('');
@@ -353,12 +421,26 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
     if (cookingStyleFilter !== 'all') {
       if (!d.cookingStyle || !d.cookingStyle.includes(cookingStyleFilter)) return false;
     }
+    // Advanced filters
+    if (advPriceMin) {
+      const min = parseFloat(advPriceMin);
+      if (!isNaN(min) && d.price < min) return false;
+    }
+    if (advPriceMax) {
+      const max = parseFloat(advPriceMax);
+      if (!isNaN(max) && d.price > max) return false;
+    }
+    if (advHasVariants && (!d.variants || d.variants.length === 0)) return false;
+    if (advHasBarcode && !d.barcode) return false;
+    if (advHasDiscount && !d.deliveryDiscount && !d.dineInDiscount) return false;
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       return (
         d.name.toLowerCase().includes(q) ||
         d.enName.toLowerCase().includes(q) ||
         d.typeTag.toLowerCase().includes(q) ||
+        (d.barcode && d.barcode.toLowerCase().includes(q)) ||
         (d.subCategoryName && d.subCategoryName.toLowerCase().includes(q)) ||
         (d.flavorTags && d.flavorTags.some((t) => t.toLowerCase().includes(q))) ||
         (d.customTags && d.customTags.some((t) => t.toLowerCase().includes(q))) ||
@@ -370,6 +452,157 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
     }
     return true;
   });
+
+  // Pagination calculation
+  const totalPages = pageSize > 0 ? Math.max(1, Math.ceil(filteredDishes.length / pageSize)) : 1;
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const pagedDishes = pageSize > 0 ? filteredDishes.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize) : filteredDishes;
+
+  // Drawer open / close / save
+  const openParamDrawer = (dish: DishItem) => {
+    setDrawerDish(dish);
+    setDrawerActiveTab('params');
+    setDrawerSpiciness(dish.spicinessLevel || '微辣 (推荐)');
+    setDrawerFlavor(dish.flavor || '秘制黑椒酱香');
+    setDrawerTags(dish.flavorTags ? [...dish.flavorTags] : ['秘制黑椒', '炭火现烤']);
+    setDrawerCookingStyle(dish.cookingStyle || '炭火现烤 (果木炭慢烘)');
+    setDrawerPrepTime(dish.prepTime || '约8m');
+    setDrawerCraftNote(dish.craftStandardNote || '高温果木炭慢火烘烤，双面翻烤锁住汁水，出炉撒秘制调料');
+    setDrawerStation((dish as any).kitchenStation || '炭火烤台');
+    setDrawerPackaging((dish as any).packagingType || '耐热食品级锡纸保温盒');
+    setDrawerPackagingFee(((dish as any).packagingFee !== undefined ? (dish as any).packagingFee : 1.5).toString());
+    setDrawerBarcode(dish.barcode || `69799880${String(dish.id).padStart(4, '0')}`);
+    setDrawerDailyQuota(((dish as any).dailyStockLimit || 50).toString());
+    setDrawerSafetyStock('3');
+    setDrawerNightCutoff('21:30');
+
+    const override = channelOverrides[dish.id];
+    setDrawerDeliveryAvail(override ? override.delivery : dish.available);
+    setDrawerDineInAvail(override ? override.dineIn : dish.available);
+    setDrawerPickupAvail(override ? override.pickup : dish.available);
+
+    const currentDineIn = dish.dineInDiscount ? dish.price - dish.dineInDiscount : dish.price;
+    setDrawerDineInPrice(currentDineIn.toFixed(2));
+    setDrawerDeliveryPrice(dish.price.toFixed(2));
+    setDrawerMiniappPrice((dish.price * 0.95).toFixed(2));
+    setDrawerAutoSoldout(true);
+    setDrawerNightLimit(false);
+    setDrawerPeakFuse(false);
+    setDrawerNewTagInput('');
+    setIsDrawerOpen(true);
+  };
+
+  const closeParamDrawer = () => {
+    setIsDrawerOpen(false);
+  };
+
+  const handleSaveDrawerChanges = () => {
+    if (!drawerDish) return;
+    const p = parseFloat(drawerDeliveryPrice) || drawerDish.price;
+    const dip = parseFloat(drawerDineInPrice) || p;
+    const pkgFee = parseFloat(drawerPackagingFee) || 1.5;
+    const quota = parseInt(drawerDailyQuota, 10) || 50;
+
+    const updated: DishItem = {
+      ...drawerDish,
+      price: p,
+      dineInDiscount: dip < p ? parseFloat((p - dip).toFixed(2)) : undefined,
+      dineInDiscountTag: dip < p ? `堂食立减¥${(p - dip).toFixed(2)}` : undefined,
+      spicinessLevel: drawerSpiciness,
+      flavor: drawerFlavor,
+      flavorTags: drawerTags,
+      cookingStyle: drawerCookingStyle,
+      prepTime: drawerPrepTime,
+      craftStandardNote: drawerCraftNote,
+      barcode: drawerBarcode,
+      kitchenStation: drawerStation,
+      packagingType: drawerPackaging,
+      packagingFee: pkgFee,
+      dailyStockLimit: quota
+    } as any;
+
+    // Persist channel availability overrides
+    setChannelOverrides((prev) => ({
+      ...prev,
+      [drawerDish.id]: {
+        delivery: drawerDeliveryAvail,
+        dineIn: drawerDineInAvail,
+        pickup: drawerPickupAvail
+      }
+    }));
+
+    if (onUpdateDish) {
+      onUpdateDish(updated);
+    }
+    showToast(`【${updated.name}】参数与运营规则已成功保存并实时广播到各终端！`);
+    setIsDrawerOpen(false);
+  };
+
+  // Quick Price apply
+  const handleApplyQuickPrice = () => {
+    if (selectedDishIds.size === 0) {
+      showToast('请先勾选需要改价的菜品');
+      return;
+    }
+    const val = parseFloat(quickPriceValue);
+    if (isNaN(val)) {
+      showToast('请输入有效的改价金额');
+      return;
+    }
+
+    // Pre-flight franchise policy check on all selected dishes
+    for (const d of filteredDishes) {
+      if (!selectedDishIds.has(d.id)) continue;
+      const targetPrice = quickPriceMode === 'offset'
+        ? Math.max(1, parseFloat((d.price + val).toFixed(2)))
+        : Math.max(1, val);
+      const check = globalFranchiseEngine.validateDishPriceUpdate(d.id, d.name, targetPrice, d.price);
+      if (!check.allowed) {
+        showToast(check.reason || `越权拦截：【${d.name}】为总部特级管控爆品，禁止批量调价！`);
+        return;
+      }
+    }
+
+    let count = 0;
+    filteredDishes.forEach((d) => {
+      if (!selectedDishIds.has(d.id)) return;
+      const newPrice = quickPriceMode === 'offset'
+        ? Math.max(1, parseFloat((d.price + val).toFixed(2)))
+        : Math.max(1, val);
+      const updated: DishItem = {
+        ...d,
+        prevPrice: d.price,
+        price: newPrice
+      };
+      if (onUpdateDish) onUpdateDish(updated);
+      count++;
+    });
+    showToast(`已成功为 ${count} 道菜品批量调整价格！`);
+    setIsQuickPriceModalOpen(false);
+  };
+
+  // Thermal Label Print simulation
+  const handlePrintLabel = (dish: DishItem) => {
+    try {
+      playScannerBeep();
+    } catch (_) {}
+    if (dish.barcode) {
+      navigator.clipboard?.writeText?.(dish.barcode).catch(() => {});
+    }
+    setLabelPreviewDish(dish);
+    showToast(`[出单指令] 已向后厨热敏条码机发送【${dish.name}】条码标贴打印指令！`);
+  };
+
+  // Stock inventory adjustment
+  const handleAdjustStock = (dish: DishItem) => {
+    const input = window.prompt(`请输入【${dish.name}】车载冷库实物盘点库存量（份）:`, '35');
+    if (input !== null) {
+      const num = parseInt(input, 10);
+      if (!isNaN(num)) {
+        showToast(`【${dish.name}】车载冷库实物库存已校准为 ${num} 份，云端各渠道已实时更新！`);
+      }
+    }
+  };
 
   // Batch toggle helper
   const handleToggleSelectAll = () => {
@@ -800,14 +1033,14 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
         )}
 
         {/* Modal Phone Container */}
-        <div className="bg-white rounded-xl border border-neutral-300 shadow-md overflow-hidden flex flex-col">
+        <div className="bg-white rounded-none border border-neutral-300 shadow-md overflow-hidden flex flex-col">
           {/* Simulated Mobile Status Bar */}
           <div className="bg-neutral-900 text-neutral-300 px-4 py-1.5 text-[10px] flex items-center justify-between font-mono select-none">
             <span>9:41</span>
             <div className="flex items-center gap-1.5">
               <span className="text-[9px]">5G</span>
-              <span className="w-4 h-2 border border-neutral-400 rounded-[2px] inline-block relative p-[1px]">
-                <span className="bg-emerald-400 h-full w-3/4 block rounded-[1px]"></span>
+              <span className="w-4 h-2 border border-neutral-400 rounded-none inline-block relative p-[1px]">
+                <span className="bg-emerald-400 h-full w-3/4 block rounded-none"></span>
               </span>
             </div>
           </div>
@@ -815,12 +1048,12 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
           {/* Modal Title Bar */}
           <div className="px-3.5 py-2.5 bg-neutral-50 border-b border-neutral-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-purple-600"></span>
+              <span className="w-2 h-2 rounded-none bg-purple-600"></span>
               <span className="font-bold text-xs text-neutral-800">
                 选规格与个性化定制
               </span>
               <span
-                className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded ${
+                className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded-none ${
                   channel === 'delivery'
                     ? 'bg-sky-100 text-sky-800'
                     : 'bg-amber-100 text-amber-800'
@@ -855,7 +1088,7 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
             {/* 1. Hero Product Card with Independent Variant Photo & Price */}
             <div className="flex gap-3 items-start pb-3 border-b border-neutral-100">
               {/* Product Photo */}
-              <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-lg overflow-hidden shrink-0 border border-neutral-200 bg-neutral-100 group">
+              <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-none overflow-hidden shrink-0 border border-neutral-200 bg-neutral-100 group">
                 <img
                   src={activeImage}
                   alt={previewDish.name}
@@ -863,7 +1096,7 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
                 />
                 {activeBadge && (
                   <span
-                    className="absolute top-1 left-1 px-1.5 py-0.5 rounded text-[9px] font-bold shadow-xs bg-purple-600 text-white border border-purple-400"
+                    className="absolute top-1 left-1 px-1.5 py-0.5 rounded-none text-[9px] font-bold shadow-xs bg-purple-600 text-white border border-purple-400"
                   >
                     {activeBadge}
                   </span>
@@ -1010,7 +1243,7 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
                 <button
                   type="button"
                   onClick={() => setRightActiveVariantIndex(-1)}
-                  className={`p-2 rounded-lg border text-left cursor-pointer transition-all flex flex-col justify-between relative ${
+                  className={`p-2 rounded-none border text-left cursor-pointer transition-all flex flex-col justify-between relative ${
                     rightActiveVariantIndex === -1
                       ? 'border-purple-600 bg-purple-50/70 shadow-xs ring-1 ring-purple-400'
                       : 'border-neutral-200 bg-white hover:border-neutral-300'
@@ -1021,7 +1254,7 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
                       标准标配
                     </span>
                     {rightActiveVariantIndex === -1 && (
-                      <span className="w-3.5 h-3.5 rounded-full bg-purple-600 text-white flex items-center justify-center text-[9px] shrink-0">
+                      <span className="w-3.5 h-3.5 rounded-none bg-purple-600 text-white flex items-center justify-center text-[9px] shrink-0 font-mono">
                         ✓
                       </span>
                     )}
@@ -1042,7 +1275,7 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
                       key={`variant-btn-${isFullWidth ? 'full' : 'drawer'}-${variant.id || idx}-${idx}`}
                       type="button"
                       onClick={() => setRightActiveVariantIndex(idx)}
-                      className={`p-2 rounded-lg border text-left cursor-pointer transition-all flex flex-col justify-between relative ${
+                      className={`p-2 rounded-none border text-left cursor-pointer transition-all flex flex-col justify-between relative ${
                         isSelected
                           ? 'border-purple-600 bg-purple-50/70 shadow-xs ring-1 ring-purple-400'
                           : 'border-neutral-200 bg-white hover:border-neutral-300'
@@ -1053,11 +1286,11 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
                           {variant.name}
                         </span>
                         {isSelected ? (
-                          <span className="w-3.5 h-3.5 rounded-full bg-purple-600 text-white flex items-center justify-center text-[9px] shrink-0">
+                          <span className="w-3.5 h-3.5 rounded-none bg-purple-600 text-white flex items-center justify-center text-[9px] shrink-0 font-mono">
                             ✓
                           </span>
                         ) : variant.isDefault ? (
-                          <span className="text-[8.5px] bg-amber-100 text-amber-800 font-bold px-1 rounded">
+                          <span className="text-[8.5px] bg-amber-100 text-amber-800 font-bold px-1 rounded-none">
                             推荐
                           </span>
                         ) : null}
@@ -1065,7 +1298,7 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
 
                       {(variant.badgeText || variant.imageStyle?.badgeText) && (
                         <div className="my-0.5">
-                          <span className="text-[8.5px] bg-purple-100 text-purple-800 px-1 py-0.2 rounded font-medium truncate max-w-full inline-block">
+                          <span className="text-[8.5px] bg-purple-100 text-purple-800 px-1 py-0.2 rounded-none font-medium truncate max-w-full inline-block">
                             {variant.badgeText || variant.imageStyle?.badgeText}
                           </span>
                         </div>
@@ -1176,7 +1409,7 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
             </div>
 
             {/* 5. CRAFT STANDARD & FLAVOR TAGS */}
-            <div className="p-2.5 bg-neutral-50 rounded-lg border border-neutral-200 space-y-1.5 text-[10.5px]">
+            <div className="p-2.5 bg-neutral-50 rounded-none border border-neutral-200 space-y-1.5 text-[10.5px]">
               <div className="flex items-center justify-between text-neutral-700 font-medium">
                 <span className="flex items-center gap-1">
                   <ChefHat className="w-3 h-3 text-emerald-700" />
@@ -1194,7 +1427,7 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
                   {editFlavorTags.map((tag, tIdx) => (
                     <span
                       key={`tag-${isFullWidth ? 'full' : 'drawer'}-${tag}-${tIdx}`}
-                      className="bg-amber-100/70 text-amber-900 px-1.5 py-0.5 rounded text-[9.5px] font-medium"
+                      className="bg-amber-100/70 text-amber-900 px-1.5 py-0.5 rounded-none text-[9.5px] font-medium"
                     >
                       #{tag}
                     </span>
@@ -1210,11 +1443,11 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
                 <div className="text-[10px] text-neutral-400">单笔订购上限 99 份</div>
               </div>
 
-              <div className="flex items-center gap-2 bg-neutral-100 p-1 rounded-lg border border-neutral-200">
+              <div className="flex items-center gap-2 bg-neutral-100 p-1 rounded-none border border-neutral-200">
                 <button
                   type="button"
                   onClick={() => setPreviewModalQuantity((prev) => Math.max(1, prev - 1))}
-                  className="w-7 h-7 rounded bg-white hover:bg-neutral-200 flex items-center justify-center font-bold text-neutral-700 shadow-2xs cursor-pointer active:scale-95 transition-all"
+                  className="w-7 h-7 rounded-none bg-white hover:bg-neutral-200 flex items-center justify-center font-bold text-neutral-700 shadow-2xs cursor-pointer active:scale-95 transition-all"
                   title="减少"
                 >
                   <Minus className="w-3.5 h-3.5" />
@@ -1225,7 +1458,7 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
                 <button
                   type="button"
                   onClick={() => setPreviewModalQuantity((prev) => Math.min(99, prev + 1))}
-                  className="w-7 h-7 rounded bg-white hover:bg-neutral-200 flex items-center justify-center font-bold text-neutral-700 shadow-2xs cursor-pointer active:scale-95 transition-all"
+                  className="w-7 h-7 rounded-none bg-white hover:bg-neutral-200 flex items-center justify-center font-bold text-neutral-700 shadow-2xs cursor-pointer active:scale-95 transition-all"
                   title="增加"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -1267,7 +1500,7 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
                 setPreviewToastMessage(`✨ 模拟加购成功：${previewDish.name} (${specName}) × ${previewModalQuantity} 份 已加入${channel === 'delivery' ? '外卖单' : '堂食单'}`);
                 setTimeout(() => setPreviewToastMessage(null), 3000);
               }}
-              className={`px-4 py-2.5 rounded-lg font-bold text-xs text-white shadow-md cursor-pointer active:scale-95 transition-all flex items-center gap-1.5 ${
+              className={`px-4 py-2.5 rounded-none font-bold text-xs text-white shadow-md cursor-pointer active:scale-95 transition-all flex items-center gap-1.5 ${
                 channel === 'delivery'
                   ? 'bg-sky-600 hover:bg-sky-700'
                   : 'bg-amber-600 hover:bg-amber-700'
@@ -1286,805 +1519,150 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
     );
   };
 
+  const categoriesList = [
+    { id: 'all', name: '全部', count: dishes.length },
+    { id: 'yakitori', name: '日式烧鸟', count: dishes.filter((d) => d.category === 'yakitori').length },
+    { id: 'baked', name: '芝士焗类', count: dishes.filter((d) => d.category === 'baked').length },
+    { id: 'skewers', name: '炭烤串串', count: dishes.filter((d) => d.category === 'skewers').length },
+    { id: 'western', name: '精致西餐', count: dishes.filter((d) => d.category === 'western').length },
+    { id: 'mains', name: '主食简餐', count: dishes.filter((d) => d.category === 'mains').length },
+    { id: 'drinks', name: '特调冷萃', count: dishes.filter((d) => d.category === 'drinks').length },
+    { id: 'desserts', name: '手作甜品', count: dishes.filter((d) => d.category === 'desserts').length },
+    { id: 'snacks', name: '风味小吃', count: dishes.filter((d) => d.category === 'snacks').length }
+  ];
+
+  const cookingStylesList = [
+    '炭火现烤',
+    '烤箱焗烤',
+    '原汁纯手作',
+    '冷萃冰滴',
+    '低卡轻食'
+  ];
+
   return (
-    <div className="space-y-4 text-xs font-hanken">
-      {/* Top Banner / Metrics Overview - Urban Radar Spec */}
-      <div className="bg-[#ffffff] p-5 sm:p-6 rounded-2xl border border-[#e2e3e1] shadow-urban space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#006d36] animate-pulse shrink-0"></span>
-            <span className="font-bold text-[#1a1c1b] text-base sm:text-lg tracking-tight">菜品参数与全渠道运营控制台</span>
-          </div>
+    <div id="merchant-menu-channel-container" className="space-y-3 text-xs font-sans bg-[#F4F4F2] min-h-screen pb-16 p-2 sm:p-4 max-w-[1600px] mx-auto">
+      {/* 1. Header Deck (Branding, Metrics, Categories, Search, Filters, Floating Batch Dock) */}
+      <MerchantMenuHeaderDeck
+        dishes={dishes}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        isSyncingCloud={isSyncingCloud}
+        onSyncAllDishesToCloud={handleSyncAllDishesToCloud}
+        selectedDishIds={selectedDishIds}
+        onToggleSelectAll={handleToggleSelectAll}
+        onClearSelection={() => setSelectedDishIds(new Set())}
+        onOpenAddModal={() => setIsAddModalOpen(true)}
+        categories={categoriesList}
+        selectedCategory={selectedCategory}
+        setSelectedCategory={(cat) => {
+          setSelectedCategory(cat);
+          setCurrentPage(1);
+        }}
+        searchQuery={searchQuery}
+        setSearchQuery={(q) => {
+          setSearchQuery(q);
+          setCurrentPage(1);
+        }}
+        statusFilter={statusFilter}
+        setStatusFilter={(s) => {
+          setStatusFilter(s);
+          setCurrentPage(1);
+        }}
+        cookingStyleFilter={cookingStyleFilter}
+        setCookingStyleFilter={(s) => {
+          setCookingStyleFilter(s);
+          setCurrentPage(1);
+        }}
+        cookingStyles={cookingStylesList}
+        isAdvancedFilterOpen={isAdvancedFilterOpen}
+        setIsAdvancedFilterOpen={setIsAdvancedFilterOpen}
+        advPriceMin={advPriceMin}
+        setAdvPriceMin={setAdvPriceMin}
+        advPriceMax={advPriceMax}
+        setAdvPriceMax={setAdvPriceMax}
+        advHasVariants={advHasVariants}
+        setAdvHasVariants={setAdvHasVariants}
+        advHasBarcode={advHasBarcode}
+        setAdvHasBarcode={setAdvHasBarcode}
+        advHasDiscount={advHasDiscount}
+        setAdvHasDiscount={setAdvHasDiscount}
+        onResetAllFilters={() => {
+          setAdvPriceMin('');
+          setAdvPriceMax('');
+          setAdvHasVariants(false);
+          setAdvHasBarcode(false);
+          setAdvHasDiscount(false);
+          setCurrentPage(1);
+        }}
+        onOpenQuickPriceModal={() => setIsQuickPriceModalOpen(true)}
+        onBulkAllInStock={() => {
+          const targets = dishes.filter((d) => selectedDishIds.has(d.id));
+          handleBulkAllInStock(targets);
+        }}
+        onBulkAllSoldOut={() => {
+          const targets = dishes.filter((d) => selectedDishIds.has(d.id));
+          handleBulkAllSoldOut(targets);
+        }}
+        onOpenBatchModal={() => setIsBatchModalOpen(true)}
+      />
 
-          <div className="flex items-center gap-2 text-xs flex-wrap">
-            <span className="bg-[#f4f4f2] text-[#1a1c1b] border border-[#e2e3e1] px-3 py-1 rounded-xl font-mono font-bold shrink-0">
-              总菜品: {dishes.length}
-            </span>
-            <span className="bg-[#e6f4ea] text-[#006d36] border border-[#a8dab5] px-3 py-1 rounded-xl font-mono font-bold shrink-0">
-              在售: {dishes.filter((d) => d.available).length}
-            </span>
-            <span className="bg-[#ffdad6] text-[#ba1a1a] border border-[#ffb4ab] px-3 py-1 rounded-xl font-mono font-bold shrink-0">
-              沽清/待上架: {dishes.filter((d) => !d.available).length}
-            </span>
-            {dishes.some((d) => d.isCloned) && (
-              <span className="bg-[#f4f4f2] text-[#1a1c1b] border border-[#e2e3e1] px-3 py-1 rounded-xl font-mono font-bold flex items-center gap-1 shrink-0">
-                <Copy className="w-3 h-3 text-[#787770]" />
-                <span>复制品: {dishes.filter((d) => d.isCloned).length}</span>
-              </span>
-            )}
-          </div>
-        </div>
+      {/* 2. Main Dishes List View (Desktop High-Density Table & Mobile Card Flow) */}
+      <MerchantDishListView
+        pagedDishes={pagedDishes}
+        filteredDishesCount={filteredDishes.length}
+        viewMode={viewMode}
+        selectedDishIds={selectedDishIds}
+        channelOverrides={channelOverrides}
+        moreActionDishId={moreActionDishId}
+        onToggleSelectDish={handleToggleSelectDish}
+        onToggleSelectAll={handleToggleSelectAll}
+        onToggleChannel={toggleChannel}
+        onSetSingleDishAllChannels={handleSetSingleDishAllChannels}
+        onPrintLabel={handlePrintLabel}
+        onOpenEditModal={openEditModal}
+        onOpenDrawer={openParamDrawer}
+        onOpenUploadModal={(dish) => setUploadModalDish(dish)}
+        onPreviewZoom={(dish) => setPreviewZoomDish(dish)}
+        onQuickPrice={(dish) => {
+          const policy = globalFranchiseEngine.getPolicy(dish.id);
+          const ctx = globalFranchiseEngine.getContext();
+          if (policy?.isHqLocked && !ctx.isHqUser && !policy.allowFranchiseePriceOverride) {
+            showToast(`越权拦截：【${dish.name}】为总部特级核心爆品，全国统一定价，禁止加盟商改价！`);
+            return;
+          }
+          setSelectedDishIds(new Set([dish.id]));
+          setQuickPriceMode('fixed');
+          setQuickPriceValue(dish.price.toFixed(2));
+          setIsQuickPriceModalOpen(true);
+        }}
+        onCloneDish={handleStartCloneDish}
+        setMoreActionDishId={setMoreActionDishId}
+        onResetFilters={() => {
+          setSelectedCategory('all');
+          setStatusFilter('all');
+          setCookingStyleFilter('all');
+          setSearchQuery('');
+          setAdvPriceMin('');
+          setAdvPriceMax('');
+          setAdvHasVariants(false);
+          setAdvHasBarcode(false);
+          setAdvHasDiscount(false);
+          setCurrentPage(1);
+        }}
+      />
 
-        {/* Action Buttons: Urban Radar High-Contrast Minimalist Actions */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:flex md:items-center md:justify-end gap-2.5 pt-2 border-t border-[#e2e3e1]">
-          <button
-            type="button"
-            disabled={isSyncingCloud}
-            onClick={handleSyncAllDishesToCloud}
-            className="w-full md:w-auto px-4 py-2.5 bg-[#006d36] hover:bg-[#005227] disabled:opacity-50 text-white rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap"
-            title="一键将本地全部菜品（含烧鸟与焗类新SKU）同步至腾讯云端数据库 shaokao-sku 集合"
-          >
-            <Cloud className={`w-3.5 h-3.5 shrink-0 ${isSyncingCloud ? 'animate-spin text-white' : 'text-white'}`} />
-            <span className="truncate">
-              {isSyncingCloud
-                ? `云端同步中 ${syncProgress ? `(${syncProgress.current}/${syncProgress.total})` : '...'}`
-                : '同步菜品到云端'}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (onRematchAllImages) {
-                onRematchAllImages();
-              } else {
-                const rematched = rematchAllDishImages(dishes);
-                if (onUpdateDish) {
-                  rematched.forEach((d) => onUpdateDish(d));
-                }
-                showToast(`已成功重新匹配全部 ${rematched.length} 道菜品的云端高清实拍美食图！`);
-              }
-            }}
-            className="w-full md:w-auto px-3.5 py-2.5 bg-[#f4f4f2] hover:bg-[#eeeeec] text-[#1a1c1b] border border-[#e2e3e1] rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
-            title="一键将系统中所有菜品图源重置匹配为云端高清摄影图"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-[#787770] shrink-0" />
-            <span className="truncate">重新匹配云端图片</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleBulkAllInStock()}
-            className="w-full md:w-auto px-3.5 py-2.5 bg-[#e6f4ea] hover:bg-[#c4dcbc] text-[#006d36] border border-[#a8dab5] rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
-            title="一键将当前筛选分类下的所有菜品全渠道上架在售"
-          >
-            <CheckCheck className="w-3.5 h-3.5 text-[#006d36] shrink-0" />
-            <span className="truncate">一键全上架</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleBulkAllSoldOut()}
-            className="w-full md:w-auto px-3.5 py-2.5 bg-[#ffdad6] hover:bg-[#ffb4ab] text-[#ba1a1a] border border-[#ffb4ab] rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
-            title="一键将当前筛选分类下的所有菜品全渠道一键沽清"
-          >
-            <XCircle className="w-3.5 h-3.5 text-[#ba1a1a] shrink-0" />
-            <span className="truncate">一键全沽清</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsBatchModalOpen(true)}
-            className="w-full md:w-auto px-3.5 py-2.5 bg-[#f4f4f2] hover:bg-[#eeeeec] text-[#1a1c1b] rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer border border-[#e2e3e1] whitespace-nowrap"
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5 shrink-0 text-[#787770]" />
-            <span className="truncate">
-              批量操作 {selectedDishIds.size > 0 ? `(${selectedDishIds.size})` : ''}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsAddModalOpen(true)}
-            className="w-full md:w-auto px-4 py-2.5 bg-[#000000] hover:bg-neutral-800 text-white rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap"
-          >
-            <Plus className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">新建菜品</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Filter Bar - Urban Radar Spec */}
-      <div className="bg-[#ffffff] p-5 rounded-2xl border border-[#e2e3e1] shadow-urban space-y-3.5">
-        {/* Row 1: Category horizontal tabs */}
-        <div className="relative">
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 hide-scrollbar scroll-smooth">
-            {[
-              { id: 'all', label: '全部类目', count: dishes.length },
-              { id: 'yakitori', label: '🍢 日式烧鸟', count: dishes.filter((d) => d.category === 'yakitori').length },
-              { id: 'baked', label: '🧀 芝士焗类', count: dishes.filter((d) => d.category === 'baked').length },
-              { id: 'skewers', label: '🍢 炭烤串串', count: dishes.filter((d) => d.category === 'skewers').length },
-              { id: 'western', label: '🥩 精致西餐', count: dishes.filter((d) => d.category === 'western').length },
-              { id: 'mains', label: '🍜 主食简餐', count: dishes.filter((d) => d.category === 'mains').length },
-              { id: 'drinks', label: '🥤 特调冷萃', count: dishes.filter((d) => d.category === 'drinks').length },
-              { id: 'desserts', label: '🍰 手作甜品', count: dishes.filter((d) => d.category === 'desserts').length },
-              { id: 'snacks', label: '🧆 风味小吃', count: dishes.filter((d) => d.category === 'snacks').length }
-            ].map((cat) => (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => {
-                  setSelectedCategory(cat.id);
-                  setSelectedSubCategory('all');
-                  setSelectedTag('all');
-                }}
-                className={`px-3.5 py-1.5 rounded-full font-bold transition-all cursor-pointer shrink-0 text-xs flex items-center gap-2 whitespace-nowrap ${
-                  selectedCategory === cat.id
-                    ? 'bg-[#000000] text-white shadow-xs'
-                    : 'bg-[#f4f4f2] text-[#474741] hover:bg-[#eeeeec]'
-                }`}
-              >
-                <span>{cat.label}</span>
-                <span
-                  className={`text-[10.5px] px-1.5 py-0.2 rounded-full font-mono ${
-                    selectedCategory === cat.id ? 'bg-white/20 text-white' : 'bg-[#e2e3e1] text-[#1a1c1b]'
-                  }`}
-                >
-                  {cat.count}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Row 2: Search Input & Filter Dropdowns */}
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
-          {/* Search Input - full width on mobile */}
-          <div className="relative flex-1 min-w-0">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#787770]" />
-            <input
-              type="text"
-              placeholder="搜索品名 / 口味 / 烹饪风格 / 标签..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-8 py-2 bg-[#f9f9f7] border border-[#c8c7be] rounded-xl text-xs focus:outline-none focus:border-[#000000] text-[#1a1c1b] transition-colors"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#787770] hover:text-black text-xs cursor-pointer p-0.5"
-                title="清空搜索"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-
-          {/* Filter Dropdowns */}
-          <div className="grid grid-cols-2 md:flex items-center gap-2.5 shrink-0">
-            {/* Cooking Style Filter */}
-            <select
-              value={cookingStyleFilter}
-              onChange={(e) => setCookingStyleFilter(e.target.value)}
-              className="w-full md:w-auto px-3 py-2 bg-[#f9f9f7] border border-[#c8c7be] rounded-xl text-xs text-[#1a1c1b] font-medium focus:outline-none focus:border-[#000000] cursor-pointer"
-            >
-              <option value="all">全部制作风格</option>
-              <option value="炭火现烤">炭火现烤</option>
-              <option value="远红外炙烤">远红外炙烤</option>
-              <option value="高压微炸">高压微炸</option>
-              <option value="铁板生煎">铁板生煎</option>
-              <option value="先卤后烤">先卤后烤</option>
-              <option value="低温慢煮">低温慢煮</option>
-            </select>
-
-            {/* Status Filter */}
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="w-full md:w-auto px-3 py-2 bg-[#f9f9f7] border border-[#c8c7be] rounded-xl text-xs text-[#1a1c1b] font-medium focus:outline-none focus:border-[#000000] cursor-pointer"
-            >
-              <option value="all">全部状态</option>
-              <option value="available">仅在售</option>
-              <option value="unavailable">仅沽清/待上架</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Subcategories & Tag Filter Row */}
-        <div className="pt-2.5 border-t border-[#e2e3e1] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
-          {/* Subcategory selection when applicable */}
-          {selectedCategory !== 'all' && CATEGORY_TAXONOMY[selectedCategory as CategoryType]?.subCategories && (
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 hide-scrollbar shrink-0">
-              <span className="text-[11px] font-bold text-[#787770] shrink-0">细分:</span>
-              <button
-                type="button"
-                onClick={() => setSelectedSubCategory('all')}
-                className={`px-3 py-1 rounded-full text-[11px] font-bold cursor-pointer shrink-0 whitespace-nowrap transition-colors ${
-                  selectedSubCategory === 'all'
-                    ? 'bg-[#006d36] text-white shadow-xs'
-                    : 'bg-[#f4f4f2] text-[#474741] hover:bg-[#eeeeec]'
-                }`}
-              >
-                全部细分
-              </button>
-              {CATEGORY_TAXONOMY[selectedCategory as CategoryType]?.subCategories?.map((sub) => (
-                <button
-                  key={sub.id}
-                  type="button"
-                  onClick={() => setSelectedSubCategory(sub.id)}
-                  className={`px-2 py-0.5 rounded text-[11px] font-semibold cursor-pointer shrink-0 flex items-center gap-1 whitespace-nowrap ${
-                    selectedSubCategory === sub.id
-                      ? 'bg-emerald-800 text-white shadow-xs'
-                      : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                  }`}
-                >
-                  <span>{sub.name}</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Quick Tag Filter Chips */}
-          <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 hide-scrollbar flex-nowrap whitespace-nowrap shrink-0">
-            <span className="text-[11px] font-bold text-[#787774] flex items-center gap-0.5 shrink-0 whitespace-nowrap">
-              <Tag className="w-3 h-3 text-[#787774]" />
-              <span className="whitespace-nowrap">标签:</span>
-            </span>
-            {[
-              { id: 'all', label: '全部' },
-              { id: '日式烧鸟', label: '日式烧鸟' },
-              { id: '备长炭烤', label: '备长炭烤' },
-              { id: '珍稀部位', label: '珍稀部位' },
-              { id: '芝士焗类', label: '芝士焗类' },
-              { id: '焗烤海鲜', label: '焗烤海鲜' },
-              { id: '金黄拉丝', label: '金黄拉丝' },
-              { id: '和牛焗饭', label: '和牛焗饭' },
-              { id: '招牌炭烤', label: '招牌炭烤' }
-            ].map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setSelectedTag(t.id)}
-                className={`px-1.5 py-0.5 rounded text-[10.5px] cursor-pointer transition-colors shrink-0 whitespace-nowrap ${
-                  selectedTag === t.id
-                    ? 'bg-amber-600 text-white font-bold'
-                    : 'bg-amber-50/70 text-amber-900 border border-amber-200/80 hover:bg-amber-100'
-                }`}
-              >
-                #{t.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Main Dishes Table (Desktop) & Card List (Mobile) */}
-      <div className="bg-white rounded-[3px] border border-[#e6e6e4] overflow-hidden shadow-2xs">
-        {/* Table Header (Desktop) */}
-        <div className="hidden lg:grid grid-cols-12 gap-2 px-3 py-2 bg-[#f7f7f5] border-b border-[#e6e6e4] font-bold text-[#787774] text-[11px] select-none items-center">
-          <div className="col-span-4 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleToggleSelectAll}
-              className="cursor-pointer text-[#787774] hover:text-black p-0.5"
-              title={selectedDishIds.size === filteredDishes.length ? '取消全选' : '全选当页菜品'}
-            >
-              {selectedDishIds.size > 0 && selectedDishIds.size === filteredDishes.length ? (
-                <CheckSquare className="w-3.5 h-3.5 text-[#2b593f]" />
-              ) : (
-                <Square className="w-3.5 h-3.5" />
-              )}
-            </button>
-            <span>菜品基本信息与主图</span>
-          </div>
-
-          <div className="col-span-2 text-center">
-            <span>🌶️ 指定参数 (辣度 / 口味 / 制作风格)</span>
-          </div>
-
-          <div className="col-span-2 text-right pr-2">
-            <span>💰 售价与优惠</span>
-          </div>
-
-          <div className="col-span-4 text-center">
-            <span>🛵 渠道在售与沽清状态 / 快捷配置</span>
-          </div>
-        </div>
-
-        {/* Dish List */}
-        <div className="divide-y divide-[#f1f1ef]">
-          {filteredDishes.length === 0 ? (
-            <div className="p-8 text-center text-[#9b9a97] space-y-2">
-              <Info className="w-8 h-8 mx-auto text-[#d3d1cb]" />
-              <p>暂无符合条件的菜品数据</p>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedCategory('all');
-                  setStatusFilter('all');
-                  setCookingStyleFilter('all');
-                  setSearchQuery('');
-                }}
-                className="text-xs text-[#2b593f] underline cursor-pointer"
-              >
-                重置所有筛选
-              </button>
-            </div>
-          ) : (
-            filteredDishes.map((dish) => {
-              const ch = channelOverrides[dish.id] || { dineIn: true, delivery: true, pickup: true };
-              const isSelected = selectedDishIds.has(dish.id);
-              const hasAnyActiveChannel = ch.dineIn || ch.delivery || ch.pickup;
-
-              return (
-                <div
-                  key={dish.id}
-                  className={`p-3 transition-colors ${
-                    isSelected ? 'bg-emerald-50/40' : 'hover:bg-[#fafaf8]'
-                  }`}
-                >
-                  {/* Desktop Layout */}
-                  <div className="hidden lg:grid grid-cols-12 gap-2 items-center">
-                    {/* 1. Dish Info & Thumbnail with Quick Replace Button */}
-                    <div className="col-span-4 flex items-center gap-2.5 min-w-0">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleSelectDish(dish.id)}
-                        className="cursor-pointer text-[#787774] hover:text-black shrink-0"
-                      >
-                        {isSelected ? (
-                          <CheckSquare className="w-3.5 h-3.5 text-[#2b593f]" />
-                        ) : (
-                          <Square className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-
-                      <div className="relative w-12 h-12 rounded-[3px] overflow-hidden shrink-0 border border-[#e6e6e4] bg-[#eeeeec] group">
-                        <img
-                          src={dish.imageUrl}
-                          alt={dish.name}
-                          onClick={() => setPreviewZoomDish(dish)}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 cursor-pointer"
-                          referrerPolicy="no-referrer"
-                          loading="lazy"
-                          title="点击放大预览高清原图"
-                        />
-                        {/* Hover Overlay with Replace Image Trigger */}
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-1 transition-opacity">
-                          <button
-                            type="button"
-                            onClick={() => setUploadModalDish(dish)}
-                            className="p-1 bg-white/90 hover:bg-white text-neutral-800 rounded-full cursor-pointer transition-all shadow-xs"
-                            title="更换/上传菜品图片"
-                          >
-                            <Camera className="w-3 h-3 text-sky-600" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setPreviewZoomDish(dish)}
-                            className="p-1 bg-white/90 hover:bg-white text-neutral-800 rounded-full cursor-pointer transition-all shadow-xs"
-                            title="放大查看原图"
-                          >
-                            <ZoomIn className="w-3 h-3 text-neutral-800" />
-                          </button>
-                        </div>
-                        {dish.deliveryDiscount ? (
-                          <span className="absolute -top-0.5 -right-0.5 bg-red-600 text-white text-[7.5px] font-black px-1 rounded-full scale-90 z-10 pointer-events-none">
-                            外减
-                          </span>
-                        ) : null}
-                      </div>
-
-                      <div className="min-w-0 space-y-0.5">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-bold text-xs text-[#37352f] truncate">{dish.name}</span>
-                          {dish.badgeText && (
-                            <span className="text-[9px] bg-amber-50 text-amber-800 border border-amber-200 px-1 rounded font-semibold">
-                              {dish.badgeText}
-                            </span>
-                          )}
-                          {dish.isCloned && (
-                            <span className="text-[9px] bg-purple-50 text-purple-700 border border-purple-200 px-1 rounded font-semibold flex items-center gap-0.5">
-                              <Copy className="w-2.5 h-2.5" />
-                              <span>复制品</span>
-                            </span>
-                          )}
-                          {!hasAnyActiveChannel && (
-                            <span className="text-[9px] bg-red-50 text-red-700 border border-red-200 px-1 rounded font-bold">
-                              全渠道沽清
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 text-[10px] text-[#787774] flex-wrap">
-                          <span className="truncate">{dish.enName}</span>
-                          <span className="text-[#9b9a97] font-mono shrink-0">⏱️ {dish.prepTime}</span>
-                          {dish.variants && dish.variants.length > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => openEditModal(dish, 'variants')}
-                              className="text-[9px] bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 px-1 py-0.2 rounded font-bold flex items-center gap-1 shrink-0 cursor-pointer transition-colors"
-                              title={`共配置 ${dish.variants.length} 个规格变体，点击立即管理`}
-                            >
-                              <Layers className="w-2.5 h-2.5 text-purple-600" />
-                              <span>{dish.variants.length}变体</span>
-                            </button>
-                          )}
-                          {dish.barcode && (
-                            <span
-                              className="text-[9px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-1 py-0.2 rounded font-mono font-bold flex items-center gap-0.5 shrink-0"
-                              title={`扫码枪条码: ${dish.barcode}`}
-                            >
-                              <Barcode className="w-2.5 h-2.5 text-emerald-700" />
-                              <span>{dish.barcode}</span>
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 2. Specified Parameters: Spiciness, Flavor, Cooking Style */}
-                    <div className="col-span-2 flex flex-col items-center justify-center gap-1 text-[10px]">
-                      {/* Spiciness & Flavor pill */}
-                      <div className="flex items-center gap-1 flex-wrap justify-center">
-                        <span className="bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5 rounded font-medium flex items-center gap-0.5">
-                          <Flame className="w-2.5 h-2.5 text-red-500" />
-                          <span>{dish.spicinessLevel || '微辣'}</span>
-                        </span>
-                        <span className="bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded font-medium truncate max-w-[100px]" title={dish.flavor}>
-                          {dish.flavor || '秘制黑椒'}
-                        </span>
-                      </div>
-
-                      {/* Cooking Style & SOP pill */}
-                      <div className="flex items-center gap-1">
-                        <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded font-medium flex items-center gap-0.5 text-[9.5px]">
-                          <ChefHat className="w-2.5 h-2.5 text-emerald-600" />
-                          <span className="truncate max-w-[120px]">{dish.cookingStyle || '炭火现烤'}</span>
-                        </span>
-                      </div>
-
-                      {/* Flavor Tags */}
-                      {dish.flavorTags && dish.flavorTags.length > 0 && (
-                        <div className="flex items-center gap-1 flex-wrap justify-center max-w-[160px] pt-0.5">
-                          {dish.flavorTags.slice(0, 2).map((tag) => (
-                            <span
-                              key={tag}
-                              className="bg-amber-100/90 text-amber-950 border border-amber-300 px-1 py-0.2 rounded text-[8.5px] font-semibold"
-                            >
-                              #{tag}
-                            </span>
-                          ))}
-                          {dish.flavorTags.length > 2 && (
-                            <span className="text-[8px] text-amber-800 font-mono font-bold">
-                              +{dish.flavorTags.length - 2}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* 3. Price & Discount Rules */}
-                    <div className="col-span-2 text-right pr-2 space-y-0.5 font-mono">
-                      <div className="font-bold text-xs text-[#2b593f]">
-                        现售: ¥{dish.price.toFixed(2)}
-                      </div>
-                      {dish.variants && dish.variants.length > 0 && (
-                        <div
-                          className="text-[9.5px] text-purple-700 font-sans font-bold cursor-pointer hover:underline"
-                          onClick={() => openEditModal(dish, 'variants')}
-                          title="点击管理各规格变体独立价格"
-                        >
-                          变体: ¥{Math.min(...dish.variants.map((v) => v.price)).toFixed(0)}~¥{Math.max(...dish.variants.map((v) => v.price)).toFixed(0)}
-                        </div>
-                      )}
-                      {dish.originalPrice && (
-                        <div className="text-[10px] text-[#9b9a97] line-through">
-                          原价: ¥{dish.originalPrice.toFixed(2)}
-                        </div>
-                      )}
-                      {dish.deliveryDiscount ? (
-                        <div className="text-[9.5px] text-sky-700 font-sans font-medium">
-                          {dish.deliveryDiscountTag || `外卖减¥${dish.deliveryDiscount}`}
-                        </div>
-                      ) : null}
-                    </div>
-
-                    {/* 4. Granular Channel Availability & Action Buttons */}
-                    <div className="col-span-4 flex items-center justify-end gap-1.5 flex-wrap">
-                      {/* 3 Channel Buttons */}
-                      <div className="flex items-center gap-1 bg-[#f7f7f5] p-1 rounded-[3px] border border-[#e6e6e4]">
-                        {/* Delivery Button */}
-                        <button
-                          type="button"
-                          onClick={() => toggleChannel(dish.id, 'delivery')}
-                          className={`px-1.5 py-0.5 rounded-[2px] font-bold text-[10px] flex items-center gap-0.5 cursor-pointer transition-all border ${
-                            ch.delivery
-                              ? 'bg-sky-50 text-sky-800 border-sky-300 hover:bg-sky-100'
-                              : 'bg-neutral-100 text-neutral-400 border-neutral-200 hover:border-neutral-300'
-                          }`}
-                          title="外卖渠道在售/沽清切换"
-                        >
-                          <Bike className="w-2.5 h-2.5" />
-                          <span>外卖:{ch.delivery ? '在售' : '沽清'}</span>
-                        </button>
-
-                        {/* Dine-In Button */}
-                        <button
-                          type="button"
-                          onClick={() => toggleChannel(dish.id, 'dineIn')}
-                          className={`px-1.5 py-0.5 rounded-[2px] font-bold text-[10px] flex items-center gap-0.5 cursor-pointer transition-all border ${
-                            ch.dineIn
-                              ? 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
-                              : 'bg-neutral-100 text-neutral-400 border-neutral-200 hover:border-neutral-300'
-                          }`}
-                          title="堂食渠道在售/沽清切换"
-                        >
-                          <Utensils className="w-2.5 h-2.5" />
-                          <span>堂食:{ch.dineIn ? '在售' : '沽清'}</span>
-                        </button>
-
-                        {/* Pickup Button */}
-                        <button
-                          type="button"
-                          onClick={() => toggleChannel(dish.id, 'pickup')}
-                          className={`px-1.5 py-0.5 rounded-[2px] font-bold text-[10px] flex items-center gap-0.5 cursor-pointer transition-all border ${
-                            ch.pickup
-                              ? 'bg-purple-50 text-purple-800 border-purple-300 hover:bg-purple-100'
-                              : 'bg-neutral-100 text-neutral-400 border-neutral-200 hover:border-neutral-300'
-                          }`}
-                          title="自提渠道在售/沽清切换"
-                        >
-                          <ShoppingBag className="w-2.5 h-2.5" />
-                          <span>自提:{ch.pickup ? '在售' : '沽清'}</span>
-                        </button>
-                      </div>
-
-                      {/* One-Click In-Stock / Sold-Out Switch */}
-                      <button
-                        type="button"
-                        onClick={() => handleSetSingleDishAllChannels(dish, !hasAnyActiveChannel)}
-                        className={`px-2 py-1 rounded-[2px] font-bold text-[10px] flex items-center gap-1 cursor-pointer transition-all border ${
-                          hasAnyActiveChannel
-                            ? 'bg-red-50 hover:bg-red-600 text-red-700 hover:text-white border-red-200 shadow-2xs'
-                            : 'bg-emerald-50 hover:bg-emerald-600 text-emerald-800 hover:text-white border-emerald-300 shadow-2xs'
-                        }`}
-                        title={hasAnyActiveChannel ? '一键将外卖、堂食、自提全部沽清' : '一键将外卖、堂食、自提全部上架'}
-                      >
-                        <Power className="w-2.5 h-2.5" />
-                        <span>{hasAnyActiveChannel ? '一键沽清' : '一键上架'}</span>
-                      </button>
-
-                      {/* Variants Trigger Button */}
-                      <button
-                        type="button"
-                        onClick={() => openEditModal(dish, 'variants')}
-                        className={`px-1.5 py-1 rounded-[2px] font-semibold text-[10px] flex items-center gap-0.5 cursor-pointer transition-all border ${
-                          dish.variants && dish.variants.length > 0
-                            ? 'bg-purple-100 hover:bg-purple-600 text-purple-900 hover:text-white border-purple-300 font-bold'
-                            : 'bg-purple-50/60 hover:bg-purple-100 text-purple-700 border-purple-200'
-                        }`}
-                        title="设置菜品各规格变体的独立图片样式、替换上传与独立定价"
-                      >
-                        <Layers className="w-2.5 h-2.5" />
-                        <span>变体{dish.variants && dish.variants.length > 0 ? `(${dish.variants.length})` : ''}</span>
-                      </button>
-
-                      {/* Configure Modal Trigger */}
-                      <button
-                        type="button"
-                        onClick={() => openEditModal(dish)}
-                        className="px-2.5 py-1 bg-[#000000] hover:bg-neutral-800 text-white rounded-lg font-bold text-[10.5px] flex items-center gap-1 cursor-pointer transition-all shadow-xs"
-                        title="设置单品参数、立减规则、更换主图与条形码"
-                      >
-                        <Sliders className="w-2.5 h-2.5" />
-                        <span>参数与规则</span>
-                      </button>
-
-                      {/* Replace Image Trigger */}
-                      <button
-                        type="button"
-                        onClick={() => setUploadModalDish(dish)}
-                        className="px-1.5 py-1 bg-sky-50 hover:bg-sky-600 text-sky-700 hover:text-white rounded-[2px] font-semibold text-[10px] flex items-center gap-0.5 cursor-pointer transition-all border border-sky-200"
-                        title="上传本地图片或选择精选高清美食实拍图"
-                      >
-                        <Upload className="w-2.5 h-2.5" />
-                        <span>换图</span>
-                      </button>
-
-                      {/* Quick Clone Trigger */}
-                      <button
-                        type="button"
-                        onClick={() => handleStartCloneDish(dish)}
-                        className="px-1.5 py-1 bg-purple-50 hover:bg-purple-600 text-purple-700 hover:text-white rounded-[2px] font-semibold text-[10px] flex items-center gap-0.5 cursor-pointer transition-all border border-purple-200"
-                        title="快速复制该菜品"
-                      >
-                        <Copy className="w-2.5 h-2.5" />
-                        <span>复制</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Mobile Layout Card */}
-                  <div className="lg:hidden space-y-2.5">
-                    <div className="flex items-start gap-2.5">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleSelectDish(dish.id)}
-                        className="cursor-pointer text-[#787774] mt-1 shrink-0"
-                      >
-                        {isSelected ? (
-                          <CheckSquare className="w-4 h-4 text-[#2b593f]" />
-                        ) : (
-                          <Square className="w-4 h-4" />
-                        )}
-                      </button>
-
-                      <div className="relative w-14 h-14 rounded-[3px] overflow-hidden shrink-0 border border-[#e6e6e4] bg-[#eeeeec] group">
-                        <img
-                          src={dish.imageUrl}
-                          alt={dish.name}
-                          onClick={() => setPreviewZoomDish(dish)}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 cursor-pointer"
-                          referrerPolicy="no-referrer"
-                          loading="lazy"
-                          title="点击放大预览高清原图"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setUploadModalDish(dish)}
-                          className="absolute bottom-0.5 right-0.5 p-1 bg-black/60 text-white rounded-full text-[8px] flex items-center justify-center cursor-pointer shadow-xs"
-                          title="更换图片"
-                        >
-                          <Camera className="w-2.5 h-2.5" />
-                        </button>
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="font-bold text-xs text-[#37352f] truncate">{dish.name}</span>
-                          <span className="font-mono font-bold text-xs text-[#2b593f]">
-                            ¥{dish.price.toFixed(2)}
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-[#787774] truncate">{dish.enName}</p>
-
-                        {/* Specified Parameters Tags */}
-                        <div className="flex items-center gap-1 flex-wrap mt-1">
-                          <span className="text-[9.5px] bg-red-50 text-red-700 border border-red-200 px-1 rounded font-medium">
-                            🌶️ {dish.spicinessLevel || '微辣'}
-                          </span>
-                          <span className="text-[9.5px] bg-amber-50 text-amber-800 border border-amber-200 px-1 rounded font-medium">
-                            {dish.flavor || '秘制黑椒'}
-                          </span>
-                          <span className="text-[9.5px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-1 rounded font-medium">
-                            🍳 {dish.cookingStyle || '炭火现烤'}
-                          </span>
-                          {dish.isCloned && (
-                            <span className="text-[9.5px] bg-purple-50 text-purple-700 border border-purple-200 px-1 rounded font-semibold">
-                              📑 复制品
-                            </span>
-                          )}
-                          {dish.barcode && (
-                            <span className="text-[9.5px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-1 rounded font-mono font-bold flex items-center gap-0.5">
-                              <Barcode className="w-2.5 h-2.5 text-emerald-700" />
-                              <span>{dish.barcode}</span>
-                            </span>
-                          )}
-                          {dish.flavorTags && dish.flavorTags.length > 0 && (
-                            <div className="flex items-center gap-1 flex-wrap w-full mt-0.5">
-                              {dish.flavorTags.slice(0, 3).map((tag) => (
-                                <span
-                                  key={tag}
-                                  className="text-[9px] bg-amber-100/90 text-amber-950 border border-amber-300 px-1 py-0.2 rounded font-semibold"
-                                >
-                                  #{tag}
-                                </span>
-                              ))}
-                              {dish.flavorTags.length > 3 && (
-                                <span className="text-[8px] text-amber-800 font-mono font-bold">
-                                  +{dish.flavorTags.length - 3}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Mobile Action Buttons: 3 Channels & Quick Controls */}
-                    <div className="space-y-1.5 pt-1.5 border-t border-[#f1f1ef]">
-                      {/* Channels row */}
-                      <div className="flex items-center justify-between gap-1">
-                        <div className="flex items-center gap-1 flex-1">
-                          <button
-                            type="button"
-                            onClick={() => toggleChannel(dish.id, 'delivery')}
-                            className={`flex-1 py-1 rounded text-[10px] font-bold border text-center ${
-                              ch.delivery ? 'bg-sky-50 text-sky-800 border-sky-300' : 'bg-[#f1f1ef] text-[#9b9a97] border-neutral-200'
-                            }`}
-                          >
-                            外卖:{ch.delivery ? '在售' : '沽清'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => toggleChannel(dish.id, 'dineIn')}
-                            className={`flex-1 py-1 rounded text-[10px] font-bold border text-center ${
-                              ch.dineIn ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-[#f1f1ef] text-[#9b9a97] border-neutral-200'
-                            }`}
-                          >
-                            堂食:{ch.dineIn ? '在售' : '沽清'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => toggleChannel(dish.id, 'pickup')}
-                            className={`flex-1 py-1 rounded text-[10px] font-bold border text-center ${
-                              ch.pickup ? 'bg-purple-50 text-purple-800 border-purple-300' : 'bg-[#f1f1ef] text-[#9b9a97] border-neutral-200'
-                            }`}
-                          >
-                            自提:{ch.pickup ? '在售' : '沽清'}
-                          </button>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleSetSingleDishAllChannels(dish, !hasAnyActiveChannel)}
-                          className={`px-2 py-1 rounded text-[10px] font-bold border ${
-                            hasAnyActiveChannel
-                              ? 'bg-red-50 text-red-700 border-red-200'
-                              : 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                          }`}
-                        >
-                          {hasAnyActiveChannel ? '一键沽清' : '一键上架'}
-                        </button>
-                      </div>
-
-                      {/* Operation buttons */}
-                      <div className="flex items-center justify-end gap-1.5 flex-wrap">
-                        <button
-                          type="button"
-                          onClick={() => openEditModal(dish, 'variants')}
-                          className={`px-2 py-1 rounded border text-[10px] font-semibold flex items-center gap-0.5 cursor-pointer ${
-                            dish.variants && dish.variants.length > 0
-                              ? 'bg-purple-100 text-purple-900 border-purple-300 font-bold'
-                              : 'bg-purple-50 text-purple-700 border-purple-200'
-                          }`}
-                        >
-                          <Layers className="w-2.5 h-2.5" />
-                          <span>变体{dish.variants && dish.variants.length > 0 ? `(${dish.variants.length})` : ''}</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setUploadModalDish(dish)}
-                          className="px-2 py-1 bg-sky-50 text-sky-700 rounded border border-sky-200 text-[10px] font-semibold flex items-center gap-0.5"
-                        >
-                          <Upload className="w-2.5 h-2.5" />
-                          <span>换图</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openEditModal(dish)}
-                          className="px-2 py-1 bg-[#000000] text-white rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-xs"
-                        >
-                          <Sliders className="w-2.5 h-2.5" />
-                          <span>参数与规则</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleStartCloneDish(dish)}
-                          className="px-2 py-1 bg-purple-50 text-purple-700 rounded border border-purple-200 text-[10px] font-semibold flex items-center gap-0.5"
-                        >
-                          <Copy className="w-2.5 h-2.5" />
-                          <span>复制</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
+      {/* 3. Modern Pagination Toolbar */}
+      <MerchantMenuPagination
+        currentPage={safeCurrentPage}
+        totalPages={totalPages}
+        pageSize={pageSize}
+        totalItems={filteredDishes.length}
+        onPageChange={(page) => setCurrentPage(page)}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setCurrentPage(1);
+        }}
+      />
 
       {/* Modal 1: 单品参数与运营规则配置弹窗 (Urban Radar Redesigned Modal) */}
       {editingDish && (
@@ -2942,6 +2520,767 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
           // If updated from cloud, dishes can be reloaded
         }}
         isConnected={true}
+      />
+
+      {/* BEGIN: Mobile Bottom Status Bar */}
+      <aside className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-[#1A1A17] text-white px-4 py-2 flex items-center justify-between border-t border-neutral-800 text-xs font-mono shadow-lg rounded-none">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 bg-emerald-400 animate-ping rounded-none"></span>
+          <span>全渠道终端网关已连通</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setIsQuickPriceModalOpen(true)}
+            className="px-2.5 py-1 bg-white text-[#1A1A17] border border-neutral-300 font-semibold hover:bg-[#FAF9F5] rounded-none cursor-pointer"
+          >
+            批量改价
+          </button>
+          <button
+            type="button"
+            onClick={() => handleBulkAllInStock(dishes)}
+            className="px-2.5 py-1 bg-white text-emerald-700 border border-emerald-600 font-bold hover:bg-emerald-50 rounded-none cursor-pointer"
+          >
+            一键全通售
+          </button>
+        </div>
+      </aside>
+      {/* END: Mobile Bottom Status Bar */}
+
+      {/* BEGIN: InteractiveParameterDrawer */}
+      {isDrawerOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-40 transition-opacity"
+          id="drawer-backdrop"
+          onClick={closeParamDrawer}
+        />
+      )}
+      <aside
+        id="param-drawer"
+        className={`fixed inset-y-0 right-0 max-w-lg w-full bg-[#F9F9F7] z-50 border-l border-[#D3D1CB] shadow-2xl flex flex-col transform transition-transform duration-200 ease-in-out font-sans rounded-none ${
+          isDrawerOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        {/* Drawer Header */}
+        <div className="p-4 bg-[#1A1A17] text-white flex items-center justify-between shrink-0">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-mono text-emerald-400 font-bold tracking-wider uppercase">
+                PARAMETER DECK
+              </span>
+              <span className="text-[10px] font-mono text-neutral-400 bg-neutral-800 px-1.5 py-0.2 rounded-none">
+                SKU: {drawerDish?.barcode || '697998800019'}
+              </span>
+            </div>
+            <h3 className="text-base font-black truncate max-w-[280px]" id="drawer-title">
+              {drawerDish?.name || '菜品参数与全渠道运营规则'}
+            </h3>
+          </div>
+          <div className="flex items-center gap-2">
+            {drawerDish && (
+              <button
+                type="button"
+                onClick={() => {
+                  closeParamDrawer();
+                  openEditModal(drawerDish, 'parameters');
+                }}
+                className="px-2 py-1 text-xs bg-purple-900/60 border border-purple-400 text-purple-200 hover:bg-purple-800 font-mono rounded-none cursor-pointer"
+                title="打开全量 9 维度高级向导"
+              >
+                全量向导 ↗
+              </button>
+            )}
+            <button
+              type="button"
+              className="p-1 hover:bg-neutral-800 text-neutral-400 hover:text-white rounded-none cursor-pointer"
+              onClick={closeParamDrawer}
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Drawer Sub-navigation Tabs */}
+        <div className="flex border-b border-[#D3D1CB] bg-white text-xs font-mono shrink-0 overflow-x-auto">
+          {[
+            { id: 'params', label: '1. 工艺与味型' },
+            { id: 'pricing', label: '2. 全渠道定价' },
+            { id: 'sop', label: '3. 后厨SOP包装' },
+            { id: 'rules', label: '4. 自动沽清联锁' }
+          ].map((tab) => {
+            const isActive = drawerActiveTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setDrawerActiveTab(tab.id as any)}
+                className={`px-3 py-2.5 font-bold border-b-2 whitespace-nowrap cursor-pointer transition-colors ${
+                  isActive
+                    ? 'border-[#1A1A17] text-[#1A1A17] bg-[#FAF9F5]'
+                    : 'border-transparent text-neutral-500 hover:text-[#1A1A17] hover:bg-neutral-50'
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Drawer Body */}
+        <div className="p-5 overflow-y-auto flex-1 space-y-5 text-xs text-neutral-800">
+          {/* Dish Meta Card */}
+          <div className="border border-[#D3D1CB] p-3 bg-white space-y-1.5 rounded-none">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono text-neutral-500 uppercase font-bold">
+                当前调控对象 (SKU SPEC)
+              </span>
+              <span className="text-[10px] font-mono font-bold bg-neutral-100 text-neutral-700 px-1.5 py-0.5 border border-[#D3D1CB]">
+                类目: {drawerDish?.category || '炭烤串串'}
+              </span>
+            </div>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-base font-black text-[#1A1A17]">
+                  {drawerDish?.name}
+                </div>
+                <div className="text-neutral-500 font-mono text-[11px]">
+                  {drawerDish?.enName || 'ARTISANAL DISH SPECIFICATION'}
+                </div>
+              </div>
+              <div className="text-right font-mono">
+                <div className="text-base font-extrabold text-[#1A1A17]">
+                  ¥{parseFloat(drawerDeliveryPrice || '0').toFixed(2)}
+                </div>
+                <div className="text-[10px] text-neutral-400">外卖基准售价</div>
+              </div>
+            </div>
+          </div>
+
+          {/* TAB 1: 基础工艺味型 */}
+          {drawerActiveTab === 'params' && (
+            <div className="space-y-4 animate-in fade-in duration-100">
+              {/* 1.1 辣度等级锁定 */}
+              <div className="space-y-2">
+                <label className="font-bold text-xs uppercase tracking-wider block text-neutral-700">
+                  1.1 辣度等级与出餐工艺锁定
+                </label>
+                <div className="grid grid-cols-4 gap-1.5 font-mono text-center">
+                  {[
+                    { label: '不辣 (0/5)', val: '不辣 (原味)' },
+                    { label: '微辣 (1/5)', val: '微辣 (推荐)' },
+                    { label: '中辣 (3/5)', val: '中辣 (经典川香)' },
+                    { label: '重辣 (5/5)', val: '重辣 (嗜辣专享)' }
+                  ].map((sp) => {
+                    const active = drawerSpiciness.includes(sp.label.slice(0, 2));
+                    return (
+                      <button
+                        key={sp.label}
+                        type="button"
+                        onClick={() => setDrawerSpiciness(sp.val)}
+                        className={`py-2 border text-xs font-mono transition-colors rounded-none cursor-pointer ${
+                          active
+                            ? 'border-red-500 bg-red-50 text-red-700 font-bold shadow-xs'
+                            : 'border-[#D3D1CB] bg-white hover:bg-neutral-100 text-neutral-700'
+                        }`}
+                      >
+                        {sp.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 1.2 出餐主工艺风格 */}
+              <div className="space-y-2">
+                <label className="font-bold text-xs uppercase tracking-wider block text-neutral-700">
+                  1.2 出餐制作主工艺风格
+                </label>
+                <div className="grid grid-cols-3 gap-1.5 font-mono text-center">
+                  {[
+                    '炭火现烤 (果木炭慢烘)',
+                    '鲜炸酥脆 (定温控油)',
+                    '果木烟熏 (秘法腌熏)',
+                    '鲜煲慢煨 (原汤炖制)',
+                    '冷萃原酿 (低温冰滴)',
+                    '低卡轻食 (水润清鲜)'
+                  ].map((craft) => {
+                    const active = drawerCookingStyle.includes(craft.slice(0, 4));
+                    return (
+                      <button
+                        key={craft}
+                        type="button"
+                        onClick={() => setDrawerCookingStyle(craft)}
+                        className={`py-1.5 px-2 border text-[11px] truncate font-mono transition-colors rounded-none cursor-pointer ${
+                          active
+                            ? 'border-[#1A1A17] bg-[#1A1A17] text-white font-bold'
+                            : 'border-[#D3D1CB] bg-white hover:bg-neutral-100 text-neutral-700'
+                        }`}
+                        title={craft}
+                      >
+                        {craft.split(' ')[0]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 1.3 味型与特调酱汁 */}
+              <div className="space-y-2">
+                <label className="font-bold text-xs uppercase tracking-wider block text-neutral-700">
+                  1.3 核心风味与调制基底
+                </label>
+                <div className="grid grid-cols-3 gap-1.5 font-mono text-center">
+                  {[
+                    '秘制黑椒酱香',
+                    '日式照烧浓郁',
+                    '经典海盐原汁',
+                    '川味香辣孜然',
+                    '蒜香金汤金蒜',
+                    '意式黑松露香'
+                  ].map((flv) => {
+                    const active = drawerFlavor.includes(flv.slice(0, 4));
+                    return (
+                      <button
+                        key={flv}
+                        type="button"
+                        onClick={() => setDrawerFlavor(flv)}
+                        className={`py-1.5 px-2 border text-[11px] truncate font-mono transition-colors rounded-none cursor-pointer ${
+                          active
+                            ? 'border-purple-600 bg-purple-50 text-purple-900 font-bold'
+                            : 'border-[#D3D1CB] bg-white hover:bg-neutral-100 text-neutral-700'
+                        }`}
+                        title={flv}
+                      >
+                        {flv}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 1.4 风味与用料特征标签池 */}
+              <div className="space-y-2">
+                <label className="font-bold text-xs uppercase tracking-wider block text-neutral-700">
+                  1.4 风味与食材特征标签池
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {drawerTags.map((tag, idx) => (
+                    <span
+                      key={`drawer-tag-${idx}`}
+                      className="px-2 py-1 bg-neutral-200 text-neutral-800 font-mono flex items-center gap-1 rounded-none text-xs"
+                    >
+                      #{tag}
+                      <button
+                        type="button"
+                        onClick={() => setDrawerTags((prev) => prev.filter((_, i) => i !== idx))}
+                        className="text-neutral-500 hover:text-black ml-0.5 cursor-pointer"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="text"
+                      placeholder="新标签..."
+                      value={drawerNewTagInput}
+                      onChange={(e) => setDrawerNewTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && drawerNewTagInput.trim()) {
+                          e.preventDefault();
+                          setDrawerTags((prev) => [...prev, drawerNewTagInput.trim()]);
+                          setDrawerNewTagInput('');
+                        }
+                      }}
+                      className="w-20 px-1.5 py-1 border border-dashed border-neutral-400 text-xs font-mono rounded-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (drawerNewTagInput.trim()) {
+                          setDrawerTags((prev) => [...prev, drawerNewTagInput.trim()]);
+                          setDrawerNewTagInput('');
+                        }
+                      }}
+                      className="px-2 py-1 border border-dashed border-neutral-400 text-neutral-600 font-mono rounded-none hover:bg-neutral-100 cursor-pointer"
+                    >
+                      + 增添
+                    </button>
+                  </div>
+                </div>
+
+                {/* Quick Add Suggestions */}
+                <div className="flex items-center gap-1 text-[11px] text-neutral-500 font-mono pt-1">
+                  <span>推荐:</span>
+                  {['炙烤焦香', '鲜嫩多汁', '原切和牛', '解腻清爽'].map((sug) => (
+                    <button
+                      key={sug}
+                      type="button"
+                      onClick={() => {
+                        if (!drawerTags.includes(sug)) {
+                          setDrawerTags((prev) => [...prev, sug]);
+                        }
+                      }}
+                      className="hover:text-[#1A1A17] underline cursor-pointer"
+                    >
+                      +{sug}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 1.5 条码与出餐热敏标贴 */}
+              <div className="space-y-2 border-t border-[#D3D1CB] pt-3">
+                <label className="font-bold text-xs uppercase tracking-wider block text-neutral-700">
+                  1.5 条码与出单热敏标贴
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={drawerBarcode}
+                    onChange={(e) => setDrawerBarcode(e.target.value)}
+                    placeholder="条形码/EAN-13"
+                    className="flex-1 px-2.5 py-1.5 border border-[#D3D1CB] bg-white font-mono text-xs rounded-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDrawerBarcode(`697${Math.floor(100000000 + Math.random() * 900000000)}`)
+                    }
+                    className="px-2.5 py-1.5 border border-[#D3D1CB] bg-white hover:bg-neutral-100 font-mono text-xs rounded-none cursor-pointer whitespace-nowrap"
+                  >
+                    随机换码
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (drawerDish) {
+                        handlePrintLabel(drawerDish);
+                      }
+                    }}
+                    className="px-2.5 py-1.5 bg-[#1A1A17] text-white hover:bg-black font-mono text-xs rounded-none cursor-pointer whitespace-nowrap flex items-center gap-1"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>打标贴</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: 全渠道差异定价 */}
+          {drawerActiveTab === 'pricing' && (
+            <div className="space-y-4 animate-in fade-in duration-100">
+              <div className="bg-amber-50 border border-amber-200 p-2.5 text-[11px] text-amber-900 font-mono">
+                💡 平台支持按渠道独立定价与差异化营销策略，保存后实时同步至各端口 POS、外卖聚合器与小程序。
+              </div>
+
+              <div className="space-y-3 font-mono">
+                {/* DineIn Price */}
+                <div className="p-3 bg-white border border-[#D3D1CB] space-y-1 rounded-none">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-neutral-800">堂食终端价格 (POS)</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-neutral-500">¥</span>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={drawerDineInPrice}
+                        onChange={(e) => setDrawerDineInPrice(e.target.value)}
+                        className="w-24 text-right py-1 px-2 border border-neutral-300 text-xs rounded-none font-bold"
+                      />
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-neutral-500">
+                    适用于车载吧台触控屏与店内直接点单
+                  </div>
+                </div>
+
+                {/* Delivery Base Price */}
+                <div className="p-3 bg-white border border-[#D3D1CB] space-y-1 rounded-none">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-neutral-800">外卖平台基准价 (美团/饿了么)</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-neutral-500">¥</span>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={drawerDeliveryPrice}
+                        onChange={(e) => setDrawerDeliveryPrice(e.target.value)}
+                        className="w-24 text-right py-1 px-2 border border-neutral-300 text-xs rounded-none font-bold"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-neutral-500">
+                      较堂食价浮动:{' '}
+                      <strong
+                        className={
+                          parseFloat(drawerDeliveryPrice) > parseFloat(drawerDineInPrice)
+                            ? 'text-red-700'
+                            : 'text-neutral-700'
+                        }
+                      >
+                        {parseFloat(drawerDeliveryPrice) >= parseFloat(drawerDineInPrice)
+                          ? `+¥${(
+                              parseFloat(drawerDeliveryPrice || '0') -
+                              parseFloat(drawerDineInPrice || '0')
+                            ).toFixed(2)}`
+                          : `-¥${(
+                              parseFloat(drawerDineInPrice || '0') -
+                              parseFloat(drawerDeliveryPrice || '0')
+                            ).toFixed(2)}`}
+                      </strong>
+                    </span>
+                    <span className="text-neutral-500">建议溢价覆盖平台扣点</span>
+                  </div>
+                </div>
+
+                {/* Miniapp Private Domain Price */}
+                <div className="p-3 bg-white border border-[#D3D1CB] space-y-1 rounded-none">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-neutral-800">小程序私域专享价</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-neutral-500">¥</span>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={drawerMiniappPrice}
+                        onChange={(e) => setDrawerMiniappPrice(e.target.value)}
+                        className="w-24 text-right py-1 px-2 border border-neutral-300 text-xs rounded-none font-bold text-emerald-800"
+                      />
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-neutral-500">
+                    支持私域会员积分抵扣上限 10%
+                  </div>
+                </div>
+
+                {/* Packaging Fee */}
+                <div className="p-3 bg-white border border-[#D3D1CB] space-y-1 rounded-none">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-neutral-800">外卖配送餐盒打包费</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-neutral-500">¥</span>
+                      <input
+                        type="number"
+                        step="0.5"
+                        value={drawerPackagingFee}
+                        onChange={(e) => setDrawerPackagingFee(e.target.value)}
+                        className="w-24 text-right py-1 px-2 border border-neutral-300 text-xs rounded-none font-bold"
+                      />
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-neutral-500">
+                    外卖通道每份独立计收，堂食及打包自提免费
+                  </div>
+                </div>
+              </div>
+
+              {/* Fast Price Sync Toolset */}
+              <div className="p-3 bg-neutral-100 border border-[#D3D1CB] space-y-2">
+                <span className="font-bold text-neutral-700 block font-mono text-[11px]">
+                  快捷比例定价助手:
+                </span>
+                <div className="grid grid-cols-3 gap-1.5 font-mono text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const base = parseFloat(drawerDineInPrice) || 50;
+                      setDrawerDeliveryPrice((base * 1.1).toFixed(2));
+                    }}
+                    className="py-1.5 px-2 border border-[#D3D1CB] bg-white hover:bg-neutral-50 text-xs rounded-none cursor-pointer"
+                  >
+                    外卖 +10%
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const base = parseFloat(drawerDineInPrice) || 50;
+                      setDrawerMiniappPrice((base * 0.95).toFixed(2));
+                    }}
+                    className="py-1.5 px-2 border border-[#D3D1CB] bg-white hover:bg-neutral-50 text-xs rounded-none cursor-pointer"
+                  >
+                    私域 -5%
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const base = drawerDineInPrice;
+                      setDrawerDeliveryPrice(base);
+                      setDrawerMiniappPrice(base);
+                    }}
+                    className="py-1.5 px-2 border border-[#D3D1CB] bg-white hover:bg-neutral-50 text-xs rounded-none cursor-pointer"
+                  >
+                    全渠道统一定价
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: 后厨SOP与包装 */}
+          {drawerActiveTab === 'sop' && (
+            <div className="space-y-4 animate-in fade-in duration-100">
+              {/* 3.1 出餐耗时步进 */}
+              <div className="space-y-2">
+                <label className="font-bold text-xs uppercase tracking-wider block text-neutral-700">
+                  3.1 预计基础出餐时间
+                </label>
+                <div className="grid grid-cols-4 gap-1.5 font-mono text-center">
+                  {['约5m', '约8m', '约12m', '约15m'].map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setDrawerPrepTime(t)}
+                      className={`py-2 border text-xs font-mono transition-colors rounded-none cursor-pointer ${
+                        drawerPrepTime === t
+                          ? 'border-[#1A1A17] bg-[#1A1A17] text-white font-bold'
+                          : 'border-[#D3D1CB] bg-white hover:bg-neutral-100 text-neutral-700'
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 3.2 生产工位分派 */}
+              <div className="space-y-2">
+                <label className="font-bold text-xs uppercase tracking-wider block text-neutral-700">
+                  3.2 车载后厨生产工位分派
+                </label>
+                <div className="grid grid-cols-2 gap-1.5 font-mono">
+                  {['炭火烤台', '炸炉工位', '冷萃吧台', '主食切配台'].map((st) => (
+                    <button
+                      key={st}
+                      type="button"
+                      onClick={() => setDrawerStation(st)}
+                      className={`py-2 px-3 border text-xs font-mono text-left transition-colors rounded-none cursor-pointer ${
+                        drawerStation === st
+                          ? 'border-emerald-600 bg-emerald-50 text-emerald-900 font-bold'
+                          : 'border-[#D3D1CB] bg-white hover:bg-neutral-100 text-neutral-700'
+                      }`}
+                    >
+                      {st}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 3.3 工艺标准与后厨SOP备忘 */}
+              <div className="space-y-2">
+                <label className="font-bold text-xs uppercase tracking-wider block text-neutral-700">
+                  3.3 烹饪工艺标准与操作要领
+                </label>
+                <textarea
+                  rows={3}
+                  value={drawerCraftNote}
+                  onChange={(e) => setDrawerCraftNote(e.target.value)}
+                  className="w-full p-2.5 bg-white border border-[#D3D1CB] text-xs font-sans rounded-none focus:outline-none focus:border-[#1A1A17]"
+                  placeholder="请输入后厨操作要领..."
+                />
+              </div>
+
+              {/* 3.4 专用包材与包装规范 */}
+              <div className="space-y-2">
+                <label className="font-bold text-xs uppercase tracking-wider block text-neutral-700">
+                  3.4 外卖出餐保温包材规范
+                </label>
+                <select
+                  value={drawerPackaging}
+                  onChange={(e) => setDrawerPackaging(e.target.value)}
+                  className="w-full p-2 bg-white border border-[#D3D1CB] text-xs font-mono rounded-none focus:outline-none"
+                >
+                  <option value="耐热食品级锡纸保温盒">耐热食品级锡纸保温盒 (推荐)</option>
+                  <option value="防油加厚牛皮纸袋">防油加厚牛皮纸袋 (干香烤物)</option>
+                  <option value="双层真空恒温气柱袋">双层真空恒温气柱袋 (长途保鲜)</option>
+                  <option value="可降解甘蔗浆防漏餐盒">可降解甘蔗浆防漏餐盒 (汤品)</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: 自动沽清与联锁 */}
+          {drawerActiveTab === 'rules' && (
+            <div className="space-y-4 animate-in fade-in duration-100">
+              {/* 4.1 全渠道实时在售开关 */}
+              <div className="space-y-2">
+                <label className="font-bold text-xs uppercase tracking-wider block text-neutral-700">
+                  4.1 各渠道实时供售通断
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDrawerDeliveryAvail(!drawerDeliveryAvail)}
+                    className={`p-3 border text-center font-mono rounded-none cursor-pointer transition-colors ${
+                      drawerDeliveryAvail
+                        ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
+                        : 'border-[#BA1A1A] bg-red-50 text-[#BA1A1A]'
+                    }`}
+                  >
+                    <div className="font-bold">外卖专送</div>
+                    <div className="text-[11px] mt-1">
+                      {drawerDeliveryAvail ? '● 在售供应' : '× 已沽清'}
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDrawerDineInAvail(!drawerDineInAvail)}
+                    className={`p-3 border text-center font-mono rounded-none cursor-pointer transition-colors ${
+                      drawerDineInAvail
+                        ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
+                        : 'border-[#BA1A1A] bg-red-50 text-[#BA1A1A]'
+                    }`}
+                  >
+                    <div className="font-bold">车载堂食</div>
+                    <div className="text-[11px] mt-1">
+                      {drawerDineInAvail ? '● 在售供应' : '× 已沽清'}
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDrawerPickupAvail(!drawerPickupAvail)}
+                    className={`p-3 border text-center font-mono rounded-none cursor-pointer transition-colors ${
+                      drawerPickupAvail
+                        ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
+                        : 'border-[#BA1A1A] bg-red-50 text-[#BA1A1A]'
+                    }`}
+                  >
+                    <div className="font-bold">预约自提</div>
+                    <div className="text-[11px] mt-1">
+                      {drawerPickupAvail ? '● 在售供应' : '× 已沽清'}
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* 4.2 智能库存联锁与自动下架规则 */}
+              <div className="space-y-3 font-mono">
+                <label className="font-bold text-xs uppercase tracking-wider block text-neutral-700">
+                  4.2 自动沽清联锁与防超卖熔断
+                </label>
+
+                {/* Rule 1: Safety Stock Interlock */}
+                <div className="p-3 bg-white border border-[#D3D1CB] space-y-2 rounded-none">
+                  <label className="flex items-center gap-2 text-xs cursor-pointer select-none font-bold">
+                    <input
+                      type="checkbox"
+                      checked={drawerAutoSoldout}
+                      onChange={(e) => setDrawerAutoSoldout(e.target.checked)}
+                      className="w-4 h-4 border-neutral-400 text-[#1A1A17] focus:ring-0 rounded-none cursor-pointer"
+                    />
+                    <span>车载冷库安全库存自动熔断</span>
+                  </label>
+                  <div className="flex items-center gap-2 pl-6 text-[11px] text-neutral-600">
+                    <span>当车载原料盘点存量 &lt;</span>
+                    <input
+                      type="number"
+                      value={drawerSafetyStock}
+                      onChange={(e) => setDrawerSafetyStock(e.target.value)}
+                      className="w-16 px-1.5 py-0.5 border border-neutral-300 text-center text-xs font-bold rounded-none"
+                    />
+                    <span>份时，外卖通道自动转为沽清</span>
+                  </div>
+                </div>
+
+                {/* Rule 2: Night Time Cutoff */}
+                <div className="p-3 bg-white border border-[#D3D1CB] space-y-2 rounded-none">
+                  <label className="flex items-center gap-2 text-xs cursor-pointer select-none font-bold">
+                    <input
+                      type="checkbox"
+                      checked={drawerNightLimit}
+                      onChange={(e) => setDrawerNightLimit(e.target.checked)}
+                      className="w-4 h-4 border-neutral-400 text-[#1A1A17] focus:ring-0 rounded-none cursor-pointer"
+                    />
+                    <span>晚市定时自动下架防过载</span>
+                  </label>
+                  <div className="flex items-center gap-2 pl-6 text-[11px] text-neutral-600">
+                    <span>每天到达</span>
+                    <input
+                      type="text"
+                      value={drawerNightCutoff}
+                      onChange={(e) => setDrawerNightCutoff(e.target.value)}
+                      className="w-20 px-1.5 py-0.5 border border-neutral-300 text-center text-xs font-bold rounded-none"
+                    />
+                    <span>后自动下架现做繁复类菜品</span>
+                  </div>
+                </div>
+
+                {/* Rule 3: Daily Quota */}
+                <div className="p-3 bg-white border border-[#D3D1CB] space-y-2 rounded-none">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-neutral-800">每日限量供应配额</span>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        value={drawerDailyQuota}
+                        onChange={(e) => setDrawerDailyQuota(e.target.value)}
+                        className="w-20 px-2 py-0.5 border border-neutral-300 text-right text-xs font-bold rounded-none"
+                      />
+                      <span className="text-neutral-500">份/天</span>
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-neutral-500">
+                    达到当日出单配额上限后，全渠道自动显示售罄
+                  </div>
+                </div>
+
+                {/* Rule 4: Peak KDS Overflow Fuse */}
+                <div className="p-3 bg-white border border-[#D3D1CB] space-y-2 rounded-none">
+                  <label className="flex items-center gap-2 text-xs cursor-pointer select-none font-bold">
+                    <input
+                      type="checkbox"
+                      checked={drawerPeakFuse}
+                      onChange={(e) => setDrawerPeakFuse(e.target.checked)}
+                      className="w-4 h-4 border-neutral-400 text-[#1A1A17] focus:ring-0 rounded-none cursor-pointer"
+                    />
+                    <span>后厨挂单积压时动态延长外卖配送用时预估</span>
+                  </label>
+                  <div className="text-[11px] text-neutral-500 pl-6">
+                    当车载烤台积压超过 8 单时，前台预计送达自动 +15 分钟
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Drawer Footer */}
+        <div className="p-4 border-t border-[#D3D1CB] bg-white flex items-center justify-between shrink-0 font-mono">
+          <div className="text-[11px] text-neutral-500 hidden sm:block">
+            已编辑: {drawerDish?.name}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="px-4 py-2 border border-[#D3D1CB] text-neutral-700 hover:bg-neutral-100 font-mono text-xs rounded-none cursor-pointer"
+              onClick={closeParamDrawer}
+            >
+              取消退出
+            </button>
+            <button
+              type="button"
+              className="px-4 py-2 bg-[#1A1A17] text-white hover:bg-black font-mono text-xs font-bold rounded-none cursor-pointer shadow-xs flex items-center gap-1.5"
+              onClick={handleSaveDrawerChanges}
+            >
+              <Check className="w-3.5 h-3.5" />
+              <span>保存并实时广播生效</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+      {/* END: InteractiveParameterDrawer */}
+
+      {/* 右侧内嵌折叠式多账号操作记录对比与版本恢复审计抽屉 */}
+      <AccountAuditDrawer
+        currentModule="dishes"
+        showToast={showToast}
+        onRestoreSuccess={() => {
+          showToast('菜品数据已恢复至历史版本！');
+        }}
       />
     </div>
   );

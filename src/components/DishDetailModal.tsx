@@ -21,6 +21,7 @@ import {
   resolveOptionBlueprint,
   generateArtisanSvgBlueprint
 } from '../utils/autoBlueprintEngine';
+import { userJourneyTracker } from '../utils/userJourneyTracker';
 
 interface DishDetailModalProps {
   dish: DishItem | null;
@@ -91,8 +92,16 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
         initial['口味定制'] = dish.flavor || dish.flavorOptions[0];
       }
       setSelectedOptions(initial);
+
+      // 强感知埋点：展开菜品选配面板
+      userJourneyTracker.trackAction(
+        'open_dish_modal',
+        `展开菜品选配面板: ${dish.name} (起步价 ¥${dish.price.toFixed(2)})`,
+        { dishId: dish.id, dishName: dish.name, basePrice: dish.price },
+        'view_detail'
+      );
     }
-  }, [dish]);
+  }, [dish, isOpen]);
 
   // Active Variant (declared before useMemo to guarantee consistent Hook order)
   const activeVariant = useMemo(() => {
@@ -246,10 +255,36 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
     originalPrice > 0 ? ((basePrice / originalPrice) * 10).toFixed(1) : '10.0';
 
   const handleOptionSelect = (groupName: string, choiceLabel: string) => {
+    userJourneyTracker.trackAction(
+      'select_spec_option',
+      `选择菜品定制选项: 【${groupName}】-> ${choiceLabel}`,
+      { dishName: dish?.name, groupName, choiceLabel },
+      'view_detail'
+    );
     setSelectedOptions((prev) => ({
       ...prev,
       [groupName]: choiceLabel
     }));
+  };
+
+  const handleSelectVariant = (v: DishVariant) => {
+    userJourneyTracker.trackAction(
+      'change_dish_variant',
+      `切换规格版本: ${v.name} (¥${v.price.toFixed(2)})`,
+      { dishName: dish?.name, variantId: v.id, variantName: v.name, price: v.price },
+      'view_detail'
+    );
+    setSelectedVariantId(v.id);
+  };
+
+  const handleModalClose = () => {
+    userJourneyTracker.trackAction(
+      'close_dish_modal',
+      `关闭菜品选配面板，未加入选购单退出 (${dish?.name || '菜品'})`,
+      { dishName: dish?.name },
+      'view_detail'
+    );
+    onClose();
   };
 
   const handleConfirm = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -277,7 +312,7 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
   return (
     <div className="fixed inset-0 z-[100] flex justify-center items-end sm:items-center bg-[#121211]/70 backdrop-blur-xs font-sans antialiased overflow-y-auto p-0 sm:p-4">
       {/* Background click to close */}
-      <div className="fixed inset-0" onClick={onClose} />
+      <div className="fixed inset-0" onClick={handleModalClose} />
 
       {/* Main Spec Modal Container - Strict 0px Sharp Geometry */}
       <main
@@ -294,7 +329,7 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
           </div>
           <button
             aria-label="关闭规格配置面板"
-            onClick={onClose}
+            onClick={handleModalClose}
             className="w-7 h-7 flex items-center justify-center border border-[#D3D1CB] hover:border-[#1A1A17] hover:bg-[#F9F9F7] bg-white text-[#1A1A17] text-xs font-mono transition-colors duration-150 cursor-pointer"
             type="button"
           >
@@ -562,7 +597,7 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                       key={v.id}
                       type="button"
                       disabled={isSoldOut}
-                      onClick={() => setSelectedVariantId(v.id)}
+                      onClick={() => handleSelectVariant(v)}
                       className={`p-2 text-xs border flex items-center justify-between gap-2.5 transition-all cursor-pointer text-left ${
                         isSoldOut
                           ? 'opacity-40 bg-neutral-100 border-neutral-200 cursor-not-allowed'

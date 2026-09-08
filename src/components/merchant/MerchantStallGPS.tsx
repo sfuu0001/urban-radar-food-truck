@@ -29,6 +29,7 @@ import {
   getTruckTheme
 } from '../../utils/truckLocationEngine';
 import { TruckLocationMapPicker } from './TruckLocationMapPicker';
+import { businessTransactionEngine } from '../../utils/businessTransactionEngine';
 
 interface MerchantStallGPSProps {
   truck: TruckInfo;
@@ -343,9 +344,17 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
       setAllTrucks(getAllTruckConfigs());
       clearDraft(selectedTruckId);
       onUpdateLocation(locationName, fenceRadius);
-      showToast(
-        `已广播【${currentTruckConfig.name}】停靠点与外卖半径（${fenceRadius.toFixed(1)}km）`
-      );
+
+      // 跨组件联动事务：餐车停靠点广播 -> 触发外摆桌台联动 & 语音通知
+      businessTransactionEngine.executeStallRelocationCascade({
+        stallId: selectedTruckId,
+        stallName: currentTruckConfig.name,
+        locationText: locationName,
+        maxTables: selectedTruckId === 'truck-02' ? 12 : selectedTruckId === 'truck-03' ? 8 : 16,
+        recommendedMenuTag: selectedTruckId === 'truck-02' ? '夜市小吃' : '炭火炙烤',
+        deliveryRadiusKm: fenceRadius,
+        showToast
+      });
     }, 600);
   };
 

@@ -29,6 +29,7 @@ import { Order, TruckInfo } from '../../types';
 import { HistoricalDelivery } from '../../types/rider';
 import { RiderSettledOrderDetailModal } from './RiderSettledOrderDetailModal';
 import { getLatestChatMessage, getUnreadCountForRole } from '../../utils/chatHub';
+import { safeGetStorage, safeSetStorage } from '../../utils/safeStorage';
 
 interface RiderEarningsProps {
   orders?: Order[];
@@ -45,6 +46,32 @@ export const RiderEarnings: React.FC<RiderEarningsProps> = ({
 }) => {
   const [activeHistoryTab, setActiveHistoryTab] = useState<'all' | 'today' | 'tip' | 'subsidy'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // FIX(审计P1): 可提现余额真实化——从本地账本读取，提现后扣减并落盘流水（取代"提现仅弹提示"假实现）
+  const [withdrawableBalance, setWithdrawableBalance] = useState<number>(() => {
+    const stored = safeGetStorage<number>('rider_withdrawable_balance', 388.5);
+    return typeof stored === 'number' && Number.isFinite(stored) ? stored : 388.5;
+  });
+  const [withdrawLog, setWithdrawLog] = useState<{ at: string; amount: number; method: string; orderNo: string }[]>(() =>
+    safeGetStorage<{ at: string; amount: number; method: string; orderNo: string }[]>('rider_withdraw_log', [])
+  );
+
+  const handleWithdraw = () => {
+    if (withdrawableBalance <= 0) {
+      showToast('当前无可提现余额，完成新派送订单后自动秒结入账。');
+      return;
+    }
+    const amount = withdrawableBalance;
+    const method = 'wechat';
+    const orderNo = `WD-${Date.now().toString().slice(-6)}`;
+    // 扣减余额并写入本地账本
+    setWithdrawableBalance(0);
+    safeSetStorage('rider_withdrawable_balance', 0);
+    const newLog = [{ at: new Date().toLocaleTimeString('zh-CN', { hour12: false }), amount, method, orderNo }, ...withdrawLog];
+    setWithdrawLog(newLog);
+    safeSetStorage('rider_withdraw_log', newLog);
+    showToast(`提现成功！¥${amount.toFixed(2)} 已从钱包转入微信零钱（凭证 ${orderNo}）`);
+  };
 
   // Selected settled record for detail modal & initial tab
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
@@ -199,11 +226,11 @@ export const RiderEarnings: React.FC<RiderEarningsProps> = ({
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={() => showToast('提现申请已提交！¥388.50 预计 10 秒内打入您的微信零钱。')}
+              onClick={handleWithdraw}
               className="w-full sm:w-auto px-4 py-2 bg-[#2b593f] hover:bg-[#204430] text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs active:scale-98"
             >
               <CreditCard className="w-3.5 h-3.5" />
-              <span>闪电提现至微信</span>
+              <span>{withdrawableBalance > 0 ? `闪电提现至微信 ¥${withdrawableBalance.toFixed(2)}` : '已全部提现'}</span>
             </button>
           </div>
         </div>
@@ -218,7 +245,7 @@ export const RiderEarnings: React.FC<RiderEarningsProps> = ({
 
           <div className="bg-[#fbfbfa] p-2.5 sm:p-3 rounded-xl border border-[#e6e6e4] space-y-1">
             <span className="text-[10px] text-[#787774] block truncate">可提现余额</span>
-            <p className="font-mono font-bold text-base sm:text-lg text-[#37352f] truncate">¥388.50</p>
+            <p className="font-mono font-bold text-base sm:text-lg text-[#37352f] truncate">¥{withdrawableBalance.toFixed(2)}</p>
             <span className="text-[9.5px] text-[#787774] block truncate">已实名认证结算</span>
           </div>
 

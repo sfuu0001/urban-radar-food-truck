@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, User, Sparkles, MapPin, CreditCard, Award, Shield, Phone, ChevronRight } from 'lucide-react';
+import { X, User, MapPin, CreditCard, Award, Shield, Phone, ChevronRight } from 'lucide-react';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -84,7 +84,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             className="w-full p-3 rounded-xl bg-[#FFF8E1]/50 hover:bg-[#FFF8E1] border border-[#FFE082] flex items-center justify-between transition-colors cursor-pointer text-left"
           >
             <div className="flex items-center gap-2.5">
-              <Sparkles className="w-4 h-4 text-[#B78103]" />
+              <Award className="w-4 h-4 text-[#B78103]" />
               <div>
                 <span className="font-bold text-[#422006] block">黑曜石 VIP 特权中心</span>
                 <span className="text-[10px] text-[#787770]">享极速优先出餐与立减权益</span>

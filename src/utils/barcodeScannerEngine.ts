@@ -1,6 +1,8 @@
 // Universal Hardware Barcode Scanner Engine (支持 USB/2.4G无线/蓝牙/HID键盘协议任意扫码枪)
 import { DishItem, Order, TableItem } from '../types';
 import { dispatchPickupVerifiedEvent, getOrGeneratePickupCode, getPickupShelfCode } from './pickupCodeEngine';
+import { voiceAlerts } from './voiceAlertEngine';
+import { merchantEventBus } from './merchantEventBus';
 
 export interface ScannerConfig {
   enabled: boolean;
@@ -308,6 +310,10 @@ export function parseAndRouteBarcode(rawCode: string, options: ParseBarcodeOptio
         verifiedBy: '硬件扫码枪自动核销',
         channel: orderObj.channelType || 'delivery'
       });
+      // 📢 扫码核销成功外放语音通知
+      voiceAlerts.scannerVerifySuccess(`提货码 ${pCode}`, `关联订单 #${orderObj.orderNo.replace(/^#/, '')} 核销通过，请开柜取餐`);
+    } else {
+      voiceAlerts.scannerVerifySuccess(`取件码 ${cleanPickupCandidate}`, `已完成核验`);
     }
 
     const result: ScanResult = {
@@ -517,6 +523,13 @@ class GlobalBarcodeScannerListener {
     const options = this.getContextOptions ? this.getContextOptions() : { dishes: [] };
     const result = parseAndRouteBarcode(code, options);
     this.listeners.forEach((cb) => cb(result));
+    merchantEventBus.emit('merchant:scanner_routed', {
+      code,
+      type: result.type as any,
+      targetId: result.matchedData?.id || result.matchedData?.orderNo || result.matchedData?.sku,
+      summary: result.title,
+      autoActionTaken: result.success
+    });
     return result;
   }
 
@@ -558,6 +571,13 @@ class GlobalBarcodeScannerListener {
         const options = this.getContextOptions ? this.getContextOptions() : { dishes: [] };
         const result = parseAndRouteBarcode(scannedCode, options);
         this.listeners.forEach((cb) => cb(result));
+        merchantEventBus.emit('merchant:scanner_routed', {
+          code: scannedCode,
+          type: result.type as any,
+          targetId: result.matchedData?.id || result.matchedData?.orderNo || result.matchedData?.sku,
+          summary: result.title,
+          autoActionTaken: result.success
+        });
       } else {
         this.buffer = '';
       }

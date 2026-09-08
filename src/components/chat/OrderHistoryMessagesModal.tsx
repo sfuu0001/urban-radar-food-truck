@@ -43,6 +43,7 @@ import { UnifiedOmniChatModal } from './UnifiedOmniChatModal';
 import { ActiveMessageFormModal } from './ActiveMessageFormModal';
 import { EmbeddedOrderChat } from './EmbeddedOrderChat';
 import { OmniAggregatedChatHub } from './OmniAggregatedChatHub';
+import { fallbackToastCompat } from '../../utils/fallbackToast';
 
 export interface OrderHistoryMessagesModalProps {
   isOpen: boolean;
@@ -68,7 +69,7 @@ export const OrderHistoryMessagesModal: React.FC<OrderHistoryMessagesModalProps>
   onAdvanceOrderStatus,
   onRejectOrder,
   onAuditRefund,
-  showToast = (t, d) => console.log(t, d),
+  showToast = (t, d) => fallbackToastCompat(t, d),
   onTrackOrder
 }) => {
   const [searchQuery, setSearchQuery] = useState('');

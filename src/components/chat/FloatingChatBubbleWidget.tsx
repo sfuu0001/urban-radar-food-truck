@@ -34,6 +34,7 @@ import {
   formatRelativeTime
 } from '../../utils/chatHub';
 import { UnifiedOmniChatModal } from './UnifiedOmniChatModal';
+import { fallbackToast } from '../../utils/fallbackToast';
 
 export interface FloatingChatBubbleWidgetProps {
   role: 'user' | 'rider' | 'merchant' | 'platform';
@@ -54,7 +55,7 @@ export const FloatingChatBubbleWidget: React.FC<FloatingChatBubbleWidgetProps> =
   onAcceptOrder,
   onRejectOrder,
   onAuditRefund,
-  showToast = (msg: string) => console.log(msg),
+  showToast = (msg: string) => fallbackToast(msg),
   defaultOrderId,
   onOpenAggregatedHub
 }) => {

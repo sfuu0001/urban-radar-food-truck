@@ -193,6 +193,11 @@ export interface DeliveryAddressItem {
   longitude: number;
   tag: string;
   isDefault?: boolean;
+  receiverName?: string; // 收货人姓名
+  receiverPhone?: string; // 联系电话
+  houseNumber?: string; // 小区几幢几楼几室 / 详细门牌
+  remarks?: string; // 配送备注 (如: 放门口、敲门等)
+  createdAt?: string;
 }
 
 export interface DeliveryRangeEvaluation {
@@ -217,16 +222,17 @@ export interface DeliveryRangeEvaluation {
   } | null;
 }
 
-// 餐车默认停靠点(中性演示基准, 可被用户「保存并广播」覆盖; 不再是写死上海)
-// 首启/清空后回退到这里; 用户保存后配置随部署链接 #cfg hash 稳定携带, 不再回退
+// 餐车默认停靠点(中性演示基准, 可被用户「保存并广播」覆盖)
+// FIX(审计P2): 默认坐标原为杭州(30.30/120.12)，而预设地址库为上海(31.24/121.47)，
+// 导致默认配送地址距餐车约 165km、首屏"超出配送范围"。统一改回上海静安大悦城商圈内部分布。
 export const DEFAULT_TRUCK_CONFIGS: TruckLocationConfig[] = [
   {
     id: 'truck-01',
     name: '黑曜石 01 号流动餐车',
     code: 'OBSIDIAN-ALPHA-01',
-    locationName: '示例停靠点 · 三宝郡庭(默认演示, 可编辑)',
-    latitude: 30.3008,
-    longitude: 120.1255,
+    locationName: '西藏北路曲阜路交叉口 · 大悦城南广场',
+    latitude: 31.2435,
+    longitude: 121.4690,
     deliveryRadiusKm: 3.0,
     status: 'open',
     minDeliveryAmount: 35,
@@ -237,9 +243,9 @@ export const DEFAULT_TRUCK_CONFIGS: TruckLocationConfig[] = [
     id: 'truck-02',
     name: '黑曜石 02 号流动餐车',
     code: 'OBSIDIAN-BETA-02',
-    locationName: '示例停靠点 · 城北(默认演示, 可编辑)',
-    latitude: 30.3050,
-    longitude: 120.1300,
+    locationName: '静安大悦城北座办公楼连廊',
+    latitude: 31.2450,
+    longitude: 121.4680,
     deliveryRadiusKm: 2.5,
     status: 'open',
     minDeliveryAmount: 40,
@@ -250,9 +256,9 @@ export const DEFAULT_TRUCK_CONFIGS: TruckLocationConfig[] = [
     id: 'truck-03',
     name: '黑曜石 03 号流动餐车',
     code: 'OBSIDIAN-GAMMA-03',
-    locationName: '示例停靠点 · 城西(默认演示, 可编辑)',
-    latitude: 30.2960,
-    longitude: 120.1200,
+    locationName: '苏河湾万象天地西里广场',
+    latitude: 31.2465,
+    longitude: 121.4780,
     deliveryRadiusKm: 3.5,
     status: 'open',
     minDeliveryAmount: 35,
@@ -263,9 +269,9 @@ export const DEFAULT_TRUCK_CONFIGS: TruckLocationConfig[] = [
     id: 'truck-04',
     name: '黑曜石 04 号流动餐车',
     code: 'OBSIDIAN-DELTA-04',
-    locationName: '示例停靠点 · 城东(默认演示, 可编辑)',
-    latitude: 30.3100,
-    longitude: 120.1180,
+    locationName: '汉中路光复路口 · 静安国际中心',
+    latitude: 31.2390,
+    longitude: 121.4510,
     deliveryRadiusKm: 4.0,
     status: 'open',
     minDeliveryAmount: 45,
@@ -278,12 +284,16 @@ export const DEFAULT_TRUCK_CONFIGS: TruckLocationConfig[] = [
 export const PRESET_DELIVERY_ADDRESSES: DeliveryAddressItem[] = [
   {
     id: 'addr-1',
-    title: '大悦城商务座 (常用办公)',
+    title: '大悦城商务座',
     detail: '西藏北路 166 号大悦城商务座 1204 室',
     latitude: 31.2435,
     longitude: 121.4690,
-    tag: '默认',
-    isDefault: true
+    tag: '公司',
+    isDefault: true,
+    receiverName: '张先生',
+    receiverPhone: '138-8888-9201',
+    houseNumber: '商务座 12 楼 1204 室 (前台转交)',
+    remarks: '放前台即可，无需敲门'
   },
   {
     id: 'addr-2',
@@ -291,7 +301,11 @@ export const PRESET_DELIVERY_ADDRESSES: DeliveryAddressItem[] = [
     detail: '西藏北路 198 号大悦城北座 801 室',
     latitude: 31.2450,
     longitude: 121.4680,
-    tag: '朋友'
+    tag: '公司',
+    receiverName: '李女士',
+    receiverPhone: '139-6688-2345',
+    houseNumber: '北座 8 楼 801 室',
+    remarks: '请送至前台'
   },
   {
     id: 'addr-3',
@@ -299,7 +313,11 @@ export const PRESET_DELIVERY_ADDRESSES: DeliveryAddressItem[] = [
     detail: '福建北路 100 号西里 3 层 302',
     latitude: 31.2465,
     longitude: 121.4780,
-    tag: '公司'
+    tag: '其他',
+    receiverName: '张先生',
+    receiverPhone: '138-8888-9201',
+    houseNumber: '西里 3 层 302 休闲区',
+    remarks: '到店请电话联系'
   },
   {
     id: 'addr-4',
@@ -307,7 +325,11 @@ export const PRESET_DELIVERY_ADDRESSES: DeliveryAddressItem[] = [
     detail: '光复路 1 号智慧园 A 座 101',
     latitude: 31.2390,
     longitude: 121.4510,
-    tag: '分部'
+    tag: '公司',
+    receiverName: '王经理',
+    receiverPhone: '137-1234-5678',
+    houseNumber: 'A 座 1 楼 101 室',
+    remarks: '门禁直接按 101'
   },
   {
     id: 'addr-5',
@@ -315,7 +337,11 @@ export const PRESET_DELIVERY_ADDRESSES: DeliveryAddressItem[] = [
     detail: '浦东新区世纪大道 8 号国金中心二期 22 层',
     latitude: 31.2372,
     longitude: 121.5038,
-    tag: '远距测试 (3.5km+)'
+    tag: '公司',
+    receiverName: '陈总监',
+    receiverPhone: '138-0000-8888',
+    houseNumber: '二期 22 层行政区',
+    remarks: '物业大堂刷卡入内'
   },
   {
     id: 'addr-6',
@@ -323,7 +349,11 @@ export const PRESET_DELIVERY_ADDRESSES: DeliveryAddressItem[] = [
     detail: '龙腾大道 2380 号油罐艺术中心 1 号馆',
     latitude: 31.1712,
     longitude: 121.4610,
-    tag: '超距测试 (8.0km+)'
+    tag: '其他',
+    receiverName: '张先生',
+    receiverPhone: '138-8888-9201',
+    houseNumber: '1 号馆外围展厅',
+    remarks: '到了打我电话'
   },
   {
     id: 'addr-7',
@@ -331,7 +361,11 @@ export const PRESET_DELIVERY_ADDRESSES: DeliveryAddressItem[] = [
     detail: '闵行区申长路 688 号虹桥天地南区 L2',
     latitude: 31.1945,
     longitude: 121.3160,
-    tag: '超距测试 (15.0km+)'
+    tag: '其他',
+    receiverName: '先锋食客',
+    receiverPhone: '138-8888-9201',
+    houseNumber: '南区 L2 连廊休闲座椅',
+    remarks: '现场自取'
   }
 ];
 
@@ -560,6 +594,18 @@ export function calculateGeodesicDistanceKm(
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   const d = R * c;
   return Number(d.toFixed(2));
+}
+
+/**
+ * Haversine 距离计算（返回米 meters）
+ */
+export function calculateHaversineDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  return Math.round(calculateGeodesicDistanceKm(lat1, lon1, lat2, lon2) * 1000);
 }
 
 /**
@@ -1433,4 +1479,222 @@ export function saveTruckConfig(config: Partial<TruckLocationConfig> & { id: str
     updated = [...all, fullConfig];
   }
   saveAllTruckConfigs(updated);
+}
+
+/* =========================================================================
+ * 高德开放平台专送/骑行路径规划 API (AMap Direction API) 与导航对接
+ * ========================================================================= */
+
+export interface AmapRouteStep {
+  instruction: string;
+  distanceMeters: number;
+  durationSeconds: number;
+  roadName?: string;
+  coordinates: [number, number][]; // [lat, lng]
+}
+
+export interface AmapRouteResult {
+  source: 'amap' | 'fallback_simulated';
+  distanceMeters: number;
+  durationSeconds: number;
+  durationMinutes: number;
+  points: [number, number][]; // 展平的完整轨迹折线 [lat, lng]
+  steps: AmapRouteStep[];
+  origin: { lat: number; lng: number };
+  destination: { lat: number; lng: number };
+}
+
+/**
+ * 解析高德 polyline 字符串："lng1,lat1;lng2,lat2;..."
+ * 注意：高德返回的顺序是 lng,lat，Leaflet/地图组件通常使用 [lat, lng]
+ */
+export function parseAmapPolyline(polylineStr: string): [number, number][] {
+  if (!polylineStr) return [];
+  const coords: [number, number][] = [];
+  const pairs = polylineStr.split(';');
+  for (const pair of pairs) {
+    const [lngStr, latStr] = pair.split(',');
+    const lng = parseFloat(lngStr);
+    const lat = parseFloat(latStr);
+    if (!isNaN(lat) && !isNaN(lng)) {
+      coords.push([lat, lng]);
+    }
+  }
+  return coords;
+}
+
+/**
+ * 启发式生成符合城市路网的备用轨迹折线（起止点之间的直角网格平滑折线）
+ */
+function generateUrbanGridRoute(
+  originLat: number,
+  originLng: number,
+  destLat: number,
+  destLng: number
+): [number, number][] {
+  const points: [number, number][] = [[originLat, originLng]];
+  const latDiff = destLat - originLat;
+  const lngDiff = destLng - originLng;
+
+  // 模拟2~3个转弯节点，符合城市道路街道走势
+  const p1: [number, number] = [originLat + latDiff * 0.1, originLng + lngDiff * 0.45];
+  const p2: [number, number] = [originLat + latDiff * 0.55, originLng + lngDiff * 0.48];
+  const p3: [number, number] = [originLat + latDiff * 0.75, originLng + lngDiff * 0.88];
+
+  points.push(p1, p2, p3, [destLat, destLng]);
+  return points;
+}
+
+/**
+ * 调用高德 Web 服务路径规划 API (骑行 bicycling 优先，步行 walking 备用)
+ */
+export async function planAmapRidingRoute(
+  originLat: number,
+  originLng: number,
+  destLat: number,
+  destLng: number
+): Promise<AmapRouteResult> {
+  const key = getAmapWebKey();
+  const originStr = `${originLng.toFixed(6)},${originLat.toFixed(6)}`;
+  const destStr = `${destLng.toFixed(6)},${destLat.toFixed(6)}`;
+
+  // 1. 尝试高德骑行规划 API (v4 或 v3)
+  if (key) {
+    try {
+      const bicyclingUrl = `https://restapi.amap.com/v4/direction/bicycling?origin=${originStr}&destination=${destStr}&key=${encodeURIComponent(key)}`;
+      const data = await fetchJson(bicyclingUrl, 6000);
+      const path = data?.data?.paths?.[0];
+
+      if (path && Array.isArray(path.steps) && path.steps.length > 0) {
+        const fullPoints: [number, number][] = [];
+        const steps: AmapRouteStep[] = path.steps.map((st: any) => {
+          const stepCoords = parseAmapPolyline(st.polyline || '');
+          fullPoints.push(...stepCoords);
+          return {
+            instruction: st.instruction || '沿道路前行',
+            distanceMeters: Number(st.distance) || 0,
+            durationSeconds: Number(st.duration) || 0,
+            roadName: st.road || '',
+            coordinates: stepCoords
+          };
+        });
+
+        // 如果解析出了有效轨迹点
+        if (fullPoints.length >= 2) {
+          const totalDistance = Number(path.distance) || calculateHaversineDistance(originLat, originLng, destLat, destLng);
+          const totalDuration = Number(path.duration) || Math.round((totalDistance / 1000 / 20) * 3600);
+          return {
+            source: 'amap',
+            distanceMeters: Math.round(totalDistance),
+            durationSeconds: totalDuration,
+            durationMinutes: Math.max(1, Math.ceil(totalDuration / 60)),
+            points: fullPoints,
+            steps,
+            origin: { lat: originLat, lng: originLng },
+            destination: { lat: destLat, lng: destLng }
+          };
+        }
+      }
+    } catch {
+      // 继续尝试 walking API
+    }
+
+    // 2. 尝试高德步行规划 API (v3)
+    try {
+      const walkingUrl = `https://restapi.amap.com/v3/direction/walking?origin=${originStr}&destination=${destStr}&key=${encodeURIComponent(key)}`;
+      const data = await fetchJson(walkingUrl, 5000);
+      const path = data?.route?.paths?.[0];
+
+      if (path && Array.isArray(path.steps) && path.steps.length > 0) {
+        const fullPoints: [number, number][] = [];
+        const steps: AmapRouteStep[] = path.steps.map((st: any) => {
+          const stepCoords = parseAmapPolyline(st.polyline || '');
+          fullPoints.push(...stepCoords);
+          return {
+            instruction: st.instruction || '沿当前路段直行',
+            distanceMeters: Number(st.distance) || 0,
+            durationSeconds: Math.round((Number(st.duration) || 0) * 0.35), // 电动车专送比步行快约 3 倍
+            roadName: st.road || '',
+            coordinates: stepCoords
+          };
+        });
+
+        if (fullPoints.length >= 2) {
+          const totalDistance = Number(path.distance) || calculateHaversineDistance(originLat, originLng, destLat, destLng);
+          const totalDuration = Math.round((Number(path.duration) || 300) * 0.35);
+          return {
+            source: 'amap',
+            distanceMeters: Math.round(totalDistance),
+            durationSeconds: totalDuration,
+            durationMinutes: Math.max(1, Math.ceil(totalDuration / 60)),
+            points: fullPoints,
+            steps,
+            origin: { lat: originLat, lng: originLng },
+            destination: { lat: destLat, lng: destLng }
+          };
+        }
+      }
+    } catch {
+      // 容灾降级
+    }
+  }
+
+  // 3. 容灾兜底：基于城市路网网格模拟真实平滑折线
+  const fallbackPoints = generateUrbanGridRoute(originLat, originLng, destLat, destLng);
+  const distance = Math.round(calculateHaversineDistance(originLat, originLng, destLat, destLng) * 1.35); // 加折线系数
+  const durationSec = Math.round((distance / 1000 / 22) * 3600); // 按 22km/h 计算耗时
+
+  return {
+    source: 'fallback_simulated',
+    distanceMeters: distance,
+    durationSeconds: durationSec,
+    durationMinutes: Math.max(1, Math.ceil(durationSec / 60)),
+    points: fallbackPoints,
+    steps: [
+      {
+        instruction: '骑手从餐车出发，沿主干道驶向取餐干线',
+        distanceMeters: Math.round(distance * 0.4),
+        durationSeconds: Math.round(durationSec * 0.4),
+        coordinates: fallbackPoints.slice(0, 3)
+      },
+      {
+        instruction: '转入商业街区辅路，开启绿波专送通道',
+        distanceMeters: Math.round(distance * 0.6),
+        durationSeconds: Math.round(durationSec * 0.6),
+        coordinates: fallbackPoints.slice(2)
+      }
+    ],
+    origin: { lat: originLat, lng: originLng },
+    destination: { lat: destLat, lng: destLng }
+  };
+}
+
+/**
+ * 生成高德地图 App 唤起协议与网页导航链接
+ */
+export function getAmapNavigationUrls(
+  destLat: number,
+  destLng: number,
+  destName: string,
+  originLat?: number,
+  originLng?: number,
+  originName?: string
+) {
+  const encDest = encodeURIComponent(destName || '目的收货点');
+  const encOrigin = encodeURIComponent(originName || '流动餐车驻点');
+
+  // 高德 App 专有协议：amapuri://route/plan?sourceApplication=UrbanRadar...
+  const amapUri = `amapuri://route/plan?sourceApplication=UrbanRadar&dlat=${destLat.toFixed(6)}&dlon=${destLng.toFixed(6)}&dname=${encDest}&dev=0&t=3`;
+  
+  // 高德 Web 版直接导航（任何浏览器、电脑、手机均可直接打开）
+  const webNavUrl = `https://uri.amap.com/navigation?from=${originLng ? `${originLng.toFixed(6)},${originLat?.toFixed(6)},${encOrigin}` : ''}&to=${destLng.toFixed(6)},${destLat.toFixed(6)},${encDest}&mode=ride&callnative=1`;
+
+  // 高德位置标注页
+  const webMarkerUrl = `https://uri.amap.com/marker?position=${destLng.toFixed(6)},${destLat.toFixed(6)}&name=${encDest}&coordinate=gaode&callnative=1`;
+
+  return {
+    amapUri,
+    webNavUrl,
+    webMarkerUrl
+  };
 }

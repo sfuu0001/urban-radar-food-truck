@@ -556,7 +556,16 @@ export const RiderSettledOrderDetailModal: React.FC<RiderSettledOrderDetailModal
                 <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pb-0.5">
                   <button
                     type="button"
-                    onClick={() => showToast(`已拨打顾客电话: ${matchedOrder?.userPhone || '138-8888-9201'}`)}
+                    onClick={() => {
+                      // FIX(审计P1): 真拨号（tel: URI 唤起系统拨号；桌面无电话客户端时浏览器静默忽略并回退提示）
+                      const phone = matchedOrder?.userPhone || '138-8888-9201';
+                      try {
+                        window.location.href = `tel:${phone.replace(/[^+\d]/g, '')}`;
+                      } catch {
+                        // ignore
+                      }
+                      showToast(`正在拨打顾客电话: ${phone}`);
+                    }}
                     className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 whitespace-nowrap shadow-xs active:scale-95 shrink-0"
                   >
                     <Phone className="w-3.5 h-3.5" />
@@ -565,7 +574,16 @@ export const RiderSettledOrderDetailModal: React.FC<RiderSettledOrderDetailModal
 
                   <button
                     type="button"
-                    onClick={() => showToast('已拨打餐车调度台: 400-880-9288')}
+                    onClick={() => {
+                      // FIX(审计P1): 真拨号餐车调度台
+                      const hotline = '400-880-9288';
+                      try {
+                        window.location.href = `tel:${hotline.replace(/[^+\d]/g, '')}`;
+                      } catch {
+                        // ignore
+                      }
+                      showToast(`已拨打餐车调度台: ${hotline}`);
+                    }}
                     className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-900 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 whitespace-nowrap shadow-xs active:scale-95 shrink-0"
                   >
                     <Store className="w-3.5 h-3.5 text-amber-400" />
@@ -657,7 +675,16 @@ export const RiderSettledOrderDetailModal: React.FC<RiderSettledOrderDetailModal
                     <div className="pt-2 border-t border-[#efefed] flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => showToast('已模拟拨通顾客电话: 138-8888-9201 (通话已加密存证)')}
+                        onClick={() => {
+                          // FIX(审计P1): 真拨号（替代"已模拟拨通"假提示）
+                          const phone = matchedOrder?.userPhone || '138-8888-9201';
+                          try {
+                            window.location.href = `tel:${phone.replace(/[^+\d]/g, '')}`;
+                          } catch {
+                            // ignore
+                          }
+                          showToast(`正在拨打顾客电话: ${phone} (通话加密存证)`);
+                        }}
                         className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs active:scale-98"
                       >
                         <Phone className="w-3.5 h-3.5" />
@@ -735,7 +762,16 @@ export const RiderSettledOrderDetailModal: React.FC<RiderSettledOrderDetailModal
                     <div className="pt-2 border-t border-[#efefed] flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => showToast('已模拟拨通餐车后厨调度台: 400-880-9288')}
+                        onClick={() => {
+                          // FIX(审计P1): 真拨号（替代"已模拟拨通"假提示）
+                          const hotline = '400-880-9288';
+                          try {
+                            window.location.href = `tel:${hotline.replace(/[^+\d]/g, '')}`;
+                          } catch {
+                            // ignore
+                          }
+                          showToast(`正在拨打餐车后厨调度台: ${hotline}`);
+                        }}
                         className="flex-1 py-2 bg-neutral-800 hover:bg-neutral-900 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs active:scale-98"
                       >
                         <Phone className="w-3.5 h-3.5 text-amber-400" />

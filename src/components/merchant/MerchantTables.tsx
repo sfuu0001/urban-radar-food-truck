@@ -26,13 +26,30 @@ import {
   ToggleLeft,
   ToggleRight,
   ListOrdered,
-  QrCode
+  QrCode,
+  Megaphone,
+  Brush,
+  ShieldAlert,
+  Ban,
+  Trash2,
+  AlertTriangle,
+  FileX,
+  ShieldCheck,
+  Zap,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { TableItem, TableStatus, TableZone, DishItem, Order, WaitingTableItem, TableDishItem } from '../../types';
 import { globalScannerEngine, playScannerBeep } from '../../utils/barcodeScannerEngine';
 import { resolveOrderChannelType, normalizeOrderKey } from '../../utils/orderNormalizer';
 import { TableDishProgressView } from './TableDishProgressView';
 import { TableBatchPrintModal } from './TableBatchPrintModal';
+import { voiceAlerts } from '../../utils/voiceAlertEngine';
+import { AccountAuditDrawer } from './AccountAuditDrawer';
+import { globalVersionEngine } from '../../utils/versionPointerEngine';
+import { businessTransactionEngine } from '../../utils/businessTransactionEngine';
+import { safeGetStorage, safeSetStorage } from '../../utils/safeStorage';
+import { merchantEventBus } from '../../utils/merchantEventBus';
 import {
   getWaitingQueue,
   saveWaitingQueue,
@@ -54,6 +71,7 @@ interface MerchantTablesProps {
   onReleaseTable: (tableId: string) => void;
   onUpdateTable?: (updatedTable: TableItem) => void;
   onSyncOrderItems?: (orderNo: string, items: TableDishItem[]) => void;
+  onVoidTableOrder?: (tableId: string, reason: string, targetStatus?: 'idle' | 'cleaning') => void;
   showToast: (msg: string, detail?: string) => void;
 }
 
@@ -67,6 +85,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
   onReleaseTable,
   onUpdateTable,
   onSyncOrderItems,
+  onVoidTableOrder,
   showToast
 }) => {
   const [selectedZone, setSelectedZone] = useState<TableZone>('all');
@@ -78,11 +97,18 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
 
   // Selected table for detailed Dish Progress & Flow Nodes view
   const [selectedTableForDetail, setSelectedTableForDetail] = useState<TableItem | null>(null);
+  const [detailViewMode, setDetailViewMode] = useState<'split' | 'fullscreen'>('split');
 
   // Modals state
-  const [activeModal, setActiveModal] = useState<'open' | 'bill' | 'transfer' | 'addWaiting' | 'manualTransfer' | 'cleanPrompt' | null>(null);
+  const [activeModal, setActiveModal] = useState<'open' | 'bill' | 'transfer' | 'addWaiting' | 'manualTransfer' | 'cleanPrompt' | 'voidOrder' | null>(null);
   const [isBatchPrintModalOpen, setIsBatchPrintModalOpen] = useState<boolean>(false);
   const [selectedTable, setSelectedTable] = useState<TableItem | null>(null);
+
+  // Void Order Modal State
+  const [voidTargetTable, setVoidTargetTable] = useState<TableItem | null>(null);
+  const [voidReason, setVoidReason] = useState<string>('顾客退单/未就餐离店');
+  const [customVoidReason, setCustomVoidReason] = useState<string>('');
+  const [voidTargetStatus, setVoidTargetStatus] = useState<'idle' | 'cleaning'>('idle');
   
   // Waiting Queue & Auto-Transfer State
   const [waitingQueue, setWaitingQueue] = useState<WaitingTableItem[]>(() => getWaitingQueue());
@@ -148,7 +174,12 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
       // 自动纳入转移
       const res = onTableCleanedRelease(tbl.id);
       if (res.transferred && res.waitingItem && res.updatedTable) {
-        showToast(`【保洁自动转移】桌台 ${res.updatedTable.code} 已自动纳入等位 ${res.waitingItem.code} (${res.waitingItem.guests}人) 入座！`);
+        // 📢 语音叫号通知等位客人就座
+        voiceAlerts.speakText(
+          `请等位单号 ${res.waitingItem.code}，${res.waitingItem.guests}位贵宾，到 ${res.updatedTable.code} 号桌就座用餐！`,
+          { chimeType: 'call' }
+        );
+        showToast(`【保洁自动转移】桌台 ${res.updatedTable.code} 已自动纳入等位 ${res.waitingItem.code} (${res.waitingItem.guests}人) 入座并语音叫号！`);
       } else {
         onReleaseTable(tbl.id);
         showToast(`桌台 ${tbl.code} 保洁完成，已恢复为空闲状态！`);
@@ -204,26 +235,87 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
     return () => unsub();
   }, [tables, activeModal]);
 
-  // If detail view is open, render TableDishProgressView
-  if (selectedTableForDetail) {
+  // 跨组件联动总线监听 (KDS 出餐同步 / 菜品售罄 / 餐车转场联动)
+  useEffect(() => {
+    const unsubKds = merchantEventBus.on('merchant:kds_dish_completed', (payload) => {
+      // 当 KDS 出餐时，自动同步至桌台列表
+      const latestTables = safeGetStorage<TableItem[]>('obsidian_merchant_tables', []);
+      if (latestTables.length > 0) {
+        latestTables.forEach((t) => {
+          const match = payload.ticketNo.includes(t.code) || (t.orderNo && t.orderNo.includes(payload.ticketNo.replace(/^#/, '')));
+          if (match && onUpdateTable) {
+            onUpdateTable(t);
+          }
+        });
+      }
+    });
+
+    const unsubSoldOut = merchantEventBus.on('merchant:dish_sold_out', (payload) => {
+      if (payload.isSoldOut) {
+        // 校验当前在座桌台是否点了该菜品
+        const affectedTables = tables.filter((t) =>
+          t.status === 'dining' && t.orderItems?.some((it) => it.name === payload.dishName && it.serveStatus !== 'served')
+        );
+        if (affectedTables.length > 0) {
+          const codes = affectedTables.map((t) => t.code).join('、');
+          showToast(`⚠️【沽清预警】「${payload.dishName}」已沽清，在座桌台（${codes}）包含尚未出餐项目，请及时协调换菜！`);
+        }
+      }
+    });
+
+    const unsubStall = merchantEventBus.on('merchant:stall_relocated', (payload) => {
+      showToast(`🚚【餐车已转场至 ${payload.stallName}】桌台建议容量: ${payload.maxTables} 桌，已联动重置外摆区！`);
+    });
+
+    return () => {
+      unsubKds();
+      unsubSoldOut();
+      unsubStall();
+    };
+  }, [tables, onUpdateTable]);
+
+  // If detail view is open in fullscreen mode, render TableDishProgressView
+  if (selectedTableForDetail && detailViewMode === 'fullscreen') {
     const freshTable = tables.find((t) => t.id === selectedTableForDetail.id) || selectedTableForDetail;
     return (
-      <TableDishProgressView
-        table={freshTable}
-        onBack={() => setSelectedTableForDetail(null)}
-        onUpdateTable={(updated) => {
-          onUpdateTable?.(updated);
-          setSelectedTableForDetail(updated);
-          if (updated.orderNo && updated.orderItems && onSyncOrderItems) {
-            onSyncOrderItems(updated.orderNo, updated.orderItems);
-          }
-        }}
-        onOpenBillModal={(tbl) => {
-          setSelectedTableForDetail(null);
-          handleBillModal(tbl);
-        }}
-        showToast={showToast}
-      />
+      <div className="space-y-2">
+        <div className="flex items-center justify-between bg-white border border-[#d3d1cb] px-3 py-2 rounded-[3px] shadow-2xs">
+          <div className="flex items-center gap-2">
+            <span className="font-mono font-bold text-xs bg-[#37352f] text-white px-2 py-0.5 rounded-[2px]">
+              {freshTable.code} 桌
+            </span>
+            <span className="text-xs text-slate-700 font-semibold">全屏传菜与出餐大屏模式</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setDetailViewMode('split')}
+            className="px-2.5 py-1 text-xs font-semibold bg-slate-900 text-white rounded-[3px] hover:bg-black transition-colors flex items-center gap-1 cursor-pointer"
+          >
+            <Minimize2 className="w-3.5 h-3.5" />
+            <span>还原右侧画中画分栏</span>
+          </button>
+        </div>
+        <TableDishProgressView
+          table={freshTable}
+          onBack={() => setSelectedTableForDetail(null)}
+          onUpdateTable={(updated) => {
+            onUpdateTable?.(updated);
+            setSelectedTableForDetail(updated);
+            if (updated.orderNo && updated.orderItems && onSyncOrderItems) {
+              onSyncOrderItems(updated.orderNo, updated.orderItems);
+            }
+          }}
+          onOpenBillModal={(tbl) => {
+            setSelectedTableForDetail(null);
+            handleBillModal(tbl);
+          }}
+          onVoidOrder={(tbl) => {
+            setSelectedTableForDetail(null);
+            handleVoidOrderModal(tbl);
+          }}
+          showToast={showToast}
+        />
+      </div>
     );
   }
 
@@ -284,6 +376,57 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
     const availableTarget = tables.find((t) => t.status === 'idle' && t.id !== tbl.id);
     setTargetTableId(availableTarget ? availableTarget.id : '');
     setActiveModal('transfer');
+  };
+
+  const handleVoidOrderModal = (tbl: TableItem) => {
+    setVoidTargetTable(tbl);
+    setVoidReason('顾客退单/未就餐离店');
+    setCustomVoidReason('');
+    setVoidTargetStatus('idle');
+    setActiveModal('voidOrder');
+  };
+
+  const handleConfirmVoidOrder = () => {
+    if (!voidTargetTable) return;
+
+    const finalReason = voidReason === '自定义输入' ? (customVoidReason.trim() || '前台手动作废') : voidReason;
+
+    // 使用统一业务领域事务管道执行原子级作废 (级联更新桌台 + 订单 + KDS工单 + 版本快照)
+    if (onVoidTableOrder) {
+      onVoidTableOrder(voidTargetTable.id, finalReason, voidTargetStatus);
+    } else {
+      businessTransactionEngine.executeVoidTableOrder({
+        tableId: voidTargetTable.id,
+        reason: finalReason,
+        targetStatus: voidTargetStatus,
+        operatorName: '前台值班领班',
+        showToast
+      });
+    }
+
+    setActiveModal(null);
+    setVoidTargetTable(null);
+  };
+
+  // Quick open table button helper
+  const handleQuickOpenTable = () => {
+    const firstIdle = tables.find(t => t.status === 'idle');
+    if (firstIdle) {
+      handleOpenModal(firstIdle);
+    } else {
+      showToast('当前台位已全部满座，可引导顾客在前台取等位候补号！');
+    }
+  };
+
+  // Clean all cleaning tables helper
+  const handleCleanAllTables = () => {
+    const cleaningTables = tables.filter(t => t.status === 'cleaning');
+    if (cleaningTables.length === 0) {
+      showToast('当前没有处于清洁中的桌台');
+      return;
+    }
+    cleaningTables.forEach(t => onReleaseTable(t.id));
+    showToast(`已一键完成 ${cleaningTables.length} 张桌台保洁归位，全部恢复为空闲就绪！`);
   };
 
   return (
@@ -398,20 +541,49 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
             </span>
           </div>
 
-          {/* Batch Print Table Stand QR Button */}
-          <button
-            type="button"
-            onClick={() => setIsBatchPrintModalOpen((prev) => !prev)}
-            className={`px-2.5 py-1.5 rounded-[3px] font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs whitespace-nowrap sm:ml-auto ${
-              isBatchPrintModalOpen
-                ? 'bg-[#1e3e2b] text-white ring-1 ring-emerald-400'
-                : 'bg-[#2b593f] hover:bg-[#204430] text-white'
-            }`}
-            title="生成并打印所有桌台亚克力立牌二维码"
-          >
-            <QrCode className="w-3.5 h-3.5" />
-            <span>{isBatchPrintModalOpen ? '收起立牌打印中心' : '批量打印桌码立牌'}</span>
-          </button>
+          {/* Action Buttons Group (快速开台, 一键保洁全场, 批量打印立牌) */}
+          <div className="flex items-center gap-1.5 flex-wrap sm:ml-auto">
+            {/* Quick Open Table Button */}
+            <button
+              type="button"
+              onClick={handleQuickOpenTable}
+              className="px-2.5 py-1.5 bg-[#37352f] hover:bg-[#201f1c] text-white rounded-[3px] font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
+              title="自动寻找空闲桌台并快速开台"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>快速开台</span>
+            </button>
+
+            {/* Clean All Cleaning Tables Button */}
+            <button
+              type="button"
+              onClick={handleCleanAllTables}
+              className={`px-2.5 py-1.5 rounded-[3px] font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer border shadow-2xs ${
+                cleaningCount > 0
+                  ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
+                  : 'bg-white text-slate-500 border-slate-300 hover:bg-slate-50'
+              }`}
+              title="将全部清洁中的桌台一键恢复为空闲状态"
+            >
+              <Brush className="w-3.5 h-3.5 text-amber-600" />
+              <span>一键保洁 ({cleaningCount})</span>
+            </button>
+
+            {/* Batch Print Table Stand QR Button */}
+            <button
+              type="button"
+              onClick={() => setIsBatchPrintModalOpen((prev) => !prev)}
+              className={`px-2.5 py-1.5 rounded-[3px] font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs whitespace-nowrap ${
+                isBatchPrintModalOpen
+                  ? 'bg-[#1e3e2b] text-white ring-1 ring-emerald-400'
+                  : 'bg-[#2b593f] hover:bg-[#204430] text-white'
+              }`}
+              title="生成并打印所有桌台亚克力立牌二维码"
+            >
+              <QrCode className="w-3.5 h-3.5" />
+              <span>{isBatchPrintModalOpen ? '收起立牌中心' : '打印桌码立牌'}</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -620,8 +792,66 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
         );
       })()}
 
-      {/* Tables Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+      {/* 智能排队叫号与空闲台位敏捷撮合中心 (Smart Queue Match Strip) */}
+      {(() => {
+        const activeWaitings = waitingQueue.filter((w) => w.status === 'waiting');
+        const idleTables = tables.filter((t) => t.status === 'idle');
+        if (activeWaitings.length === 0 || idleTables.length === 0) return null;
+
+        const bestWait = activeWaitings[0];
+        // 匹配容纳人数相符的最适空桌
+        const bestMatchTable =
+          [...idleTables].sort((a, b) => {
+            const fitA = a.capacity >= bestWait.guests ? 1 : 0;
+            const fitB = b.capacity >= bestWait.guests ? 1 : 0;
+            if (fitA !== fitB) return fitB - fitA;
+            return Math.abs(a.capacity - bestWait.guests) - Math.abs(b.capacity - bestWait.guests);
+          })[0] || idleTables[0];
+
+        return (
+          <div className="bg-emerald-900 text-white px-3 py-2 rounded-[3px] border border-emerald-800 shadow-xs flex items-center justify-between gap-3 flex-wrap animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="flex items-center gap-2 flex-wrap text-xs">
+              <span className="flex items-center gap-1 font-bold text-emerald-300 bg-emerald-950/60 px-2 py-0.5 rounded-[2px] border border-emerald-700/50">
+                <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                <span>智能等位撮合推荐</span>
+              </span>
+              <span className="text-emerald-100">
+                等位 <strong className="text-white font-mono text-xs underline decoration-emerald-400 underline-offset-2">{bestWait.code} 号</strong>
+                （{bestWait.guests}人 · 已候补 {bestWait.elapsedMinutes || 1}m）匹配空闲桌台
+                <strong className="text-emerald-200 font-bold ml-1">{bestMatchTable.code} 桌</strong> ({bestMatchTable.name} · {bestMatchTable.capacity}人位)
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const res = businessTransactionEngine.executeMatchQueueToTable({
+                    queueItemId: bestWait.id,
+                    tableId: bestMatchTable.id,
+                    guestCount: bestWait.guests,
+                    showToast
+                  });
+                  if (res.success && res.table) {
+                    onUpdateTable?.(res.table);
+                  }
+                }}
+                className="px-3 py-1 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs rounded-[2px] shadow-sm flex items-center gap-1.5 cursor-pointer transition-colors"
+                title="呼叫该等位顾客并直接开台安排就座"
+              >
+                <Megaphone className="w-3.5 h-3.5" />
+                <span>一键叫号·入座开台</span>
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Master-Detail Split Container: Tables Grid (62%) + Dish Progress Side Panel (38%) */}
+      <div className="flex flex-col lg:flex-row gap-3 items-start w-full">
+        {/* Left: Table Cards Grid */}
+        <div className={selectedTableForDetail ? 'w-full lg:w-[62%] min-w-0 transition-all' : 'w-full transition-all'}>
+          <div className={`grid gap-3 ${selectedTableForDetail ? 'grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4'}`}>
         {filteredTables.map((tbl) => {
           // Check if there is a dine-in order explicitly matched to this table
           const matchedDineInOrder = (orders || []).find((o) => {
@@ -676,7 +906,12 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
           let borderClass = 'border-[#e6e6e4]';
           let bgHeader = 'bg-[#f1f1ef] text-[#37352f]';
 
-          if (isDining) {
+          const isCurrentlyActiveInSidePanel = selectedTableForDetail?.id === tbl.id;
+
+          if (isCurrentlyActiveInSidePanel) {
+            borderClass = 'ring-2 ring-emerald-600 border-emerald-600 shadow-md';
+            bgHeader = 'bg-emerald-800 text-white';
+          } else if (isDining) {
             borderClass = 'border-[#37352f] shadow-xs hover:shadow-md';
             bgHeader = 'bg-[#37352f] text-white';
           } else if (isIdle) {
@@ -696,6 +931,11 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
               onClick={() => {
                 if (isDining) {
                   setSelectedTableForDetail(tableForDetail);
+                  if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                    setTimeout(() => {
+                      document.getElementById('pip-dish-progress-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }, 120);
+                  }
                 } else if (isIdle) {
                   handleOpenModal(tbl);
                 }
@@ -703,50 +943,73 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
               className={`bg-white rounded-[4px] border ${borderClass} flex flex-col justify-between overflow-hidden transition-all group ${
                 isDining ? 'cursor-pointer hover:border-black' : ''
               }`}
-              title={isDining ? '点击卡片查看目前菜品制作情况与状态流转节点' : undefined}
+              title={isDining ? '点击卡片在右侧画中画查看目前菜品制作情况与状态流转节点' : undefined}
             >
               {/* Card Top */}
               <div>
-                <div className={`p-2.5 flex items-center justify-between border-b ${bgHeader}`}>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-sm px-1.5 py-0.2 bg-black/10 rounded-[2px]">
+                <div className={`px-2.5 py-2 flex items-center justify-between gap-1.5 border-b ${bgHeader} min-w-0`}>
+                  {/* Left: Code, Name, Active Synergy */}
+                  <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
+                    <span className="font-mono font-bold text-xs sm:text-sm px-1.5 py-0.5 bg-black/15 rounded-[2px] shrink-0 leading-none">
                       {tbl.code}
                     </span>
-                    <span className="font-semibold text-xs truncate max-w-[120px]">{tbl.name}</span>
+                    <span className="font-semibold text-xs truncate min-w-0" title={tbl.name}>
+                      {tbl.name}
+                    </span>
+                    {isCurrentlyActiveInSidePanel && (
+                      <span className="text-[9px] bg-emerald-500 text-white px-1.5 py-0.5 rounded-[2px] font-bold shrink-0 whitespace-nowrap leading-none">
+                        协同中
+                      </span>
+                    )}
                   </div>
 
-                  {/* Status Badge & QR Stand Action */}
-                  <div className="flex items-center gap-1.5">
+                  {/* Status Badge & QR Stand Action & Quick Void Action */}
+                  <div className="flex items-center gap-1 shrink-0">
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         setIsBatchPrintModalOpen(true);
                       }}
-                      className="p-1 text-[#5a5854] hover:text-black hover:bg-black/10 rounded-[2px] transition-colors cursor-pointer"
+                      className="p-1 opacity-75 hover:opacity-100 hover:bg-black/10 rounded-[2px] transition-colors cursor-pointer shrink-0"
                       title={`查看/打印 ${tbl.code} 桌点餐二维码`}
                     >
                       <QrCode className="w-3.5 h-3.5" />
                     </button>
-                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-[2px] bg-white/80 text-black">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleVoidOrderModal(tableForDetail);
+                      }}
+                      className="p-1 opacity-75 hover:opacity-100 hover:bg-rose-50 hover:text-rose-600 rounded-[2px] transition-colors cursor-pointer shrink-0"
+                      title={`作废/撤销 ${tbl.code} 桌订单`}
+                    >
+                      <Ban className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-[2px] bg-white/90 text-slate-800 shrink-0 whitespace-nowrap shadow-2xs leading-tight">
                       {isDining && `就餐 ${tbl.elapsedMinutes || 12}m`}
-                      {isIdle && `空闲 · ${tbl.capacity}座`}
-                      {isCleaning && `保洁中 ${tbl.elapsedMinutes}m`}
+                      {isIdle && `空闲·${tbl.capacity}座`}
+                      {isCleaning && `保洁 ${tbl.elapsedMinutes}m`}
                       {isReserved && `已预订`}
                     </span>
                   </div>
                 </div>
 
                 {/* Card Body */}
-                <div className="p-3 space-y-2.5">
+                <div className="p-2.5 sm:p-3 space-y-2.5 min-w-0">
                   {/* Dine-in Matched Order Banner */}
                   {matchedDineInOrder && (
-                    <div className="flex items-center justify-between bg-amber-50 px-2 py-1.5 rounded-[3px] border border-amber-200 text-[11px] text-amber-900 font-medium">
-                      <span className="flex items-center gap-1">
+                    <div className="flex items-center justify-between gap-1.5 bg-amber-50 px-2 py-1.5 rounded-[3px] border border-amber-200 text-[11px] text-amber-900 font-medium min-w-0">
+                      <div className="flex items-center gap-1 min-w-0 flex-1">
                         <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                        <span>堂食自动匹配: <strong>#{matchedDineInOrder.orderNo.replace(/^#/, '')}</strong></span>
+                        <span className="truncate">
+                          堂食匹配: <strong className="font-mono">#{matchedDineInOrder.orderNo.replace(/^#/, '')}</strong>
+                        </span>
+                      </div>
+                      <span className="font-bold font-mono text-amber-700 shrink-0 whitespace-nowrap">
+                        ¥{matchedDineInOrder.totalAmount.toFixed(1)}
                       </span>
-                      <span className="font-bold text-amber-700">¥{matchedDineInOrder.totalAmount.toFixed(1)}</span>
                     </div>
                   )}
 
@@ -754,13 +1017,15 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                   {isDining && (
                     <>
                       {/* Prominent Order Number Field (订单号字段功能，便于快速查询与复制) */}
-                      <div className="flex items-center justify-between bg-[#f1f1ef] px-2 py-1.5 rounded-[3px] border border-[#e6e6e4] text-[11px]">
-                        <span className="text-[#787774] font-medium flex items-center gap-1">
-                          <Barcode className="w-3.5 h-3.5 text-[#37352f]" />
+                      <div className="flex items-center justify-between gap-1.5 bg-[#f1f1ef] px-2 py-1.5 rounded-[3px] border border-[#e6e6e4] text-[11px] min-w-0">
+                        <span className="text-[#787774] font-medium flex items-center gap-1 shrink-0">
+                          <Barcode className="w-3.5 h-3.5 text-[#37352f] shrink-0" />
                           <span>订单号:</span>
                         </span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono font-bold text-[#1a1c1b] tracking-tight">{orderNo}</span>
+                        <div className="flex items-center gap-1 min-w-0">
+                          <span className="font-mono font-bold text-[#1a1c1b] tracking-tight truncate max-w-[125px] sm:max-w-none" title={orderNo}>
+                            {orderNo}
+                          </span>
                           <button
                             type="button"
                             onClick={(e) => {
@@ -772,7 +1037,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                                 showToast(`订单号: ${orderNo}`);
                               }
                             }}
-                            className="p-1 hover:bg-black/10 rounded text-[#787774] hover:text-[#1a1c1b] transition-colors cursor-pointer"
+                            className="p-1 hover:bg-black/10 rounded text-[#787774] hover:text-[#1a1c1b] transition-colors cursor-pointer shrink-0"
                             title="复制订单号"
                           >
                             <Copy className="w-3 h-3" />
@@ -781,20 +1046,22 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                       </div>
 
                       {/* Guest & Server Info */}
-                      <div className="flex items-center justify-between text-[11px] text-[#787774]">
-                        <span className="flex items-center gap-1">
-                          <Users className="w-3 h-3 text-[#37352f]" />
+                      <div className="flex items-center justify-between text-[11px] text-[#787774] gap-1.5 min-w-0">
+                        <span className="flex items-center gap-1 shrink-0">
+                          <Users className="w-3 h-3 text-[#37352f] shrink-0" />
                           <span>客数: <strong>{tbl.currentGuests || 2}/{tbl.capacity}人</strong></span>
                         </span>
-                        <span>服务: {tbl.serverName || '小林 (No.04)'}</span>
+                        <span className="truncate text-right" title={tbl.serverName || '小林 (No.04)'}>
+                          服务: {tbl.serverName || '小林 (No.04)'}
+                        </span>
                       </div>
 
                       {/* Dish Prep & Serving Progress Indicator (菜品出餐制作进展条) */}
                       {orderItems.length > 0 && (
-                        <div className="bg-[#fbfbfa] p-2 rounded-[3px] border border-[#e6e6e4] space-y-1.5">
-                          <div className="flex items-center justify-between text-[10.5px]">
-                            <span className="text-[#787774] font-medium">出餐上菜进展:</span>
-                            <span className="font-mono font-bold text-[#2b593f]">
+                        <div className="bg-[#fbfbfa] p-2 rounded-[3px] border border-[#e6e6e4] space-y-1.5 min-w-0">
+                          <div className="flex items-center justify-between text-[10.5px] gap-1">
+                            <span className="text-[#787774] font-medium shrink-0">出餐上菜进展:</span>
+                            <span className="font-mono font-bold text-[#2b593f] truncate text-right">
                               已上 {servedDishes}/{totalDishes} 件 ({servePercent}%)
                             </span>
                           </div>
@@ -813,25 +1080,27 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                           </div>
 
                           {/* Mini Items Status Pill Preview */}
-                          <div className="space-y-1 pt-1 border-t border-[#efefed]">
+                          <div className="space-y-1 pt-1 border-t border-[#efefed] min-w-0">
                             {orderItems.slice(0, 3).map((item, idx) => {
                               const isItemServed = item.serveStatus === 'served';
                               const isItemUrged = item.serveStatus === 'urged';
                               return (
-                                <div key={idx} className="flex items-center justify-between text-[10.5px]">
-                                  <span className="text-[#37352f] truncate max-w-[110px]">{item.name}</span>
+                                <div key={idx} className="flex items-center justify-between text-[10.5px] gap-1 min-w-0">
+                                  <span className="text-[#37352f] truncate flex-1 min-w-0" title={item.name}>
+                                    {item.name}
+                                  </span>
                                   <div className="flex items-center gap-1 shrink-0">
                                     <span className="font-mono text-[#787774]">x{item.quantity}</span>
                                     {isItemServed ? (
-                                      <span className="text-[9px] font-bold px-1 rounded bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc]">
+                                      <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc] whitespace-nowrap">
                                         已上桌
                                       </span>
                                     ) : isItemUrged ? (
-                                      <span className="text-[9px] font-bold px-1 rounded bg-[#fdf2f2] text-[#e03e3e] border border-[#fbd0d0] animate-pulse">
+                                      <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-[#fdf2f2] text-[#e03e3e] border border-[#fbd0d0] animate-pulse whitespace-nowrap">
                                         催单中
                                       </span>
                                     ) : (
-                                      <span className="text-[9px] font-bold px-1 rounded bg-[#fbf3db] text-[#8f6412] border border-[#ecd9a8]">
+                                      <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-[#fbf3db] text-[#8f6412] border border-[#ecd9a8] whitespace-nowrap">
                                         烹饪中
                                       </span>
                                     )}
@@ -855,17 +1124,17 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                           e.stopPropagation();
                           setSelectedTableForDetail(tbl);
                         }}
-                        className="w-full py-1.5 px-2 bg-[#edf3ec] hover:bg-[#ddead8] border border-[#c4dcbc] text-[#2b593f] rounded-[3px] font-bold text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer group shadow-2xs"
+                        className="w-full py-1.5 px-2 bg-[#edf3ec] hover:bg-[#ddead8] border border-[#c4dcbc] text-[#2b593f] rounded-[3px] font-bold text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer group shadow-2xs whitespace-nowrap min-w-0"
                         title="点击打开菜品出餐制作情况与状态流转节点详情界面"
                       >
-                        <UtensilsCrossed className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-                        <span>菜品制作出餐与流转节点</span>
-                        <ChevronRight className="w-3 h-3 ml-0.5" />
+                        <UtensilsCrossed className="w-3.5 h-3.5 group-hover:scale-110 transition-transform shrink-0" />
+                        <span className="truncate">菜品制作出餐与流转节点</span>
+                        <ChevronRight className="w-3 h-3 ml-0.5 shrink-0" />
                       </button>
 
-                      <div className="flex items-center justify-between pt-1 border-t border-[#efefed]">
-                        <span className="text-[11px] text-[#787774]">消费合计:</span>
-                        <span className="font-mono font-bold text-sm text-[#2b593f]">
+                      <div className="flex items-center justify-between pt-1 border-t border-[#efefed] min-w-0">
+                        <span className="text-[11px] text-[#787774] shrink-0">消费合计:</span>
+                        <span className="font-mono font-bold text-sm text-[#2b593f] shrink-0 whitespace-nowrap">
                           ¥{(tbl.totalAmount || 0).toFixed(2)}
                         </span>
                       </div>
@@ -908,7 +1177,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
               </div>
 
               {/* Card Footer Actions */}
-              <div className="p-2 bg-[#fbfbfa] border-t border-[#e6e6e4] flex items-center gap-1.5">
+              <div className="p-2 bg-[#fbfbfa] border-t border-[#e6e6e4] flex items-center gap-1.5 min-w-0">
                 {isDining && (
                   <>
                     <button
@@ -917,9 +1186,9 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                         e.stopPropagation();
                         handleBillModal(tbl);
                       }}
-                      className="flex-1 py-1 px-2.5 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-[3px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                      className="flex-1 min-w-0 py-1 px-1.5 sm:px-2 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-[3px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-2xs whitespace-nowrap"
                     >
-                      <ReceiptText className="w-3 h-3" />
+                      <ReceiptText className="w-3 h-3 shrink-0" />
                       <span>结账</span>
                     </button>
                     <button
@@ -928,68 +1197,208 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                         e.stopPropagation();
                         handleTransferModal(tbl);
                       }}
-                      className="py-1 px-2.5 bg-white hover:bg-[#f1f1ef] text-[#37352f] border border-[#d3d1cb] rounded-[3px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                      className="shrink-0 py-1 px-1.5 sm:px-2 bg-white hover:bg-[#f1f1ef] text-[#37352f] border border-[#d3d1cb] rounded-[3px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
                       title="换桌"
                     >
-                      <ArrowRightLeft className="w-3 h-3 text-[#787774]" />
+                      <ArrowRightLeft className="w-3 h-3 text-[#787774] shrink-0" />
                       <span>换桌</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleVoidOrderModal(tableForDetail);
+                      }}
+                      className="shrink-0 py-1 px-1.5 sm:px-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-[3px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
+                      title="作废此桌订单并释放台位"
+                    >
+                      <Ban className="w-3 h-3 text-rose-600 shrink-0" />
+                      <span>作废</span>
                     </button>
                   </>
                 )}
 
                 {isIdle && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenModal(tbl);
-                    }}
-                    className="w-full py-1 px-2.5 bg-[#2b593f] hover:bg-[#204430] text-white rounded-[3px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-2xs"
-                  >
-                    <Plus className="w-3 h-3" />
-                    <span>开台</span>
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenModal(tbl);
+                      }}
+                      className="flex-1 min-w-0 py-1 px-1.5 sm:px-2 bg-[#2b593f] hover:bg-[#204430] text-white rounded-[3px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-2xs whitespace-nowrap"
+                    >
+                      <Plus className="w-3 h-3 shrink-0" />
+                      <span>开台</span>
+                    </button>
+                    {waitingQueue.filter((w) => w.status === 'waiting').length > 0 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const targetWait = waitingQueue.find((w) => w.status === 'waiting');
+                          if (targetWait) {
+                            const res = businessTransactionEngine.executeMatchQueueToTable({
+                              queueItemId: targetWait.id,
+                              tableId: tbl.id,
+                              guestCount: targetWait.guests,
+                              showToast
+                            });
+                            if (res.success && res.table) {
+                              onUpdateTable?.(res.table);
+                            }
+                          }
+                        }}
+                        className="shrink-0 py-1 px-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-[3px] font-semibold text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
+                        title={`一键撮合排队第一位顾客 (${waitingQueue.find((w) => w.status === 'waiting')?.code}) 入座`}
+                      >
+                        <Zap className="w-3 h-3 text-amber-600 fill-amber-500 shrink-0" />
+                        <span>撮合叫号</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleVoidOrderModal(tableForDetail);
+                      }}
+                      className="shrink-0 py-1 px-1.5 sm:px-2 bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-700 border border-[#d3d1cb] hover:border-rose-200 rounded-[3px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
+                      title="作废/重置此台位历史关联单据"
+                    >
+                      <Ban className="w-3 h-3 text-rose-600 shrink-0" />
+                      <span>作废</span>
+                    </button>
+                  </>
                 )}
 
                 {isCleaning && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleCleanComplete(tbl);
-                    }}
-                    className="w-full py-1 px-2.5 bg-[#d9730d] hover:bg-[#b55f0b] text-white rounded-[3px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-2xs"
-                  >
-                    <CheckCircle2 className="w-3 h-3" />
-                    <span>
-                      保洁完成
-                      {waitingQueue.filter((w) => w.status === 'waiting').length > 0
-                        ? autoTransferOnClean
-                          ? ' (自动转移等位)'
-                          : ' (纳入转移)'
-                        : ''}
-                    </span>
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCleanComplete(tbl);
+                      }}
+                      className="flex-1 min-w-0 py-1 px-1.5 sm:px-2 bg-[#d9730d] hover:bg-[#b55f0b] text-white rounded-[3px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-2xs whitespace-nowrap"
+                    >
+                      <CheckCircle2 className="w-3 h-3 shrink-0" />
+                      <span className="truncate">
+                        保洁完成
+                        {waitingQueue.filter((w) => w.status === 'waiting').length > 0
+                          ? autoTransferOnClean
+                            ? ' (自动转移)'
+                            : ' (转移)'
+                          : ''}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleVoidOrderModal(tableForDetail);
+                      }}
+                      className="shrink-0 py-1 px-1.5 sm:px-2 bg-white hover:bg-rose-50 text-rose-700 border border-[#d3d1cb] hover:border-rose-200 rounded-[3px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
+                      title="强制作废单据并清台归位"
+                    >
+                      <Ban className="w-3 h-3 text-rose-600 shrink-0" />
+                      <span>作废</span>
+                    </button>
+                  </>
                 )}
 
                 {isReserved && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onOpenTable(tbl.id, 4, '小林 (No.04)');
-                      showToast(`预约宾客已入座，桌台 ${tbl.code} 成功开台！`);
-                    }}
-                    className="w-full py-1 px-2.5 bg-[#2383e2] hover:bg-[#1a66b2] text-white rounded-[3px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-2xs"
-                  >
-                    <UserCheck className="w-3 h-3" />
-                    <span>入座开台</span>
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenTable(tbl.id, 4, '小林 (No.04)');
+                        showToast(`预约宾客已入座，桌台 ${tbl.code} 成功开台！`);
+                      }}
+                      className="flex-1 min-w-0 py-1 px-1.5 sm:px-2 bg-[#2383e2] hover:bg-[#1a66b2] text-white rounded-[3px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-2xs whitespace-nowrap"
+                    >
+                      <UserCheck className="w-3 h-3 shrink-0" />
+                      <span>入座开台</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleVoidOrderModal(tableForDetail);
+                      }}
+                      className="shrink-0 py-1 px-1.5 sm:px-2 bg-white hover:bg-rose-50 text-rose-700 border border-[#d3d1cb] hover:border-rose-200 rounded-[3px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
+                      title="作废/取消预订"
+                    >
+                      <Ban className="w-3 h-3 text-rose-600 shrink-0" />
+                      <span>作废</span>
+                    </button>
+                  </>
                 )}
               </div>
             </div>
           );
         })}
+          </div>
+        </div>
+
+        {/* Right: Picture-in-Picture Table Dish Progress Panel */}
+        {selectedTableForDetail && (
+          <div
+            id="pip-dish-progress-panel"
+            className="w-full lg:w-[38%] sticky top-2 z-20 h-[82vh] sm:h-[85vh] lg:h-[88vh] max-h-[88vh] overflow-hidden rounded-[4px] border border-[#d3d1cb] shadow-md bg-white flex flex-col animate-in fade-in slide-in-from-right-3 duration-200"
+          >
+            <div className="flex items-center justify-between bg-slate-900 text-white px-3 py-2 border-b border-slate-800 shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="font-mono font-bold text-xs bg-emerald-600 text-white px-1.5 py-0.5 rounded-[2px]">
+                  {selectedTableForDetail.code} 桌
+                </span>
+                <span className="text-xs font-semibold text-slate-200">画中画出餐协同</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setDetailViewMode('fullscreen')}
+                  className="p-1 hover:bg-slate-800 rounded text-slate-300 hover:text-white transition-colors cursor-pointer"
+                  title="放大为全屏出餐大屏"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedTableForDetail(null)}
+                  className="p-1 hover:bg-slate-800 rounded text-slate-300 hover:text-white transition-colors cursor-pointer"
+                  title="关闭画中画分栏"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+            {(() => {
+              const freshTable = tables.find((t) => t.id === selectedTableForDetail.id) || selectedTableForDetail;
+              return (
+                <TableDishProgressView
+                  isEmbedded={true}
+                  table={freshTable}
+                  onBack={() => setSelectedTableForDetail(null)}
+                  onUpdateTable={(updated) => {
+                    onUpdateTable?.(updated);
+                    setSelectedTableForDetail(updated);
+                    if (updated.orderNo && updated.orderItems && onSyncOrderItems) {
+                      onSyncOrderItems(updated.orderNo, updated.orderItems);
+                    }
+                  }}
+                  onOpenBillModal={(tbl) => {
+                    handleBillModal(tbl);
+                  }}
+                  onVoidOrder={(tbl) => {
+                    handleVoidOrderModal(tbl);
+                  }}
+                  showToast={showToast}
+                />
+              );
+            })()}
+          </div>
+        )}
       </div>
 
       {/* 1. Modal: 快速开台 */}
@@ -1582,12 +1991,17 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                           const res = transferWaitingToTable(c.id, cleanPromptTable.id);
                           setActiveModal(null);
                           if (res.success) {
-                            showToast(`【手动转移成功】${cleanPromptTable.code} 号桌已安排等位 ${c.code} (${c.guests}人) 入座！`);
+                            voiceAlerts.speakText(
+                              `请等位单号 ${c.code}，${c.guests}位贵宾，到 ${cleanPromptTable.code} 号桌就座用餐！`,
+                              { chimeType: 'call' }
+                            );
+                            showToast(`【手动转移成功】${cleanPromptTable.code} 号桌已安排等位 ${c.code} (${c.guests}人) 入座并语音叫号！`);
                           }
                         }}
-                        className="px-2.5 py-1 bg-[#2b593f] hover:bg-[#204430] text-white rounded-[2px] font-medium text-xs cursor-pointer shadow-2xs shrink-0 transition-colors"
+                        className="px-2.5 py-1 bg-[#2b593f] hover:bg-[#204430] text-white rounded-[2px] font-medium text-xs cursor-pointer shadow-2xs shrink-0 transition-colors flex items-center gap-1"
                       >
-                        转移入座
+                        <Megaphone className="w-3 h-3 text-[#fde047]" />
+                        <span>转移入座并叫号</span>
                       </button>
                     </div>
                   ))}
@@ -1614,6 +2028,206 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
           </div>
         </div>
       )}
+
+      {/* 7. Modal: 堂食台位订单作废与清台确认 */}
+      {activeModal === 'voidOrder' && voidTargetTable && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150">
+          <div className="bg-white w-full max-w-md rounded-[4px] border border-[#d3d1cb] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]">
+            {/* 顶部警告色标题 */}
+            <div className="p-3.5 bg-[#fdf2f2] border-b border-[#fbd0d0] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-rose-100 flex items-center justify-center text-rose-700 shrink-0">
+                  <AlertTriangle className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono font-bold text-xs bg-rose-600 text-white px-1.5 py-0.2 rounded-[2px]">
+                      {voidTargetTable.code} 桌
+                    </span>
+                    <span className="font-bold text-sm text-[#1a1c1b]">作废堂食订单确认</span>
+                  </div>
+                  <p className="text-[11px] text-rose-700">将撤销作废此桌当前在结/就餐订单并重置释放台位</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveModal(null)}
+                className="text-[#787774] hover:text-[#1a1c1b] p-1 hover:bg-black/5 rounded cursor-pointer transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* 模态框主体内容 */}
+            <div className="p-4 space-y-3.5 overflow-y-auto text-xs">
+              {/* 当前桌台及订单信息概览 */}
+              <div className="bg-[#fbfbfa] p-3 rounded-[3px] border border-[#e6e6e4] space-y-2">
+                <div className="flex items-center justify-between border-b border-[#efefed] pb-2">
+                  <span className="font-bold text-[#37352f] flex items-center gap-1.5">
+                    <UtensilsCrossed className="w-3.5 h-3.5 text-[#787774]" />
+                    <span>{voidTargetTable.name} ({voidTargetTable.zoneLabel || '外摆区'})</span>
+                  </span>
+                  <span className="text-[11px] text-[#787774]">
+                    容量 {voidTargetTable.capacity} 人位
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <span className="text-[#787774] block">关联订单号:</span>
+                    <span className="font-mono font-bold text-[#1a1c1b] break-all">
+                      {voidTargetTable.orderNo || `UR-DIN-${voidTargetTable.code}-01`}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[#787774] block">消费订单金额:</span>
+                    <span className="font-mono font-bold text-rose-600 text-sm">
+                      ¥{(voidTargetTable.totalAmount || 0).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 菜品清单预览 */}
+                {voidTargetTable.orderItems && voidTargetTable.orderItems.length > 0 && (
+                  <div className="pt-2 border-t border-[#efefed] space-y-1">
+                    <div className="flex items-center justify-between text-[10.5px] text-[#787774]">
+                      <span>已点菜品明细 ({voidTargetTable.orderItems.length} 项):</span>
+                      <span>共 {voidTargetTable.orderItems.reduce((acc, it) => acc + it.quantity, 0)} 件</span>
+                    </div>
+                    <div className="max-h-24 overflow-y-auto bg-white p-2 rounded-[2px] border border-[#e6e6e4] space-y-1">
+                      {voidTargetTable.orderItems.map((item, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-[11px]">
+                          <span className="text-[#37352f] truncate max-w-[200px]">{item.name}</span>
+                          <span className="font-mono text-[#787774]">
+                            x{item.quantity} · ¥{(item.price * item.quantity).toFixed(1)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 作废原因单选 */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-[#37352f] flex items-center gap-1">
+                  <FileX className="w-3.5 h-3.5 text-rose-600" />
+                  <span>请选择作废原因 (将归档至多账号审计日志):</span>
+                </label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {[
+                    '顾客退单/未就餐离店',
+                    '错开桌台/重复录入',
+                    '顾客换桌/重新点餐',
+                    '菜品售罄/顾客取消',
+                    '系统测试/演练订单',
+                    '自定义输入'
+                  ].map((reason) => {
+                    const isSelected = voidReason === reason;
+                    return (
+                      <button
+                        key={reason}
+                        type="button"
+                        onClick={() => setVoidReason(reason)}
+                        className={`px-2.5 py-1.5 rounded-[3px] border text-left text-xs transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-rose-50 border-rose-400 text-rose-800 font-semibold'
+                            : 'bg-[#f7f7f5] hover:bg-[#efefed] border-[#d3d1cb] text-[#5a5854]'
+                        }`}
+                      >
+                        {reason}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {voidReason === '自定义输入' && (
+                  <div className="pt-1">
+                    <input
+                      type="text"
+                      value={customVoidReason}
+                      onChange={(e) => setCustomVoidReason(e.target.value)}
+                      placeholder="请输入具体作废原因 (如：前台误触、顾客赶时间离开)..."
+                      className="w-full p-2 bg-[#f7f7f5] border border-rose-300 rounded-[3px] text-xs focus:outline-none focus:bg-white focus:border-rose-500"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* 桌台后续状态选择 */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-[#37352f] block">作废后桌位状态恢复为:</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setVoidTargetStatus('idle')}
+                    className={`p-2 rounded-[3px] border text-left transition-colors cursor-pointer flex flex-col gap-0.5 ${
+                      voidTargetStatus === 'idle'
+                        ? 'bg-[#edf3ec] border-[#4dab63] text-[#2b593f]'
+                        : 'bg-[#f7f7f5] border-[#d3d1cb] text-[#5a5854] hover:bg-[#efefed]'
+                    }`}
+                  >
+                    <span className="font-bold text-xs flex items-center gap-1">
+                      <span>🟢 立即恢复为空闲</span>
+                    </span>
+                    <span className="text-[10px] text-[#787774]">可随时接待现场新顾客扫码点餐</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setVoidTargetStatus('cleaning')}
+                    className={`p-2 rounded-[3px] border text-left transition-colors cursor-pointer flex flex-col gap-0.5 ${
+                      voidTargetStatus === 'cleaning'
+                        ? 'bg-[#fbf3db] border-[#d9730d] text-[#8f6412]'
+                        : 'bg-[#f7f7f5] border-[#d3d1cb] text-[#5a5854] hover:bg-[#efefed]'
+                    }`}
+                  >
+                    <span className="font-bold text-xs flex items-center gap-1">
+                      <span>🟡 置为保洁清洁中</span>
+                    </span>
+                    <span className="text-[10px] text-[#787774]">需值班保洁清桌后方可迎客</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 多账号协同安全回滚提示 */}
+              <div className="bg-[#edf3ec] p-2.5 rounded-[3px] border border-[#c4dcbc] text-[#2b593f] flex items-start gap-2 text-[11px]">
+                <ShieldCheck className="w-4 h-4 text-[#2b593f] shrink-0 mt-0.5" />
+                <div>
+                  <strong className="block">已激活多账号防误触审计与数据快照</strong>
+                  <span>此作废操作将自动写入版本回溯树。如系员工误操作，您随时可在右侧「审计恢复抽屉」中一键无损还原此桌订单与菜品进度。</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 模态框底部操作 */}
+            <div className="p-3 bg-[#f7f7f5] border-t border-[#e6e6e4] flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveModal(null)}
+                className="px-3 py-1.5 bg-white text-[#37352f] border border-[#d3d1cb] rounded-[3px] font-semibold cursor-pointer hover:bg-[#efefed] transition-colors text-xs"
+              >
+                放弃返回
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmVoidOrder}
+                className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-[3px] font-bold text-xs cursor-pointer shadow-2xs transition-colors flex items-center gap-1.5"
+              >
+                <Ban className="w-3.5 h-3.5" />
+                <span>确认作废订单并清台</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 右侧折叠内嵌式账号操作对比与数据兜底组件 */}
+      <AccountAuditDrawer
+        currentModule="tables"
+        title="堂食桌台操作审计与版本恢复"
+        showToast={showToast}
+      />
     </div>
   );
 };

@@ -15,15 +15,19 @@ import {
   RotateCcw,
   Truck
 } from 'lucide-react';
-import { StocktakeItem, StoreTransferRecord } from '../../types';
+import { StocktakeItem, StoreTransferRecord, DishItem } from '../../types';
 import { INITIAL_STOCKTAKE_ITEMS, INITIAL_TRANSFERS } from '../../data/mockEnhancedData';
 import { safeGetStorage, safeSetStorage } from '../../utils/safeStorage';
+import { businessTransactionEngine } from '../../utils/businessTransactionEngine';
+import { setAvailabilityOverride } from '../../utils/dishAvailability';
 
 interface MerchantInventoryProps {
   showToast: (msg: string) => void;
+  // FIX(审计P1): 注入当前在售菜单，便于盘点沽清时同步菜品可用性（打通 obsidian_sold_out_map 与 dish_availability_overrides 双键）
+  dishes?: DishItem[];
 }
 
-export const MerchantInventory: React.FC<MerchantInventoryProps> = ({ showToast }) => {
+export const MerchantInventory: React.FC<MerchantInventoryProps> = ({ showToast, dishes }) => {
   const [activeTab, setActiveTab] = useState<'stocktake' | 'transfers'>('stocktake');
   const [items, setItems] = useState<StocktakeItem[]>(
     () => safeGetStorage<StocktakeItem[]>('obsidian_inventory_stock', INITIAL_STOCKTAKE_ITEMS)
@@ -50,6 +54,43 @@ export const MerchantInventory: React.FC<MerchantInventoryProps> = ({ showToast 
   const [transferUnit, setTransferUnit] = useState('kg');
   const [transferFrom, setTransferFrom] = useState('总店中央冷库 (HQ-01)');
   const [transferTo, setTransferTo] = useState('01号静安餐车 (Truck-01)');
+
+  // 菜品/物料全渠道沽清状态
+  const [soldOutMap, setSoldOutMap] = useState<Record<string, boolean>>(() =>
+    safeGetStorage('obsidian_sold_out_map', {})
+  );
+
+  const handleToggleSoldOut = (item: StocktakeItem) => {
+    const isCurrentlySoldOut = !!soldOutMap[item.name];
+    const nextStatus = !isCurrentlySoldOut;
+    const nextMap = { ...soldOutMap, [item.name]: nextStatus };
+    setSoldOutMap(nextMap);
+    safeSetStorage('obsidian_sold_out_map', nextMap);
+
+    // FIX(审计P1): 盘点沽清同步到菜品可用性覆盖层（obsidian_dish_availability_overrides），
+    // 使食客端菜单 applyAvailabilityOverrides 后即时下架/上架，打通双键不一致
+    if (Array.isArray(dishes) && dishes.length > 0) {
+      const matched = dishes.filter(
+        (d) =>
+          d.id === item.sku ||
+          d.name === item.name ||
+          (d as any).sku === item.sku ||
+          d.name.includes(item.name) ||
+          item.name.includes(d.name)
+      );
+      matched.forEach((dish) => {
+        setAvailabilityOverride(dish.id, !nextStatus);
+      });
+    }
+
+    // 跨组件联动事务：触发菜品沽清熔断与在途未出餐订单排查
+    businessTransactionEngine.executeDishSoldOutCascade({
+      dishId: item.sku,
+      dishName: item.name,
+      isSoldOut: nextStatus,
+      showToast
+    });
+  };
 
   // Handle actual quantity update
   const handleUpdateActualQty = (id: string, newActual: number) => {
@@ -446,6 +487,23 @@ export const MerchantInventory: React.FC<MerchantInventoryProps> = ({ showToast 
                     </span>
                   </div>
                 </div>
+
+                <div className="flex items-center justify-between pt-1 border-t border-[#f1f1ef]">
+                  <span className="text-[11px] text-[#787774]">
+                    单价: ¥{item.unitCost.toFixed(1)}/{item.unit}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleSoldOut(item)}
+                    className={`px-2.5 py-1 rounded text-xs font-bold transition-colors cursor-pointer ${
+                      soldOutMap[item.name] || item.actualQty <= 0
+                        ? 'bg-rose-100 text-rose-800 hover:bg-rose-200 border border-rose-300'
+                        : 'bg-[#f1f1ef] text-[#5a5854] hover:bg-[#e6e6e4] border border-[#d3d1cb]'
+                    }`}
+                  >
+                    {soldOutMap[item.name] || item.actualQty <= 0 ? '已沽清 (恢复在售)' : '一键全渠道沽清'}
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -462,104 +520,130 @@ export const MerchantInventory: React.FC<MerchantInventoryProps> = ({ showToast 
                   <th className="p-2.5 font-bold">差异量 (Variance)</th>
                   <th className="p-2.5 font-bold">单价 &amp; 盈亏金额</th>
                   <th className="p-2.5 font-bold">盘点状态</th>
+                  <th className="p-2.5 font-bold text-right">沽清联动</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#efefed]">
-                {filteredItems.map((item) => (
-                  <tr key={item.id} className="hover:bg-[#fbfbfa] transition-colors">
-                    <td className="p-2.5">
-                      <span className="font-mono text-[10px] text-[#787774] block">{item.sku}</span>
-                      <span className="font-bold text-xs text-[#37352f]">{item.name}</span>
-                    </td>
-
-                    <td className="p-2.5">
-                      <span className="text-[11px] text-[#5a5854] block">{item.category}</span>
-                      <span
-                        className={`text-[9.5px] font-bold font-mono px-1 rounded ${
-                          item.abcClass === 'A'
-                            ? 'bg-[#fde8e8] text-[#d44333]'
-                            : item.abcClass === 'B'
-                            ? 'bg-[#fbf3db] text-[#8f6412]'
-                            : 'bg-[#edf3ec] text-[#2b593f]'
-                        }`}
-                      >
-                        {item.abcClass} 类重点
-                      </span>
-                    </td>
-
-                    <td className="p-2.5 font-mono text-xs font-bold text-[#37352f]">
-                      {item.systemQty} {item.unit}
-                    </td>
-
-                    <td className="p-2.5">
-                      {isLocked ? (
-                        <span className="font-mono text-xs font-bold text-[#37352f] bg-[#f1f1ef] px-2 py-1 rounded">
-                          {item.actualQty} {item.unit} (锁)
-                        </span>
-                      ) : (
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            step="0.5"
-                            value={item.actualQty}
-                            onChange={(e) =>
-                              handleUpdateActualQty(item.id, parseFloat(e.target.value) || 0)
-                            }
-                            className="w-20 bg-white border border-[#37352f] rounded-[2px] px-1.5 py-1 text-xs text-[#37352f] font-mono font-bold"
-                          />
-                          <span className="text-[10px] text-[#787774]">{item.unit}</span>
+                {filteredItems.map((item) => {
+                  const isSoldOut = !!soldOutMap[item.name] || item.actualQty <= 0;
+                  return (
+                    <tr key={item.id} className={`hover:bg-[#fbfbfa] transition-colors ${isSoldOut ? 'bg-rose-50/40' : ''}`}>
+                      <td className="p-2.5">
+                        <span className="font-mono text-[10px] text-[#787774] block">{item.sku}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-xs text-[#37352f]">{item.name}</span>
+                          {isSoldOut && (
+                            <span className="text-[9px] font-bold bg-rose-600 text-white px-1 py-0.2 rounded shrink-0">
+                              已沽清
+                            </span>
+                          )}
                         </div>
-                      )}
-                    </td>
+                      </td>
 
-                    <td className="p-2.5">
-                      <span
-                        className={`font-mono font-bold text-xs ${
-                          item.variance < 0
-                            ? 'text-[#d44333]'
-                            : item.variance > 0
-                            ? 'text-[#2b593f]'
-                            : 'text-[#787774]'
-                        }`}
-                      >
-                        {item.variance > 0 ? `+${item.variance}` : item.variance} {item.unit}
-                      </span>
-                    </td>
-
-                    <td className="p-2.5">
-                      <span className="text-[10px] text-[#787774] block">
-                        ¥{item.unitCost.toFixed(1)}/{item.unit}
-                      </span>
-                      <span
-                        className={`font-mono font-bold text-xs ${
-                          item.varianceCost < 0
-                            ? 'text-[#d44333]'
-                            : item.varianceCost > 0
-                            ? 'text-[#2b593f]'
-                            : 'text-[#787774]'
-                        }`}
-                      >
-                        {item.varianceCost > 0
-                          ? `+¥${item.varianceCost.toFixed(1)}`
-                          : `¥${item.varianceCost.toFixed(1)}`}
-                      </span>
-                    </td>
-
-                    <td className="p-2.5">
-                      {item.status === 'ok' ? (
-                        <span className="text-[10px] bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc] px-1.5 py-0.5 rounded font-bold flex items-center gap-1 w-max">
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>正常吻合</span>
+                      <td className="p-2.5">
+                        <span className="text-[11px] text-[#5a5854] block">{item.category}</span>
+                        <span
+                          className={`text-[9.5px] font-bold font-mono px-1 rounded ${
+                            item.abcClass === 'A'
+                              ? 'bg-[#fde8e8] text-[#d44333]'
+                              : item.abcClass === 'B'
+                              ? 'bg-[#fbf3db] text-[#8f6412]'
+                              : 'bg-[#edf3ec] text-[#2b593f]'
+                          }`}
+                        >
+                          {item.abcClass} 类重点
                         </span>
-                      ) : (
-                        <span className="text-[10px] bg-[#fde8e8] text-[#d44333] border border-[#f8b4b4] px-1.5 py-0.5 rounded font-bold flex items-center gap-1 w-max">
-                          <AlertCircle className="w-3 h-3" />
-                          <span>待查明 (超差)</span>
+                      </td>
+
+                      <td className="p-2.5 font-mono text-xs font-bold text-[#37352f]">
+                        {item.systemQty} {item.unit}
+                      </td>
+
+                      <td className="p-2.5">
+                        {isLocked ? (
+                          <span className="font-mono text-xs font-bold text-[#37352f] bg-[#f1f1ef] px-2 py-1 rounded">
+                            {item.actualQty} {item.unit} (锁)
+                          </span>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              step="0.5"
+                              value={item.actualQty}
+                              onChange={(e) =>
+                                handleUpdateActualQty(item.id, parseFloat(e.target.value) || 0)
+                              }
+                              className="w-20 bg-white border border-[#37352f] rounded-[2px] px-1.5 py-1 text-xs text-[#37352f] font-mono font-bold"
+                            />
+                            <span className="text-[10px] text-[#787774]">{item.unit}</span>
+                          </div>
+                        )}
+                      </td>
+
+                      <td className="p-2.5">
+                        <span
+                          className={`font-mono font-bold text-xs ${
+                            item.variance < 0
+                              ? 'text-[#d44333]'
+                              : item.variance > 0
+                              ? 'text-[#2b593f]'
+                              : 'text-[#787774]'
+                          }`}
+                        >
+                          {item.variance > 0 ? `+${item.variance}` : item.variance} {item.unit}
                         </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+
+                      <td className="p-2.5">
+                        <span className="text-[10px] text-[#787774] block">
+                          ¥{item.unitCost.toFixed(1)}/{item.unit}
+                        </span>
+                        <span
+                          className={`font-mono font-bold text-xs ${
+                            item.varianceCost < 0
+                              ? 'text-[#d44333]'
+                              : item.varianceCost > 0
+                              ? 'text-[#2b593f]'
+                              : 'text-[#787774]'
+                          }`}
+                        >
+                          {item.varianceCost > 0
+                            ? `+¥${item.varianceCost.toFixed(1)}`
+                            : `¥${item.varianceCost.toFixed(1)}`}
+                        </span>
+                      </td>
+
+                      <td className="p-2.5">
+                        {item.status === 'ok' ? (
+                          <span className="text-[10px] bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc] px-1.5 py-0.5 rounded font-bold flex items-center gap-1 w-max">
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>正常吻合</span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] bg-[#fde8e8] text-[#d44333] border border-[#f8b4b4] px-1.5 py-0.5 rounded font-bold flex items-center gap-1 w-max">
+                            <AlertCircle className="w-3 h-3" />
+                            <span>待查明 (超差)</span>
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="p-2.5 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSoldOut(item)}
+                          className={`px-2 py-1 rounded text-xs font-bold transition-colors cursor-pointer ${
+                            isSoldOut
+                              ? 'bg-rose-100 text-rose-800 hover:bg-rose-200 border border-rose-300'
+                              : 'bg-[#f1f1ef] text-[#5a5854] hover:bg-[#e6e6e4] border border-[#d3d1cb]'
+                          }`}
+                          title={isSoldOut ? '点击恢复在售' : '点击全渠道沽清熔断下架'}
+                        >
+                          {isSoldOut ? '恢复在售' : '一键沽清'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

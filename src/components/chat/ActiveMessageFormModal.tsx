@@ -30,6 +30,7 @@ import { Order, DishItem, TruckInfo } from '../../types';
 import { sendOrderChatMessage, ChatRole } from '../../utils/chatHub';
 import { voiceMessageEngine } from '../../utils/voiceMessageEngine';
 import { speakText } from '../../utils/voiceAlertEngine';
+import { fallbackToastCompat } from '../../utils/fallbackToast';
 
 export interface ActiveMessageFormModalProps {
   isOpen: boolean;
@@ -139,7 +140,7 @@ export const ActiveMessageFormModal: React.FC<ActiveMessageFormModalProps> = ({
   truck,
   viewerRole = 'merchant',
   onAdvanceOrderStatus,
-  showToast = (t, d) => console.log(t, d),
+  showToast = (t, d) => fallbackToastCompat(t, d),
   onOpenOmniChat
 }) => {
   // Form State

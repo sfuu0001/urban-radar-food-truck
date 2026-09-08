@@ -57,7 +57,7 @@ export const DishPriceCalculator: React.FC<DishPriceCalculatorProps> = ({
   let trendNode: React.ReactNode = null;
   if (isMomDrop) {
     trendNode = (
-      <span className="inline-flex items-center gap-0.5 text-[8.5px] sm:text-[9px] font-bold text-indigo-700 bg-indigo-50/90 border border-indigo-200/80 px-1.5 py-0.5 rounded-md leading-none shrink-0 whitespace-nowrap shadow-2xs">
+      <span className="inline-flex items-center gap-0.5 text-[8.5px] sm:text-[9px] font-bold text-indigo-700 bg-indigo-50/90 border border-indigo-200/80 px-1.5 py-0.5 rounded-none leading-none shrink-0 whitespace-nowrap">
         <TrendingDown className="w-2.5 h-2.5 shrink-0 text-indigo-600 stroke-[2.5]" />
         <span>
           环比-¥{Math.abs(momDiff).toFixed(0)}
@@ -67,14 +67,14 @@ export const DishPriceCalculator: React.FC<DishPriceCalculatorProps> = ({
     );
   } else if (isMomRise) {
     trendNode = (
-      <span className="inline-flex items-center gap-0.5 text-[8.5px] sm:text-[9px] font-bold text-rose-700 bg-rose-50/90 border border-rose-200/80 px-1.5 py-0.5 rounded-md leading-none shrink-0 whitespace-nowrap shadow-2xs">
+      <span className="inline-flex items-center gap-0.5 text-[8.5px] sm:text-[9px] font-bold text-rose-700 bg-rose-50/90 border border-rose-200/80 px-1.5 py-0.5 rounded-none leading-none shrink-0 whitespace-nowrap">
         <TrendingUp className="w-2.5 h-2.5 shrink-0 text-rose-600 stroke-[2.5]" />
         <span>环比+¥{momDiff.toFixed(0)}</span>
       </span>
     );
   } else if (hasOriginalPrice) {
     trendNode = (
-      <span className="inline-flex items-center gap-0.5 text-[8.5px] sm:text-[9px] font-bold text-amber-900 bg-amber-50/90 border border-amber-200/80 px-1.5 py-0.5 rounded-md leading-none shrink-0 whitespace-nowrap shadow-2xs">
+      <span className="inline-flex items-center gap-0.5 text-[8.5px] sm:text-[9px] font-bold text-amber-900 bg-amber-50/90 border border-amber-200/80 px-1.5 py-0.5 rounded-none leading-none shrink-0 whitespace-nowrap">
         <Sparkles className="w-2.5 h-2.5 text-amber-600 shrink-0" />
         <span>{discountRate} · 立省¥{discountAmount.toFixed(0)}</span>
       </span>
@@ -94,7 +94,7 @@ export const DishPriceCalculator: React.FC<DishPriceCalculatorProps> = ({
       {/* 规则标签 */}
       {currentRuleTag && (
         <span
-          className={`inline-flex items-center gap-0.5 text-[8.5px] sm:text-[9px] font-semibold px-1.5 py-0.5 rounded-md leading-none shrink-0 whitespace-nowrap shadow-2xs ${
+          className={`inline-flex items-center gap-0.5 text-[8.5px] sm:text-[9px] font-semibold px-1.5 py-0.5 rounded-none leading-none shrink-0 whitespace-nowrap ${
             currentRuleIsDineIn
               ? 'text-amber-900 bg-amber-50/90 border border-amber-200/80'
               : 'text-sky-900 bg-sky-50/90 border border-sky-200/80'

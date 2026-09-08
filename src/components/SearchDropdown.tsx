@@ -6,7 +6,6 @@ import {
   FolderTree,
   ChevronRight,
   ChevronDown,
-  Sparkles,
   Plus,
   Beef,
   Drumstick,
@@ -23,7 +22,7 @@ import { buildDishTree, getDishRankings } from '../utils/dishTree';
 
 const HOT_KEYWORD_TAGS = [
   { text: '和牛汉堡', icon: <Beef className="w-3.5 h-3.5 text-amber-700 shrink-0" /> },
-  { text: '黑松露', icon: <Sparkles className="w-3.5 h-3.5 text-neutral-700 shrink-0" /> },
+  { text: '黑松露', icon: <CookingPot className="w-3.5 h-3.5 text-neutral-700 shrink-0" /> },
   { text: '五花肉', icon: <Drumstick className="w-3.5 h-3.5 text-rose-500 shrink-0" /> },
   { text: '冷萃咖啡', icon: <Coffee className="w-3.5 h-3.5 text-sky-600 shrink-0" /> },
   { text: '金黄脆薯', icon: <Utensils className="w-3.5 h-3.5 text-amber-500 shrink-0" /> },
@@ -111,7 +110,7 @@ export const SearchDropdown: React.FC<SearchDropdownProps> = ({
             {/* Widget Header (单行嵌入式表头) */}
             <div className="px-3.5 py-2.5 bg-white border-b border-[#f0f0ed] flex items-center justify-between gap-1.5 shrink-0 select-none">
               <div className="flex items-center gap-1.5 shrink-0">
-                <Sparkles className="w-4 h-4 text-amber-500 fill-amber-500/20 shrink-0" />
+                <Award className="w-4 h-4 text-amber-500 shrink-0" />
                 <span className="text-sm font-bold text-[#1a1c1b] whitespace-nowrap tracking-tight">
                   菜品风向榜
                 </span>

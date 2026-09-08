@@ -324,6 +324,7 @@ export interface Order {
   paymentVoucher?: PaymentVoucher; // 安全支付防伪电子凭证与对账存证回执
   dinerCount?: number; // 堂食就餐人数
   truckLocation?: string; // 餐车停泊位置说明
+  remark?: string; // 订单备注信息
 }
 
 export interface BoundTableInfo {
@@ -424,6 +425,14 @@ export interface TableItem {
   };
 }
 
+export interface KdsDishTimelineNode {
+  step: 'ordered' | 'prep' | 'cooking' | 'ready';
+  label: string;
+  timestamp: string;
+  operator?: string;
+  note?: string;
+}
+
 export interface KdsTicketItem {
   id: string;
   dishName: string;
@@ -431,6 +440,13 @@ export interface KdsTicketItem {
   options?: string;
   notes?: string;
   isCompleted: boolean;
+  orderTime?: string; // 下单时间
+  prepStartTime?: string; // 备料开始时间
+  cookingStartTime?: string; // 上灶烹制/炭烤时间
+  servedTime?: string; // 出餐完成时间
+  totalDurationSeconds?: number; // 下单到出餐总耗时(秒)
+  timeline?: KdsDishTimelineNode[]; // 精确各环节时间线记录
+  statusStep?: 'ordered' | 'prep' | 'cooking' | 'ready';
 }
 
 export interface KdsTicket {
@@ -444,6 +460,11 @@ export interface KdsTicket {
   pickupCode?: string;
   pickupShelfCode?: string;
   items: KdsTicketItem[];
+  completedAt?: string; // 整单出餐完成时刻
+  totalCookSeconds?: number;
+  isUrged?: boolean;
+  urgeCount?: number;
+  urgedAt?: number;
 }
 
 export interface HeldOrder {
@@ -532,6 +553,8 @@ export interface TruckInfo {
   status: 'roaming' | 'stationary' | 'offline';
   statusText: string;
   distanceKm: number;
+  latitude?: number;
+  longitude?: number;
   walkingTimeMin?: number;
   currentLocationName: string;
   nextStopName: string;
@@ -557,7 +580,7 @@ export interface MaterialItem {
   id: string;
   sku: string;
   name: string;
-  category: '肉类原料' | '海鲜水产' | '蔬菜品类' | '豆制品类' | '饮品辅料' | '消耗包材' | '主食面点';
+  category: '肉类原料' | '海鲜水产' | '蔬菜品类' | '豆制品类' | '饮品辅料' | '消耗包材' | '主食面点' | '调料调味';
   currentStock: number;
   safetyStock: number;
   reorderSuggestion: number;
@@ -577,6 +600,47 @@ export interface MaterialItem {
   stockStatus?: 'in_stock' | 'out_of_stock' | 'pending_in';
   isInStock?: boolean;
   standardYieldRate?: number;
+  // 穿串加工与在售状态
+  isFinishedSkewer?: boolean; // 是否已是成品串串原料
+  yieldSkewerCount?: number; // 制成了多少串
+  skewerLocation?: string; // 成品串串存放位置 (如 餐车急冻冷藏抽屉 B-02)
+  isOnSale?: boolean; // 有无在售上架
+  linkedDishId?: string; // 关联在售菜品 ID
+  linkedDishName?: string; // 关联在售菜品名称
+  isUsed?: boolean; // 是否使用了这个原料
+  usedQuantity?: number; // 用了多少 (kg/单位)
+  remainingStock?: number; // 剩余库存
+
+  // 采购渠道与商品基本信息
+  platformName?: string; // 平台名称 (美菜网 / 快驴 / 盒马 / 批发市场 / 批发市场小程序)
+  procurementMethod?: string; // 采购方式 (平台直采 / 批发市场线下 / 批发市场小程序 / 厂家配送)
+  storageMethod?: string; // 存储方式 (常温通风 / 冷藏 0~4℃ / 微冻 -2~0℃ / 冷冻 -18℃以下)
+  flavor?: string; // 产品口味 (如 奥尔良、麻辣、孜然、原味、秘制黑椒等)
+  productForm?: string; // 产品形态 (原切生肉块 / 腌制生胚 / 手工穿制串 / 半熟预炸串 / 真空装)
+  description?: string; // 商品描述信息
+
+  // 规格与公斤价格换算
+  brand?: string; // 品牌名称 (如 恒阳、双汇、正大、蜀海、安井等)
+  specGramsPerPack?: number; // 规格：单包克重 (g)
+  specPacksPerBox?: number; // 规格：每件/箱多少包
+  specBoxes?: number; // 规格：采购件/箱数
+  specCalculatedKg?: number; // 换算：约等于多少公斤 (kg)
+  pricePerKg?: number; // 价格：每公斤是多少钱 (元/kg)
+
+  // 物流履约
+  destinationLocation?: string; // 物流配送到指定的地点 (如 静安大悦城餐车仓)
+  orderTime?: string; // 下单时间 (YYYY-MM-DD HH:mm)
+  deliveryTime?: string; // 送达时间 (YYYY-MM-DD HH:mm)
+  logisticsStatus?: 'pending' | 'shipping' | 'delivered' | 'inspected'; // 物流配送状态
+
+  // 产品资质与标准溯源
+  standardCode?: string; // 产品标准号 (如 GB/T 20575)
+  productionDate?: string; // 生产日期
+  manufacturer?: string; // 生产商
+  productionAddress?: string; // 生产地址
+  originPlace?: string; // 产地 (如 山东潍坊、内蒙古赤峰)
+  hotline?: string; // 销售/服务热线
+
   shelfLifeDays?: number;
   storageTempZone?: string; // 温区 (如 '冷冻 -18℃', '冷藏 0-4℃', '常温通风')
   minOrderQty?: number; // 起订量
@@ -585,6 +649,22 @@ export interface MaterialItem {
   expiryDate?: string;
   remark?: string;
   updatedAt?: string;
+}
+
+export interface SkewerProductionLog {
+  id: string;
+  materialId: string;
+  materialName: string;
+  usedAmountKg: number;
+  yieldSkewerCount: number;
+  avgGramsPerSkewer: number;
+  costPerSkewer: number;
+  storageLocation: string;
+  isOnSale: boolean;
+  linkedDishName?: string;
+  operator: string;
+  timestamp: string;
+  notes?: string;
 }
 
 export interface PurchaseRecord {
@@ -601,6 +681,29 @@ export interface PurchaseRecord {
   status: 'completed' | 'in_transit' | 'pending_approval';
   buyer: string;
   notes?: string;
+
+  // 扩展采购与规格溯源信息
+  platformName?: string;
+  procurementMethod?: string;
+  brand?: string;
+  storageMethod?: string;
+  flavor?: string;
+  productForm?: string;
+  description?: string;
+  specGramsPerPack?: number;
+  specPacksPerBox?: number;
+  specBoxes?: number;
+  specCalculatedKg?: number;
+  pricePerKg?: number;
+  destinationLocation?: string;
+  orderTime?: string;
+  deliveryTime?: string;
+  standardCode?: string;
+  productionDate?: string;
+  manufacturer?: string;
+  productionAddress?: string;
+  originPlace?: string;
+  hotline?: string;
 }
 
 // ---- SKU Digital Params Types ----
@@ -616,7 +719,7 @@ export interface SkuParamItem {
   id: string;
   sku: string;
   name: string;
-  category: '肉类原料' | '海鲜水产' | '蔬菜品类' | '豆制品类' | '饮品辅料' | '消耗包材' | '主食面点';
+  category: '肉类原料' | '海鲜水产' | '蔬菜品类' | '豆制品类' | '饮品辅料' | '消耗包材' | '主食面点' | '调料调味';
   purchasePrice: number; // 采购单价 (元/单位)
   safetyStock: number; // 安全库存警戒线
   reorderSuggestion: number; // 建议补货量
@@ -1011,10 +1114,15 @@ export interface QueueTicket {
   phone?: string;
   partySize: number;
   waitTimeMin: number;
-  status: 'waiting' | 'called' | 'seated' | 'passed' | 'completed';
+  status: 'waiting' | 'called' | 'seated' | 'passed' | 'completed' | 'temp_void' | 'perm_void';
   calledCount: number;
-  createdAt: string;
+  createdAt: string; // 初始取号时间 (ISO 或时间文本)
+  takeTime?: string;
   calledAt?: string;
+  voidAt?: string; // 作废时间
+  voidReason?: string; // 作废原因
+  customWaitMin?: number; // 商家自定义设置的该单等位时间(分钟)
+  estimatedWaitMin?: number; // 系统自动计算还需等待时长(分钟)
   note?: string;
 }
 
