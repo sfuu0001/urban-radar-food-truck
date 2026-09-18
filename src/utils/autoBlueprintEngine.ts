@@ -391,6 +391,94 @@ export function generateArtisanSvgBlueprint(params: {
       <line x1="160" y1="16" x2="160" y2="52" stroke="${strokeAccent}" stroke-width="1.8" stroke-dasharray="3 3" />
       <circle cx="160" cy="56" r="3" fill="${strokeAccent}" />
     `;
+  } else if (sType.includes('sauce') || sType.includes('flavor') || sType.includes('dip')) {
+    pathsSvg = `
+      <!-- === 写实手工熬制酱料 / 秘制风味素描 / ARTISAN SAUCE & FLAVOR SKETCH === -->
+      <!-- 1. 工匠陶瓷酱料盅 (Artisan Ceramic Ramekin / Sauce Boat) -->
+      <path d="M72 138 C72 165, 248 165, 248 138 L256 94 C260 78, 244 74, 230 80 L90 80 C76 74, 60 78, 64 94 Z" stroke="${strokeMain}" stroke-width="2.4" fill="none" />
+      <!-- 盅身反光与排线阴影 (Cross-hatch shading on porcelain curve) -->
+      <path d="M82 102 C82 142, 238 142, 238 102" stroke="${strokeSub}" stroke-width="1.2" stroke-dasharray="3 2" fill="none" />
+      <path d="M96 112 L106 136 M116 114 L126 138 M136 116 L146 140 M174 116 L184 140 M194 114 L204 138 M214 112 L224 136" stroke="${strokeSub}" stroke-width="0.9" />
+
+      <!-- 2. 浓郁酱汁液面与慢熬慢滴 (Viscous Simmering Sauce & Drips) -->
+      <ellipse cx="160" cy="84" rx="76" ry="16" stroke="${strokeWarm}" stroke-width="2.2" fill="none" />
+      <path d="M124 84 Q140 76 160 84 T196 84" stroke="${strokeAccent}" stroke-width="1.6" fill="none" />
+
+      <!-- 3. 工艺慢熬拉丝滴落挂壁 (Slow Viscous Drips) -->
+      <path d="M102 94 Q106 122 108 116 Q110 110 114 94" stroke="${strokeWarm}" stroke-width="1.8" fill="none" />
+      <path d="M208 94 Q212 128 215 120 Q218 112 222 94" stroke="${strokeWarm}" stroke-width="1.8" fill="none" />
+
+      <!-- 4. 手磨粗粒黑胡椒 / 黑松露碎屑颗粒 (Fresh Cracked Pepper & Truffle Granules) -->
+      <circle cx="138" cy="80" r="1.8" fill="${strokeMain}" />
+      <circle cx="152" cy="88" r="2.2" fill="${strokeMain}" />
+      <circle cx="168" cy="82" r="1.5" fill="${strokeMain}" />
+      <circle cx="182" cy="86" r="2.0" fill="${strokeMain}" />
+      <circle cx="145" cy="84" r="1.2" fill="${strokeWarm}" />
+      <circle cx="175" cy="80" r="1.4" fill="${strokeWarm}" />
+
+      <!-- 5. 罗勒新鲜香草叶对生素描 (Herb Sprig) -->
+      <path d="M160 82 Q172 62 186 66 Q178 78 160 82 Z" stroke="${strokeAccent}" stroke-width="1.5" fill="none" />
+      <path d="M160 82 Q148 64 134 68 Q142 80 160 82 Z" stroke="${strokeAccent}" stroke-width="1.5" fill="none" />
+      <line x1="160" y1="84" x2="160" y2="60" stroke="${strokeAccent}" stroke-width="1.2" />
+
+      <!-- 6. 慢熬温控指针 (Simmer Thermal Pin) -->
+      <line x1="265" y1="35" x2="210" y2="92" stroke="${strokeRed}" stroke-width="1.5" stroke-dasharray="4 2" />
+      <circle cx="210" cy="92" r="3" fill="${strokeRed}" />
+      <text x="238" y="32" fill="${strokeRed}" font-family="monospace" font-size="7.5" font-weight="bold">SLOW SIMMER: ${coreTemp}</text>
+    `;
+  } else if (sType.includes('spice') || sType.includes('spiciness') || sType.includes('chili') || sType.includes('pepper')) {
+    pathsSvg = `
+      <!-- === 写实川香红椒与辣椒素标定素描 / CHILI & CAPSAICIN CALIBRATION === -->
+      <!-- 1. 经典弯角红辣椒外轮廓 (Sichuan Chili Pepper Silhouette) -->
+      <path d="M56 68 C80 50, 185 45, 238 78 C265 95, 282 128, 276 150 C268 140, 245 125, 220 108 C175 78, 90 74, 56 68 Z" stroke="${strokeMain}" stroke-width="2.5" fill="none" />
+      <!-- 辣椒背部受光与石墨排线 (Graphite cross-hatch contour) -->
+      <path d="M85 64 Q170 58 235 88" stroke="${strokeWarm}" stroke-width="1.5" stroke-dasharray="3 2" fill="none" />
+      <path d="M100 70 L110 82 M120 70 L130 84 M140 70 L150 86 M160 72 L170 88 M180 74 L190 92 M200 78 L210 96" stroke="${strokeSub}" stroke-width="1" />
+
+      <!-- 2. 辣椒横截面剖面与辣椒籽 (Chili Seeds & Core Placenta) -->
+      <ellipse cx="95" cy="120" rx="36" ry="24" transform="rotate(-15 95 120)" stroke="${strokeMain}" stroke-width="2.2" fill="none" />
+      <ellipse cx="95" cy="120" rx="26" ry="16" transform="rotate(-15 95 120)" stroke="${strokeAccent}" stroke-width="1.2" stroke-dasharray="2 2" fill="none" />
+      <!-- 核心辣椒籽颗粒 (Capsaicin Seeds) -->
+      <ellipse cx="85" cy="115" rx="3.5" ry="2.2" transform="rotate(20 85 115)" stroke="${strokeWarm}" stroke-width="1.2" fill="none" />
+      <ellipse cx="98" cy="112" rx="3.5" ry="2.2" transform="rotate(-30 98 112)" stroke="${strokeWarm}" stroke-width="1.2" fill="none" />
+      <ellipse cx="106" cy="122" rx="3.5" ry="2.2" transform="rotate(15 106 122)" stroke="${strokeWarm}" stroke-width="1.2" fill="none" />
+      <ellipse cx="90" cy="126" rx="3.5" ry="2.2" transform="rotate(-10 90 126)" stroke="${strokeWarm}" stroke-width="1.2" fill="none" />
+
+      <!-- 3. 辣度辛香挥发气旋 (Spicy Aroma Convection Spirals) -->
+      <path d="M140 135 Q160 115 155 95 T175 65" stroke="${strokeRed}" stroke-width="1.4" stroke-dasharray="4 3" fill="none" />
+      <path d="M165 145 Q185 125 180 105 T200 75" stroke="${strokeRed}" stroke-width="1.4" stroke-dasharray="4 3" fill="none" />
+
+      <!-- 4. 绿蒂把手 (Chili Stem) -->
+      <path d="M56 68 C45 62, 38 48, 30 42 C32 46, 36 56, 48 64 Z" stroke="${strokeAccent}" stroke-width="2" fill="none" />
+
+      <!-- 5. 辣椒素标尺与刻度线 (Capsaicin Scale / Scoville Calibration) -->
+      <line x1="230" y1="130" x2="230" y2="182" stroke="${strokeMain}" stroke-width="1.2" />
+      <line x1="225" y1="135" x2="235" y2="135" stroke="${strokeMain}" stroke-width="1" />
+      <line x1="225" y1="150" x2="235" y2="150" stroke="${strokeMain}" stroke-width="1" />
+      <line x1="225" y1="165" x2="235" y2="165" stroke="${strokeMain}" stroke-width="1" />
+      <line x1="225" y1="180" x2="235" y2="180" stroke="${strokeMain}" stroke-width="1" />
+      <text x="240" y="158" fill="${strokeRed}" font-family="monospace" font-size="7" font-weight="bold">CAPSAICIN / ${specRatio}</text>
+    `;
+  } else if (sType.includes('salad') || sType.includes('vegetable') || sType.includes('greens')) {
+    pathsSvg = `
+      <!-- === 写实水培冷鲜田园沙拉素描 / HYDROPONIC SALAD SKETCH === -->
+      <!-- 1. 清脆生菜叶片舒展 (Lettuce Leaves Contour) -->
+      <path d="M70 145 C60 90, 110 52, 160 60 C210 52, 260 90, 250 145 C210 165, 110 165, 70 145 Z" stroke="${strokeMain}" stroke-width="2.4" fill="none" />
+      <path d="M88 135 C80 98, 120 72, 160 76 C200 72, 240 98, 232 135" stroke="${strokeAccent}" stroke-width="1.5" fill="none" />
+      <!-- 叶脉纹理 (Leaf Veins) -->
+      <path d="M160 145 L160 80 M160 120 L135 105 M160 120 L185 105 M160 100 L140 90 M160 100 L180 90" stroke="${strokeSub}" stroke-width="1.2" />
+
+      <!-- 2. 小番茄对切截面 (Cherry Tomato Halves) -->
+      <ellipse cx="115" cy="125" rx="18" ry="14" transform="rotate(-15 115 125)" stroke="${strokeRed}" stroke-width="2" fill="none" />
+      <circle cx="112" cy="123" r="4" stroke="${strokeWarm}" stroke-width="1.2" fill="none" />
+      <circle cx="120" cy="127" r="3.5" stroke="${strokeWarm}" stroke-width="1.2" fill="none" />
+
+      <!-- 3. 水润露珠与初榨橄榄油乳化光斑 (Dew Drops & Extra Virgin Emulsion) -->
+      <circle cx="175" cy="115" r="3" stroke="${strokeAccent}" stroke-width="1.2" fill="none" />
+      <circle cx="195" cy="130" r="2.5" stroke="${strokeAccent}" stroke-width="1.2" fill="none" />
+      <circle cx="150" cy="138" r="2" stroke="${strokeWarm}" stroke-width="1" fill="none" />
+      <text x="210" y="48" fill="${strokeAccent}" font-family="monospace" font-size="7.5" font-weight="bold">CHILLED: 4°C</text>
+    `;
   } else {
     // 默认高规格主厨餐盘分解图
     pathsSvg = `
@@ -471,7 +559,7 @@ export function generateArtisanSvgBlueprint(params: {
         <circle cx="0" cy="0" r="7" stroke="${strokeMain}" stroke-width="0.8" fill="none" />
         <line x1="0" y1="-10" x2="0" y2="10" stroke="${strokeMain}" stroke-width="0.8" />
         <line x1="-10" y1="0" x2="10" y2="0" stroke="${strokeMain}" stroke-width="0.8" />
-        <text x="0" y="14" fill="${strokeMain}" font-family="monospace" font-size="6" text-anchor="middle">1:1 CAD</text>
+        <text x="0" y="14" fill="${strokeMain}" font-family="monospace" font-size="6" text-anchor="middle">${isBlueprint ? '1:1 CAD' : 'SKETCH'}</text>
       </g>
     </svg>
   `;
@@ -779,35 +867,56 @@ export function resolveVariantBlueprint(
   };
 }
 
-/**
- * 自动化解析选项/配菜/口味的线稿 (Auto-Resolve Option or Flavor Blueprint)
- */
-export function resolveOptionBlueprint(
-  dish: DishItem,
-  groupName: string,
-  choice: DishOptionChoice | null
-): {
+export interface ResolvedOptionBlueprint {
   photoUrl: string;
   blueprintUrl: string;
+  sketchUrl: string;
   sketchType: string;
   noteZh: string;
   noteEn: string;
   coreMetricZh: string;
   coreMetricEn: string;
-} {
+  artisanCode?: string;
+  coreTemp?: string;
+  specRatio?: string;
+}
+
+/**
+ * 自动化解析选项/配菜/口味的线稿与素描图纸 (Auto-Resolve Option or Flavor Blueprint & Sketch)
+ */
+export function resolveOptionBlueprint(
+  dish: DishItem,
+  groupName: string,
+  choice: DishOptionChoice | null
+): ResolvedOptionBlueprint {
   const label = choice?.label || '';
   const labelLower = label.toLowerCase();
 
   // 1. 如果 choice 自身已配置 blueprintImageUrl
   if (choice?.blueprintImageUrl) {
+    const sketchUrl = generateArtisanSvgBlueprint({
+      titleZh: label,
+      titleEn: choice.enLabel || 'CUSTOM CRAFT',
+      category: dish.category,
+      sketchType: choice.sketchType || 'general',
+      coreTemp: 'STANDARD',
+      specRatio: '1:1',
+      artisanCode: 'OPTION #SPEC',
+      style: 'pencil_sketch'
+    });
+
     return {
       photoUrl: choice.imageUrl || dish.imageUrl,
       blueprintUrl: choice.blueprintImageUrl,
+      sketchUrl,
       sketchType: choice.sketchType || 'general',
       noteZh: choice.description || '工匠精工定制配菜工艺。',
       noteEn: 'Artisan customized preparation craft.',
       coreMetricZh: '定制工艺标定',
-      coreMetricEn: 'CUSTOM SPEC'
+      coreMetricEn: 'CUSTOM SPEC',
+      artisanCode: 'OPTION #SPEC',
+      coreTemp: 'STANDARD',
+      specRatio: '1:1'
     };
   }
 
@@ -815,83 +924,160 @@ export function resolveOptionBlueprint(
   const selectorKey = `option_${label}`;
   if (dish.fieldSelectorMediaMap && dish.fieldSelectorMediaMap[selectorKey]) {
     const item = dish.fieldSelectorMediaMap[selectorKey];
+    const sketchType = item.sketchType || 'general';
+    const coreTemp = 'STANDARD';
+    const specRatio = '1:1';
+    const artisanCode = 'OPTION #SPEC';
+
+    const blueprintUrl = item.blueprintImageUrl || generateArtisanSvgBlueprint({
+      titleZh: item.labelZh,
+      titleEn: item.labelEn,
+      category: dish.category,
+      sketchType,
+      coreTemp,
+      specRatio,
+      artisanCode,
+      style: 'blueprint'
+    });
+
+    const sketchUrl = generateArtisanSvgBlueprint({
+      titleZh: item.labelZh,
+      titleEn: item.labelEn,
+      category: dish.category,
+      sketchType,
+      coreTemp,
+      specRatio,
+      artisanCode,
+      style: 'pencil_sketch'
+    });
+
     return {
       photoUrl: item.imageUrl || choice?.imageUrl || dish.imageUrl,
-      blueprintUrl: item.blueprintImageUrl || generateArtisanSvgBlueprint({
-        titleZh: item.labelZh,
-        titleEn: item.labelEn,
-        category: dish.category,
-        sketchType: item.sketchType || 'general'
-      }),
-      sketchType: item.sketchType || 'general',
+      blueprintUrl,
+      sketchUrl,
+      sketchType,
       noteZh: item.sketchNoteZh || '定制工序已标定。',
       noteEn: item.sketchNoteEn || 'Custom craft calibrated.',
       coreMetricZh: item.coreMetricZh || '标准工艺',
-      coreMetricEn: item.coreMetricEn || 'STANDARD'
+      coreMetricEn: item.coreMetricEn || 'STANDARD',
+      artisanCode,
+      coreTemp,
+      specRatio
     };
   }
 
   // 3. 智能语义推断
   if (labelLower.includes('truffle') || labelLower.includes('薯条') || labelLower.includes('fries')) {
     const preset = PRESET_SELECTOR_MEDIA_BANK['truffle_fries'];
+    const sketchUrl = generateArtisanSvgBlueprint({
+      titleZh: '手刨黑松露金黄薯条',
+      titleEn: 'TRUFFLE FRIES',
+      category: 'snacks',
+      sketchType: 'fries',
+      coreTemp: '180°C',
+      specRatio: '1:1.2',
+      artisanCode: 'SIDE #FRIES',
+      style: 'pencil_sketch'
+    });
+    const blueprintUrl = generateArtisanSvgBlueprint({
+      titleZh: '手刨黑松露金黄薯条',
+      titleEn: 'TRUFFLE FRIES',
+      category: 'snacks',
+      sketchType: 'fries',
+      coreTemp: '180°C',
+      specRatio: '1:1.2',
+      artisanCode: 'SIDE #FRIES',
+      style: 'blueprint'
+    });
+
     return {
       photoUrl: preset.imageUrl,
-      blueprintUrl: generateArtisanSvgBlueprint({
-        titleZh: '手刨黑松露金黄薯条',
-        titleEn: 'TRUFFLE FRIES',
-        category: 'snacks',
-        sketchType: 'fries',
-        coreTemp: '180°C',
-        specRatio: '1:1.2',
-        artisanCode: 'SIDE #FRIES'
-      }),
+      blueprintUrl,
+      sketchUrl,
       sketchType: 'fries',
       noteZh: preset.noteZh,
       noteEn: preset.noteEn,
       coreMetricZh: '双重脆炸 180°C',
-      coreMetricEn: 'TWICE-FRIED 180°C'
+      coreMetricEn: 'TWICE-FRIED 180°C',
+      artisanCode: 'SIDE #FRIES',
+      coreTemp: '180°C',
+      specRatio: '1:1.2'
     };
   }
 
   if (labelLower.includes('salad') || labelLower.includes('沙拉')) {
     const preset = PRESET_SELECTOR_MEDIA_BANK['garden_salad'];
+    const sketchUrl = generateArtisanSvgBlueprint({
+      titleZh: '田园清爽时蔬沙拉',
+      titleEn: 'GARDEN SALAD',
+      category: 'snacks',
+      sketchType: 'salad',
+      coreTemp: '4°C',
+      specRatio: '4:1',
+      artisanCode: 'SIDE #SALAD',
+      style: 'pencil_sketch'
+    });
+    const blueprintUrl = generateArtisanSvgBlueprint({
+      titleZh: '田园清爽时蔬沙拉',
+      titleEn: 'GARDEN SALAD',
+      category: 'snacks',
+      sketchType: 'salad',
+      coreTemp: '4°C',
+      specRatio: '4:1',
+      artisanCode: 'SIDE #SALAD',
+      style: 'blueprint'
+    });
+
     return {
       photoUrl: preset.imageUrl,
-      blueprintUrl: generateArtisanSvgBlueprint({
-        titleZh: '田园清爽时蔬沙拉',
-        titleEn: 'GARDEN SALAD',
-        category: 'snacks',
-        sketchType: 'salad',
-        coreTemp: '4°C',
-        specRatio: '4:1',
-        artisanCode: 'SIDE #SALAD'
-      }),
+      blueprintUrl,
+      sketchUrl,
       sketchType: 'salad',
       noteZh: preset.noteZh,
       noteEn: preset.noteEn,
       coreMetricZh: '水培冷鲜 4°C',
-      coreMetricEn: 'COLD-HYDRO 4°C'
+      coreMetricEn: 'COLD-HYDRO 4°C',
+      artisanCode: 'SIDE #SALAD',
+      coreTemp: '4°C',
+      specRatio: '4:1'
     };
   }
 
   if (labelLower.includes('sweet potato') || labelLower.includes('红薯') || labelLower.includes('crisps')) {
     const preset = PRESET_SELECTOR_MEDIA_BANK['sweet_potato_crisps'];
+    const sketchUrl = generateArtisanSvgBlueprint({
+      titleZh: '手工香脆甘薯薄片',
+      titleEn: 'SWEET POTATO CRISPS',
+      category: 'snacks',
+      sketchType: 'crisps',
+      coreTemp: '165°C',
+      specRatio: '1:1',
+      artisanCode: 'SIDE #CRISPS',
+      style: 'pencil_sketch'
+    });
+    const blueprintUrl = generateArtisanSvgBlueprint({
+      titleZh: '手工香脆甘薯薄片',
+      titleEn: 'SWEET POTATO CRISPS',
+      category: 'snacks',
+      sketchType: 'crisps',
+      coreTemp: '165°C',
+      specRatio: '1:1',
+      artisanCode: 'SIDE #CRISPS',
+      style: 'blueprint'
+    });
+
     return {
       photoUrl: preset.imageUrl,
-      blueprintUrl: generateArtisanSvgBlueprint({
-        titleZh: '手工香脆甘薯薄片',
-        titleEn: 'SWEET POTATO CRISPS',
-        category: 'snacks',
-        sketchType: 'crisps',
-        coreTemp: '165°C',
-        specRatio: '1:1',
-        artisanCode: 'SIDE #CRISPS'
-      }),
+      blueprintUrl,
+      sketchUrl,
       sketchType: 'crisps',
       noteZh: preset.noteZh,
       noteEn: preset.noteEn,
       coreMetricZh: '极薄切片 1.2mm',
-      coreMetricEn: 'SLICED 1.2mm'
+      coreMetricEn: 'SLICED 1.2mm',
+      artisanCode: 'SIDE #CRISPS',
+      coreTemp: '165°C',
+      specRatio: '1:1'
     };
   }
 
@@ -900,41 +1086,453 @@ export function resolveOptionBlueprint(
     const isSeven = label.includes('七分') || labelLower.includes('medium well');
     const key = isFive ? 'doneness_medium' : isSeven ? 'doneness_medium_well' : 'doneness_well_done';
     const preset = PRESET_SELECTOR_MEDIA_BANK[key];
+    const sketchUrl = generateArtisanSvgBlueprint({
+      titleZh: preset.labelZh,
+      titleEn: preset.labelEn,
+      category: 'western',
+      sketchType: 'doneness',
+      coreTemp: preset.coreTemp,
+      specRatio: preset.specRatio,
+      artisanCode: 'TEMP #PATTY',
+      style: 'pencil_sketch'
+    });
+    const blueprintUrl = generateArtisanSvgBlueprint({
+      titleZh: preset.labelZh,
+      titleEn: preset.labelEn,
+      category: 'western',
+      sketchType: 'doneness',
+      coreTemp: preset.coreTemp,
+      specRatio: preset.specRatio,
+      artisanCode: 'TEMP #PATTY',
+      style: 'blueprint'
+    });
+
     return {
       photoUrl: preset.imageUrl,
-      blueprintUrl: generateArtisanSvgBlueprint({
-        titleZh: preset.labelZh,
-        titleEn: preset.labelEn,
-        category: 'western',
-        sketchType: 'doneness',
-        coreTemp: preset.coreTemp,
-        specRatio: preset.specRatio,
-        artisanCode: 'TEMP #PATTY'
-      }),
+      blueprintUrl,
+      sketchUrl,
       sketchType: 'doneness',
       noteZh: preset.noteZh,
       noteEn: preset.noteEn,
       coreMetricZh: `核心温控 ${preset.coreTemp}`,
-      coreMetricEn: `CORE TEMP ${preset.coreTemp}`
+      coreMetricEn: `CORE TEMP ${preset.coreTemp}`,
+      artisanCode: 'TEMP #PATTY',
+      coreTemp: preset.coreTemp,
+      specRatio: preset.specRatio
     };
   }
 
   // 通用兜底
+  const sketchUrl = generateArtisanSvgBlueprint({
+    titleZh: label,
+    titleEn: choice?.enLabel || 'CUSTOM CHOICE',
+    category: dish.category,
+    sketchType: 'general',
+    coreTemp: 'STANDARD',
+    specRatio: '1:1',
+    artisanCode: 'CUSTOM #SPEC',
+    style: 'pencil_sketch'
+  });
+  const blueprintUrl = generateArtisanSvgBlueprint({
+    titleZh: label,
+    titleEn: choice?.enLabel || 'CUSTOM CHOICE',
+    category: dish.category,
+    sketchType: 'general',
+    coreTemp: 'STANDARD',
+    specRatio: '1:1',
+    artisanCode: 'CUSTOM #SPEC',
+    style: 'blueprint'
+  });
+
   return {
     photoUrl: choice?.imageUrl || dish.imageUrl,
-    blueprintUrl: generateArtisanSvgBlueprint({
-      titleZh: label,
-      titleEn: choice?.enLabel || 'CUSTOM CHOICE',
-      category: dish.category,
-      sketchType: 'general',
-      coreTemp: 'STANDARD',
-      specRatio: '1:1',
-      artisanCode: 'CUSTOM #SPEC'
-    }),
+    blueprintUrl,
+    sketchUrl,
     sketchType: 'general',
-    noteZh: `${label} 定制工序标定，现点现制直通后厨。`,
-    noteEn: `${label} craft calibrated, freshly made to order.`,
-    coreMetricZh: '标准工艺',
-    coreMetricEn: 'STANDARD SPEC'
+    noteZh: `${label} 定制工序标定，手绘素描引擎动态排线渲染。`,
+    noteEn: `${label} craft calibrated, hand-drawn sketch dynamically calculated.`,
+    coreMetricZh: '手绘画规标定',
+    coreMetricEn: 'SKETCH SPEC',
+    artisanCode: 'CUSTOM #SPEC',
+    coreTemp: 'STANDARD',
+    specRatio: '1:1'
   };
 }
+
+/**
+ * 自动化解析口味风格手绘素描 (Auto-Resolve Flavor Hand-Drawn Sketch)
+ */
+export function resolveFlavorSketch(
+  dish: DishItem,
+  flavorName: string
+): ResolvedOptionBlueprint {
+  const fLower = (flavorName || '').toLowerCase();
+
+  // 1. 从 fieldSelectorMediaMap 查找
+  const key = `flavor_${flavorName}`;
+  if (dish.fieldSelectorMediaMap && dish.fieldSelectorMediaMap[key]) {
+    const item = dish.fieldSelectorMediaMap[key];
+    const sketchType = item.sketchType || 'sauce';
+    const coreTemp = '80°C';
+    const specRatio = '5:5';
+    const artisanCode = 'FLAVOR #ARTISAN';
+
+    const sketchUrl = generateArtisanSvgBlueprint({
+      titleZh: item.labelZh,
+      titleEn: item.labelEn,
+      category: dish.category,
+      sketchType,
+      coreTemp,
+      specRatio,
+      artisanCode,
+      style: 'pencil_sketch'
+    });
+    const blueprintUrl = item.blueprintImageUrl || generateArtisanSvgBlueprint({
+      titleZh: item.labelZh,
+      titleEn: item.labelEn,
+      category: dish.category,
+      sketchType,
+      coreTemp,
+      specRatio,
+      artisanCode,
+      style: 'blueprint'
+    });
+
+    return {
+      photoUrl: item.imageUrl || dish.imageUrl,
+      sketchUrl,
+      blueprintUrl,
+      sketchType,
+      noteZh: item.sketchNoteZh || `${flavorName} 秘制酱汁调配，香气醇郁。`,
+      noteEn: item.sketchNoteEn || 'Signature sauce crafted with precision.',
+      coreMetricZh: item.coreMetricZh || '慢熬温控 80°C',
+      coreMetricEn: item.coreMetricEn || 'SIMMER 80°C',
+      artisanCode,
+      coreTemp,
+      specRatio
+    };
+  }
+
+  // 2. 智能语义推断
+  if (fLower.includes('黑松露') || fLower.includes('蒜香') || fLower.includes('truffle')) {
+    const preset = PRESET_SELECTOR_MEDIA_BANK['flavor_truffle_garlic'];
+    const sketchUrl = generateArtisanSvgBlueprint({
+      titleZh: preset.labelZh,
+      titleEn: preset.labelEn,
+      category: dish.category,
+      sketchType: 'sauce',
+      coreTemp: preset.coreTemp,
+      specRatio: preset.specRatio,
+      artisanCode: 'FLAVOR #TRUFFLE',
+      style: 'pencil_sketch'
+    });
+    const blueprintUrl = generateArtisanSvgBlueprint({
+      titleZh: preset.labelZh,
+      titleEn: preset.labelEn,
+      category: dish.category,
+      sketchType: 'sauce',
+      coreTemp: preset.coreTemp,
+      specRatio: preset.specRatio,
+      artisanCode: 'FLAVOR #TRUFFLE',
+      style: 'blueprint'
+    });
+
+    return {
+      photoUrl: preset.imageUrl,
+      sketchUrl,
+      blueprintUrl,
+      sketchType: 'sauce',
+      noteZh: preset.noteZh,
+      noteEn: preset.noteEn,
+      coreMetricZh: '黑松露 3:7 配比',
+      coreMetricEn: 'TRUFFLE 3:7 RATIO',
+      artisanCode: 'FLAVOR #TRUFFLE',
+      coreTemp: preset.coreTemp,
+      specRatio: preset.specRatio
+    };
+  }
+
+  if (fLower.includes('黑椒') || fLower.includes('胡椒') || fLower.includes('pepper')) {
+    const preset = PRESET_SELECTOR_MEDIA_BANK['flavor_black_pepper'];
+    const sketchUrl = generateArtisanSvgBlueprint({
+      titleZh: preset.labelZh,
+      titleEn: preset.labelEn,
+      category: dish.category,
+      sketchType: 'sauce',
+      coreTemp: preset.coreTemp,
+      specRatio: preset.specRatio,
+      artisanCode: 'FLAVOR #PEPPER',
+      style: 'pencil_sketch'
+    });
+    const blueprintUrl = generateArtisanSvgBlueprint({
+      titleZh: preset.labelZh,
+      titleEn: preset.labelEn,
+      category: dish.category,
+      sketchType: 'sauce',
+      coreTemp: preset.coreTemp,
+      specRatio: preset.specRatio,
+      artisanCode: 'FLAVOR #PEPPER',
+      style: 'blueprint'
+    });
+
+    return {
+      photoUrl: preset.imageUrl,
+      sketchUrl,
+      blueprintUrl,
+      sketchType: 'sauce',
+      noteZh: preset.noteZh,
+      noteEn: preset.noteEn,
+      coreMetricZh: '慢熬 85°C · 浓汁',
+      coreMetricEn: 'SIMMER 85°C',
+      artisanCode: 'FLAVOR #PEPPER',
+      coreTemp: preset.coreTemp,
+      specRatio: preset.specRatio
+    };
+  }
+
+  if (fLower.includes('炭烤') || fLower.includes('椒盐') || fLower.includes('雪盐') || fLower.includes('salt')) {
+    const preset = PRESET_SELECTOR_MEDIA_BANK['flavor_charcoal_salt'];
+    const sketchUrl = generateArtisanSvgBlueprint({
+      titleZh: preset.labelZh,
+      titleEn: preset.labelEn,
+      category: dish.category,
+      sketchType: 'spice',
+      coreTemp: preset.coreTemp,
+      specRatio: preset.specRatio,
+      artisanCode: 'FLAVOR #SALT',
+      style: 'pencil_sketch'
+    });
+    const blueprintUrl = generateArtisanSvgBlueprint({
+      titleZh: preset.labelZh,
+      titleEn: preset.labelEn,
+      category: dish.category,
+      sketchType: 'spice',
+      coreTemp: preset.coreTemp,
+      specRatio: preset.specRatio,
+      artisanCode: 'FLAVOR #SALT',
+      style: 'blueprint'
+    });
+
+    return {
+      photoUrl: preset.imageUrl,
+      sketchUrl,
+      blueprintUrl,
+      sketchType: 'spice',
+      noteZh: preset.noteZh,
+      noteEn: preset.noteEn,
+      coreMetricZh: '手炒花椒盐 1:9',
+      coreMetricEn: 'SALT & PEPPER 1:9',
+      artisanCode: 'FLAVOR #SALT',
+      coreTemp: preset.coreTemp,
+      specRatio: preset.specRatio
+    };
+  }
+
+  if (fLower.includes('青花椒') || fLower.includes('藤椒') || fLower.includes('麻')) {
+    const preset = PRESET_SELECTOR_MEDIA_BANK['flavor_rattan_pepper'];
+    const sketchUrl = generateArtisanSvgBlueprint({
+      titleZh: preset.labelZh,
+      titleEn: preset.labelEn,
+      category: dish.category,
+      sketchType: 'spice',
+      coreTemp: preset.coreTemp,
+      specRatio: preset.specRatio,
+      artisanCode: 'FLAVOR #RATTAN',
+      style: 'pencil_sketch'
+    });
+    const blueprintUrl = generateArtisanSvgBlueprint({
+      titleZh: preset.labelZh,
+      titleEn: preset.labelEn,
+      category: dish.category,
+      sketchType: 'spice',
+      coreTemp: preset.coreTemp,
+      specRatio: preset.specRatio,
+      artisanCode: 'FLAVOR #RATTAN',
+      style: 'blueprint'
+    });
+
+    return {
+      photoUrl: preset.imageUrl,
+      sketchUrl,
+      blueprintUrl,
+      sketchType: 'spice',
+      noteZh: preset.noteZh,
+      noteEn: preset.noteEn,
+      coreMetricZh: '冷萃清麻 2:8',
+      coreMetricEn: 'COLD-PRESS 2:8',
+      artisanCode: 'FLAVOR #RATTAN',
+      coreTemp: preset.coreTemp,
+      specRatio: preset.specRatio
+    };
+  }
+
+  if (fLower.includes('照烧') || fLower.includes('日式') || fLower.includes('teriyaki')) {
+    const sketchUrl = generateArtisanSvgBlueprint({
+      titleZh: flavorName,
+      titleEn: 'JAPANESE TERIYAKI',
+      category: dish.category,
+      sketchType: 'sauce',
+      coreTemp: '78°C',
+      specRatio: '6:4',
+      artisanCode: 'FLAVOR #TERIYAKI',
+      style: 'pencil_sketch'
+    });
+    const blueprintUrl = generateArtisanSvgBlueprint({
+      titleZh: flavorName,
+      titleEn: 'JAPANESE TERIYAKI',
+      category: dish.category,
+      sketchType: 'sauce',
+      coreTemp: '78°C',
+      specRatio: '6:4',
+      artisanCode: 'FLAVOR #TERIYAKI',
+      style: 'blueprint'
+    });
+
+    return {
+      photoUrl: dish.imageUrl,
+      sketchUrl,
+      blueprintUrl,
+      sketchType: 'sauce',
+      noteZh: '日式传统本味醂与昆布酱汁慢火收汁，鲜甜醇厚亮泽。',
+      noteEn: 'Simmered Japanese mirin and kombu glaze with rich umami shine.',
+      coreMetricZh: '慢火收汁 78°C',
+      coreMetricEn: 'REDUCTION 78°C',
+      artisanCode: 'FLAVOR #TERIYAKI',
+      coreTemp: '78°C',
+      specRatio: '6:4'
+    };
+  }
+
+  // 默认特调风味
+  const sketchUrl = generateArtisanSvgBlueprint({
+    titleZh: flavorName,
+    titleEn: 'ARTISAN SAUCE',
+    category: dish.category,
+    sketchType: 'sauce',
+    coreTemp: '75°C',
+    specRatio: '5:5',
+    artisanCode: 'FLAVOR #SPECIAL',
+    style: 'pencil_sketch'
+  });
+  const blueprintUrl = generateArtisanSvgBlueprint({
+    titleZh: flavorName,
+    titleEn: 'ARTISAN SAUCE',
+    category: dish.category,
+    sketchType: 'sauce',
+    coreTemp: '75°C',
+    specRatio: '5:5',
+    artisanCode: 'FLAVOR #SPECIAL',
+    style: 'blueprint'
+  });
+
+  return {
+    photoUrl: dish.imageUrl,
+    sketchUrl,
+    blueprintUrl,
+    sketchType: 'sauce',
+    noteZh: `${flavorName} 秘制特调调味素描标定，现熬现淋挂壁拉丝。`,
+    noteEn: `${flavorName} artisan sauce dynamically calculated and sketched.`,
+    coreMetricZh: '主厨特调工序',
+    coreMetricEn: 'CHEF CRAFT',
+    artisanCode: 'FLAVOR #SPECIAL',
+    coreTemp: '75°C',
+    specRatio: '5:5'
+  };
+}
+
+/**
+ * 自动化解析辣度级别手绘素描与辣椒素参数 (Auto-Resolve Spiciness Sketch & Scoville Scale)
+ */
+export function resolveSpicinessSketch(
+  dish: DishItem,
+  spicinessName: string
+): ResolvedOptionBlueprint & { shuValue: number } {
+  const sName = (spicinessName || '').toLowerCase();
+
+  let shuValue = 1500;
+  let coreMetricZh = '1,500 SHU · 温和微辣';
+  let coreMetricEn = '1,500 SHU MILD';
+  let noteZh = '精选优质二荆条轻度烘焙，温和微辣提香不燥喉。';
+  let noteEn = 'Mild chili roasting delivering aromatic warmth without harsh heat.';
+  let coreTemp = '焙香 65°C';
+  let specRatio = '1,500 SHU';
+
+  if (sName.includes('不辣') || sName.includes('免辣') || sName.includes('原味') || sName.includes('none')) {
+    shuValue = 0;
+    coreMetricZh = '0 SHU · 免辣原香';
+    coreMetricEn = '0 SHU ZERO HEAT';
+    noteZh = '不添加辣椒素，保留食材原汁原味鲜甜与炭烤果木清香。';
+    noteEn = 'Zero capsaicin heat, preserving natural sweetness and wood smoke aroma.';
+    coreTemp = '常温萃取';
+    specRatio = '0 SHU';
+  } else if (sName.includes('微辣') || sName.includes('轻辣') || sName.includes('mild')) {
+    shuValue = 1500;
+    coreMetricZh = '1,500 SHU · 温和微辣';
+    coreMetricEn = '1,500 SHU MILD';
+    noteZh = '精选优质二荆条轻度烘焙，温和微辣提香不燥喉。';
+    noteEn = 'Mild chili roasting delivering aromatic warmth without harsh heat.';
+    coreTemp = '焙香 65°C';
+    specRatio = '1,500 SHU';
+  } else if (sName.includes('中辣') || sName.includes('川香') || sName.includes('medium') || sName.includes('七味')) {
+    shuValue = 8500;
+    coreMetricZh = '8,500 SHU · 经典川香';
+    coreMetricEn = '8,500 SHU CLASSIC';
+    noteZh = '贵州子弹头与川产朝天椒配比，辛香浓烈，回味悠长。';
+    noteEn = 'Sichuan bullet chili blend generating vibrant, enduring spicy aromatics.';
+    coreTemp = '爆炒 120°C';
+    specRatio = '8,500 SHU';
+  } else if (sName.includes('重辣') || sName.includes('大辣') || sName.includes('嗜辣') || sName.includes('hot')) {
+    shuValue = 28000;
+    coreMetricZh = '28,000 SHU · 深度香辣';
+    coreMetricEn = '28,000 SHU FIERY';
+    noteZh = '精选河南新一代与艳椒拼配，热辣滚烫，唤醒味蕾深度刺激。';
+    noteEn = 'Intense dry chili blend delivering deep heat and robust pungency.';
+    coreTemp = '极温 160°C';
+    specRatio = '28,000 SHU';
+  } else if (sName.includes('变态') || sName.includes('魔鬼') || sName.includes('特辣') || sName.includes('ghost')) {
+    shuValue = 120000;
+    coreMetricZh = '120,000+ SHU · 巅峰刺激';
+    coreMetricEn = '120,000+ SHU EXTREME';
+    noteZh = '印度断魂魔鬼椒微量提纯，极度辛辣爆发，嗜辣极限之选。';
+    noteEn = 'Ghost pepper concentrate triggering explosive capsaicin crescendo.';
+    coreTemp = '巅峰浓缩';
+    specRatio = '120,000+ SHU';
+  }
+
+  const sketchUrl = generateArtisanSvgBlueprint({
+    titleZh: spicinessName,
+    titleEn: 'CAPSAICIN LEVEL',
+    category: dish.category,
+    sketchType: 'spice',
+    coreTemp,
+    specRatio,
+    artisanCode: 'HEAT #SPICE',
+    style: 'pencil_sketch'
+  });
+  const blueprintUrl = generateArtisanSvgBlueprint({
+    titleZh: spicinessName,
+    titleEn: 'CAPSAICIN LEVEL',
+    category: dish.category,
+    sketchType: 'spice',
+    coreTemp,
+    specRatio,
+    artisanCode: 'HEAT #SPICE',
+    style: 'blueprint'
+  });
+
+  return {
+    photoUrl: dish.imageUrl,
+    sketchUrl,
+    blueprintUrl,
+    sketchType: 'spice',
+    noteZh,
+    noteEn,
+    coreMetricZh,
+    coreMetricEn,
+    artisanCode: 'HEAT #SPICE',
+    coreTemp,
+    specRatio,
+    shuValue
+  };
+}
+

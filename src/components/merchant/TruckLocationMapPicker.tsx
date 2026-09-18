@@ -286,17 +286,18 @@ export const TruckLocationMapPicker: React.FC<TruckLocationMapPickerProps> = ({
       });
       mapRef.current = map;
 
-      // 高德中文瓦片
+      // 高德中文瓦片 (极简平铺渲染，去除2D/3D杂乱建筑模型)
       const amap = L.tileLayer(TILE_AMAP, {
         maxZoom: 18,
-        subdomains: '1234'
+        subdomains: '1234',
+        className: 'minimal-flat-map-tile'
       }).addTo(map);
 
       (amap as any).on('tileerror', () => {
         if (!(map as any)._tileSwapped) {
           (map as any)._tileSwapped = true;
           map.removeLayer(amap);
-          L.tileLayer(TILE_FALLBACK, { maxZoom: 19, subdomains: 'abc' }).addTo(map);
+          L.tileLayer(TILE_FALLBACK, { maxZoom: 19, subdomains: 'abc', className: 'minimal-flat-map-tile' }).addTo(map);
         }
       });
 
@@ -359,9 +360,15 @@ export const TruckLocationMapPicker: React.FC<TruckLocationMapPickerProps> = ({
     return () => {
       cancelled = true;
       if (mapRef.current) {
-        mapRef.current.remove();
+        try {
+          mapRef.current.remove();
+        } catch {}
         mapRef.current = null;
       }
+      truckMarkerRef.current = null;
+      radiusRef.current = null;
+      fleetCirclesGroupRef.current = null;
+      fleetMarkersGroupRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -373,28 +380,32 @@ export const TruckLocationMapPicker: React.FC<TruckLocationMapPickerProps> = ({
 
     // 更新雷达圈色彩
     if (radiusRef.current) {
-      radiusRef.current.setRadius(radiusKm * 1000);
-      radiusRef.current.setStyle({
-        color: currentTheme.radarBorder,
-        fillColor: currentTheme.radarFill
-      });
+      try {
+        radiusRef.current.setRadius(radiusKm * 1000);
+        radiusRef.current.setStyle({
+          color: currentTheme.radarBorder,
+          fillColor: currentTheme.radarFill
+        });
+      } catch {}
     }
 
     // 更新当前标记
-    if (truckMarkerRef.current) {
-      const activeTruck = allTrucks.find((t) => t.id === truckId) || {
-        id: truckId,
-        name: truckName,
-        code: 'OBSIDIAN',
-        locationName: '',
-        latitude: lat,
-        longitude: lng,
-        deliveryRadiusKm: radiusKm,
-        status: 'open' as const
-      };
-      truckMarkerRef.current.setIcon(
-        buildDynamicRadarMarkerIcon(L, activeTruck, true, locked)
-      );
+    if (truckMarkerRef.current && (truckMarkerRef.current as any)._map && truckMarkerRef.current.getElement()) {
+      try {
+        const activeTruck = allTrucks.find((t) => t.id === truckId) || {
+          id: truckId,
+          name: truckName,
+          code: 'OBSIDIAN',
+          locationName: '',
+          latitude: lat,
+          longitude: lng,
+          deliveryRadiusKm: radiusKm,
+          status: 'open' as const
+        };
+        truckMarkerRef.current.setIcon(
+          buildDynamicRadarMarkerIcon(L, activeTruck, true, locked)
+        );
+      } catch {}
     }
 
     // 若车队全览开启，同步刷新车队层
@@ -408,10 +419,12 @@ export const TruckLocationMapPicker: React.FC<TruckLocationMapPickerProps> = ({
     if (!flyToTarget || !mapRef.current) return;
     if (!flyToTarget.lat || !flyToTarget.lng) return;
 
-    mapRef.current.flyTo([flyToTarget.lat, flyToTarget.lng], 16, {
-      animate: true,
-      duration: 0.7
-    });
+    try {
+      mapRef.current.flyTo([flyToTarget.lat, flyToTarget.lng], 16, {
+        animate: true,
+        duration: 0.7
+      });
+    } catch {}
 
     if (!lockedRef.current) {
       syncCandidate(flyToTarget.lat, flyToTarget.lng);

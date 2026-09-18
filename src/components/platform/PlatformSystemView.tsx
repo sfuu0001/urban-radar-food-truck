@@ -23,6 +23,7 @@ import {
   MessageSquare,
   Sparkles,
   ArrowRight,
+  ArrowLeft,
   ChevronRight,
   Zap,
   Activity,
@@ -41,8 +42,32 @@ import {
   Check,
   Truck,
   ArrowRightLeft,
-  MapPin
+  MapPin,
+  Workflow,
+  Maximize2,
+  Minimize2,
+  Cloud,
+  Menu,
+  PanelLeftClose,
+  PanelLeft
 } from 'lucide-react';
+import { getAllUserDossiers } from '../../utils/userDossierEngine';
+
+export type PlatformTabType =
+  | 'digital_twin'
+  | 'data_sandbox'
+  | 'user_dossier'
+  | 'cloud_pipeline'
+  | 'permission_flow'
+  | 'truck_matrix'
+  | 'merchants'
+  | 'commission'
+  | 'compliance_radar'
+  | 'surge_emergency'
+  | 'sla_monitor'
+  | 'finance'
+  | 'arbitration';
+import { safeGetStorage, safeSetStorage } from '../../utils/safeStorage';
 import { Order } from '../../types';
 import { getAllTruckConfigs, TruckLocationConfig } from '../../utils/truckLocationEngine';
 import {
@@ -72,6 +97,10 @@ import { UnifiedOmniChatModal } from '../chat/UnifiedOmniChatModal';
 import { DigitalTwinCommandCockpit } from './DigitalTwinCommandCockpit';
 import { FranchiseComplianceRadar } from './FranchiseComplianceRadar';
 import { SurgePricingAndKillSwitch } from './SurgePricingAndKillSwitch';
+import { HeadquartersPermissionAndFlowMatrix } from './HeadquartersPermissionAndFlowMatrix';
+import { UserDossierManager } from './dossier/UserDossierManager';
+import { CloudServiceTieringPipeline } from './pipeline/CloudServiceTieringPipeline';
+import { DataSandboxGovernancePanel } from './sandbox/DataSandboxGovernancePanel';
 import { exportToCsv } from '../../utils/dataExportEngine';
 import { fallbackToast } from '../../utils/fallbackToast';
 
@@ -87,17 +116,55 @@ export const PlatformSystemView: React.FC<PlatformSystemViewProps> = ({
   showToast = (msg: string) => fallbackToast(msg)
 }) => {
   // Navigation tabs (Following merchant token convention)
-  const [activeTab, setActiveTab] = useState<
-    | 'digital_twin'
-    | 'truck_matrix'
-    | 'merchants'
-    | 'commission'
-    | 'compliance_radar'
-    | 'surge_emergency'
-    | 'sla_monitor'
-    | 'finance'
-    | 'arbitration'
-  >('digital_twin');
+  const [activeTab, setActiveTab] = useState<PlatformTabType>('digital_twin');
+
+  // 侧边菜单状态 (折叠、移动端抽屉、搜索)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
+  const [sidebarFilterQuery, setSidebarFilterQuery] = useState<string>('');
+
+  // 全屏显示状态 (与本地存储及浏览器原生全屏同步)
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(() => {
+    return typeof window !== 'undefined' && safeGetStorage<boolean>('obsidian_platform_fullscreen', false);
+  });
+
+  const handleToggleFullscreen = () => {
+    const next = !isFullscreen;
+    setIsFullscreen(next);
+    safeSetStorage('obsidian_platform_fullscreen', next);
+    if (next) {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.().catch(() => {});
+      }
+      showToast('已开启平台总控台全屏沉浸显示模式');
+    } else {
+      if (document.fullscreenElement) {
+        document.exitFullscreen?.().catch(() => {});
+      }
+      showToast('已退出全屏显示模式');
+    }
+  };
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      if (!document.fullscreenElement && isFullscreen) {
+        setIsFullscreen(false);
+        safeSetStorage('obsidian_platform_fullscreen', false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+        safeSetStorage('obsidian_platform_fullscreen', false);
+      }
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFsChange);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isFullscreen]);
 
   // Commission configs
   const [globalSettings, setGlobalSettings] = useState<GlobalCommissionSettings>(getGlobalCommissionSettings());
@@ -192,6 +259,149 @@ export const PlatformSystemView: React.FC<PlatformSystemViewProps> = ({
   const slaSummary = useMemo(() => {
     return getAllOrdersSLASummary(orders.map((o) => o.orderNo));
   }, [orders, slaTick]);
+
+  // 侧边菜单导航项元数据与分组定义
+  interface NavItemDef {
+    id: PlatformTabType;
+    label: string;
+    enLabel: string;
+    description: string;
+    icon: React.ElementType;
+    badge?: {
+      text: string;
+      type: 'live' | 'count' | 'info' | 'alert';
+    };
+  }
+
+  interface NavGroupDef {
+    groupKey: string;
+    groupTitle: string;
+    items: NavItemDef[];
+  }
+
+  const allNavItems: NavItemDef[] = useMemo(() => [
+    {
+      id: 'digital_twin',
+      label: '数字孪生大屏',
+      enLabel: 'Digital Twin Cockpit',
+      description: '全网微网格全息态势、驻点热力分布与瞬时吞吐流',
+      icon: Activity,
+      badge: { text: 'LIVE', type: 'live' }
+    },
+    {
+      id: 'data_sandbox',
+      label: '数据沙箱与链路',
+      enLabel: 'Sandbox & Trace Pipeline',
+      description: '五层传输拓扑实时探针、故障仿真与各笔客诉工笔级时空溯源',
+      icon: Layers,
+      badge: { text: '探针+溯源', type: 'info' }
+    },
+    {
+      id: 'permission_flow',
+      label: '分级权限分流',
+      enLabel: 'L1-L5 RBAC Flow',
+      description: 'HQ总控 / 战区 / 车长 / 现场单兵全权席位鉴权分流',
+      icon: Workflow,
+      badge: { text: 'L1-L5', type: 'info' }
+    },
+    {
+      id: 'user_dossier',
+      label: '统一档案分层',
+      enLabel: 'Unified User Dossier',
+      description: '全员四层数据模型：准入·网格·履约·云端存证',
+      icon: Users,
+      badge: { text: `${getAllUserDossiers().length}`, type: 'count' }
+    },
+    {
+      id: 'cloud_pipeline',
+      label: '云服务分层仓库',
+      enLabel: '5-Tier Cloud Pipeline',
+      description: '边缘防刷、10Hz实时流、ACID事务与COS冷存证归档',
+      icon: Cloud,
+      badge: { text: '5-Tier', type: 'info' }
+    },
+    {
+      id: 'truck_matrix',
+      label: '餐车全域矩阵',
+      enLabel: 'Truck Fleet & Dispatch',
+      description: '驻点负载监控、跨车转派调拨与蜂窝网格协同',
+      icon: Truck,
+      badge: { text: `${getAllTruckConfigs().length}`, type: 'count' }
+    },
+    {
+      id: 'compliance_radar',
+      label: '脱圈合规雷达',
+      enLabel: 'Compliance Radar',
+      description: 'GPS电子围栏脱圈报警、食品安全溯源与异常记分',
+      icon: ShieldCheck
+    },
+    {
+      id: 'surge_emergency',
+      label: '动态运价熔断',
+      enLabel: 'Surge & Kill Switch',
+      description: '恶劣天气与高峰自适应溢价、紧急熔断停单控制',
+      icon: Zap
+    },
+    {
+      id: 'sla_monitor',
+      label: '三端联络总成',
+      enLabel: 'SLA Response & Omni-Hub',
+      description: '食客·车长·骑手三方协同联络室与超限预警中枢',
+      icon: Radio,
+      badge: slaSummary.overdueCount > 0 ? { text: `${slaSummary.overdueCount}单预警`, type: 'alert' } : undefined
+    },
+    {
+      id: 'merchants',
+      label: '商户档案费率',
+      enLabel: 'Merchant Tiered Rates',
+      description: '加盟餐车独立合同、阶梯抽佣与状态冻结管控',
+      icon: Store,
+      badge: { text: `${merchants.length}`, type: 'count' }
+    },
+    {
+      id: 'commission',
+      label: '抽佣引擎仿真',
+      enLabel: 'Commission Split Calc',
+      description: '分账算法微调、边际效益测算与极速抽佣试算',
+      icon: Percent
+    },
+    {
+      id: 'finance',
+      label: '财务对账分账',
+      enLabel: 'Financial Ledger',
+      description: '多端订单分账清算、流水对账与结算汇总明细',
+      icon: DollarSign
+    },
+    {
+      id: 'arbitration',
+      label: '风控争议仲裁',
+      enLabel: 'Risk & Arbitration',
+      description: '超时扣罚申诉、餐品货损赔付与不可抗力调处',
+      icon: AlertTriangle
+    }
+  ], [merchants.length, slaSummary.overdueCount]);
+
+  const currentNavMeta = useMemo(() => {
+    return allNavItems.find(item => item.id === activeTab) || allNavItems[0];
+  }, [allNavItems, activeTab]);
+
+  const groupedNavItems: NavGroupDef[] = useMemo(() => {
+    const q = sidebarFilterQuery.trim().toLowerCase();
+    const filterFn = (item: NavItemDef) => {
+      if (!q) return true;
+      return item.label.toLowerCase().includes(q) || item.enLabel.toLowerCase().includes(q);
+    };
+
+    const g1Items = allNavItems.filter(i => ['digital_twin', 'data_sandbox', 'permission_flow', 'user_dossier', 'cloud_pipeline'].includes(i.id)).filter(filterFn);
+    const g2Items = allNavItems.filter(i => ['truck_matrix', 'compliance_radar', 'surge_emergency', 'sla_monitor'].includes(i.id)).filter(filterFn);
+    const g3Items = allNavItems.filter(i => ['merchants', 'commission', 'finance', 'arbitration'].includes(i.id)).filter(filterFn);
+
+    return [
+      { groupKey: 'core', groupTitle: '核心指挥与架构', items: g1Items },
+      { groupKey: 'fleet', groupTitle: '运力网格与调度', items: g2Items },
+      { groupKey: 'commerce', groupTitle: '商户生态与财务', items: g3Items }
+    ].filter(g => g.items.length > 0);
+  }, [allNavItems, sidebarFilterQuery]);
 
   // Simulation calculation
   const simulationResult = useMemo(() => {
@@ -320,184 +530,418 @@ export const PlatformSystemView: React.FC<PlatformSystemViewProps> = ({
   };
 
   return (
-    <div className="space-y-3.5 text-[#37352f] pb-16">
-      {/* Top Banner: Notion Token Theme Header */}
-      <div className="bg-white border border-[#e9e9e7] rounded-xl p-3 sm:p-4 shadow-2xs">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4">
-          <div className="flex items-start sm:items-center gap-2.5 sm:gap-3">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-[#2b593f] text-white flex items-center justify-center font-black shrink-0 mt-0.5 sm:mt-0 shadow-2xs">
-              <Building2 className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <h1 className="text-sm sm:text-base md:text-lg font-black tracking-tight text-[#201f1d]">
-                  黑曜石平台总控台 (Platform Master Hub)
-                </h1>
-                <span className="text-[9.5px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#eef4f0] text-[#2b593f] border border-[#d2e4d7]">
-                  NOTION TOKEN ARCH
+    <div
+      className={`transition-all duration-300 text-[#37352f] ${
+        isFullscreen
+          ? 'fixed inset-0 z-50 bg-[#f9f9f7] overflow-y-auto p-2 sm:p-4 lg:p-5 pb-20'
+          : 'w-full pb-16'
+      }`}
+    >
+      {/* 移动端顶栏与抽屉唤起 (Mobile Header Bar) */}
+      <div className="lg:hidden bg-white border border-[#e9e9e7] rounded-xl p-3 shadow-2xs mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setMobileSidebarOpen(true)}
+            className="p-2 rounded-lg bg-[#f7f6f3] border border-[#e3e2de] text-neutral-800 hover:bg-neutral-200 cursor-pointer transition-colors"
+            title="展开侧边导航菜单"
+          >
+            <Menu className="w-4 h-4" />
+          </button>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-black text-xs text-[#201f1d] truncate">
+                {currentNavMeta.label}
+              </span>
+              {currentNavMeta.badge && (
+                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-bold">
+                  {currentNavMeta.badge.text}
                 </span>
-              </div>
-              <p className="text-[11px] sm:text-xs text-[#787774] mt-0.5 line-clamp-1 sm:line-clamp-none">
-                全网餐车商户档案 · 独立分账抽佣引擎 · 三端联络聚合总成 · SLA超时预警 · 仲裁清算
-              </p>
+              )}
             </div>
-          </div>
-
-          {/* Quick Metrics in Header (Mobile Responsive 3-Col Grid) */}
-          <div className="grid grid-cols-3 gap-1 bg-[#f7f6f3] p-1.5 rounded-lg border border-[#e3e2de] shrink-0">
-            <div className="px-1.5 sm:px-2.5 py-1 text-center">
-              <div className="text-[9.5px] sm:text-[10px] text-[#787774] font-medium truncate">全网商户</div>
-              <div className="text-xs sm:text-sm font-black text-[#201f1d] font-mono">{merchants.length} 辆</div>
-            </div>
-            <div className="px-1.5 sm:px-2.5 py-1 text-center border-x border-[#e3e2de]">
-              <div className="text-[9.5px] sm:text-[10px] text-[#787774] font-medium truncate">平台总抽佣</div>
-              <div className="text-xs sm:text-sm font-black text-[#2b593f] truncate">¥{financeSummary.totalPlatformCommission.toFixed(2)}</div>
-            </div>
-            <div className="px-1.5 sm:px-2.5 py-1 text-center">
-              <div className="text-[9.5px] sm:text-[10px] text-[#787774] font-medium truncate">平均SLA时效</div>
-              <div className="text-xs sm:text-sm font-black text-[#2b593f] font-mono truncate">{formatSlaDuration(slaSummary.avgResponseTimeSec)}</div>
-            </div>
+            <div className="text-[10px] text-neutral-400 font-mono">黑曜石平台总控 · 侧边中枢</div>
           </div>
         </div>
 
-        {/* Tab Navigation Pill Bar with Horizontal Smooth Scroll & Unified Color Tokens */}
-        <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-[#f1f1ef] overflow-x-auto no-scrollbar py-0.5">
+        <div className="flex items-center gap-1.5">
+          {onSelectRole && (
+            <button
+              type="button"
+              onClick={() => onSelectRole('customer')}
+              className="px-2 py-1 bg-[#201f1d] hover:bg-black text-white rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shadow-2xs shrink-0"
+              title="返回前台顾客点餐"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-white" />
+              <span>切回前台</span>
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => setActiveTab('digital_twin')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 whitespace-nowrap cursor-pointer border ${
-              activeTab === 'digital_twin'
-                ? 'bg-slate-900 border-2 border-slate-700 text-emerald-400 shadow-2xs font-black'
-                : 'bg-[#f7f6f3] border-[#e2e3e1] text-[#787774] hover:bg-neutral-100 hover:text-[#37352f]'
-            }`}
+            onClick={handleToggleFullscreen}
+            className="p-2 rounded-lg bg-[#f7f6f3] border border-[#e3e2de] text-neutral-700 hover:bg-neutral-200 cursor-pointer"
+            title={isFullscreen ? '退出全屏' : '全屏显示'}
           >
-            <Activity className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'digital_twin' ? 'text-emerald-400 animate-pulse' : 'text-[#787770]'}`} />
-            <span>数字孪生指挥大屏</span>
-            <span className="text-[9px] font-mono px-1 rounded bg-emerald-500/20 text-emerald-600 font-bold">
-              LIVE
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('truck_matrix')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 whitespace-nowrap cursor-pointer border ${
-              activeTab === 'truck_matrix'
-                ? 'bg-emerald-50/80 border-2 border-emerald-500 text-emerald-700 shadow-2xs font-black'
-                : 'bg-[#f7f6f3] border-[#e2e3e1] text-[#787774] hover:bg-neutral-100 hover:text-[#37352f]'
-            }`}
-          >
-            <Truck className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'truck_matrix' ? 'text-emerald-600' : 'text-[#787770]'}`} />
-            <span>餐车全域矩阵与转单</span>
-            <span className={`text-[9px] font-mono px-1 rounded ${activeTab === 'truck_matrix' ? 'bg-emerald-500 text-white' : 'bg-[#e6e6e4] text-[#37352f]'}`}>
-              {getAllTruckConfigs().length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('compliance_radar')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 whitespace-nowrap cursor-pointer border ${
-              activeTab === 'compliance_radar'
-                ? 'bg-red-50/80 border-2 border-red-500 text-red-700 shadow-2xs font-black'
-                : 'bg-[#f7f6f3] border-[#e2e3e1] text-[#787774] hover:bg-neutral-100 hover:text-[#37352f]'
-            }`}
-          >
-            <ShieldCheck className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'compliance_radar' ? 'text-red-600' : 'text-[#787770]'}`} />
-            <span>脱圈与品控合规雷达</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('surge_emergency')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 whitespace-nowrap cursor-pointer border ${
-              activeTab === 'surge_emergency'
-                ? 'bg-orange-50/80 border-2 border-orange-500 text-orange-700 shadow-2xs font-black'
-                : 'bg-[#f7f6f3] border-[#e2e3e1] text-[#787774] hover:bg-neutral-100 hover:text-[#37352f]'
-            }`}
-          >
-            <Zap className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'surge_emergency' ? 'text-orange-600' : 'text-[#787770]'}`} />
-            <span>动态运价与应急熔断</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('merchants')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 whitespace-nowrap cursor-pointer border ${
-              activeTab === 'merchants'
-                ? 'bg-emerald-50/80 border-2 border-emerald-500 text-emerald-700 shadow-2xs font-black'
-                : 'bg-[#f7f6f3] border-[#e2e3e1] text-[#787774] hover:bg-neutral-100 hover:text-[#37352f]'
-            }`}
-          >
-            <Store className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'merchants' ? 'text-emerald-600' : 'text-[#787770]'}`} />
-            <span>商户档案与费率</span>
-            <span className={`text-[9px] font-mono px-1 rounded ${activeTab === 'merchants' ? 'bg-emerald-500 text-white' : 'bg-[#e6e6e4] text-[#37352f]'}`}>
-              {merchants.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('commission')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 whitespace-nowrap cursor-pointer border ${
-              activeTab === 'commission'
-                ? 'bg-amber-50/80 border-2 border-amber-500 text-amber-700 shadow-2xs font-black'
-                : 'bg-[#f7f6f3] border-[#e2e3e1] text-[#787774] hover:bg-neutral-100 hover:text-[#37352f]'
-            }`}
-          >
-            <Percent className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'commission' ? 'text-amber-600' : 'text-[#787770]'}`} />
-            <span>抽佣引擎与仿真</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('sla_monitor')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 whitespace-nowrap cursor-pointer border ${
-              activeTab === 'sla_monitor'
-                ? 'bg-sky-50/80 border-2 border-sky-500 text-sky-700 shadow-2xs font-black'
-                : 'bg-[#f7f6f3] border-[#e2e3e1] text-[#787774] hover:bg-neutral-100 hover:text-[#37352f]'
-            }`}
-          >
-            <Radio className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'sla_monitor' ? 'text-sky-600' : 'text-[#787770]'}`} />
-            <span>三端即时联络聚合总成</span>
-            {slaSummary.overdueCount > 0 && (
-              <span className="bg-[#9f2b2b] text-white font-mono text-[9px] px-1.5 py-0.2 rounded font-bold animate-pulse">
-                {slaSummary.overdueCount}单预警
-              </span>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('finance')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 whitespace-nowrap cursor-pointer border ${
-              activeTab === 'finance'
-                ? 'bg-indigo-50/80 border-2 border-indigo-500 text-indigo-700 shadow-2xs font-black'
-                : 'bg-[#f7f6f3] border-[#e2e3e1] text-[#787774] hover:bg-neutral-100 hover:text-[#37352f]'
-            }`}
-          >
-            <DollarSign className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'finance' ? 'text-indigo-600' : 'text-[#787770]'}`} />
-            <span>财务分账与结算</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('arbitration')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 whitespace-nowrap cursor-pointer border ${
-              activeTab === 'arbitration'
-                ? 'bg-rose-50/80 border-2 border-rose-500 text-rose-700 shadow-2xs font-black'
-                : 'bg-[#f7f6f3] border-[#e2e3e1] text-[#787774] hover:bg-neutral-100 hover:text-[#37352f]'
-            }`}
-          >
-            <ShieldCheck className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'arbitration' ? 'text-rose-600' : 'text-[#787770]'}`} />
-            <span>风控异常与仲裁</span>
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
           </button>
         </div>
       </div>
 
+      {/* 主布局两栏容器 (Two-Column Sidebar Layout) */}
+      <div className="flex flex-col lg:flex-row gap-3.5 items-start">
+        {/* 左侧侧边菜单 (Desktop Sidebar) */}
+        <aside
+          className={`hidden lg:flex flex-col bg-white border border-[#e9e9e7] rounded-xl shadow-2xs transition-all duration-300 shrink-0 sticky top-3 max-h-[calc(100vh-28px)] overflow-hidden ${
+            isSidebarCollapsed ? 'w-16 p-2' : 'w-64 xl:w-72 p-3'
+          }`}
+        >
+          {/* Sidebar Header */}
+          <div className="pb-2.5 border-b border-[#f1f1ef] flex items-center justify-between gap-1.5">
+            {!isSidebarCollapsed && (
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-[#2b593f] text-white flex items-center justify-center font-black shrink-0 shadow-2xs">
+                  <Building2 className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1">
+                    <h2 className="text-xs font-black text-[#201f1d] truncate">黑曜石总控</h2>
+                    <span className="text-[8.5px] font-mono font-bold px-1 py-0.2 rounded bg-[#eef4f0] text-[#2b593f] border border-[#d2e4d7]">
+                      HUB
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-neutral-400 font-mono truncate">
+                    ap-shanghai · 调度台
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {isSidebarCollapsed && (
+              <div className="w-8 h-8 mx-auto rounded-lg bg-[#2b593f] text-white flex items-center justify-center font-black shadow-2xs">
+                <Building2 className="w-4 h-4" />
+              </div>
+            )}
+
+            <div className="flex items-center gap-1 shrink-0">
+              {onSelectRole && !isSidebarCollapsed && (
+                <button
+                  type="button"
+                  onClick={() => onSelectRole('customer')}
+                  className="px-2 py-1 bg-[#201f1d] hover:bg-black text-white rounded-[4px] text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shadow-2xs shrink-0"
+                  title="返回前台顾客点餐"
+                >
+                  <ArrowLeft className="w-3 h-3 text-white" />
+                  <span>切回前台</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-[#f7f6f3] border border-transparent hover:border-[#e3e2de] cursor-pointer transition-colors"
+                title={isSidebarCollapsed ? '展开侧边菜单' : '折叠为极简图标侧边栏'}
+              >
+                {isSidebarCollapsed ? <PanelLeft className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Search Filter (when expanded) */}
+          {!isSidebarCollapsed && (
+            <div className="pt-2 pb-1">
+              <div className="relative">
+                <Search className="w-3 h-3 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="搜索功能模块..."
+                  value={sidebarFilterQuery}
+                  onChange={(e) => setSidebarFilterQuery(e.target.value)}
+                  className="w-full pl-7 pr-7 py-1.5 text-[11px] bg-[#f7f6f3] border border-[#e3e2de] rounded-lg text-[#201f1d] focus:outline-none focus:border-black font-medium"
+                />
+                {sidebarFilterQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSidebarFilterQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Navigation Items (Grouped Vertical List) */}
+          <div className="flex-1 overflow-y-auto py-2 space-y-3 no-scrollbar">
+            {groupedNavItems.map((group) => (
+              <div key={group.groupKey} className="space-y-1">
+                {!isSidebarCollapsed && (
+                  <div className="px-2 pt-1 pb-0.5 text-[9.5px] font-bold font-mono tracking-wider text-neutral-400 uppercase">
+                    {group.groupTitle}
+                  </div>
+                )}
+                <div className="space-y-0.5">
+                  {group.items.map((item) => {
+                    const isActive = activeTab === item.id;
+                    const IconComp = item.icon;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setActiveTab(item.id)}
+                        className={`w-full flex items-center rounded-lg text-xs font-semibold transition-all cursor-pointer select-none ${
+                          isSidebarCollapsed ? 'justify-center p-2.5' : 'px-2.5 py-2 justify-between gap-2'
+                        } ${
+                          isActive
+                            ? 'bg-[#1a1a17] text-white shadow-2xs font-bold'
+                            : 'text-[#5a5850] hover:bg-[#f7f6f3] hover:text-[#1a1a17]'
+                        }`}
+                        title={isSidebarCollapsed ? `${item.label} (${item.enLabel})` : undefined}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <IconComp
+                            className={`w-4 h-4 shrink-0 ${
+                              isActive ? 'text-emerald-400' : 'text-neutral-500'
+                            }`}
+                          />
+                          {!isSidebarCollapsed && (
+                            <span className="truncate text-[11.5px] tracking-tight">{item.label}</span>
+                          )}
+                        </div>
+
+                        {!isSidebarCollapsed && item.badge && (
+                          <span
+                            className={`text-[9px] font-mono px-1.5 py-0.2 rounded font-bold shrink-0 ${
+                              isActive
+                                ? 'bg-white/20 text-white'
+                                : item.badge.type === 'live'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : item.badge.type === 'alert'
+                                ? 'bg-rose-100 text-rose-800'
+                                : 'bg-[#e8e7e3] text-neutral-700'
+                            }`}
+                          >
+                            {item.badge.text}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Sidebar Footer: Metrics & Status */}
+          <div className="pt-2.5 border-t border-[#f1f1ef] space-y-2 shrink-0">
+            {!isSidebarCollapsed && (
+              <div className="bg-[#f7f6f3] p-2 rounded-lg border border-[#e3e2de] text-[10px] space-y-1">
+                <div className="flex justify-between items-center text-neutral-500">
+                  <span>在营餐车:</span>
+                  <span className="font-mono font-bold text-neutral-800">{merchants.length} 辆</span>
+                </div>
+                <div className="flex justify-between items-center text-neutral-500">
+                  <span>平台抽佣:</span>
+                  <span className="font-mono font-bold text-[#2b593f]">¥{financeSummary.totalPlatformCommission.toFixed(1)}</span>
+                </div>
+                <div className="flex justify-between items-center text-neutral-500">
+                  <span>平均 SLA:</span>
+                  <span className="font-mono font-bold text-neutral-800">{formatSlaDuration(slaSummary.avgResponseTimeSec)}</span>
+                </div>
+              </div>
+            )}
+
+            <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'} gap-1.5`}>
+              <div className={`flex items-center gap-1.5 text-[10px] text-neutral-500 ${isSidebarCollapsed ? 'hidden' : 'flex'}`}>
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="truncate">腾讯云上海节点 正常</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleToggleFullscreen}
+                className={`p-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                  isFullscreen
+                    ? 'bg-emerald-600 text-white border-emerald-700'
+                    : 'bg-white hover:bg-[#f7f6f3] text-neutral-700 border-[#d3d1cb]'
+                }`}
+                title={isFullscreen ? '退出全屏' : '全屏显示'}
+              >
+                {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                {!isSidebarCollapsed && <span className="text-[11px]">{isFullscreen ? '退出' : '全屏'}</span>}
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        {/* 移动端侧边菜单抽屉 (Mobile Drawer) */}
+        <AnimatePresence>
+          {mobileSidebarOpen && (
+            <div className="fixed inset-0 z-50 lg:hidden">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setMobileSidebarOpen(false)}
+                className="absolute inset-0 bg-black/40 backdrop-blur-xs"
+              />
+              <motion.div
+                initial={{ x: '-100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '-100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 280 }}
+                className="absolute left-0 top-0 bottom-0 w-72 bg-white p-4 flex flex-col shadow-2xl z-10"
+              >
+                <div className="flex items-center justify-between pb-3 border-b border-[#f1f1ef]">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-[#2b593f] text-white flex items-center justify-center font-black">
+                      <Building2 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-black text-neutral-900">黑曜石平台总控</h3>
+                      <p className="text-[10px] text-neutral-400 font-mono">Platform Master Hub</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMobileSidebarOpen(false)}
+                    className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-[#f7f6f3]"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto py-3 space-y-3">
+                  {groupedNavItems.map((group) => (
+                    <div key={group.groupKey} className="space-y-1">
+                      <div className="text-[10px] font-bold font-mono text-neutral-400 uppercase px-2">
+                        {group.groupTitle}
+                      </div>
+                      <div className="space-y-0.5">
+                        {group.items.map((item) => {
+                          const isActive = activeTab === item.id;
+                          const IconComp = item.icon;
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => {
+                                setActiveTab(item.id);
+                                setMobileSidebarOpen(false);
+                              }}
+                              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                                isActive
+                                  ? 'bg-[#1a1a17] text-white shadow-2xs font-bold'
+                                  : 'text-neutral-700 hover:bg-[#f7f6f3]'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <IconComp className={`w-4 h-4 ${isActive ? 'text-emerald-400' : 'text-neutral-500'}`} />
+                                <span className="text-[12px]">{item.label}</span>
+                              </div>
+                              {item.badge && (
+                                <span
+                                  className={`text-[9.5px] font-mono px-1.5 py-0.2 rounded font-bold ${
+                                    isActive ? 'bg-white/20 text-white' : 'bg-neutral-100 text-neutral-700'
+                                  }`}
+                                >
+                                  {item.badge.text}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="pt-3 border-t border-[#f1f1ef]">
+                  <div className="text-[11px] text-neutral-500 flex justify-between items-center mb-2">
+                    <span>全网在营餐车: {merchants.length} 辆</span>
+                    <span className="text-emerald-700 font-bold">¥{financeSummary.totalPlatformCommission.toFixed(1)}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleToggleFullscreen();
+                      setMobileSidebarOpen(false);
+                    }}
+                    className="w-full py-2 rounded-lg bg-neutral-100 text-neutral-800 text-xs font-bold text-center"
+                  >
+                    {isFullscreen ? '退出全屏模式' : '进入全屏大屏模式'}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* 右侧主工作区 (Right Content Area) */}
+        <main className="flex-1 min-w-0 w-full space-y-3.5">
+          {/* 顶部紧凑面包屑导航与状态指示条 */}
+          <div className="bg-white border border-[#e9e9e7] rounded-xl px-3.5 py-2.5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-7 h-7 rounded-lg bg-[#f7f6f3] text-neutral-800 border border-[#e3e2de] flex items-center justify-center shrink-0">
+                {React.createElement(currentNavMeta.icon, { className: 'w-4 h-4 text-emerald-700' })}
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs font-black text-[#201f1d]">{currentNavMeta.label}</span>
+                  <span className="text-[9.5px] font-mono px-1.5 py-0.2 rounded bg-neutral-100 text-neutral-600 border border-neutral-200">
+                    {currentNavMeta.enLabel}
+                  </span>
+                  {currentNavMeta.badge && (
+                    <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
+                      {currentNavMeta.badge.text}
+                    </span>
+                  )}
+                </div>
+                <div className="text-[10.5px] text-neutral-500 line-clamp-1">
+                  {currentNavMeta.description}
+                </div>
+              </div>
+            </div>
+
+            {/* Quick module stats */}
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+              <div className="text-[11px] text-neutral-500 font-mono hidden md:flex items-center gap-2 bg-[#f7f6f3] px-2.5 py-1 rounded-md border border-[#e3e2de]">
+                <span>商户: <b className="text-neutral-900">{merchants.length}</b></span>
+                <span className="text-neutral-300">|</span>
+                <span>抽佣: <b className="text-[#2b593f]">¥{financeSummary.totalPlatformCommission.toFixed(0)}</b></span>
+                <span className="text-neutral-300">|</span>
+                <span>SLA: <b className="text-neutral-900">{formatSlaDuration(slaSummary.avgResponseTimeSec)}</b></span>
+              </div>
+            </div>
+          </div>
+
       {/* Tab -1: 数字孪生指挥大屏 */}
       {activeTab === 'digital_twin' && (
-        <DigitalTwinCommandCockpit orders={orders} showToast={showToast} />
+        <DigitalTwinCommandCockpit
+          orders={orders}
+          showToast={showToast}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={handleToggleFullscreen}
+        />
+      )}
+
+      {/* Tab: 数据沙箱分层治理与全链路时空溯源面板 */}
+      {activeTab === 'data_sandbox' && (
+        <DataSandboxGovernancePanel showToast={showToast} />
+      )}
+
+      {/* Tab: 总部分级权限、组件功能授权与状态分层分流中枢 */}
+      {activeTab === 'permission_flow' && (
+        <HeadquartersPermissionAndFlowMatrix showToast={showToast} />
+      )}
+
+      {/* Tab: 用户数据统一档案分层表单 */}
+      {activeTab === 'user_dossier' && (
+        <UserDossierManager showToast={showToast} />
+      )}
+
+      {/* Tab: 云服务数据分层仓库 */}
+      {activeTab === 'cloud_pipeline' && (
+        <CloudServiceTieringPipeline showToast={showToast} />
       )}
 
       {/* Tab -2: 加盟商违规脱圈与品控合规雷达 */}
@@ -1279,6 +1723,8 @@ export const PlatformSystemView: React.FC<PlatformSystemViewProps> = ({
           </div>
         </div>
       )}
+        </main>
+      </div>
 
       {/* Edit Merchant Modal */}
       {editingMerchant && (
@@ -1431,6 +1877,21 @@ export const PlatformSystemView: React.FC<PlatformSystemViewProps> = ({
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 全屏状态悬浮退出按钮 */}
+      {isFullscreen && (
+        <div className="fixed bottom-5 right-5 z-50 flex items-center gap-2 bg-[#201f1d]/90 backdrop-blur text-white px-3.5 py-2 rounded-full shadow-2xl border border-white/20 text-xs select-none">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="font-medium">平台总控台 · 全屏显示模式</span>
+          <button
+            type="button"
+            onClick={handleToggleFullscreen}
+            className="ml-2 px-2.5 py-0.5 rounded-md bg-white/20 hover:bg-white/30 text-white text-[11px] font-bold cursor-pointer transition-colors"
+          >
+            退出全屏 (ESC)
+          </button>
         </div>
       )}
     </div>

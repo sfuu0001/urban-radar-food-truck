@@ -299,7 +299,7 @@ export const CartPageView: React.FC<CartPageViewProps> = ({
   if (items.length === 0) {
     return (
       <div className="w-full min-h-[80vh] flex items-center justify-center py-10 px-4 bg-[#f4f4f1]">
-        <div className="w-full max-w-[430px] bg-white rounded-none border border-[#e6e6e2] p-8 shadow-card text-center space-y-4">
+        <div className="w-full max-w-md bg-white rounded-xl border border-[#e6e6e2] p-8 shadow-card text-center space-y-4">
           <div className="w-16 h-16 rounded-full bg-neutral-100 flex items-center justify-center mx-auto text-neutral-400">
             <Radio className="w-8 h-8 text-neutral-500 animate-pulse" />
           </div>
@@ -328,9 +328,9 @@ export const CartPageView: React.FC<CartPageViewProps> = ({
 
   // 2. Full Brand New Cart View
   return (
-    <div className="text-neutral-800 min-h-screen pb-32 flex justify-center bg-[#f4f4f1] font-sans">
-      {/* Mobile Viewport Container */}
-      <main className="w-full max-w-[430px] sm:max-w-xl md:max-w-2xl min-h-screen bg-[#f7f7f5] flex flex-col relative shadow-xl overflow-x-hidden">
+    <div className="text-neutral-800 min-h-screen pb-32 flex flex-col bg-[#f4f4f1] font-sans">
+      {/* Viewport Container */}
+      <main className="w-full max-w-5xl mx-auto min-h-screen bg-[#f7f7f5] flex flex-col relative shadow-sm overflow-x-hidden">
         {/* Top Header Section with Title, Count Badge, Clear Button & Fulfillment Mode Selector */}
         <CartHeaderSection
           itemCount={totalCount}
@@ -363,6 +363,8 @@ export const CartPageView: React.FC<CartPageViewProps> = ({
             items={items}
             onUpdateQuantity={onUpdateQuantity}
             onRemoveItem={onRemoveItem}
+            diningMode={diningMode}
+            currentTable={boundTable?.code || 'A1'}
           />
 
           {/* Service Preference Card: Voucher & Discount, Eco Packaging, and Chef Notes */}

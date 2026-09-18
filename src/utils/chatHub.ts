@@ -101,22 +101,12 @@ export function getInitialOrderMessages(orderNo: string, order?: Order): ChatMes
 
   return [
     {
-      id: `sys-${cleanOrderNo}-1`,
-      orderNo: cleanOrderNo,
-      senderRole: 'system',
-      senderName: '系统安防中心',
-      time: time1,
-      timestamp: now - 12 * 60 * 1000,
-      type: 'system_notice',
-      text: `🛡️ 订单 #${cleanOrderNo} 已建立三端加密会话。云函数 (chatMessages) 与云数据库 (obsidian_order_chats) 全程热备份。`
-    },
-    {
       id: `merchant-${cleanOrderNo}-1`,
       orderNo: cleanOrderNo,
       senderRole: 'merchant',
       senderName: order?.truckName || '黑曜石餐车 · 南广场总站',
-      time: time2,
-      timestamp: now - 8 * 60 * 1000,
+      time: time1,
+      timestamp: now - 12 * 60 * 1000,
       type: 'status_change',
       statusChangeInfo: {
         fromStatus: '待接单',
@@ -126,6 +116,16 @@ export function getInitialOrderMessages(orderNo: string, order?: Order): ChatMes
         actionOperator: '餐车主厨 · 列车长',
         operatorRole: 'merchant'
       }
+    },
+    {
+      id: `sys-${cleanOrderNo}-1`,
+      orderNo: cleanOrderNo,
+      senderRole: 'system',
+      senderName: '系统安防中心',
+      time: time2,
+      timestamp: now - 10 * 60 * 1000,
+      type: 'system_notice',
+      text: `🛡️ 订单 #${cleanOrderNo} 已建立三端加密会话。云函数 (chatMessages) 与云数据库 (obsidian_order_chats) 全程热备份。`
     },
     {
       id: `rider-${cleanOrderNo}-1`,

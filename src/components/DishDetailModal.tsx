@@ -12,16 +12,28 @@ import {
   ShoppingBag,
   ExternalLink,
   Sparkles,
-  Camera
+  Camera,
+  ShieldCheck,
+  Snowflake,
+  Barcode,
+  CheckCircle2,
+  ChevronRight,
+  Maximize2,
+  QrCode
 } from 'lucide-react';
-import { DishItem, DiningMode, DishVariant, DishOptionChoice } from '../types';
+import { DishItem, DiningMode, DishVariant, DishOptionChoice, DishIngredientItem } from '../types';
 import { useFlyingCart } from '../utils/FlyingCartContext';
 import {
   resolveVariantBlueprint,
   resolveOptionBlueprint,
+  resolveFlavorSketch,
+  resolveSpicinessSketch,
   generateArtisanSvgBlueprint
 } from '../utils/autoBlueprintEngine';
 import { userJourneyTracker } from '../utils/userJourneyTracker';
+import { getDishIngredients, getDishTraceabilityMeta } from '../utils/ingredientTraceEngine';
+import { DishQrCodeModal } from './common/DishQrCodeModal';
+import { DishDiscountBanner } from './DishDiscountBanner';
 
 interface DishDetailModalProps {
   dish: DishItem | null;
@@ -29,6 +41,13 @@ interface DishDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddToCart: (
+    dish: DishItem,
+    quantity: number,
+    selectedOptions: Record<string, string>,
+    totalPrice: number,
+    selectedVariant?: DishVariant
+  ) => void;
+  onQuickPay?: (
     dish: DishItem,
     quantity: number,
     selectedOptions: Record<string, string>,
@@ -48,6 +67,7 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
   isOpen,
   onClose,
   onAddToCart,
+  onQuickPay,
   isOutOfRange = false,
   deliveryRadiusKm = 3.0,
   currentDistanceKm = 0.65,
@@ -59,6 +79,9 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'photo' | 'blueprint' | 'sketch'>('photo');
+  const [activePackagingPhoto, setActivePackagingPhoto] = useState<string | null>(null);
+  const [isIngredientsSectionExpanded, setIsIngredientsSectionExpanded] = useState<boolean>(true);
+  const [isQrModalOpen, setIsQrModalOpen] = useState<boolean>(false);
 
   // Reset & initialize when dish changes
   useEffect(() => {
@@ -108,6 +131,17 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
     if (!dish || !dish.variants || dish.variants.length === 0) return null;
     return dish.variants.find((v) => v.id === selectedVariantId) || dish.variants[0];
   }, [dish, selectedVariantId]);
+
+  // Dish Ingredients & Traceability Data
+  const ingredientsList = useMemo(() => {
+    if (!dish) return [];
+    return getDishIngredients(dish);
+  }, [dish]);
+
+  const traceMeta = useMemo(() => {
+    if (!dish) return { originSource: '', inspectionBatchNo: '', coldChainTemp: '', supplierName: '' };
+    return getDishTraceabilityMeta(dish.id);
+  }, [dish]);
 
   // Component Specification Fallback
   const componentsList = useMemo(() => {
@@ -229,6 +263,31 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
     };
   }, [dish, activeVariant]);
 
+  // 自动化手绘素描引擎：当前选中辣度与风味口味的即时计算
+  const activeSpiciness =
+    selectedOptions['辣度选择'] ||
+    dish?.spicinessLevel ||
+    (dish?.spicinessOptions && dish.spicinessOptions[0]) ||
+    '';
+  const activeSpicinessSketch = useMemo(() => {
+    if (!dish || !activeSpiciness || !dish.spicinessOptions || dish.spicinessOptions.length === 0) {
+      return null;
+    }
+    return resolveSpicinessSketch(dish, activeSpiciness);
+  }, [dish, activeSpiciness]);
+
+  const activeFlavor =
+    selectedOptions['口味定制'] ||
+    dish?.flavor ||
+    (dish?.flavorOptions && dish.flavorOptions[0]) ||
+    '';
+  const activeFlavorSketch = useMemo(() => {
+    if (!dish || !activeFlavor || !dish.flavorOptions || dish.flavorOptions.length === 0) {
+      return null;
+    }
+    return resolveFlavorSketch(dish, activeFlavor);
+  }, [dish, activeFlavor]);
+
   if (!isOpen || !dish) return null;
 
   // Calculate unit price with variant & selected options
@@ -327,14 +386,25 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
               规格配置详情
             </span>
           </div>
-          <button
-            aria-label="关闭规格配置面板"
-            onClick={handleModalClose}
-            className="w-7 h-7 flex items-center justify-center border border-[#D3D1CB] hover:border-[#1A1A17] hover:bg-[#F9F9F7] bg-white text-[#1A1A17] text-xs font-mono transition-colors duration-150 cursor-pointer"
-            type="button"
-          >
-            ✕
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setIsQrModalOpen(true)}
+              className="h-7 px-2.5 border border-[#D3D1CB] hover:border-[#1A1A17] hover:bg-[#F9F9F7] bg-white text-[#1A1A17] text-[11px] font-mono font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              type="button"
+              title="生成当前菜品/规格专属真实二维码（扫码自动加购或直接支付）"
+            >
+              <QrCode className="w-3.5 h-3.5 text-orange-600" />
+              <span>专属二维码</span>
+            </button>
+            <button
+              aria-label="关闭规格配置面板"
+              onClick={handleModalClose}
+              className="w-7 h-7 flex items-center justify-center border border-[#D3D1CB] hover:border-[#1A1A17] hover:bg-[#F9F9F7] bg-white text-[#1A1A17] text-xs font-mono transition-colors duration-150 cursor-pointer"
+              type="button"
+            >
+              ✕
+            </button>
+          </div>
         </header>
         {/* END: HeaderBar */}
 
@@ -434,6 +504,13 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                 </div>
               </div>
 
+              {/* 集成到详情大图新位置：悬浮智能折扣/降价自动渐显淡出提示组件 */}
+              <DishDiscountBanner
+                dish={dish}
+                diningMode={diningMode}
+                className="!top-8 !right-2 scale-105"
+              />
+
               {/* Bottom HUD bar with synchronized variant parameters */}
               <div className="flex justify-between items-end text-white/85 font-mono text-[9px]">
                 <div className="bg-[#1A1A17]/85 px-1.5 py-0.5 border border-white/15 flex items-center gap-1.5">
@@ -480,18 +557,18 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
 
               <div className="text-right flex flex-col items-end shrink-0">
                 {originalPrice > basePrice && (
-                  <span className="text-xs font-mono text-gray-400 line-through leading-none">
+                  <span className="text-xs font-amount text-gray-400 line-through leading-none">
                     ¥{originalPrice.toFixed(2)}
                   </span>
                 )}
-                <div className="flex items-baseline gap-0.5 mt-0.5">
-                  <span className="text-xs font-mono font-bold text-[#1A1A17]">¥</span>
-                  <span className="text-xl font-mono font-bold text-[#1A1A17] leading-none">
+                <div className="flex items-baseline gap-0.5 mt-0.5 font-amount">
+                  <span className="text-xs font-bold text-[#1A1A17]">¥</span>
+                  <span className="text-xl font-bold text-[#1A1A17] leading-none">
                     {basePrice.toFixed(2)}
                   </span>
                 </div>
                 {discountAmount > 0 && (
-                  <span className="mt-1 px-1 py-0.2 font-mono text-[9px] bg-[#E8F7ED] text-[#006D36] border border-[#006D36]/40 font-semibold whitespace-nowrap">
+                  <span className="mt-1 px-1 py-0.2 font-amount text-[9px] bg-[#E8F7ED] text-[#006D36] border border-[#006D36]/40 font-semibold whitespace-nowrap">
                     立减 -¥{discountAmount.toFixed(2)}
                   </span>
                 )}
@@ -499,14 +576,14 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
             </div>
 
             {/* Three Column Matrix Table */}
-            <div className="grid grid-cols-3 gap-1 py-1.5 px-2 bg-[#F9F9F7] border border-[#E2E0D8] font-mono text-[10px]">
+            <div className="grid grid-cols-3 gap-1 py-1.5 px-2 bg-[#F9F9F7] border border-[#E2E0D8] text-[10px]">
               <div>
                 <div className="text-gray-400 text-[9px]">基础原价</div>
-                <div className="text-[#1A1A17] font-semibold">¥{originalPrice.toFixed(2)}</div>
+                <div className="text-[#1A1A17] font-semibold font-amount">¥{originalPrice.toFixed(2)}</div>
               </div>
               <div className="border-l border-[#E2E0D8] pl-2">
                 <div className="text-gray-400 text-[9px]">立减优惠</div>
-                <div className="text-[#006D36] font-semibold">
+                <div className="text-[#006D36] font-semibold font-amount">
                   {discountAmount > 0 ? `-¥${discountAmount.toFixed(2)} (${discountPercent}折)` : '官方原价'}
                 </div>
               </div>
@@ -636,8 +713,22 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                         </div>
                       </div>
                       <div className="text-right shrink-0">
-                        <div className="font-mono font-bold text-xs text-[#1A1A17]">
+                        <div className="font-amount font-bold text-xs text-[#1A1A17]">
                           ¥{v.price.toFixed(2)}
+                        </div>
+                        <div className="flex items-center gap-1 mt-1 justify-end">
+                          <span
+                            role="button"
+                            title="生成此规格专属二维码 (支持扫单码多点/直接支付)"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedVariantId(v.id);
+                              setIsQrModalOpen(true);
+                            }}
+                            className="p-1 rounded-sm bg-neutral-100 hover:bg-[#1A1A17] text-neutral-600 hover:text-white transition-colors cursor-pointer"
+                          >
+                            <QrCode className="w-3 h-3" />
+                          </span>
                         </div>
                       </div>
                     </button>
@@ -690,24 +781,24 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                               </span>
                             </div>
                             <div className="shrink-0">
-                              <span className="text-xs font-mono font-bold text-[#006D36] whitespace-nowrap">
+                              <span className="text-xs font-amount font-bold text-[#006D36] whitespace-nowrap">
                                 +¥{selectedChoice.extraPrice.toFixed(2)}
                               </span>
                             </div>
                           </div>
 
-                          {/* Automated Blueprint Drawing Sketch Panel */}
-                          <div className="mt-2 pt-2 border-t border-[#006D36]/40 flex items-center gap-2.5 bg-[#FAF8F3] border border-[#D3D1CB] p-2">
-                            <div className="w-14 h-11 sm:w-16 sm:h-12 bg-[#041224] border border-[#1A1A17]/30 relative flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
-                              {/* 自动化矢量线稿渲染 */}
+                          {/* Automated Hand-Drawn Sketch Panel (手绘素描引擎自动计算) */}
+                          <div className="mt-2 pt-2 border-t border-[#006D36]/40 flex items-center gap-2.5 bg-[#FAF8F3] border border-[#D8D4C8] p-2">
+                            <div className="w-14 h-11 sm:w-16 sm:h-12 bg-[#F4F2EA] border border-[#C8C4B8] relative flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
+                              {/* 自动化手绘素描引擎渲染 */}
                               <img
-                                alt={`${selectedChoice.label} 线稿`}
+                                alt={`${selectedChoice.label} 手绘素描`}
                                 className="w-full h-full object-contain object-center scale-[1.05]"
-                                src={optionMedia.blueprintUrl}
+                                src={optionMedia.sketchUrl}
                                 referrerPolicy="no-referrer"
                               />
-                              <span className="absolute bottom-0 right-0 bg-[#00D4FF] text-[#041224] font-mono text-[6.5px] px-0.5 leading-none font-bold">
-                                CAD
+                              <span className="absolute bottom-0 right-0 bg-[#222326] text-[#FAF8F3] font-mono text-[6.5px] px-1 leading-tight font-bold tracking-tighter">
+                                SKETCH
                               </span>
                             </div>
 
@@ -715,9 +806,9 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                               <div className="flex items-center justify-between gap-1">
                                 <span className="text-[10px] font-mono text-[#1A1A17] font-bold flex items-center gap-1 shrink-0">
                                   <span className="w-1 h-1 bg-[#1A1A17]"></span>
-                                  草图线稿
+                                  手绘素描 · 自动计算
                                 </span>
-                                <span className="text-[9px] font-mono text-[#006D36] font-bold shrink-0 bg-[#E8F7ED] px-1.5 py-0.2 border border-[#006D36]/30">
+                                <span className="text-[9px] font-mono text-[#006D36] font-bold shrink-0 bg-[#E8F7ED] px-1.5 py-0.5 border border-[#006D36]/30">
                                   {optionMedia.coreMetricZh}
                                 </span>
                               </div>
@@ -758,7 +849,7 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                                   <span className="w-3.5 h-3.5 border border-[#D3D1CB] flex items-center justify-center bg-white shrink-0"></span>
                                   <span className="text-xs text-gray-800 truncate">{choice.label}</span>
                                 </div>
-                                <span className="text-xs font-mono text-gray-600 font-medium shrink-0 ml-2">
+                                <span className="text-xs font-amount text-gray-600 font-medium shrink-0 ml-2">
                                   +¥{choice.extraPrice.toFixed(2)}
                                 </span>
                               </label>
@@ -811,6 +902,38 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                   );
                 })}
               </div>
+
+              {/* 手绘素描引擎自动计算显示面板 (辣度) */}
+              {activeSpicinessSketch && (
+                <div className="mt-2 pt-2 border-t border-[#D3D1CB] flex items-center gap-2.5 bg-[#FAF8F3] border border-[#D8D4C8] p-2">
+                  <div className="w-14 h-11 sm:w-16 sm:h-12 bg-[#F4F2EA] border border-[#C8C4B8] relative flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
+                    <img
+                      alt={`${activeSpiciness} 辣度手绘素描`}
+                      className="w-full h-full object-contain object-center scale-[1.05]"
+                      src={activeSpicinessSketch.sketchUrl}
+                      referrerPolicy="no-referrer"
+                    />
+                    <span className="absolute bottom-0 right-0 bg-[#882222] text-[#FAF8F3] font-mono text-[6.5px] px-1 leading-tight font-bold tracking-tighter">
+                      SPICE
+                    </span>
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[10px] font-mono text-[#1A1A17] font-bold flex items-center gap-1 shrink-0">
+                        <span className="w-1 h-1 bg-[#882222]"></span>
+                        手绘素描 · 辣椒素标定
+                      </span>
+                      <span className="text-[9px] font-mono text-[#882222] font-bold shrink-0 bg-rose-50 px-1.5 py-0.5 border border-rose-200">
+                        {activeSpicinessSketch.coreMetricZh}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-gray-700 mt-1 leading-snug break-words">
+                      {activeSpicinessSketch.noteZh}
+                    </p>
+                  </div>
+                </div>
+              )}
             </fieldset>
           )}
 
@@ -852,23 +975,166 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                   );
                 })}
               </div>
+
+              {/* 手绘素描引擎自动计算显示面板 (口味) */}
+              {activeFlavorSketch && (
+                <div className="mt-2 pt-2 border-t border-[#D3D1CB] flex items-center gap-2.5 bg-[#FAF8F3] border border-[#D8D4C8] p-2">
+                  <div className="w-14 h-11 sm:w-16 sm:h-12 bg-[#F4F2EA] border border-[#C8C4B8] relative flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
+                    <img
+                      alt={`${activeFlavor} 口味手绘素描`}
+                      className="w-full h-full object-contain object-center scale-[1.05]"
+                      src={activeFlavorSketch.sketchUrl}
+                      referrerPolicy="no-referrer"
+                    />
+                    <span className="absolute bottom-0 right-0 bg-[#222326] text-[#FAF8F3] font-mono text-[6.5px] px-1 leading-tight font-bold tracking-tighter">
+                      FLAVOR
+                    </span>
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[10px] font-mono text-[#1A1A17] font-bold flex items-center gap-1 shrink-0">
+                        <span className="w-1 h-1 bg-[#1A1A17]"></span>
+                        手绘素描 · 风味自动计算
+                      </span>
+                      <span className="text-[9px] font-mono text-[#006D36] font-bold shrink-0 bg-[#E8F7ED] px-1.5 py-0.5 border border-[#006D36]/30">
+                        {activeFlavorSketch.coreMetricZh}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-gray-700 mt-1 leading-snug break-words">
+                      {activeFlavorSketch.noteZh}
+                    </p>
+                  </div>
+                </div>
+              )}
             </fieldset>
           )}
 
           {/* BEGIN: Artisan Notes & Sourcing Section */}
           <section aria-label="食材溯源与手记" className="space-y-2">
-            {/* Sourcing card */}
-            {(dish.originSource || dish.id === 'dish-1') && (
-              <div className="bg-white border border-[#D3D1CB] p-3 space-y-1">
-                <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-[#1A1A17] tracking-wider">
-                  <MapPin className="w-3 h-3 text-[#1A1A17]" />
-                  <span>食材原产地溯源</span>
+            {/* Sourcing & Food Safety Traceability Card */}
+            <div className="bg-white border border-[#D3D1CB] p-3 space-y-2.5">
+              <div
+                className="flex items-center justify-between cursor-pointer select-none"
+                onClick={() => setIsIngredientsSectionExpanded(!isIngredientsSectionExpanded)}
+              >
+                <div className="flex items-center gap-1.5 text-[11px] font-mono font-bold text-[#1A1A17] tracking-wider">
+                  <ShieldCheck className="w-4 h-4 text-[#006D36]" />
+                  <span>食材原产地溯源与食品安全 SOP</span>
                 </div>
-                <p className="text-xs text-gray-700 leading-relaxed font-sans">
-                  {dish.originSource || '日本宫崎县牧场直供和牛，雪花纹理达A5级标准，严选原切。'}
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] bg-emerald-50 text-[#006D36] border border-emerald-300 font-mono px-1.5 py-0.2 font-bold">
+                    {ingredientsList.length}味原料公示
+                  </span>
+                  <span className="text-[10px] text-gray-400 font-mono">
+                    {isIngredientsSectionExpanded ? '收起 ▲' : '展开 ▼'}
+                  </span>
+                </div>
               </div>
-            )}
+
+              {/* Sourcing summary */}
+              <p className="text-xs text-gray-700 leading-relaxed font-sans">
+                {dish.originSource ||
+                  traceMeta.originSource ||
+                  '澳大利亚昆士兰州直供谷饲牛肉，雪花纹理达A5标准，全程 ≤ -18℃ 冷链温控直抵移动餐车。'}
+              </p>
+
+              {/* Regulatory and Cold Chain Meta Badges */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 font-mono text-[10px] pt-1 border-t border-[#E2E0D8]">
+                <div className="flex items-center gap-1.5 text-gray-600 bg-[#FAF8F3] p-1.5 border border-[#E2E0D8]">
+                  <Snowflake className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                  <span className="truncate">
+                    温区: {dish.coldChainTemp || traceMeta.coldChainTemp || '全程 ≤ -18℃ 恒温深冷速冻'}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-gray-600 bg-[#FAF8F3] p-1.5 border border-[#E2E0D8]">
+                  <Barcode className="w-3.5 h-3.5 text-[#006D36] shrink-0" />
+                  <span className="truncate">
+                    检疫批单: {dish.inspectionBatchNo || traceMeta.inspectionBatchNo || '沪关检2026-0302-09'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Expandable detailed ingredient list with grams, brand, freezer location, barcode, and camera packaging photo stub */}
+              {isIngredientsSectionExpanded && ingredientsList.length > 0 && (
+                <div className="space-y-2 pt-1 border-t border-[#E2E0D8]">
+                  <div className="text-[10px] font-mono text-gray-500 font-bold flex items-center justify-between">
+                    <span>[ 详细配比 SOP 与包装验核存根 ]</span>
+                    <span className="text-[9px] text-gray-400">
+                      总用量约 {ingredientsList.reduce((acc, cur) => acc + (parseFloat(String(cur.dosageGrams)) || 0), 0)}g
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    {ingredientsList.map((ing, idx) => (
+                      <div
+                        key={ing.id || idx}
+                        className="bg-[#F9F9F7] border border-[#E2E0D8] p-2 text-xs space-y-1"
+                      >
+                        {/* Row 1: Name, dosage, brand */}
+                        <div className="flex items-center justify-between gap-1.5">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="w-4 h-4 bg-black text-white text-[9px] font-mono font-bold flex items-center justify-center shrink-0">
+                              {idx + 1}
+                            </span>
+                            <span className="font-bold text-[#1A1A17] truncate">{ing.name}</span>
+                            <span className="text-[10px] text-[#006D36] font-mono font-bold bg-emerald-50 px-1 border border-emerald-200 shrink-0">
+                              {ing.dosageGrams}g
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-mono text-gray-500 truncate shrink-0 max-w-[120px]">
+                            {ing.brand || '直采'}
+                          </span>
+                        </div>
+
+                        {/* Row 2: Origin & Freezer location & Barcode */}
+                        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-[10px] font-mono text-gray-600 pt-0.5 border-t border-dashed border-[#E2E0D8]">
+                          <span className="truncate">
+                            产地: {ing.origin || '原厂基地'}
+                          </span>
+                          <span className="text-blue-700 bg-blue-50 px-1 border border-blue-200 truncate">
+                            {ing.freezerLocation || '深冷冰库A-01'}
+                          </span>
+                          <span className="text-gray-500 truncate">
+                            条码: {ing.barcode || '6970000000000'}
+                          </span>
+                          <span className="text-gray-400">
+                            生产: {ing.productionDate || '2026-03-01'}
+                          </span>
+                        </div>
+
+                        {/* Row 3: Packaging photo proof (if uploaded/captured) */}
+                        {ing.packagingPhotoUrl && (
+                          <div
+                            onClick={() => setActivePackagingPhoto(ing.packagingPhotoUrl || null)}
+                            className="mt-1 flex items-center gap-2 p-1.5 bg-white border border-[#D3D1CB] hover:border-[#006D36] cursor-pointer transition-colors"
+                          >
+                            <div className="w-10 h-10 bg-black shrink-0 overflow-hidden border border-neutral-300">
+                              <img
+                                src={ing.packagingPhotoUrl}
+                                alt={`${ing.name} 包装拍照存根`}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1 text-[10px] font-bold text-[#006D36]">
+                                <Camera className="w-3 h-3" />
+                                <span>实物包装/防伪检疫章拍照存根</span>
+                              </div>
+                              <p className="text-[9px] text-gray-400 font-mono truncate">
+                                点击放大查验原厂标签与冷链存根水印
+                              </p>
+                            </div>
+                            <span className="text-[10px] text-gray-400 font-mono">查验 &gt;</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Chef notes card */}
             {(dish.chefNotes || dish.id === 'dish-1') && (
@@ -977,6 +1243,17 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                 </button>
               </div>
 
+              {/* QR Code Action Button */}
+              <button
+                type="button"
+                onClick={() => setIsQrModalOpen(true)}
+                className="h-10 px-3 bg-white hover:bg-neutral-100 active:bg-neutral-200 text-[#1A1A17] flex items-center justify-center gap-1.5 border border-[#D3D1CB] text-xs font-mono font-bold transition-all cursor-pointer shrink-0"
+                title="查看该菜品真实二维码（支持扫码自动加购或直接支付）"
+              >
+                <QrCode className="w-3.5 h-3.5 text-orange-600" />
+                <span className="hidden sm:inline">二维码</span>
+              </button>
+
               {/* Add to Bag Master Action Button */}
               <button
                 onClick={handleConfirm}
@@ -984,9 +1261,9 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                 type="button"
               >
                 <span className="font-sans font-bold">加入购物车</span>
-                <div className="flex items-center space-x-1">
-                  <span className="text-white/40 font-mono">|</span>
-                  <span className="font-mono text-sm tracking-tight font-bold">
+                <div className="flex items-center space-x-1 font-amount">
+                  <span className="text-white/40">|</span>
+                  <span className="text-sm tracking-tight font-bold">
                     ¥{totalPrice.toFixed(2)}
                   </span>
                 </div>
@@ -1005,6 +1282,57 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
           )}
         </footer>
         {/* END: FixedBottomDock */}
+
+        {/* REAL USABLE DISH QR CODE MODAL */}
+        <DishQrCodeModal
+          isOpen={isQrModalOpen}
+          onClose={() => setIsQrModalOpen(false)}
+          dish={dish}
+          initialVariantId={selectedVariantId}
+          initialQty={quantity}
+          onTriggerDirectAction={(params) => {
+            const currentVar = dish?.variants?.find((v) => v.id === params.variantId);
+            if (params.action === 'quick_pay') {
+              if (onQuickPay && dish) {
+                onQuickPay(dish, params.qty, selectedOptions, totalPrice, currentVar);
+              } else if (dish) {
+                onAddToCart(dish, params.qty, selectedOptions, totalPrice, currentVar);
+              }
+            } else if (dish) {
+              onAddToCart(dish, params.qty, selectedOptions, totalPrice, currentVar);
+            }
+          }}
+        />
+
+        {/* PACKAGING PHOTO LIGHTBOX */}
+        {activePackagingPhoto && (
+          <div
+            className="fixed inset-0 z-[120] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer"
+            onClick={() => setActivePackagingPhoto(null)}
+          >
+            <div
+              className="relative max-w-xl max-h-[85vh] bg-black border border-neutral-700 p-2 shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="absolute top-3 left-3 bg-black/75 text-emerald-400 text-[10px] font-mono px-2 py-1 flex items-center gap-1 border border-emerald-500/40 z-10">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <span>已核验食材原厂包装存根及防伪检疫标签</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActivePackagingPhoto(null)}
+                className="absolute top-3 right-3 p-1.5 bg-black/80 text-white hover:bg-neutral-800 z-10 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <img
+                src={activePackagingPhoto}
+                alt="食材包装实物拍照存根"
+                className="w-full max-h-[75vh] object-contain"
+              />
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

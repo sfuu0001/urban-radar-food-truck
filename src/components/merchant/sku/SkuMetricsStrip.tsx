@@ -28,51 +28,62 @@ export const SkuMetricsStrip: React.FC<SkuMetricsStripProps> = ({ skuList }) => 
   );
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-      <div className="bg-white p-3 rounded-[3px] border border-[#e2e8f0]">
-        <div className="text-[11px] text-[#64748b] font-medium flex items-center justify-between">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <div className="bg-white p-2.5 rounded-[3px] border border-[#e6e6e4] shadow-2xs">
+        <div className="text-[10.5px] text-[#787774] font-normal flex items-center justify-between">
           <span>维护档案总数</span>
-          <Layers className="w-3.5 h-3.5 text-blue-500" />
+          <Layers className="w-3.5 h-3.5 text-[#787774]" />
         </div>
-        <div className="text-xl font-mono font-bold text-[#0f172a] mt-0.5">
-          {totalSkuCount} <span className="text-xs font-normal">个 SKU</span>
+        <div className="text-base font-mono font-semibold text-[#0f172a] mt-0.5">
+          {totalSkuCount} <span className="text-xs font-normal text-[#787774]">个 SKU</span>
         </div>
-        <div className="text-[10px] text-[#64748b] mt-0.5">覆盖 8 大标准原料品类</div>
+        <div className="text-[10px] text-[#787774] mt-0.5 font-normal">覆盖 8 大标准原料品类</div>
       </div>
 
-      <div className="bg-white p-3 rounded-[3px] border border-[#bbf7d0] bg-[#f0fdf4]/60">
-        <div className="text-[11px] text-[#166534] font-medium flex items-center justify-between">
-          <span>🟢 在库现货品类</span>
-          <Warehouse className="w-3.5 h-3.5 text-emerald-600" />
+      <div className="bg-white p-2.5 rounded-[3px] border border-[#e6e6e4] shadow-2xs">
+        <div className="text-[10.5px] text-[#787774] font-normal flex items-center justify-between">
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            <span>在库现货品类</span>
+          </span>
+          <Warehouse className="w-3.5 h-3.5 text-[#787774]" />
         </div>
-        <div className="text-xl font-mono font-bold text-[#16a34a] mt-0.5">
-          {inStockCount} <span className="text-xs font-normal">种在库</span>
+        <div className="text-base font-mono font-semibold text-emerald-700 mt-0.5">
+          {inStockCount} <span className="text-xs font-normal text-[#787774]">种在库</span>
         </div>
-        <div className="text-[10px] text-[#166534] mt-0.5 font-medium">
+        <div className="text-[10px] text-[#787774] mt-0.5 font-normal">
           理论在库资产: ¥{totalStockAssetValue.toFixed(1)}
         </div>
       </div>
 
-      <div className="bg-white p-3 rounded-[3px] border border-amber-200 bg-amber-50/50">
-        <div className="text-[11px] text-amber-800 font-medium flex items-center justify-between">
-          <span>🟡 待入库 / 在途</span>
-          <Truck className="w-3.5 h-3.5 text-amber-600" />
+      <div className="bg-white p-2.5 rounded-[3px] border border-[#e6e6e4] shadow-2xs">
+        <div className="text-[10.5px] text-[#787774] font-normal flex items-center justify-between">
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+            <span>待入库 / 在途</span>
+          </span>
+          <Truck className="w-3.5 h-3.5 text-[#787774]" />
         </div>
-        <div className="text-xl font-mono font-bold text-amber-700 mt-0.5">
-          {pendingInCount} <span className="text-xs font-normal">批次在途</span>
+        <div className="text-base font-mono font-semibold text-[#0f172a] mt-0.5">
+          {pendingInCount} <span className="text-xs font-normal text-[#787774]">批次在途</span>
         </div>
-        <div className="text-[10px] text-amber-800/80 mt-0.5">冷链顺丰陆运配送中</div>
+        <div className="text-[10px] text-[#787774] mt-0.5 font-normal">冷链陆运配送中</div>
       </div>
 
-      <div className="bg-white p-3 rounded-[3px] border border-red-200 bg-red-50/50">
-        <div className="text-[11px] text-red-800 font-medium flex items-center justify-between">
-          <span>🔴 未在库 / 缺货告急</span>
-          <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
+      <div className={`p-2.5 rounded-[3px] border shadow-2xs ${
+        outOfStockCount > 0 ? 'bg-white border-red-200' : 'bg-white border-[#e6e6e4]'
+      }`}>
+        <div className="text-[10.5px] text-[#787774] font-normal flex items-center justify-between">
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+            <span>未在库 / 缺货告急</span>
+          </span>
+          <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
         </div>
-        <div className="text-xl font-mono font-bold text-red-600 mt-0.5">
-          {outOfStockCount} <span className="text-xs font-normal">种缺货</span>
+        <div className="text-base font-mono font-semibold text-red-600 mt-0.5">
+          {outOfStockCount} <span className="text-xs font-normal text-[#787774]">种缺货</span>
         </div>
-        <div className="text-[10px] text-red-800/80 mt-0.5">均值出肉率: {avgYield.toFixed(1)}%</div>
+        <div className="text-[10px] text-[#787774] mt-0.5 font-normal">均值出肉率: {avgYield.toFixed(1)}%</div>
       </div>
     </div>
   );

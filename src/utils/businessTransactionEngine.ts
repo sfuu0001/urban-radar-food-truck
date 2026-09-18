@@ -47,12 +47,17 @@ export interface CascadingRollbackParams {
   pointerId: string;
   operatorName?: string;
   showToast?: (title: string, desc?: string) => void;
+  /** 跳过基线一致性校验，强制覆盖该指针之后产生的变更（默认 false） */
+  force?: boolean;
 }
 
 export interface CascadingRollbackResult {
   success: boolean;
   message: string;
   revertedPointer?: VersionPointer;
+  /** 结构化失败原因，供 UI 区分"冲突待确认"与"模块不支持" */
+  reason?: string;
+  conflicts?: unknown[];
 }
 
 export class BusinessTransactionEngine {
@@ -468,9 +473,11 @@ export class BusinessTransactionEngine {
       }
 
       // 如果是标准单表回滚，委托给 globalVersionEngine
-      const res = globalVersionEngine.rollbackPointer(pointerId);
-      if (res.success && showToast) {
-        showToast(res.message);
+      // P0-a 修复：原先仅在 res.success 时提示，失败时用户点击「一键恢复」后界面毫无反馈；
+      // 现在失败原因（冲突/模块不支持/写入失败）会一并回传并提示。
+      const res = globalVersionEngine.rollbackPointer(pointerId, { force: params.force });
+      if (showToast) {
+        showToast(res.success ? res.message : `⚠️ ${res.message}`);
       }
       return {
         ...res,

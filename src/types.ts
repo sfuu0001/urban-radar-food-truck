@@ -74,6 +74,12 @@ export interface DishVariant {
   description?: string; // 变体专属卖点/规格描述
   isDefault?: boolean; // 是否设为默认选中变体
   available?: boolean; // 变体是否在售 (默认 true)
+  /** 按份售卖参数：一份含几个/几串（如 3 串/份），未填默认 1 */
+  unitsPerServing?: number;
+  /** 按份售卖单位（份/串/杯…），顾客端展示为"一份 3 串" */
+  saleUnit?: string;
+  /** 该规格最低加购数量（如最低 2 串起售） */
+  minPurchaseQty?: number;
   badgeText?: string; // 专属角标文字
   badgeStyle?: string; // 专属角标风格配色
   imageFit?: 'cover' | 'contain'; // 图片适配模式
@@ -149,6 +155,8 @@ export interface DishItem {
   spicinessOptions?: string[]; // 可选辣度池 (如: ['不辣 (原味)', '微辣 (推荐)', '中辣 (经典川香)', '重辣 (嗜辣专享)', '变态辣 (魔鬼椒)'])
   flavor?: string; // 默认口味 (如: '秘制黑椒酱香', '经典炭烤椒盐', '秘传孜然麻辣', '青花椒藤椒', '黑松露蒜香', '蜜汁原味')
   flavorOptions?: string[]; // 可选口味池
+  /** 口味池每个选项的专属变体图片 (key = 口味名)，顾客端选择口味时展示 */
+  flavorOptionImages?: Record<string, string>;
   flavorTags?: string[]; // 菜品风味标签 (支持自定义输入与多选标签库，如: ['炙烤焦香', '鲜嫩多汁', '黑椒浓郁', '果木熏香'])
   cookingStyle?: string; // 制作风格 (如: '炭火现烤 (果木炭慢烘)', '高压微炸 (外酥里嫩)', '远红外炙烤 (锁鲜多汁)', '铁板生煎 (焦香浓郁)', '生滚锁鲜 (清润鲜甜)', '先卤后烤 (软烂入味)', '酥脆金黄 (轻油薄脆)')
   cookingStyleOptions?: string[]; // 可选制作风格池
@@ -173,6 +181,37 @@ export interface DishItem {
     maxScore: number;
   }>; // 风味刻度方块指标 (如: 炙烤焦香 4/5)
   fieldSelectorMediaMap?: Record<string, FieldSelectorMediaItem>; // 口味风格、配菜、变体等字段选择器专属图库与线稿映射池
+  // --- 食材产地溯源与商品配方 SOP 扩展 ---
+  ingredients?: DishIngredientItem[]; // 食材原料配方清单
+  inspectionBatchNo?: string; // 食品检验检疫批号/报告编号
+  coldChainTemp?: string; // 冷链储运温控标准 (如: '全程 ≤ -18℃ 恒温深冷')
+  supplierName?: string; // 供货商 / 品牌资质单位
+  sopCookingSteps?: Array<{
+    stepNumber: number;
+    title: string;
+    description: string;
+    targetTemp?: string;
+    durationSeconds?: number;
+    keyCheckPoint?: string;
+  }>; // 制作与烤制 SOP 详细工序
+}
+
+/** 单个食材原料配方溯源项定义 */
+export interface DishIngredientItem {
+  id: string;
+  name: string; // 材料名称 (如: '澳洲M5谷饲和牛肉条')
+  dosageGrams: number | string; // 用量克重或单位 (如: 120 或 '120g' / '1个' / '30ml')
+  brand: string; // 食材品牌 (如: '澳大利亚AACO / 昆士兰特选')
+  origin: string; // 原产地 / 种植或养殖基地 (如: '澳大利亚昆士兰州达令草场')
+  productionDate: string; // 食材生产日期 (如: '2026-03-01')
+  shelfLife: string; // 保质期 (如: '180天 (至2026-08-31)')
+  freezerLocation: string; // 备注冷冻冰库位置 (如: '车载深冷冰库A-02层 (-18℃)')
+  barcode: string; // 原料条形码 (如: '6970123456789')
+  packagingPhotoUrl?: string; // 食材包装实物拍照存根主图
+  packagingPhotos?: string[]; // 食材包装多角度拍照存根图库
+  storageTemp?: string; // 储运温区 (如: '≤ -18℃ 冻藏')
+  inspectionCertNo?: string; // 检疫合格证号/溯源凭证
+  notes?: string; // 品控备注
 }
 
 export interface CartItem {
@@ -184,6 +223,10 @@ export interface CartItem {
   calculatedPrice: number;
   truckId?: string;
   truckName?: string;
+  participantId?: string; // 堂食点餐成员ID (如 'owner', 'p-lin', 'p-qiang')
+  participantName?: string; // 点餐人昵称 (如 '桌主 (你)', '同桌食客·小林', '同桌食客·阿强')
+  participantAvatar?: string; // 点餐人头像
+  cartId?: string; // 独立购物车标识 (如 '#CART-A1-01', '#CART-A1-02')
 }
 
 export interface OrderItemRecord {
@@ -199,6 +242,20 @@ export interface OrderItemRecord {
   prepProgress?: number; // 0 - 100
   station?: string; // e.g. "炭火炙烤档", "焗烤西点档", "冷饮吧台"
   serveTime?: string;
+  // 划菜与补偿扩展
+  isStruckOff?: boolean; // 商家是否划菜/作废该餐品
+  struckOffReason?: string; // 划菜原因备注（原料沽清、烤糊重做失败、食客退菜等）
+  struckOffAt?: string; // 划菜时间
+  struckOffOperator?: string; // 划菜操作人
+  compensationType?: 'refund' | 'free_gift' | 'replace_dish' | 'coupon' | 'none'; // 补偿方案
+  compensationDetail?: string; // 补偿明细描述
+  compensationAmount?: number; // 补偿/退款金额
+  isCompensatoryGift?: boolean; // 是否是作为补偿赠送的新增餐品
+  replacedFromDishName?: string; // 换购来源菜品名
+  // 点餐人归属
+  addedBy?: string; // 添加人昵称 (如: '桌主 (你)', '同桌食客·小林')
+  addedByAvatar?: string; // 添加人头像
+  participantId?: string; // 点餐人ID
 }
 
 export interface OrderAnomalyRecord {
@@ -387,6 +444,14 @@ export interface TableDishItem {
   serveTime?: string;
   imageUrl?: string;
   isChefSpecial?: boolean;
+  isStruckOff?: boolean;
+  struckOffReason?: string;
+  struckOffAt?: string;
+  compensationType?: 'refund' | 'free_gift' | 'replace_dish' | 'coupon' | 'none';
+  compensationDetail?: string;
+  compensationAmount?: number;
+  isCompensatoryGift?: boolean;
+  addedBy?: string;
 }
 
 export interface TableFlowNode {
@@ -423,6 +488,22 @@ export interface TableItem {
     timeText: string;
     countdownMinutes: number;
   };
+  /** ===== 桌台二维码体系（T2）=====
+   *  三者必须物理同框印刷：人眼可读桌号 + 二维码 + 人工兜底短码，
+   *  避免"二维码在桌上、桌号在墙上"导致对不上账。 */
+  /** 人眼可读短码，如 "A1-8F3K"（二维码破损时的人工录入通道） */
+  qrCode?: string;
+  /** 当前有效扫码令牌 */
+  qrToken?: string;
+  /** 令牌版本，轮换时递增 */
+  qrVersion?: number;
+  /** 桌码点餐开关 */
+  qrEnabled?: boolean;
+  qrIssuedAt?: string;
+  /** 已退役令牌（用于轮换后的宽限期校验，仅保留最近若干条） */
+  qrHistory?: Array<{ token: string; version: number; retiredAt: string }>;
+  /** 当前打开的桌台会话，便于矩阵页一键下钻 */
+  activeSessionId?: string;
 }
 
 export interface KdsDishTimelineNode {

@@ -58,6 +58,7 @@ import { WeightSkewerCalculatorModal } from './material/WeightSkewerCalculatorMo
 import { SkewerProcessingModal } from './material/SkewerProcessingModal';
 import { PurchaseDetailTraceModal } from './material/PurchaseDetailTraceModal';
 import { AccountAuditDrawer } from './AccountAuditDrawer';
+import { softDeleteToRecycleBin } from '../../utils/recycleBinEngine';
 
 interface MaterialViewProps {
   showToast: (msg: string) => void;
@@ -853,6 +854,17 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
           afterData: null,
           customSummary: `删除原物料档案【${name}】`
         });
+        // 统一回收站：软删除入站（30 天保留，可恢复）
+        softDeleteToRecycleBin({
+          type: 'material',
+          typeLabel: '原料档案',
+          refId: id,
+          label: name,
+          snapshot: target,
+          storageKey: 'obsidian_truck_materials',
+          container: 'array',
+          idField: 'id'
+        });
       }
       saveMaterials(updated);
       showToast(`原料档案 [${name}] 已删除`);
@@ -947,103 +959,103 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
   return (
     <div id="material-view" className="space-y-3.5 text-xs text-[#0f172a]">
       {/* 1. Header */}
-      <div className="bg-white p-3.5 sm:p-4 rounded-[4px] border border-[#e2e8f0] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+      <div className="pr-7 xl:pr-9 bg-white p-3.5 sm:p-4 rounded-[3px] border border-[#e6e6e4] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-base font-bold text-[#0f172a]">原料档案与安全库存管理</h1>
-            <span className="px-2 py-0.5 rounded-[2px] bg-[#f0fdf4] text-[#16a34a] border border-[#bbf7d0] text-[11px] font-semibold flex items-center gap-1">
+            <h1 className="text-base font-semibold text-[#0f172a]">原料档案与安全库存管理</h1>
+            <span className="px-2 py-0.5 rounded-[2px] bg-[#f0fdf4] text-emerald-800 border border-[#bbf7d0] text-[11px] font-normal flex items-center gap-1">
               <CheckCircle2 className="w-3 h-3 text-emerald-600" />
               <span>动态库存 & 合作商直管</span>
             </span>
           </div>
-          <p className="text-[11.5px] sm:text-[12px] text-[#64748b] mt-1 leading-relaxed">
+          <p className="text-[11.5px] sm:text-[12px] text-[#787774] mt-1 leading-relaxed font-normal">
             支持动态修改库存量、安全库存警戒线、参考价格、供应商档案与快捷补货盘点
           </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <button
             id="btn-open-material-templates"
             type="button"
             onClick={() => setIsTemplateModalOpen(true)}
-            className="px-3 py-2 rounded-[3px] bg-linear-to-r from-amber-600 to-amber-700 text-white hover:from-amber-700 hover:to-amber-800 font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-all active:scale-95 text-xs"
+            className="px-2.5 py-1.5 rounded-[2px] bg-white border border-[#e6e6e4] text-[#37352f] hover:bg-[#fbfbfa] font-normal flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs transition-colors active:scale-95 text-xs"
           >
-            <Sparkles className="w-4 h-4 text-amber-200" />
+            <Sparkles className="w-3.5 h-3.5 text-amber-600" />
             <span>原料模板库 ({STANDARD_MATERIAL_TEMPLATES.length})</span>
           </button>
           <button
             id="btn-download-material-templates"
             type="button"
             onClick={handleDownloadTemplateJson}
-            className="px-2.5 py-2 rounded-[3px] bg-white border border-[#cbd5e1] text-[#475569] hover:bg-[#f8fafc] font-medium flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors active:scale-95 text-xs"
+            className="px-2.5 py-1.5 rounded-[2px] bg-white border border-[#e6e6e4] text-[#787774] hover:bg-[#fbfbfa] font-normal flex items-center justify-center gap-1 cursor-pointer shadow-2xs transition-colors active:scale-95 text-xs"
             title="一键下载包含全部原料与安全库存参数的标准模板 JSON 文件"
           >
             <Download className="w-3.5 h-3.5 text-blue-600" />
-            <span>下载模板文件</span>
+            <span>下载模板</span>
           </button>
           <button
             id="btn-reset-stock-zero"
             type="button"
             onClick={handleResetAllStockToZero}
-            className="px-2.5 py-2 rounded-[3px] bg-white border border-amber-300 text-amber-900 hover:bg-amber-50 font-medium flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors active:scale-95 text-xs"
+            className="px-2 py-1.5 rounded-[2px] bg-white border border-[#e6e6e4] text-[#787774] hover:bg-[#fbfbfa] font-normal flex items-center justify-center gap-1 cursor-pointer shadow-2xs transition-colors active:scale-95 text-xs"
             title="将所有原料在库库存归零，等待商家手动验收入库上架"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
+            <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
             <span>在库归零</span>
           </button>
           <button
             id="btn-open-skewer-processing"
             type="button"
             onClick={() => handleOpenProcessingForMaterial()}
-            className="px-3 py-2 rounded-[3px] bg-amber-500 hover:bg-amber-600 text-white font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-all active:scale-95 text-xs"
+            className="px-2.5 py-1.5 rounded-[2px] bg-white border border-[#e6e6e4] text-[#37352f] hover:bg-[#fbfbfa] font-normal flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs transition-colors active:scale-95 text-xs"
           >
-            <Flame className="w-4 h-4 text-white" />
-            <span>原料穿串与在售台账</span>
+            <Flame className="w-3.5 h-3.5 text-amber-600" />
+            <span>穿串在售台账</span>
           </button>
           <button
             id="btn-open-weight-calculator"
             type="button"
             onClick={() => handleOpenCalculatorForMaterial()}
-            className="px-3 py-2 rounded-[3px] bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50 font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-all active:scale-95 text-xs"
+            className="px-2.5 py-1.5 rounded-[2px] bg-white border border-[#e6e6e4] text-[#37352f] hover:bg-[#fbfbfa] font-normal flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs transition-colors active:scale-95 text-xs"
           >
-            <Scale className="w-4 h-4 text-emerald-600" />
-            <span>重量除算测算器</span>
+            <Scale className="w-3.5 h-3.5 text-emerald-600" />
+            <span>除算测算器</span>
           </button>
           <button
             id="btn-create-new-material-archive"
             type="button"
             onClick={handleOpenCreateModal}
-            className="px-3 py-2 rounded-[3px] bg-white border border-[#cbd5e1] text-[#0f172a] hover:bg-[#f8fafc] font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors active:scale-95 text-xs"
+            className="px-2.5 py-1.5 rounded-[2px] bg-white border border-[#e6e6e4] text-[#37352f] hover:bg-[#fbfbfa] font-normal flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs transition-colors active:scale-95 text-xs"
           >
-            <Plus className="w-4 h-4 text-emerald-600" />
-            <span>新建原料档案</span>
+            <Plus className="w-3.5 h-3.5 text-emerald-600" />
+            <span>新建原料</span>
           </button>
           <button
             id="btn-create-new-purchase-order"
             type="button"
             onClick={() => setIsNewOrderModalOpen(true)}
-            className="px-3.5 py-2 rounded-[3px] bg-[#0f172a] text-white hover:bg-black font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors active:scale-95 text-xs"
+            className="px-3 py-1.5 rounded-[2px] bg-[#0f172a] text-white hover:bg-[#1e293b] font-normal flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs transition-colors active:scale-95 text-xs"
           >
-            <ShoppingCart className="w-4 h-4 text-emerald-400" />
+            <ShoppingCart className="w-3.5 h-3.5 text-emerald-400" />
             <span>下发新采购单</span>
           </button>
         </div>
       </div>
 
       {/* 1.5 Template & Zero-Stock Status Notice */}
-      <div className="bg-linear-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border border-amber-300/80 rounded-[4px] p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+      <div className="bg-[#fbfbfa] border border-[#e6e6e4] rounded-[3px] p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
         <div className="flex items-start sm:items-center gap-2.5">
-          <div className="w-8 h-8 rounded-[3px] bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
-            <Layers className="w-4 h-4" />
+          <div className="w-7 h-7 rounded-[2px] bg-white border border-[#e6e6e4] text-amber-700 flex items-center justify-center shrink-0">
+            <Layers className="w-3.5 h-3.5" />
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-bold text-xs text-amber-950">标准原料模板化与零在库模式已启用</span>
-              <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-200 text-amber-900">
+              <span className="font-medium text-xs text-[#0f172a]">标准原料模板化与零在库模式已启用</span>
+              <span className="px-1.5 py-0.2 rounded text-[10px] font-normal bg-amber-50 text-amber-800 border border-amber-200">
                 实际在库设为0 · 待商家手动上架
               </span>
             </div>
-            <p className="text-[11px] text-amber-800/90 mt-0.5">
+            <p className="text-[11px] text-[#787774] mt-0.5 font-normal">
               所有原料档案及安全库存参数已抽象为标准化模板。当前在库实际库存已归零，请点击【原料模板库】调配档案，或点击卡片上的【手动入库上架】录入实物到货。
             </p>
           </div>
@@ -1052,93 +1064,93 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
           <button
             type="button"
             onClick={() => setIsTemplateModalOpen(true)}
-            className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-[3px] text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition-colors"
+            className="px-2.5 py-1 bg-white border border-[#e6e6e4] hover:bg-[#fbfbfa] text-[#37352f] rounded-[2px] text-xs font-normal flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
           >
-            <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+            <Sparkles className="w-3 h-3 text-amber-600" />
             <span>打开原料模板库</span>
           </button>
           <button
             type="button"
             onClick={handleResetAllStockToZero}
-            className="px-2.5 py-1.5 bg-white border border-amber-300 hover:bg-amber-50 text-amber-900 rounded-[3px] text-xs font-medium flex items-center gap-1 shadow-xs cursor-pointer transition-colors"
+            className="px-2.5 py-1 bg-white border border-[#e6e6e4] hover:bg-[#fbfbfa] text-[#787774] rounded-[2px] text-xs font-normal flex items-center gap-1 shadow-2xs cursor-pointer transition-colors"
           >
             <RotateCcw className="w-3 h-3 text-amber-700" />
-            <span>一键在库归零</span>
+            <span>一键归零</span>
           </button>
         </div>
       </div>
 
       {/* 2. KPI Strip (6 Cards) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-2.5">
-        <div className="bg-[#fef2f2]/60 p-2.5 sm:p-3 rounded-[4px] border border-[#fecaca]">
-          <div className="text-[10.5px] text-[#991b1b] font-medium flex items-center gap-1">
+        <div className="bg-white p-2.5 sm:p-3 rounded-[3px] border border-[#e6e6e4] border-l-2 border-l-red-500 shadow-2xs">
+          <div className="text-[10.5px] text-[#787774] font-normal flex items-center gap-1">
             <AlertTriangle className="w-3 h-3 text-red-500 shrink-0" />
             <span>低库存预警</span>
           </div>
           <div className="text-lg sm:text-xl font-mono font-bold text-red-600 mt-1">
-            {lowStockCount} <span className="text-xs font-normal">项告急</span>
+            {lowStockCount} <span className="text-xs font-normal text-[#787774]">项告急</span>
           </div>
-          <div className="text-[10px] text-[#991b1b]/80 mt-0.5">低于安全警戒线</div>
+          <div className="text-[10px] text-[#787774] mt-0.5 font-normal">低于安全警戒线</div>
         </div>
 
-        <div className="bg-white p-2.5 sm:p-3 rounded-[4px] border border-[#e2e8f0]">
-          <div className="text-[10.5px] text-[#64748b] font-medium flex items-center gap-1">
-            <DollarSign className="w-3 h-3 text-emerald-500 shrink-0" />
+        <div className="bg-white p-2.5 sm:p-3 rounded-[3px] border border-[#e6e6e4] shadow-2xs">
+          <div className="text-[10.5px] text-[#787774] font-normal flex items-center gap-1">
+            <DollarSign className="w-3 h-3 text-emerald-600 shrink-0" />
             <span>累计采购支出</span>
           </div>
           <div className="text-lg sm:text-xl font-mono font-bold text-[#0f172a] mt-1 truncate">
             ¥{totalSpend.toFixed(0)}
           </div>
-          <div className="text-[10px] text-[#64748b] mt-0.5">全量采购单累计</div>
+          <div className="text-[10px] text-[#787774] mt-0.5 font-normal">全量采购单累计</div>
         </div>
 
-        <div className="bg-white p-2.5 sm:p-3 rounded-[4px] border border-[#e2e8f0]">
-          <div className="text-[10.5px] text-[#64748b] font-medium flex items-center gap-1">
-            <Boxes className="w-3 h-3 text-blue-500 shrink-0" />
+        <div className="bg-white p-2.5 sm:p-3 rounded-[3px] border border-[#e6e6e4] shadow-2xs">
+          <div className="text-[10.5px] text-[#787774] font-normal flex items-center gap-1">
+            <Boxes className="w-3 h-3 text-blue-600 shrink-0" />
             <span>原料档案总数</span>
           </div>
           <div className="text-lg sm:text-xl font-mono font-bold text-[#0f172a] mt-1">
-            {materials.length} <span className="text-xs font-normal">种物料</span>
+            {materials.length} <span className="text-xs font-normal text-[#787774]">种物料</span>
           </div>
-          <div className="text-[10px] text-[#64748b] mt-0.5">覆盖7大核心品类</div>
+          <div className="text-[10px] text-[#787774] mt-0.5 font-normal">覆盖7大核心品类</div>
         </div>
 
-        <div className="bg-[#eff6ff]/60 p-2.5 sm:p-3 rounded-[4px] border border-[#bfdbfe]">
-          <div className="text-[10.5px] text-[#1e40af] font-medium flex items-center gap-1">
+        <div className="bg-white p-2.5 sm:p-3 rounded-[3px] border border-[#e6e6e4] border-l-2 border-l-blue-600 shadow-2xs">
+          <div className="text-[10.5px] text-[#787774] font-normal flex items-center gap-1">
             <Truck className="w-3 h-3 text-blue-600 shrink-0" />
             <span>在途配送订单</span>
           </div>
-          <div className="text-lg sm:text-xl font-mono font-bold text-[#2563eb] mt-1">
-            {inTransitCount} <span className="text-xs font-normal">单冷链</span>
+          <div className="text-lg sm:text-xl font-mono font-bold text-blue-600 mt-1">
+            {inTransitCount} <span className="text-xs font-normal text-[#787774]">单冷链</span>
           </div>
-          <div className="text-[10px] text-[#1e40af]/80 mt-0.5">预计今日内到店</div>
+          <div className="text-[10px] text-[#787774] mt-0.5 font-normal">预计今日内到店</div>
         </div>
 
-        <div className="bg-[#fffbeb]/60 p-2.5 sm:p-3 rounded-[4px] border border-[#fde68a]">
-          <div className="text-[10.5px] text-[#92400e] font-medium flex items-center gap-1">
+        <div className="bg-white p-2.5 sm:p-3 rounded-[3px] border border-[#e6e6e4] border-l-2 border-l-amber-500 shadow-2xs">
+          <div className="text-[10.5px] text-[#787774] font-normal flex items-center gap-1">
             <Clock className="w-3 h-3 text-amber-600 shrink-0" />
             <span>采购历史单据</span>
           </div>
-          <div className="text-lg sm:text-xl font-mono font-bold text-amber-600 mt-1">
-            {purchaseRecords.length} <span className="text-xs font-normal">笔</span>
+          <div className="text-lg sm:text-xl font-mono font-bold text-amber-700 mt-1">
+            {purchaseRecords.length} <span className="text-xs font-normal text-[#787774]">笔</span>
           </div>
-          <div className="text-[10px] text-[#92400e]/80 mt-0.5">全量留存履约单据</div>
+          <div className="text-[10px] text-[#787774] mt-0.5 font-normal">全量留存履约单据</div>
         </div>
 
-        <div className="bg-white p-2.5 sm:p-3 rounded-[4px] border border-[#e2e8f0]">
-          <div className="text-[10.5px] text-[#64748b] font-medium flex items-center gap-1">
-            <Building2 className="w-3 h-3 text-purple-500 shrink-0" />
+        <div className="bg-white p-2.5 sm:p-3 rounded-[3px] border border-[#e6e6e4] shadow-2xs">
+          <div className="text-[10.5px] text-[#787774] font-normal flex items-center gap-1">
+            <Building2 className="w-3 h-3 text-purple-600 shrink-0" />
             <span>合作供应商数</span>
           </div>
           <div className="text-lg sm:text-xl font-mono font-bold text-[#0f172a] mt-1">
-            {allSuppliers.length} <span className="text-xs font-normal">家直供</span>
+            {allSuppliers.length} <span className="text-xs font-normal text-[#787774]">家直供</span>
           </div>
-          <div className="text-[10px] text-[#64748b] mt-0.5">支持快捷筛选对接</div>
+          <div className="text-[10px] text-[#787774] mt-0.5 font-normal">支持快捷筛选对接</div>
         </div>
       </div>
 
       {/* 3. Toolbar (Filter + Supplier Quick Bar + View Toggle + Search) */}
-      <div className="bg-white p-2.5 sm:p-3 rounded-[4px] border border-[#e2e8f0] space-y-2 shadow-xs">
+      <div className="bg-white p-2.5 sm:p-3 rounded-[3px] border border-[#e6e6e4] space-y-2 shadow-2xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div className="flex items-center gap-2 flex-wrap">
             {/* Categories Horizontal Scroll */}
@@ -1148,10 +1160,10 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
                   key={cat}
                   type="button"
                   onClick={() => setSelectedCategory(cat)}
-                  className={`px-2.5 py-1 rounded-[3px] text-[11px] font-semibold transition-all cursor-pointer shrink-0 ${
+                  className={`px-2.5 py-1 rounded-[2px] text-[11px] font-normal transition-colors cursor-pointer shrink-0 ${
                     selectedCategory === cat
-                      ? 'bg-[#0f172a] text-white shadow-xs'
-                      : 'bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0]'
+                      ? 'bg-[#0f172a] text-white'
+                      : 'bg-[#fbfbfa] text-[#787774] border border-[#e6e6e4] hover:bg-[#f1f1ef]'
                   }`}
                 >
                   {cat}
@@ -1166,10 +1178,10 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
                   key={st}
                   type="button"
                   onClick={() => setSelectedStatus(st)}
-                  className={`px-2 py-0.5 rounded-[3px] text-[10.5px] font-medium transition-all cursor-pointer shrink-0 ${
+                  className={`px-2 py-0.5 rounded-[2px] text-[10.5px] font-normal transition-colors cursor-pointer shrink-0 ${
                     selectedStatus === st
-                      ? 'bg-amber-100 text-amber-800 font-bold border border-amber-300'
-                      : 'bg-[#f8fafc] text-[#64748b] border border-[#e2e8f0] hover:bg-[#e2e8f0]'
+                      ? 'bg-[#fbfbfa] text-[#0f172a] font-medium border border-[#37352f]'
+                      : 'bg-[#fbfbfa] text-[#787774] border border-[#e6e6e4] hover:bg-[#f1f1ef]'
                   }`}
                 >
                   {st}
@@ -1181,23 +1193,23 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
           <div className="flex items-center gap-2 w-full sm:w-auto">
             {/* Search */}
             <div className="relative flex-1 sm:w-56">
-              <Search className="w-3.5 h-3.5 text-[#94a3b8] absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <Search className="w-3.5 h-3.5 text-[#787774] absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="搜索品名/编码/合作商/库位..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#f8fafc] border border-[#cbd5e1] rounded-[3px] pl-8 pr-2.5 py-1.5 text-xs text-[#0f172a] focus:outline-none focus:border-[#0f172a]"
+                className="w-full bg-[#fbfbfa] border border-[#e6e6e4] rounded-[2px] pl-8 pr-2.5 py-1 text-xs text-[#37352f] placeholder-[#9b9a97] focus:outline-none focus:border-[#37352f] font-normal"
               />
             </div>
 
             {/* View Mode Toggle */}
-            <div className="flex items-center border border-[#cbd5e1] rounded-[3px] overflow-hidden bg-white shrink-0">
+            <div className="flex items-center border border-[#e6e6e4] rounded-[2px] overflow-hidden bg-white shrink-0">
               <button
                 type="button"
                 onClick={() => setViewMode('grid')}
                 className={`p-1.5 cursor-pointer transition-colors ${
-                  viewMode === 'grid' ? 'bg-[#0f172a] text-white' : 'text-[#64748b] hover:bg-[#f1f5f9]'
+                  viewMode === 'grid' ? 'bg-[#0f172a] text-white' : 'text-[#787774] hover:bg-[#fbfbfa]'
                 }`}
                 title="卡片平铺网格"
               >
@@ -1207,7 +1219,7 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
                 type="button"
                 onClick={() => setViewMode('table')}
                 className={`p-1.5 cursor-pointer transition-colors ${
-                  viewMode === 'table' ? 'bg-[#0f172a] text-white' : 'text-[#64748b] hover:bg-[#f1f5f9]'
+                  viewMode === 'table' ? 'bg-[#0f172a] text-white' : 'text-[#787774] hover:bg-[#fbfbfa]'
                 }`}
                 title="采购流水表格"
               >
@@ -1218,8 +1230,8 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
         </div>
 
         {/* Supplier Filter Strip */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pt-1 pb-0.5 border-t border-[#f1f5f9] text-[11px] hide-scrollbar">
-          <span className="text-[#64748b] shrink-0 font-medium flex items-center gap-1">
+        <div className="flex items-center gap-1.5 overflow-x-auto pt-1 pb-0.5 border-t border-[#f1f1ef] text-[11px] hide-scrollbar">
+          <span className="text-[#787774] shrink-0 font-normal flex items-center gap-1">
             <Building2 className="w-3 h-3 text-purple-600" />
             <span>合作供应商：</span>
           </span>
@@ -1228,8 +1240,8 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
             onClick={() => setSelectedSupplierFilter('全部')}
             className={`px-2 py-0.5 rounded-[2px] transition-colors shrink-0 ${
               selectedSupplierFilter === '全部'
-                ? 'bg-purple-100 text-purple-800 font-bold'
-                : 'text-[#64748b] hover:bg-[#f1f5f9]'
+                ? 'bg-purple-50 text-purple-800 font-medium border border-purple-200'
+                : 'text-[#787774] hover:bg-[#fbfbfa]'
             }`}
           >
             全部合作商 ({allSuppliers.length})
@@ -1241,8 +1253,8 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
               onClick={() => setSelectedSupplierFilter(sup)}
               className={`px-2 py-0.5 rounded-[2px] transition-colors shrink-0 ${
                 selectedSupplierFilter === sup
-                  ? 'bg-purple-100 text-purple-800 font-bold border border-purple-200'
-                  : 'text-[#475569] bg-[#f8fafc] hover:bg-[#f1f5f9]'
+                  ? 'bg-purple-50 text-purple-800 font-medium border border-purple-200'
+                  : 'text-[#787774] bg-[#fbfbfa] border border-[#e6e6e4] hover:bg-[#f1f1ef]'
               }`}
             >
               {sup}
@@ -1254,75 +1266,75 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
       {/* 4. Main Content */}
       {viewMode === 'grid' ? (
         /* Mode A: Material Cards Grid with Full Editing & Quick Actions */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {filteredMaterials.map((mat) => {
             const isLow = mat.currentStock <= mat.safetyStock;
             return (
               <div
                 key={mat.id}
-                className={`bg-white rounded-[3px] border shadow-2xs flex flex-col justify-between overflow-hidden transition-all ${
-                  isLow ? 'border-red-300 ring-1 ring-red-100' : 'border-[#e2e8f0] hover:border-[#0f172a]/40'
+                className={`bg-white rounded-[3px] border shadow-2xs flex flex-col justify-between overflow-hidden transition-colors ${
+                  isLow ? 'border-red-300' : 'border-[#e6e6e4] hover:border-[#b4b4b0]'
                 }`}
               >
-                <div className="p-3.5 space-y-3">
+                <div className="p-3 space-y-2.5">
                   {/* Header */}
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-mono text-[10px] text-[#64748b] bg-[#f1f5f9] px-1.5 py-0.2 rounded-[2px]">
+                        <span className="font-mono text-[10px] text-[#787774] bg-[#fbfbfa] border border-[#e6e6e4] px-1.5 py-0.2 rounded-[2px]">
                           {mat.sku}
                         </span>
-                        <span className="px-1.5 py-0.2 rounded-[2px] bg-blue-50 text-blue-700 text-[10px] font-medium">
+                        <span className="px-1.5 py-0.2 rounded-[2px] bg-slate-50 text-slate-700 border border-slate-200 text-[10px] font-normal">
                           {mat.category}
                         </span>
                         {mat.storageTempZone && (
-                          <span className="px-1.5 py-0.2 rounded-[2px] bg-slate-100 text-slate-600 text-[10px] flex items-center gap-0.5">
+                          <span className="px-1.5 py-0.2 rounded-[2px] bg-slate-50 text-slate-600 border border-slate-200 text-[10px] flex items-center gap-0.5 font-normal">
                             <Thermometer className="w-2.5 h-2.5" />
                             <span>{mat.storageTempZone}</span>
                           </span>
                         )}
                       </div>
-                      <h3 className="font-bold text-sm text-[#0f172a] mt-1 flex items-center gap-1.5">
+                      <h3 className="font-medium text-xs text-[#0f172a] mt-1 flex items-center gap-1.5">
                         <span>{mat.name}</span>
-                        {mat.spec && <span className="text-[11px] font-normal text-[#64748b]">({mat.spec})</span>}
+                        {mat.spec && <span className="text-[11px] font-normal text-[#787774]">({mat.spec})</span>}
                       </h3>
                     </div>
 
                     <div className="flex items-center gap-1">
                       {isLow ? (
-                        <span className="px-1.5 py-0.5 rounded-[2px] bg-red-50 text-red-600 border border-red-200 text-[10px] font-bold flex items-center gap-0.5 shrink-0">
-                          <AlertTriangle className="w-3 h-3" />
+                        <span className="px-1.5 py-0.5 rounded-[2px] bg-red-50 text-red-700 border border-red-200 text-[10px] font-normal flex items-center gap-0.5 shrink-0">
+                          <AlertTriangle className="w-3 h-3 text-red-500" />
                           <span>缺料告急</span>
                         </span>
                       ) : (
-                        <span className="px-1.5 py-0.5 rounded-[2px] bg-emerald-50 text-emerald-600 border border-emerald-200 text-[10px] font-medium shrink-0">
+                        <span className="px-1.5 py-0.5 rounded-[2px] bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-normal shrink-0">
                           库存充裕
                         </span>
                       )}
                       <button
                         type="button"
                         onClick={() => handleOpenEdit(mat)}
-                        className="p-1 rounded-[2px] text-[#64748b] hover:text-[#0f172a] hover:bg-[#f1f5f9] transition-colors cursor-pointer"
+                        className="p-1 rounded-[2px] text-[#787774] hover:text-[#0f172a] hover:bg-[#fbfbfa] border border-transparent hover:border-[#e6e6e4] transition-colors cursor-pointer"
                         title="修改原料与安全库存信息"
                       >
-                        <Edit2 className="w-3.5 h-3.5 text-blue-600" />
+                        <Edit2 className="w-3 h-3 text-blue-600" />
                       </button>
                     </div>
                   </div>
 
                   {/* Stock Gauge & Quick +/- Adjuster */}
-                  <div className="bg-[#f8fafc] p-2.5 rounded-[3px] border border-[#e2e8f0] space-y-2">
+                  <div className="bg-[#fbfbfa] p-2 rounded-[3px] border border-[#e6e6e4] space-y-2">
                     {/* Zero Stock Manual On-Shelf Prompt */}
                     {mat.currentStock === 0 && (
-                      <div className="p-2 bg-amber-50 border border-amber-200 rounded-[3px] flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5 text-amber-800 text-[11px] font-medium">
+                      <div className="p-2 bg-amber-50 border border-amber-200 rounded-[2px] flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 text-amber-900 text-[11px] font-normal">
                           <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                           <span>在库为 0 (待手动上架)</span>
                         </div>
                         <button
                           type="button"
                           onClick={() => handleOpenStockIn(mat)}
-                          className="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-[2px] text-[10.5px] flex items-center gap-1 cursor-pointer transition-colors shadow-xs active:scale-95"
+                          className="px-2 py-0.5 bg-amber-700 hover:bg-amber-800 text-white font-normal rounded-[2px] text-[10.5px] flex items-center gap-1 cursor-pointer transition-colors active:scale-95"
                         >
                           <PackageCheck className="w-3 h-3" />
                           <span>手动上架</span>
@@ -1331,23 +1343,23 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
                     )}
 
                     <div className="flex items-center justify-between">
-                      <span className="text-[#64748b] text-[11px]">当前在库存量：</span>
+                      <span className="text-[#787774] text-[11px] font-normal">当前在库存量：</span>
                       <div className="flex items-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => handleInlineStockChange(mat.id, -1)}
-                          className="w-5 h-5 rounded-[2px] bg-white border border-[#cbd5e1] text-[#64748b] hover:bg-[#f1f5f9] flex items-center justify-center font-mono font-bold cursor-pointer transition-colors active:scale-95"
+                          className="w-5 h-5 rounded-[2px] bg-white border border-[#e6e6e4] text-[#787774] hover:bg-[#f1f1ef] flex items-center justify-center font-mono font-medium cursor-pointer transition-colors active:scale-95"
                           title="快速扣减 1 单位"
                         >
                           -
                         </button>
-                        <span className={`font-mono font-bold text-sm ${mat.currentStock === 0 ? 'text-amber-600' : isLow ? 'text-red-600' : 'text-[#0f172a]'}`}>
+                        <span className={`font-mono font-semibold text-xs ${mat.currentStock === 0 ? 'text-amber-700' : isLow ? 'text-red-600' : 'text-[#0f172a]'}`}>
                           {mat.currentStock} {mat.unit}
                         </span>
                         <button
                           type="button"
                           onClick={() => handleInlineStockChange(mat.id, 1)}
-                          className="w-5 h-5 rounded-[2px] bg-white border border-[#cbd5e1] text-[#64748b] hover:bg-[#f1f5f9] flex items-center justify-center font-mono font-bold cursor-pointer transition-colors active:scale-95"
+                          className="w-5 h-5 rounded-[2px] bg-white border border-[#e6e6e4] text-[#787774] hover:bg-[#f1f1ef] flex items-center justify-center font-mono font-medium cursor-pointer transition-colors active:scale-95"
                           title="快速增加 1 单位"
                         >
                           +
@@ -1355,42 +1367,42 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
                         <button
                           type="button"
                           onClick={() => handleOpenAdjust(mat)}
-                          className="ml-1 text-[10px] text-blue-600 hover:underline cursor-pointer"
+                          className="ml-1 text-[10px] text-blue-600 hover:underline cursor-pointer font-normal"
                         >
                           盘点校准
                         </button>
                       </div>
                     </div>
 
-                    <div className="w-full bg-[#e2e8f0] h-1.5 rounded-full overflow-hidden">
+                    <div className="w-full bg-[#e6e6e4] h-1 rounded-full overflow-hidden">
                       <div
-                        className={`h-full transition-all duration-300 ${isLow ? 'bg-red-500' : 'bg-emerald-500'}`}
+                        className={`h-full transition-all duration-300 ${isLow ? 'bg-red-500' : 'bg-emerald-600'}`}
                         style={{
                           width: `${Math.min(100, (mat.currentStock / Math.max(1, mat.safetyStock * 2)) * 100)}%`
                         }}
                       />
                     </div>
 
-                    <div className="flex items-center justify-between text-[10.5px] text-[#64748b]">
+                    <div className="flex items-center justify-between text-[10.5px] text-[#787774] font-normal">
                       <span className="flex items-center gap-0.5">
                         <span>安全线:</span>
-                        <strong className="text-red-600 font-mono">{mat.safetyStock} {mat.unit}</strong>
+                        <strong className="text-red-600 font-mono font-medium">{mat.safetyStock} {mat.unit}</strong>
                       </span>
                       <span>建议补货: +{mat.reorderSuggestion} {mat.unit}</span>
                     </div>
                   </div>
 
-                  {/* Skewer Processing & On-Sale Status Strip (串串加工与在售台账展示) */}
-                  <div className="p-2 rounded-[3px] bg-linear-to-r from-amber-50 to-orange-50 border border-amber-200 space-y-1.5 text-[11px]">
+                  {/* Skewer Processing & On-Sale Status Strip */}
+                  <div className="p-2 rounded-[3px] bg-[#fbfbfa] border border-[#e6e6e4] space-y-1.5 text-[11px]">
                     <div className="flex items-center justify-between">
                       <div 
                         onClick={() => handleOpenProcessingForMaterial(mat, 'isFinishedSkewer')}
-                        className="flex items-center gap-1 font-bold text-[#b45309] hover:text-amber-800 cursor-pointer group"
+                        className="flex items-center gap-1 font-medium text-amber-900 hover:text-amber-950 cursor-pointer group"
                         title="点击修改原料形态定义 (免穿制成品或手工穿制)"
                       >
                         <Flame className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                        <span className="group-hover:underline">串串成品 & 菜品状态：</span>
-                        <span className="text-[9.5px] bg-amber-200/80 text-amber-900 px-1 py-0.2 rounded-xs font-normal">
+                        <span className="group-hover:underline text-[11px]">串串成品 & 菜品状态：</span>
+                        <span className="text-[9.5px] bg-amber-50 text-amber-800 border border-amber-200 px-1 py-0.2 rounded-[2px] font-normal">
                           {mat.isFinishedSkewer ? '成品串' : '手工鲜穿'}
                         </span>
                         <Edit3 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-amber-700 transition-opacity" />
@@ -1399,20 +1411,20 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
                         <button
                           type="button"
                           onClick={() => handleToggleOnSale(mat)}
-                          className={`px-2 py-0.5 rounded-[2px] text-[10px] font-bold cursor-pointer transition-all active:scale-95 flex items-center gap-1 ${
+                          className={`px-1.5 py-0.5 rounded-[2px] text-[10px] font-normal cursor-pointer transition-all active:scale-95 flex items-center gap-1 ${
                             mat.isOnSale
-                              ? 'bg-emerald-600 text-white shadow-xs'
-                              : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
+                              : 'bg-white text-[#787774] border border-[#e6e6e4] hover:bg-[#f1f1ef]'
                           }`}
                           title="点击快速切换菜品前台在售/下架状态"
                         >
-                          <span className={`w-1.5 h-1.5 rounded-full ${mat.isOnSale ? 'bg-white animate-pulse' : 'bg-slate-400'}`} />
-                          <span>{mat.isOnSale ? '在售上架中' : '待命未上架'}</span>
+                          <span className={`w-1.5 h-1.5 rounded-full ${mat.isOnSale ? 'bg-emerald-600' : 'bg-slate-400'}`} />
+                          <span>{mat.isOnSale ? '在售上架' : '待命下架'}</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => handleOpenProcessingForMaterial(mat, 'isOnSale')}
-                          className="text-[9.5px] text-amber-700 hover:text-amber-900 underline cursor-pointer p-0.5"
+                          className="text-[9.5px] text-[#787774] hover:text-[#0f172a] underline cursor-pointer p-0.5 font-normal"
                           title="在弹窗中修改在售上架与前台联动参数"
                         >
                           详设
@@ -1423,45 +1435,45 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
                     <div className="grid grid-cols-2 gap-1.5 text-[10.5px]">
                       <div 
                         onClick={() => handleOpenProcessingForMaterial(mat, 'yieldSkewerCount')}
-                        className="bg-white/80 hover:bg-amber-100/70 border border-amber-100 hover:border-amber-400 px-1.5 py-1 rounded-[2px] flex items-center justify-between cursor-pointer transition-all group"
+                        className="bg-white hover:bg-[#fbfbfa] border border-[#e6e6e4] px-1.5 py-1 rounded-[2px] flex items-center justify-between cursor-pointer transition-colors group"
                         title="点击修改制成串数并高亮定位"
                       >
-                        <span className="text-[#78350f] group-hover:text-amber-900 flex items-center gap-0.5">
+                        <span className="text-[#787774] group-hover:text-[#0f172a] flex items-center gap-0.5 font-normal">
                           <span>制成串数:</span>
-                          <Edit3 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-amber-600 transition-opacity" />
+                          <Edit3 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-[#787774] transition-opacity" />
                         </span>
-                        <strong className="font-mono text-amber-900 group-hover:underline">{mat.yieldSkewerCount || 0} 串</strong>
+                        <strong className="font-mono text-[#0f172a] group-hover:underline font-semibold">{mat.yieldSkewerCount || 0} 串</strong>
                       </div>
                       <div 
                         onClick={() => handleOpenProcessingForMaterial(mat, 'skewerLocation')}
-                        className="bg-white/80 hover:bg-amber-100/70 border border-amber-100 hover:border-amber-400 px-1.5 py-1 rounded-[2px] flex items-center justify-between cursor-pointer transition-all group"
+                        className="bg-white hover:bg-[#fbfbfa] border border-[#e6e6e4] px-1.5 py-1 rounded-[2px] flex items-center justify-between cursor-pointer transition-colors group"
                         title="点击修改摆放库位与温区"
                       >
-                        <span className="text-[#78350f] group-hover:text-amber-900 flex items-center gap-0.5">
+                        <span className="text-[#787774] group-hover:text-[#0f172a] flex items-center gap-0.5 font-normal">
                           <span>摆放位置:</span>
-                          <Edit3 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-amber-600 transition-opacity" />
+                          <Edit3 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-[#787774] transition-opacity" />
                         </span>
-                        <span className="text-[#0f172a] font-medium truncate max-w-[85px] group-hover:underline" title={mat.skewerLocation || mat.storageLocation}>
+                        <span className="text-[#37352f] font-normal truncate max-w-[85px] group-hover:underline" title={mat.skewerLocation || mat.storageLocation}>
                           {mat.skewerLocation || mat.storageLocation || '冷库 A-01'}
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between text-[10px] text-[#92400e] pt-0.5">
+                    <div className="flex items-center justify-between text-[10px] text-[#787774] pt-0.5 font-normal">
                       <div 
                         onClick={() => handleOpenProcessingForMaterial(mat, 'usedQuantity')}
-                        className="flex items-center gap-1 hover:bg-amber-100/70 px-1 py-0.5 rounded-[2px] cursor-pointer transition-colors group"
+                        className="flex items-center gap-1 hover:bg-white px-1 py-0.5 rounded-[2px] cursor-pointer transition-colors group"
                         title="点击修改原料投料用量及扣料设置"
                       >
-                        <span className="group-hover:text-amber-950">投料情况:</span>
-                        <strong className="group-hover:underline">
+                        <span className="group-hover:text-[#0f172a]">投料情况:</span>
+                        <strong className="group-hover:underline text-[#37352f] font-medium">
                           {mat.isUsed ? `已投用 ${(mat.usedQuantity || 0)} ${mat.unit}` : '未投料制作'}
                         </strong>
-                        <Edit3 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-amber-600 transition-opacity" />
+                        <Edit3 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-[#787774] transition-opacity" />
                       </div>
                       <div 
                         onClick={() => handleOpenProcessingForMaterial(mat, 'linkedDishName')}
-                        className="text-blue-700 bg-blue-50 hover:bg-blue-100 hover:border-blue-300 border border-blue-200 px-1.5 py-0.5 rounded-[2px] truncate max-w-[125px] cursor-pointer transition-colors flex items-center gap-1 group"
+                        className="text-blue-700 bg-white hover:bg-blue-50/60 border border-[#e6e6e4] hover:border-blue-300 px-1.5 py-0.5 rounded-[2px] truncate max-w-[125px] cursor-pointer transition-colors flex items-center gap-1 group"
                         title={`点击切换或新增联动商品 (当前: ${mat.linkedDishName || '尚未绑定'})`}
                       >
                         <span className="truncate group-hover:underline">
@@ -1472,76 +1484,76 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
                     </div>
                   </div>
 
-                  {/* Procurement Specs & kg Calculation Strip (规格包件换算 & 公斤单价) */}
-                  <div className="p-2 rounded-[3px] bg-slate-50 border border-slate-200 text-[10.5px] space-y-1">
+                  {/* Procurement Specs & kg Calculation Strip */}
+                  <div className="p-2 rounded-[3px] bg-[#fbfbfa] border border-[#e6e6e4] text-[10.5px] space-y-1">
                     <div 
                       onClick={() => handleOpenEdit(mat, 'brand')}
-                      className="flex items-center justify-between text-[#475569] hover:bg-blue-50/80 px-1.5 py-0.5 rounded-[2px] cursor-pointer transition-colors group"
+                      className="flex items-center justify-between text-[#787774] hover:bg-white px-1.5 py-0.5 rounded-[2px] cursor-pointer transition-colors group"
                       title="点击修改品牌规格并高亮定位"
                     >
-                      <span className="flex items-center gap-1 font-medium group-hover:text-blue-900">
-                        <ShoppingBag className="w-3 h-3 text-blue-600" />
+                      <span className="flex items-center gap-1 font-normal group-hover:text-[#0f172a]">
+                        <ShoppingBag className="w-3 h-3 text-[#787774]" />
                         <span>品牌规格:</span>
-                        <Edit3 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-blue-600 transition-opacity" />
+                        <Edit3 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-[#787774] transition-opacity" />
                       </span>
-                      <span className="font-bold text-[#0f172a] group-hover:text-blue-900 group-hover:underline">
+                      <span className="font-medium text-[#0f172a] group-hover:underline">
                         {mat.brand || '自选优选'}
                       </span>
                     </div>
 
                     <div 
                       onClick={() => handleOpenEdit(mat, 'specPackaging')}
-                      className="text-[#334155] font-mono bg-white hover:bg-blue-50/80 p-1 rounded-[2px] border border-slate-200/60 hover:border-blue-300 flex items-center justify-between cursor-pointer transition-colors group"
+                      className="text-[#37352f] font-mono bg-white hover:bg-[#fbfbfa] p-1 rounded-[2px] border border-[#e6e6e4] flex items-center justify-between cursor-pointer transition-colors group"
                       title="点击修改克重、每箱包数与采购件数并高亮定位"
                     >
-                      <span className="group-hover:text-blue-900 flex items-center gap-1">
+                      <span className="group-hover:text-[#0f172a] flex items-center gap-1 font-normal text-[#787774]">
                         <span>{mat.specGramsPerPack || 500}g × {mat.specPacksPerBox || 20}包 × {mat.specBoxes || 2}件</span>
-                        <Edit3 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-blue-600 transition-opacity" />
+                        <Edit3 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-[#787774] transition-opacity" />
                       </span>
-                      <span className="text-emerald-700 font-bold group-hover:underline">
+                      <span className="text-emerald-700 font-semibold group-hover:underline">
                         ≈ {(mat.specCalculatedKg || mat.currentStock || 0)}kg
                       </span>
                     </div>
 
                     <div 
                       onClick={() => handleOpenEdit(mat, 'pricePerKg')}
-                      className="flex items-center justify-between pt-0.5 hover:bg-blue-50/80 px-1.5 py-0.5 rounded-[2px] cursor-pointer transition-colors group"
+                      className="flex items-center justify-between pt-0.5 hover:bg-white px-1.5 py-0.5 rounded-[2px] cursor-pointer transition-colors group"
                       title="点击修改折合公斤单价并高亮定位"
                     >
-                      <span className="text-[#64748b] group-hover:text-blue-900 flex items-center gap-0.5">
+                      <span className="text-[#787774] group-hover:text-[#0f172a] flex items-center gap-0.5 font-normal">
                         <span>折合公斤价:</span>
-                        <Edit3 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-blue-600 transition-opacity" />
+                        <Edit3 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-[#787774] transition-opacity" />
                       </span>
-                      <span className="font-mono font-bold text-emerald-600 group-hover:text-blue-700 text-xs group-hover:underline">
-                        ¥{(mat.pricePerKg || mat.purchasePrice).toFixed(2)} <span className="text-[10px] text-[#64748b]">/kg</span>
+                      <span className="font-mono font-semibold text-emerald-700 text-xs group-hover:underline">
+                        ¥{(mat.pricePerKg || mat.purchasePrice).toFixed(2)} <span className="text-[10px] text-[#787774] font-normal">/kg</span>
                       </span>
                     </div>
 
                     <div 
                       onClick={() => handleOpenEdit(mat, 'platformName')}
-                      className="flex items-center justify-between text-[10px] text-[#64748b] pt-0.5 border-t border-slate-200/50 hover:bg-blue-50/80 px-1.5 py-0.5 rounded-[2px] cursor-pointer transition-colors group"
+                      className="flex items-center justify-between text-[10px] text-[#787774] pt-0.5 border-t border-[#f1f1ef] hover:bg-white px-1.5 py-0.5 rounded-[2px] cursor-pointer transition-colors group font-normal"
                       title="点击修改采购渠道平台与执行标准号并高亮定位"
                     >
-                      <span className="truncate max-w-[120px] group-hover:text-blue-900 group-hover:underline flex items-center gap-0.5">
+                      <span className="truncate max-w-[120px] group-hover:text-[#0f172a] group-hover:underline flex items-center gap-0.5">
                         <span>{mat.platformName || '美菜网'} ({mat.procurementMethod || '平台采购'})</span>
-                        <Edit3 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-blue-600 transition-opacity" />
+                        <Edit3 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-[#787774] transition-opacity" />
                       </span>
-                      <span className="font-mono group-hover:text-blue-900 group-hover:underline">{mat.standardCode || 'GB/T 20575'}</span>
+                      <span className="font-mono text-[#787774] group-hover:text-[#0f172a] group-hover:underline">{mat.standardCode || 'GB/T 20575'}</span>
                     </div>
                   </div>
 
                   {/* Supplier & Price Details */}
-                  <div className="space-y-1 text-[11px] text-[#475569] bg-white pt-1">
+                  <div className="space-y-0.5 text-[11px] text-[#787774] bg-white pt-0.5 font-normal">
                     <div 
                       onClick={() => handleOpenEdit(mat, 'supplier')}
-                      className="flex items-center justify-between hover:bg-purple-50/80 px-1.5 py-1 rounded-[2px] cursor-pointer transition-colors group border border-transparent hover:border-purple-200"
+                      className="flex items-center justify-between hover:bg-[#fbfbfa] px-1.5 py-0.5 rounded-[2px] cursor-pointer transition-colors group"
                       title="点击修改合作供应商名称并高亮定位"
                     >
-                      <span className="text-[#64748b] group-hover:text-purple-950 flex items-center gap-1">
+                      <span className="text-[#787774] group-hover:text-[#0f172a] flex items-center gap-1">
                         <span>合作供应商:</span>
-                        <Edit3 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-purple-600 transition-opacity" />
+                        <Edit3 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-[#787774] transition-opacity" />
                       </span>
-                      <span className="text-[#0f172a] font-medium truncate max-w-[150px] flex items-center gap-1 group-hover:text-purple-900 group-hover:underline" title={mat.supplier}>
+                      <span className="text-[#37352f] font-normal truncate max-w-[150px] flex items-center gap-1 group-hover:text-[#0f172a] group-hover:underline" title={mat.supplier}>
                         <Building2 className="w-3 h-3 text-purple-600 shrink-0" />
                         <span className="truncate">{mat.supplier || '自选优选直供'}</span>
                       </span>
@@ -1549,45 +1561,45 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
 
                     <div 
                       onClick={() => handleOpenEdit(mat, 'supplierContact')}
-                      className="flex items-center justify-between text-[10.5px] hover:bg-blue-50/80 px-1.5 py-1 rounded-[2px] cursor-pointer transition-colors group border border-transparent hover:border-blue-200"
+                      className="flex items-center justify-between text-[10.5px] hover:bg-[#fbfbfa] px-1.5 py-0.5 rounded-[2px] cursor-pointer transition-colors group"
                       title="点击修改对接联系人与电话并高亮定位"
                     >
-                      <span className="text-[#64748b] group-hover:text-blue-950 flex items-center gap-1">
+                      <span className="text-[#787774] group-hover:text-[#0f172a] flex items-center gap-1">
                         <span>对接联系人:</span>
-                        <Edit3 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-blue-600 transition-opacity" />
+                        <Edit3 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-[#787774] transition-opacity" />
                       </span>
-                      <span className="text-[#334155] flex items-center gap-1 group-hover:text-blue-900 group-hover:underline">
+                      <span className="text-[#37352f] flex items-center gap-1 group-hover:text-[#0f172a] group-hover:underline">
                         <span>{mat.supplierContact || '点击设置联系人'}</span>
                         {mat.supplierPhone ? (
-                          <span className="font-mono text-[10px] text-blue-600">({mat.supplierPhone})</span>
+                          <span className="font-mono text-[10px] text-[#787774]">({mat.supplierPhone})</span>
                         ) : null}
                       </span>
                     </div>
 
                     <div 
                       onClick={() => handleOpenEdit(mat, 'storageTempZone')}
-                      className="flex items-center justify-between text-[10.5px] hover:bg-sky-50/80 px-1.5 py-1 rounded-[2px] cursor-pointer transition-colors group border border-transparent hover:border-sky-200"
+                      className="flex items-center justify-between text-[10.5px] hover:bg-[#fbfbfa] px-1.5 py-0.5 rounded-[2px] cursor-pointer transition-colors group"
                       title="点击修改存储温区并高亮定位"
                     >
-                      <span className="text-[#64748b] group-hover:text-sky-950 flex items-center gap-1">
+                      <span className="text-[#787774] group-hover:text-[#0f172a] flex items-center gap-1">
                         <span>存储温区:</span>
-                        <Edit3 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-sky-600 transition-opacity" />
+                        <Edit3 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-[#787774] transition-opacity" />
                       </span>
-                      <span className="text-[#0f172a] truncate max-w-[140px] group-hover:text-sky-900 group-hover:underline">
+                      <span className="text-[#37352f] truncate max-w-[140px] group-hover:text-[#0f172a] group-hover:underline">
                         {mat.storageTempZone || '冷藏 0-4℃'}
                       </span>
                     </div>
 
                     <div 
                       onClick={() => handleOpenEdit(mat, 'shelfLife')}
-                      className="flex items-center justify-between text-[10.5px] hover:bg-emerald-50/80 px-1.5 py-1 rounded-[2px] cursor-pointer transition-colors group border border-transparent hover:border-emerald-200"
+                      className="flex items-center justify-between text-[10.5px] hover:bg-[#fbfbfa] px-1.5 py-0.5 rounded-[2px] cursor-pointer transition-colors group"
                       title="点击修改保质期与入库批号并高亮定位"
                     >
-                      <span className="text-[#64748b] group-hover:text-emerald-950 flex items-center gap-1">
+                      <span className="text-[#787774] group-hover:text-[#0f172a] flex items-center gap-1">
                         <span>保质期 / 批号:</span>
-                        <Edit3 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-emerald-600 transition-opacity" />
+                        <Edit3 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-[#787774] transition-opacity" />
                       </span>
-                      <span className="font-mono text-[#334155] group-hover:text-emerald-900 group-hover:underline">
+                      <span className="font-mono text-[#37352f] group-hover:text-[#0f172a] group-hover:underline">
                         {mat.shelfLifeDays ? `${mat.shelfLifeDays}天` : '7天'} · {mat.batchNo || 'LOT-最新'}
                       </span>
                     </div>
@@ -1595,12 +1607,12 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
                 </div>
 
                 {/* Footer Action Buttons */}
-                <div className="bg-[#f8fafc] px-3 py-2 border-t border-[#e2e8f0] flex items-center justify-between gap-1.5 flex-wrap">
+                <div className="bg-[#fbfbfa] px-3 py-2 border-t border-[#e6e6e4] flex items-center justify-between gap-1.5 flex-wrap">
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
                       onClick={() => handleOpenProcessingForMaterial(mat)}
-                      className="px-2 py-1 rounded-[2px] bg-amber-50 border border-amber-300 text-amber-900 hover:bg-amber-100 text-[10.5px] font-bold flex items-center gap-1 cursor-pointer transition-colors active:scale-95"
+                      className="px-2 py-0.5 rounded-[2px] bg-white border border-[#e6e6e4] text-[#37352f] hover:bg-[#f1f1ef] text-[10.5px] font-normal flex items-center gap-1 cursor-pointer transition-colors active:scale-95"
                       title="原料穿串加工转化、记录制成串数、存放位置与在售状态"
                     >
                       <Flame className="w-3 h-3 text-amber-600" />
@@ -1610,7 +1622,7 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
                     <button
                       type="button"
                       onClick={() => handleOpenCalculatorForMaterial(mat)}
-                      className="px-2 py-1 rounded-[2px] bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50 text-[10.5px] font-medium flex items-center gap-1 cursor-pointer transition-colors active:scale-95"
+                      className="px-2 py-0.5 rounded-[2px] bg-white border border-[#e6e6e4] text-[#37352f] hover:bg-[#f1f1ef] text-[10.5px] font-normal flex items-center gap-1 cursor-pointer transition-colors active:scale-95"
                       title="自定义公斤除以数量出串测算器"
                     >
                       <Scale className="w-3 h-3 text-emerald-600" />
@@ -1622,16 +1634,16 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
                     <button
                       type="button"
                       onClick={() => handleOpenEdit(mat)}
-                      className="p-1 rounded-[2px] bg-white border border-[#cbd5e1] text-[#475569] hover:bg-[#f1f5f9] text-[11px] cursor-pointer"
+                      className="p-1 rounded-[2px] bg-white border border-[#e6e6e4] text-[#787774] hover:bg-[#f1f1ef] text-[11px] cursor-pointer"
                       title="修改参数"
                     >
-                      <Sliders className="w-3 h-3 text-blue-500" />
+                      <Sliders className="w-3 h-3 text-blue-600" />
                     </button>
 
                     <button
                       type="button"
                       onClick={() => handleOpenRestock(mat)}
-                      className="px-2.5 py-1 rounded-[2px] bg-[#0f172a] text-white hover:bg-black font-semibold flex items-center gap-1 cursor-pointer transition-colors text-[10.5px]"
+                      className="px-2.5 py-0.5 rounded-[2px] bg-[#0f172a] text-white hover:bg-[#1e293b] font-normal flex items-center gap-1 cursor-pointer transition-colors text-[10.5px]"
                     >
                       <ShoppingCart className="w-3 h-3 text-emerald-400" />
                       <span>快捷补货</span>
@@ -1644,77 +1656,77 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
         </div>
       ) : (
         /* Mode B: Full 10-Column Purchase Flow Table with Mobile Cards */
-        <div className="bg-white rounded-[3px] border border-[#e2e8f0] shadow-2xs overflow-hidden">
+        <div className="bg-white rounded-[3px] border border-[#e6e6e4] shadow-2xs overflow-hidden">
           {/* Mobile Card Layout (< md) */}
-          <div className="md:hidden divide-y divide-[#e2e8f0]">
+          <div className="md:hidden divide-y divide-[#e6e6e4]">
             {purchaseRecords.map((rec) => (
               <div
                 key={rec.id}
                 onClick={() => handleOpenTraceRecord(rec)}
-                className="p-3 space-y-2 hover:bg-[#f8fafc] transition-colors cursor-pointer"
+                className="p-3 space-y-2 hover:bg-[#fbfbfa] transition-colors cursor-pointer"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-mono text-[10px] text-[#64748b] bg-[#f1f5f9] px-1.5 py-0.2 rounded-[2px]">
+                      <span className="font-mono text-[10px] text-[#787774] bg-[#fbfbfa] border border-[#e6e6e4] px-1.5 py-0.2 rounded-[2px]">
                         {rec.purchaseNo}
                       </span>
-                      <span className="px-1.5 py-0.2 rounded-[2px] bg-blue-50 text-blue-700 text-[10px] font-medium">
+                      <span className="px-1.5 py-0.2 rounded-[2px] bg-slate-50 text-slate-700 border border-slate-200 text-[10px] font-normal">
                         {rec.category}
                       </span>
-                      <span className="px-1.5 py-0.2 rounded-[2px] bg-purple-50 text-purple-700 text-[10px]">
+                      <span className="px-1.5 py-0.2 rounded-[2px] bg-purple-50 text-purple-700 border border-purple-200 text-[10px] font-normal">
                         {rec.platformName || '美菜网'} ({rec.procurementMethod || '平台采购'})
                       </span>
                     </div>
-                    <h4 className="font-bold text-xs text-[#0f172a] mt-1 flex items-center gap-1.5">
+                    <h4 className="font-medium text-xs text-[#0f172a] mt-1 flex items-center gap-1.5">
                       <span>{rec.itemName}</span>
-                      {rec.brand && <span className="text-[10.5px] font-normal text-slate-500">[{rec.brand}]</span>}
+                      {rec.brand && <span className="text-[10.5px] font-normal text-[#787774]">[{rec.brand}]</span>}
                     </h4>
                   </div>
                   <div>
                     {rec.status === 'completed' && (
-                      <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-[2px] text-[10px] font-semibold">
+                      <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-[2px] text-[10px] font-normal">
                         已入库
                       </span>
                     )}
                     {rec.status === 'in_transit' && (
-                      <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-[2px] text-[10px] font-semibold flex items-center gap-1">
+                      <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-[2px] text-[10px] font-normal flex items-center gap-1">
                         <Truck className="w-2.5 h-2.5" />
                         <span>在途冷链</span>
                       </span>
                     )}
                     {rec.status === 'pending_approval' && (
-                      <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-[2px] text-[10px] font-semibold">
+                      <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-[2px] text-[10px] font-normal">
                         待审核
                       </span>
                     )}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 bg-[#f8fafc] p-2 rounded-[2px] border border-[#f1f5f9] text-[11px]">
+                <div className="grid grid-cols-2 gap-2 bg-[#fbfbfa] p-2 rounded-[2px] border border-[#e6e6e4] text-[11px]">
                   <div>
-                    <span className="text-[#64748b]">采购数量: </span>
-                    <strong className="font-mono text-[#0f172a]">{rec.quantity} {rec.unit}</strong>
-                    <span className="text-[#64748b] text-[10px] block">
+                    <span className="text-[#787774] font-normal">采购数量: </span>
+                    <strong className="font-mono text-[#0f172a] font-semibold">{rec.quantity} {rec.unit}</strong>
+                    <span className="text-[#787774] text-[10px] block font-normal">
                       单价: ¥{rec.unitPrice.toFixed(2)} {rec.pricePerKg ? `(¥${rec.pricePerKg}/kg)` : ''}
                     </span>
                   </div>
                   <div className="text-right">
-                    <span className="text-[#64748b]">订单总额: </span>
-                    <div className="font-mono font-bold text-xs text-[#16a34a]">
+                    <span className="text-[#787774] font-normal">订单总额: </span>
+                    <div className="font-mono font-semibold text-xs text-[#0f172a]">
                       ¥{rec.totalAmount.toFixed(2)}
                     </div>
                     {rec.specGramsPerPack && (
-                      <span className="text-[10px] text-slate-500 block">
+                      <span className="text-[10px] text-[#787774] block font-normal">
                         {rec.specGramsPerPack}g×{rec.specPacksPerBox || 20}包×{rec.specBoxes || 1}件
                       </span>
                     )}
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between text-[10px] text-[#64748b] pt-0.5">
+                <div className="flex items-center justify-between text-[10px] text-[#787774] pt-0.5 font-normal">
                   <div className="truncate max-w-[170px]">送至: {rec.destinationLocation || '车载冷柜'}</div>
-                  <div className="text-blue-600 font-medium flex items-center gap-0.5">
+                  <div className="text-blue-600 font-normal flex items-center gap-0.5">
                     <ShieldCheck className="w-3 h-3 text-emerald-600" />
                     <span>查看资质溯源档案 &gt;</span>
                   </div>
@@ -1723,11 +1735,11 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
             ))}
 
             {/* Mobile Footer Total */}
-            <div className="p-3 bg-[#f8fafc] border-t border-[#e2e8f0] flex items-center justify-between text-xs font-bold text-[#0f172a]">
+            <div className="p-3 bg-[#fbfbfa] border-t border-[#e6e6e4] flex items-center justify-between text-xs font-normal text-[#0f172a]">
               <span>全量共 {purchaseRecords.length} 笔订单</span>
               <div className="text-right">
-                <span className="text-[11px] text-[#64748b] font-normal mr-1.5">总采购支出:</span>
-                <span className="font-mono text-sm text-[#16a34a]">¥{totalSpend.toFixed(2)}</span>
+                <span className="text-[11px] text-[#787774] font-normal mr-1.5">总采购支出:</span>
+                <span className="font-mono text-sm font-semibold text-[#0f172a]">¥{totalSpend.toFixed(2)}</span>
               </div>
             </div>
           </div>
@@ -1735,79 +1747,79 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
           {/* Desktop Table (>= md) */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-[#f8fafc] text-[#64748b] border-b border-[#e2e8f0] font-semibold">
+              <thead className="bg-[#fbfbfa] text-[#787774] border-b border-[#e6e6e4] font-normal">
                 <tr>
-                  <th className="p-2.5">采购单号</th>
-                  <th className="p-2.5">平台与采购方式</th>
-                  <th className="p-2.5">原料品名 / 品牌</th>
-                  <th className="p-2.5">规格换算 (克×包×件)</th>
-                  <th className="p-2.5 text-right">数量与单价</th>
-                  <th className="p-2.5 text-right">折合公斤价</th>
-                  <th className="p-2.5 text-right">订单总额</th>
-                  <th className="p-2.5">履约配送时间 / 地点</th>
-                  <th className="p-2.5 text-center">状态</th>
-                  <th className="p-2.5 text-center">全量资质溯源</th>
+                  <th className="p-2.5 font-normal">采购单号</th>
+                  <th className="p-2.5 font-normal">平台与采购方式</th>
+                  <th className="p-2.5 font-normal">原料品名 / 品牌</th>
+                  <th className="p-2.5 font-normal">规格换算 (克×包×件)</th>
+                  <th className="p-2.5 text-right font-normal">数量与单价</th>
+                  <th className="p-2.5 text-right font-normal">折合公斤价</th>
+                  <th className="p-2.5 text-right font-normal">订单总额</th>
+                  <th className="p-2.5 font-normal">履约配送时间 / 地点</th>
+                  <th className="p-2.5 text-center font-normal">状态</th>
+                  <th className="p-2.5 text-center font-normal">全量资质溯源</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#e2e8f0]">
+              <tbody className="divide-y divide-[#f1f1ef]">
                 {purchaseRecords.map((rec) => (
-                  <tr key={rec.id} className="hover:bg-[#f8fafc]/70 transition-colors">
-                    <td className="p-2.5 font-mono font-medium text-[#0f172a]">
-                      <div>{rec.purchaseNo}</div>
-                      <div className="text-[10.5px] text-slate-400 font-normal">{rec.timestamp}</div>
+                  <tr key={rec.id} className="hover:bg-[#fbfbfa] transition-colors">
+                    <td className="p-2.5 font-mono text-[#0f172a]">
+                      <div className="font-medium">{rec.purchaseNo}</div>
+                      <div className="text-[10.5px] text-[#787774] font-normal">{rec.timestamp}</div>
                     </td>
                     <td className="p-2.5">
-                      <div className="font-medium text-[#0f172a]">{rec.platformName || '美菜网供应链'}</div>
-                      <div className="text-[10px] text-purple-700 bg-purple-50 px-1 py-0.2 rounded-[2px] inline-block mt-0.5">
+                      <div className="font-normal text-[#0f172a]">{rec.platformName || '美菜网供应链'}</div>
+                      <div className="text-[10px] text-purple-700 bg-purple-50 border border-purple-200 px-1 py-0.2 rounded-[2px] inline-block mt-0.5 font-normal">
                         {rec.procurementMethod || '平台直采'}
                       </div>
                     </td>
-                    <td className="p-2.5 font-bold text-[#0f172a]">
+                    <td className="p-2.5 font-medium text-[#0f172a]">
                       <div>{rec.itemName}</div>
-                      <div className="text-[10px] text-[#64748b] font-normal flex items-center gap-1">
+                      <div className="text-[10px] text-[#787774] font-normal flex items-center gap-1">
                         <span>品牌: {rec.brand || '自选优选'}</span>
                         <span>·</span>
                         <span>{rec.category}</span>
                       </div>
                     </td>
-                    <td className="p-2.5 text-[#334155] font-mono text-[11px]">
+                    <td className="p-2.5 text-[#37352f] font-mono text-[11px] font-normal">
                       <div>{rec.specGramsPerPack || 500}g × {rec.specPacksPerBox || 20}包 × {rec.specBoxes || 1}件</div>
-                      <div className="text-[10px] text-emerald-700 font-sans">
+                      <div className="text-[10px] text-emerald-700 font-sans font-normal">
                         标准号: {rec.standardCode || 'GB/T 20575'}
                       </div>
                     </td>
                     <td className="p-2.5 text-right font-mono text-[#0f172a]">
-                      <div className="font-bold">{rec.quantity} {rec.unit}</div>
-                      <div className="text-[10.5px] text-[#64748b]">¥{rec.unitPrice.toFixed(2)}/{rec.unit}</div>
+                      <div className="font-medium">{rec.quantity} {rec.unit}</div>
+                      <div className="text-[10.5px] text-[#787774] font-normal">¥{rec.unitPrice.toFixed(2)}/{rec.unit}</div>
                     </td>
-                    <td className="p-2.5 text-right font-mono text-emerald-600 font-bold">
+                    <td className="p-2.5 text-right font-mono text-emerald-700 font-medium">
                       ¥{(rec.pricePerKg || rec.unitPrice).toFixed(2)}/kg
                     </td>
-                    <td className="p-2.5 text-right font-mono font-bold text-[#16a34a]">
+                    <td className="p-2.5 text-right font-mono font-semibold text-[#0f172a]">
                       ¥{rec.totalAmount.toFixed(2)}
                     </td>
-                    <td className="p-2.5 text-[#475569] text-[11px]">
+                    <td className="p-2.5 text-[#37352f] text-[11px] font-normal">
                       <div className="truncate max-w-[130px]" title={rec.destinationLocation || '餐车指定冷库'}>
                         📍 {rec.destinationLocation || '餐车指定冷柜'}
                       </div>
-                      <div className="text-[10px] text-slate-500">
+                      <div className="text-[10px] text-[#787774]">
                         {rec.deliveryTime ? `送达: ${rec.deliveryTime}` : `下单: ${rec.orderTime || rec.timestamp}`}
                       </div>
                     </td>
                     <td className="p-2.5 text-center">
                       {rec.status === 'completed' && (
-                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-[2px] text-[10px] font-semibold">
+                        <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-[2px] text-[10px] font-normal">
                           已入库
                         </span>
                       )}
                       {rec.status === 'in_transit' && (
-                        <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-[2px] text-[10px] font-semibold flex items-center justify-center gap-1">
+                        <span className="px-1.5 py-0.5 bg-blue-50 text-blue-800 border border-blue-200 rounded-[2px] text-[10px] font-normal flex items-center justify-center gap-1">
                           <Truck className="w-2.5 h-2.5" />
                           <span>在途冷链</span>
                         </span>
                       )}
                       {rec.status === 'pending_approval' && (
-                        <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-[2px] text-[10px] font-semibold">
+                        <span className="px-1.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-[2px] text-[10px] font-normal">
                           待审核
                         </span>
                       )}
@@ -1816,23 +1828,23 @@ export const MaterialView: React.FC<MaterialViewProps> = ({ showToast }) => {
                       <button
                         type="button"
                         onClick={() => handleOpenTraceRecord(rec)}
-                        className="px-2 py-1 rounded-[2px] bg-slate-100 hover:bg-[#0f172a] text-[#0f172a] hover:text-white font-medium text-[11px] flex items-center justify-center gap-1 cursor-pointer transition-colors mx-auto"
+                        className="px-2 py-0.5 rounded-[2px] bg-white border border-[#e6e6e4] hover:bg-[#fbfbfa] text-[#37352f] font-normal text-[10.5px] flex items-center justify-center gap-1 cursor-pointer transition-colors mx-auto"
                         title="查看产品标准号、生产日期、资质证明与完整履约信息"
                       >
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                        <ShieldCheck className="w-3 h-3 text-emerald-600" />
                         <span>溯源档案</span>
                       </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
-              <tfoot className="bg-[#f8fafc] font-bold text-[#0f172a] border-t border-[#e2e8f0]">
+              <tfoot className="bg-[#fbfbfa] font-normal text-[#0f172a] border-t border-[#e6e6e4]">
                 <tr>
-                  <td colSpan={4} className="p-2.5">
+                  <td colSpan={4} className="p-2.5 text-[#787774]">
                     全量合计：{purchaseRecords.length} 笔订单
                   </td>
-                  <td colSpan={2} className="p-2.5 text-right">总采购支出金额：</td>
-                  <td className="p-2.5 text-right font-mono text-sm text-[#16a34a]">
+                  <td colSpan={2} className="p-2.5 text-right text-[#787774]">总采购支出金额：</td>
+                  <td className="p-2.5 text-right font-mono text-xs font-semibold text-[#0f172a]">
                     ¥{totalSpend.toFixed(2)}
                   </td>
                   <td colSpan={3}></td>

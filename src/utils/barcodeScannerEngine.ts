@@ -3,6 +3,8 @@ import { DishItem, Order, TableItem } from '../types';
 import { dispatchPickupVerifiedEvent, getOrGeneratePickupCode, getPickupShelfCode } from './pickupCodeEngine';
 import { voiceAlerts } from './voiceAlertEngine';
 import { merchantEventBus } from './merchantEventBus';
+import { parseQrScanResult, QrActionPayload } from './qrCodeEngine';
+import { getMerchantCoupons, validateCouponForTruck } from './couponEngine';
 
 export interface ScannerConfig {
   enabled: boolean;
@@ -110,11 +112,15 @@ export type ScannerSoundType =
   | 'beep_member'
   | 'beep_error'
   | 'beep_order'
+  | 'beep_coupon'
+  | 'beep_table'
   | 'success'
   | 'cart'
   | 'member'
   | 'error'
-  | 'order';
+  | 'order'
+  | 'coupon'
+  | 'table';
 
 export function playScannerBeep(type: ScannerSoundType = 'beep_success'): void {
   const cfg = getScannerConfig();
@@ -141,6 +147,30 @@ export function playScannerBeep(type: ScannerSoundType = 'beep_success'): void {
       osc.connect(gainNode);
       osc.start(now);
       osc.stop(now + 0.08);
+    } else if (sound === 'beep_coupon') {
+      // Pleasant Coupon Ding (1200Hz -> 1800Hz gentle bell)
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(1174.66, now);
+      osc.frequency.exponentialRampToValueAtTime(1760, now + 0.08);
+      gainNode.gain.setValueAtTime(0.25, now);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+      osc.connect(gainNode);
+      osc.start(now);
+      osc.stop(now + 0.18);
+    } else if (sound === 'beep_table') {
+      // Table Confirmation Harmonic (A5 -> D6)
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, now);
+      osc.frequency.setValueAtTime(1174.66, now + 0.05);
+      gainNode.gain.setValueAtTime(0.22, now);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+
+      osc.connect(gainNode);
+      osc.start(now);
+      osc.stop(now + 0.16);
     } else if (sound === 'beep_cart') {
       // Double Crisp Pop (1500Hz -> 2200Hz)
       const osc = ctx.createOscillator();
@@ -255,6 +285,141 @@ export function parseAndRouteBarcode(rawCode: string, options: ParseBarcodeOptio
   const timeStr = new Date().toLocaleTimeString('zh-CN', { hour12: false });
   const { dishes = [], orders = [], tables = [] } = options;
 
+  // 0. Check if QR Code Action URL or Payload (add_to_cart, quick_pay, combo_cart, combo_pay)
+  const qrPayload = parseQrScanResult(code);
+  if (qrPayload) {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('URBAN_RADAR_QR_ACTION', { detail: qrPayload }));
+    }
+    const isPay = qrPayload.action === 'quick_pay' || qrPayload.action === 'combo_pay';
+    playScannerBeep(isPay ? 'beep_order' : 'beep_cart');
+
+    if (qrPayload.type === 'single') {
+      const targetDish = dishes.find((d) => d.id === qrPayload.dishId);
+      const targetVar = targetDish?.variants?.find((v) => v.id === qrPayload.variantId);
+      const dishTitle = targetDish ? targetDish.name : `菜品 #${qrPayload.dishId}`;
+      const varSuffix = targetVar ? ` (${targetVar.name})` : '';
+      const result: ScanResult = {
+        code,
+        type: 'dish',
+        title: `真实点餐码: ${dishTitle}${varSuffix}`,
+        subtitle: isPay ? `直付跳转模式 · 数量 x${qrPayload.qty}` : `自动加购模式 · 数量 x${qrPayload.qty}`,
+        timestamp: timeStr,
+        matchedData: targetDish || { id: qrPayload.dishId },
+        success: true,
+        actionTaken: isPay ? '已启动引擎：自动装载餐品并直达收银台直接支付' : '已启动引擎：已自动添加至选购单购物车'
+      };
+      pushScanHistory(result);
+      return result;
+    } else if (qrPayload.type === 'combo') {
+      // combo
+      const result: ScanResult = {
+        code,
+        type: 'custom',
+        title: `套餐专属码: ${qrPayload.comboName}`,
+        subtitle: `${isPay ? '直付模式' : '批量加购'} · 包含 ${qrPayload.items.length} 样已选组合餐品`,
+        timestamp: timeStr,
+        matchedData: qrPayload,
+        success: true,
+        actionTaken: isPay ? '已启动引擎：套餐组合全量加载并直接拉起支付' : '已启动引擎：已自动扫码添加套餐全品至购物车'
+      };
+      pushScanHistory(result);
+      return result;
+    } else if (qrPayload.type === 'coupon') {
+      // 优惠券专属二维码识别 (领券/核销)
+      const allCoupons = getMerchantCoupons();
+      const matched = allCoupons.find((c) => c.code.toUpperCase() === qrPayload.couponCode.toUpperCase());
+      const isUniversal = !matched || matched.truckScopeType === 'all_trucks';
+      const isolationText = isUniversal
+        ? '全车队餐车通用'
+        : `限特定餐车: ${matched?.applicableTruckNames?.join('/') || '专属隔离'}`;
+
+      playScannerBeep('beep_success');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('URBAN_RADAR_COUPON_SCANNED', {
+            detail: { coupon: matched, code: qrPayload.couponCode, isUniversal, payload: qrPayload }
+          })
+        );
+      }
+
+      const result: ScanResult = {
+        code,
+        type: 'coupon',
+        title: `优惠券专属码: ${qrPayload.couponCode}`,
+        subtitle: `${matched?.title || (matched as any)?.name || '平台优惠券'} · 【${isolationText}】 · 减免 ¥${qrPayload.val || matched?.discountValue || 5}`,
+        timestamp: timeStr,
+        matchedData: matched || { code: qrPayload.couponCode, amount: qrPayload.val || 5 },
+        success: true,
+        actionTaken: qrPayload.action === 'redeem_coupon' ? '扫码枪卡券核销校验通过' : '扫码领券广播已触发'
+      };
+      pushScanHistory(result);
+      return result;
+    } else if (qrPayload.type === 'table') {
+      // 桌台跳转或扫码点餐码识别
+      const targetTable = tables.find(
+        (t) =>
+          t.id.toUpperCase() === qrPayload.tableCode.toUpperCase() ||
+          t.name.toUpperCase() === qrPayload.tableCode.toUpperCase()
+      );
+      playScannerBeep('beep_table');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('URBAN_RADAR_TABLE_SCANNED', {
+            detail: { table: targetTable, tableCode: qrPayload.tableCode, token: qrPayload.token }
+          })
+        );
+      }
+
+      const result: ScanResult = {
+        code,
+        type: 'table',
+        title: `桌台码识别: ${targetTable ? targetTable.name : qrPayload.tableCode}`,
+        subtitle: targetTable ? `区域: ${(targetTable as any).zoneLabel || (targetTable as any).area || '外摆区'} · 容纳 ${targetTable.capacity} 人 · 状态: ${targetTable.status}` : '快速扫码绑定桌号',
+        timestamp: timeStr,
+        matchedData: targetTable || { tableCode: qrPayload.tableCode, token: qrPayload.token },
+        success: true,
+        actionTaken: '已识别桌位码，联动系统就坐点餐'
+      };
+      pushScanHistory(result);
+      return result;
+    } else if (qrPayload.type === 'pickup') {
+      // 提货码二维码
+      const cleanPickup = qrPayload.pickupCode;
+      const matchedOrderByPickup = orders.find((o) => {
+        const pCode = getOrGeneratePickupCode(o.orderNo, o.pickupCode);
+        return pCode === cleanPickup || (o.orderNo || '').toUpperCase().includes(cleanPickup);
+      });
+      playScannerBeep('beep_order');
+      if (matchedOrderByPickup) {
+        const pCode = getOrGeneratePickupCode(matchedOrderByPickup.orderNo, matchedOrderByPickup.pickupCode);
+        const shelf = getPickupShelfCode(matchedOrderByPickup.id || matchedOrderByPickup.orderNo, matchedOrderByPickup.pickupShelfCode);
+        dispatchPickupVerifiedEvent({
+          orderId: matchedOrderByPickup.id,
+          orderNo: matchedOrderByPickup.orderNo,
+          pickupCode: pCode,
+          pickupShelfCode: shelf,
+          verifiedAt: timeStr,
+          verifiedBy: '二维码扫码极速核销',
+          channel: matchedOrderByPickup.channelType || 'delivery'
+        });
+        voiceAlerts.scannerVerifySuccess(`提货码 ${pCode}`, `关联订单 #${matchedOrderByPickup.orderNo.replace(/^#/, '')} 核销通过`);
+      }
+      const result: ScanResult = {
+        code,
+        type: 'pickup',
+        title: `取餐码扫码: ${cleanPickup}`,
+        subtitle: matchedOrderByPickup ? `关联订单 #${matchedOrderByPickup.orderNo} · 核销成功` : '提货核验中',
+        timestamp: timeStr,
+        matchedData: matchedOrderByPickup || { pickupCode: cleanPickup },
+        success: true,
+        actionTaken: '提货码二维码校验通过，已触发核销放行'
+      };
+      pushScanHistory(result);
+      return result;
+    }
+  }
+
   // 1. Check if matches a Dish barcode or Dish ID
   const matchedDish = dishes.find(
     (d) =>
@@ -356,30 +521,102 @@ export function parseAndRouteBarcode(rawCode: string, options: ParseBarcodeOptio
     return result;
   }
 
-  // 3. Check if Coupon / Voucher Code (CPN-, COUPON-, TICKET-, 优惠券)
+  // 3. Check if Coupon / Voucher Code (UR-VIP*, UR-LUNCH*, UR-*, CPN-, COUPON-, TICKET-, 优惠券)
+  const allMerchantCoupons = getMerchantCoupons();
+  const matchedCoupon = allMerchantCoupons.find(
+    (c) => c.code.toUpperCase() === code.toUpperCase()
+  );
   const isCoupon =
+    Boolean(matchedCoupon) ||
     code.startsWith('CPN-') ||
     code.startsWith('COUPON-') ||
     code.startsWith('VOUCHER-') ||
-    code.startsWith('DISCOUNT-');
+    code.startsWith('DISCOUNT-') ||
+    code.startsWith('UR-VIP') ||
+    code.startsWith('UR-LUNCH') ||
+    code.startsWith('UR-DRINK') ||
+    code.startsWith('UR-WEEKEND') ||
+    code.startsWith('UR-FREE');
 
   if (isCoupon) {
     playScannerBeep('beep_success');
+    const isUniversal = !matchedCoupon || matchedCoupon.truckScopeType === 'all_trucks';
+    const scopeLabel = isUniversal
+      ? '全部餐车通用'
+      : `多餐车隔离限定: ${matchedCoupon?.applicableTruckNames?.join(' / ') || '专属隔离'}`;
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('URBAN_RADAR_COUPON_SCANNED', {
+          detail: { coupon: matchedCoupon, code, isUniversal }
+        })
+      );
+    }
+
     const result: ScanResult = {
       code,
       type: 'coupon',
-      title: `优惠券/核销码: ${code}`,
-      subtitle: '全单立减 ¥10 · 限时核销',
+      title: `优惠券识别: ${matchedCoupon?.title || (matchedCoupon as any)?.name || code}`,
+      subtitle: `【${scopeLabel}】 · ${matchedCoupon ? `满¥${matchedCoupon.minSpend}减¥${matchedCoupon.discountValue}` : '立减专享'}`,
       timestamp: timeStr,
-      matchedData: { couponCode: code, amount: 10 },
+      matchedData: matchedCoupon || { couponCode: code, amount: 10 },
       success: true,
-      actionTaken: '卡券校验通过，应用立减'
+      actionTaken: isUniversal
+        ? '已识别全车队通用券，联动收银台与选购单应用'
+        : '已识别餐车专属隔离券，执行分车风控校验并应用'
     };
     pushScanHistory(result);
     return result;
   }
 
-  // 4. Check if Order Barcode / Receipt QR (ORD-, UR-, #OD-, 8位以上订单号)
+  // 4. Check if Table QR Code (A01, B02, TBL-, TABLE-, T-01, 或带token短码如 A01-8F3K)
+  const cleanTableInput = code.replace(/^(TBL-|TABLE-|T-)/i, '').trim();
+  const shortCodeBase = cleanTableInput.includes('-') ? cleanTableInput.split('-')[0] : cleanTableInput;
+
+  const matchedTable = tables.find(
+    (t) =>
+      t.id.toLowerCase() === code.toLowerCase() ||
+      t.name.toLowerCase() === code.toLowerCase() ||
+      t.id.toLowerCase() === cleanTableInput.toLowerCase() ||
+      t.name.toLowerCase() === cleanTableInput.toLowerCase() ||
+      t.id.toLowerCase() === shortCodeBase.toLowerCase() ||
+      t.name.toLowerCase() === shortCodeBase.toLowerCase() ||
+      `tbl-${t.id}`.toLowerCase() === code.toLowerCase() ||
+      `tbl-${t.name}`.toLowerCase() === code.toLowerCase()
+  );
+
+  const isTablePattern =
+    Boolean(matchedTable) ||
+    code.startsWith('TBL-') ||
+    code.startsWith('TABLE-') ||
+    /^[A-Z]\d{1,2}(-[A-Z0-9]{4})?$/i.test(code);
+
+  if (isTablePattern) {
+    playScannerBeep('beep_table');
+    const tblName = matchedTable ? matchedTable.name : `台位 ${cleanTableInput.toUpperCase()}`;
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('URBAN_RADAR_TABLE_SCANNED', {
+          detail: { table: matchedTable, tableCode: cleanTableInput.toUpperCase() }
+        })
+      );
+    }
+
+    const result: ScanResult = {
+      code,
+      type: 'table',
+      title: `桌台码: ${tblName}`,
+      subtitle: matchedTable ? `区域: ${(matchedTable as any).zoneLabel || (matchedTable as any).area || '外摆区'} · 状态: ${matchedTable.status} · 容纳 ${matchedTable.capacity} 人` : '快速切换开台并绑定',
+      timestamp: timeStr,
+      matchedData: matchedTable || { tableCode: cleanTableInput },
+      success: true,
+      actionTaken: '定位目标桌台，已触发桌台绑定与开台联动'
+    };
+    pushScanHistory(result);
+    return result;
+  }
+
+  // 5. Check if Order Barcode / Receipt QR (ORD-, #OD-, 真实已存在订单)
   const matchedOrder = orders.find(
     (o) =>
       o.id.toLowerCase() === code.toLowerCase() ||
@@ -387,7 +624,7 @@ export function parseAndRouteBarcode(rawCode: string, options: ParseBarcodeOptio
       code.includes(o.orderNo)
   );
 
-  if (matchedOrder || code.startsWith('ORD-') || code.startsWith('UR-')) {
+  if (matchedOrder || code.startsWith('ORD-') || code.startsWith('OD-') || (code.startsWith('UR-') && code.length > 12)) {
     playScannerBeep('beep_order');
     const title = matchedOrder ? `订单 #${matchedOrder.orderNo}` : `识别订单码: ${code}`;
     const result: ScanResult = {
@@ -401,32 +638,6 @@ export function parseAndRouteBarcode(rawCode: string, options: ParseBarcodeOptio
       matchedData: matchedOrder || { orderId: code },
       success: true,
       actionTaken: '定位订单并完成出餐核销'
-    };
-    pushScanHistory(result);
-    return result;
-  }
-
-  // 5. Check if Table QR Code (TBL-, TABLE-, T-01)
-  const matchedTable = tables.find(
-    (t) =>
-      t.id.toLowerCase() === code.toLowerCase() ||
-      t.name.toLowerCase() === code.toLowerCase() ||
-      `tbl-${t.id}`.toLowerCase() === code.toLowerCase() ||
-      `tbl-${t.name}`.toLowerCase() === code.toLowerCase()
-  );
-
-  if (matchedTable || code.startsWith('TBL-') || code.startsWith('TABLE-')) {
-    playScannerBeep('beep_success');
-    const tblName = matchedTable ? matchedTable.name : `台位 ${code}`;
-    const result: ScanResult = {
-      code,
-      type: 'table',
-      title: `桌台码: ${tblName}`,
-      subtitle: matchedTable ? `状态: ${matchedTable.status} · 容纳 ${matchedTable.capacity} 人` : '快速切换开台',
-      timestamp: timeStr,
-      matchedData: matchedTable || { tableCode: code },
-      success: true,
-      actionTaken: '切换至目标桌台进行开台或收银'
     };
     pushScanHistory(result);
     return result;

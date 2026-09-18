@@ -38,6 +38,9 @@ import {
   MODULE_NAME_MAP
 } from '../../utils/versionPointerEngine';
 import { businessTransactionEngine } from '../../utils/businessTransactionEngine';
+import { DateRangeFilter } from '../common/DateRangeFilter';
+import { DateFilterState, resolveDateRange, isWithinRange } from '../../utils/dateFilter';
+import { useMemo } from 'react';
 
 interface MerchantDataFallbackCenterProps {
   showToast: (msg: string, detail?: string) => void;
@@ -54,6 +57,9 @@ export const MerchantDataFallbackCenter: React.FC<MerchantDataFallbackCenterProp
   const [selectedModuleFilter, setSelectedModuleFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [onlyMistakes, setOnlyMistakes] = useState<boolean>(true); // 默认优先聚焦疑似误操作
+  // 时间区间筛选（版本指针按操作时间过滤）
+  const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'all' });
+  const dateRange = useMemo(() => resolveDateRange(dateFilter), [dateFilter]);
 
   const [selectedPointerForDiff, setSelectedPointerForDiff] = useState<VersionPointer | null>(null);
   const [isSnapshotCreating, setIsSnapshotCreating] = useState<boolean>(false);
@@ -81,6 +87,9 @@ export const MerchantDataFallbackCenter: React.FC<MerchantDataFallbackCenterProp
 
   // Filtered operations
   const filteredPointers = pointers.filter((p) => {
+    if (!isWithinRange(new Date(p.timestamp).getTime(), dateRange)) {
+      return false;
+    }
     if (selectedOperatorFilter !== 'all' && p.operator.id !== selectedOperatorFilter) {
       return false;
     }
@@ -247,10 +256,13 @@ export const MerchantDataFallbackCenter: React.FC<MerchantDataFallbackCenterProp
 
       {/* 员工账号风控透视雷达卡片 */}
       <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs">
-        <h3 className="font-bold text-sm text-slate-900 mb-3 flex items-center gap-2">
-          <Users className="w-4 h-4 text-indigo-600" />
-          <span>当前全部员工账号操作审计追踪</span>
-        </h3>
+        <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
+          <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+            <Users className="w-4 h-4 text-indigo-600" />
+            <span>当前全部员工账号操作审计追踪</span>
+          </h3>
+          <DateRangeFilter value={dateFilter} onChange={setDateFilter} compact />
+        </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
           {DEFAULT_MERCHANT_OPERATORS.map((op) => {

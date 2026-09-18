@@ -195,41 +195,41 @@ export const ProcessingLossView: React.FC<ProcessingLossViewProps> = ({ showToas
 
       {/* 2. KPI Strip (4 cards) */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
-        <div className="bg-white p-2.5 sm:p-3 rounded-[4px] border border-[#e2e8f0]">
-          <div className="text-[10.5px] text-[#64748b] font-medium">本月加工批次</div>
+        <div className="bg-white p-2.5 sm:p-3 rounded-[3px] border border-[#e6e6e4] shadow-2xs">
+          <div className="text-[10.5px] text-[#787774] font-normal">本月加工批次</div>
           <div className="text-lg sm:text-xl font-mono font-bold text-[#0f172a] mt-1">
-            {totalBatches} <span className="text-xs font-normal">批次</span>
+            {totalBatches} <span className="text-xs font-normal text-[#787774]">批次</span>
           </div>
-          <div className="text-[10px] text-[#64748b] mt-0.5">累计毛料 {totalGrossKg.toFixed(1)} kg</div>
+          <div className="text-[10px] text-[#787774] mt-0.5 font-normal">累计毛料 {totalGrossKg.toFixed(1)} kg</div>
         </div>
 
-        <div className="bg-[#f0fdf4]/60 p-2.5 sm:p-3 rounded-[4px] border border-[#bbf7d0]">
-          <div className="text-[10.5px] text-[#166534] font-medium">平均综合出肉率</div>
-          <div className="text-lg sm:text-xl font-mono font-bold text-[#16a34a] mt-1">
+        <div className="bg-white p-2.5 sm:p-3 rounded-[3px] border border-[#e6e6e4] border-l-2 border-l-emerald-600 shadow-2xs">
+          <div className="text-[10.5px] text-[#787774] font-normal">平均综合出肉率</div>
+          <div className="text-lg sm:text-xl font-mono font-bold text-emerald-700 mt-1">
             {(avgYieldRate * 100).toFixed(1)}%
           </div>
-          <div className="text-[10px] text-[#166534]/80 mt-0.5">行业标杆基准: 74.0%</div>
+          <div className="text-[10px] text-[#787774] mt-0.5 font-normal">行业标杆基准: 74.0%</div>
         </div>
 
-        <div className="bg-white p-2.5 sm:p-3 rounded-[4px] border border-[#e2e8f0]">
-          <div className="text-[10.5px] text-[#64748b] font-medium">初加工损耗金额</div>
+        <div className="bg-white p-2.5 sm:p-3 rounded-[3px] border border-[#e6e6e4] shadow-2xs">
+          <div className="text-[10.5px] text-[#787774] font-normal">初加工损耗金额</div>
           <div className="text-lg sm:text-xl font-mono font-bold text-[#0f172a] mt-1">
             ¥{totalLossCost.toFixed(0)}
           </div>
-          <div className="text-[10px] text-[#64748b] mt-0.5">骨脂皮膜剔除成本</div>
+          <div className="text-[10px] text-[#787774] mt-0.5 font-normal">骨脂皮膜剔除成本</div>
         </div>
 
-        <div className={`p-2.5 sm:p-3 rounded-[4px] border ${
-          abnormalCount > 0 ? 'bg-[#fef2f2]/60 border-[#fecaca] text-[#991b1b]' : 'bg-white border-[#e2e8f0]'
+        <div className={`p-2.5 sm:p-3 rounded-[3px] border border-[#e6e6e4] shadow-2xs ${
+          abnormalCount > 0 ? 'border-l-2 border-l-red-500 bg-white' : 'bg-white'
         }`}>
-          <div className="text-[10.5px] font-medium flex items-center gap-1">
+          <div className="text-[10.5px] font-normal text-[#787774] flex items-center gap-1">
             <AlertTriangle className="w-3 h-3 text-red-500 shrink-0" />
             <span>异常批次预警</span>
           </div>
           <div className="text-lg sm:text-xl font-mono font-bold text-red-600 mt-1">
-            {abnormalCount} <span className="text-xs font-normal">批次超标</span>
+            {abnormalCount} <span className="text-xs font-normal text-[#787774]">批次超标</span>
           </div>
-          <div className="text-[10px] text-[#991b1b]/80 mt-0.5">出肉率偏离基准 &gt;5%</div>
+          <div className="text-[10px] text-[#787774] mt-0.5 font-normal">出肉率偏离基准 &gt;5%</div>
         </div>
       </div>
 
@@ -374,14 +374,14 @@ export const ProcessingLossView: React.FC<ProcessingLossViewProps> = ({ showToas
         </div>
 
         {/* Right: Records Table & Filters (54%) */}
-        <div className="lg:col-span-7 bg-white rounded-[3px] border border-[#e2e8f0] shadow-2xs overflow-hidden space-y-3 p-4">
+        <div className="lg:col-span-7 bg-white rounded-[3px] border border-[#e6e6e4] shadow-2xs overflow-hidden space-y-3 p-3.5 sm:p-4">
           {/* Filters row */}
-          <div className="flex items-center justify-between gap-2 flex-wrap pb-1 border-b border-[#e2e8f0]">
-            <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center justify-between gap-2 flex-wrap pb-2 border-b border-[#e6e6e4]">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="bg-[#f8fafc] border border-[#cbd5e1] rounded-[2px] px-2 py-1 text-xs text-[#0f172a] focus:outline-none"
+                className="bg-[#fbfbfa] border border-[#e6e6e4] rounded-[2px] px-2 py-1 text-xs text-[#37352f] focus:outline-none font-normal"
               >
                 <option value="all">全部状态</option>
                 <option value="normal">符合标杆 (绿)</option>
@@ -392,7 +392,7 @@ export const ProcessingLossView: React.FC<ProcessingLossViewProps> = ({ showToas
               <select
                 value={filterOperator}
                 onChange={(e) => setFilterOperator(e.target.value)}
-                className="bg-[#f8fafc] border border-[#cbd5e1] rounded-[2px] px-2 py-1 text-xs text-[#0f172a] focus:outline-none"
+                className="bg-[#fbfbfa] border border-[#e6e6e4] rounded-[2px] px-2 py-1 text-xs text-[#37352f] focus:outline-none font-normal"
               >
                 <option value="all">全部责任厨师</option>
                 <option value="王厨师长">王厨师长</option>
@@ -401,14 +401,14 @@ export const ProcessingLossView: React.FC<ProcessingLossViewProps> = ({ showToas
               </select>
             </div>
 
-            <div className="relative min-w-[160px]">
-              <Search className="w-3.5 h-3.5 text-[#94a3b8] absolute left-2 top-1/2 -translate-y-1/2" />
+            <div className="relative min-w-[150px]">
+              <Search className="w-3.5 h-3.5 text-[#787774] absolute left-2 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="搜索原料/原因/厨师..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#f8fafc] border border-[#cbd5e1] rounded-[2px] pl-7 pr-2 py-1 text-xs text-[#0f172a] focus:outline-none"
+                className="w-full bg-[#fbfbfa] border border-[#e6e6e4] rounded-[2px] pl-6 pr-2 py-1 text-xs text-[#37352f] placeholder-[#9b9a97] focus:outline-none font-normal"
               />
             </div>
           </div>
@@ -416,76 +416,76 @@ export const ProcessingLossView: React.FC<ProcessingLossViewProps> = ({ showToas
           {/* Table */}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-[#f8fafc] text-[#64748b] border-b border-[#e2e8f0]">
+              <thead className="bg-[#fbfbfa] text-[#787774] border-b border-[#e6e6e4]">
                 <tr>
-                  <th className="p-2 font-semibold">日期时间</th>
-                  <th className="p-2 font-semibold">加工原料品名</th>
-                  <th className="p-2 font-semibold text-right">毛重/净重</th>
-                  <th className="p-2 font-semibold text-right">实际出肉率</th>
-                  <th className="p-2 font-semibold text-right">损耗金额</th>
-                  <th className="p-2 font-semibold text-center">评估</th>
-                  <th className="p-2 font-semibold">责任人与归因</th>
+                  <th className="p-2 font-normal">日期时间</th>
+                  <th className="p-2 font-normal">加工原料品名</th>
+                  <th className="p-2 font-normal text-right">毛重 / 净重</th>
+                  <th className="p-2 font-normal text-right">实际出肉率</th>
+                  <th className="p-2 font-normal text-right">损耗金额</th>
+                  <th className="p-2 font-normal text-center">评估</th>
+                  <th className="p-2 font-normal">责任人与归因</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#e2e8f0]">
+              <tbody className="divide-y divide-[#f1f1ef]">
                 {filteredRecords.map((rec) => {
                   return (
-                    <tr key={rec.id} className="hover:bg-[#f8fafc]/70 transition-colors">
-                      <td className="p-2 text-[#64748b] text-[11px] whitespace-nowrap">{rec.date}</td>
-                      <td className="p-2 font-bold text-[#0f172a]">
+                    <tr key={rec.id} className="hover:bg-[#fbfbfa] transition-colors">
+                      <td className="p-2 text-[#787774] text-[11px] font-normal whitespace-nowrap">{rec.date}</td>
+                      <td className="p-2 font-medium text-[#0f172a]">
                         <div>{rec.materialName}</div>
-                        <div className="text-[10px] text-[#64748b] font-normal">{rec.category}</div>
+                        <div className="text-[10px] text-[#787774] font-normal">{rec.category}</div>
                       </td>
-                      <td className="p-2 text-right font-mono text-[#0f172a]">
-                        <div>{rec.grossWeight}kg / <span className="font-bold">{rec.netWeight}kg</span></div>
-                        <div className="text-[10px] text-[#64748b]">损耗 {rec.lossKg}kg</div>
+                      <td className="p-2 text-right font-mono text-[#37352f] text-xs font-normal">
+                        <div>{rec.grossWeight}kg / <span className="font-medium text-[#0f172a]">{rec.netWeight}kg</span></div>
+                        <div className="text-[10px] text-[#787774] font-normal">损耗 {rec.lossKg}kg</div>
                       </td>
-                      <td className="p-2 text-right font-mono font-bold">
+                      <td className="p-2 text-right font-mono font-semibold">
                         <span className={
-                          rec.status === 'critical' ? 'text-red-600' : (rec.status === 'warning' ? 'text-amber-600' : 'text-[#16a34a]')
+                          rec.status === 'critical' ? 'text-red-600' : (rec.status === 'warning' ? 'text-amber-600' : 'text-emerald-700')
                         }>
                           {(rec.yieldRate * 100).toFixed(0)}%
                         </span>
-                        <div className="text-[10px] text-[#64748b] font-normal">标杆 {(rec.standardRate * 100).toFixed(0)}%</div>
+                        <div className="text-[10px] text-[#787774] font-normal">标杆 {(rec.standardRate * 100).toFixed(0)}%</div>
                       </td>
-                      <td className="p-2 text-right font-mono font-bold text-red-600">
+                      <td className="p-2 text-right font-mono text-xs font-normal text-red-600">
                         ¥{rec.lossAmount.toFixed(2)}
                       </td>
                       <td className="p-2 text-center">
                         {rec.status === 'normal' && (
-                          <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-[2px] text-[10px] font-semibold">
+                          <span className="px-1.5 py-0.5 bg-[#f0fdf4] text-emerald-800 border border-[#bbf7d0] rounded-[2px] text-[10px] font-normal">
                             符合标杆
                           </span>
                         )}
                         {rec.status === 'warning' && (
-                          <span className="px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-[2px] text-[10px] font-semibold">
+                          <span className="px-1.5 py-0.5 bg-[#fffbeb] text-amber-800 border border-[#fde68a] rounded-[2px] text-[10px] font-normal">
                             偏低
                           </span>
                         )}
                         {rec.status === 'critical' && (
-                          <span className="px-1.5 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded-[2px] text-[10px] font-semibold">
+                          <span className="px-1.5 py-0.5 bg-[#fef2f2] text-red-800 border border-[#fecaca] rounded-[2px] text-[10px] font-normal">
                             超标预警
                           </span>
                         )}
                       </td>
-                      <td className="p-2 text-[#475569]">
-                        <div className="font-semibold text-[#0f172a]">{rec.operator}</div>
-                        <div className="text-[10px] text-[#64748b] truncate max-w-[130px]">{rec.lossReason}</div>
+                      <td className="p-2 text-[#5a5853] text-[11px] font-normal">
+                        <div className="font-medium text-[#37352f]">{rec.operator}</div>
+                        <div className="text-[10px] text-[#787774] truncate max-w-[120px]">{rec.lossReason}</div>
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
-              <tfoot className="bg-[#f8fafc] font-bold text-[#0f172a] border-t border-[#e2e8f0]">
+              <tfoot className="bg-[#fbfbfa] text-[#0f172a] border-t border-[#e6e6e4]">
                 <tr>
-                  <td colSpan={2} className="p-2">合计：{filteredRecords.length} 批次</td>
-                  <td className="p-2 text-right font-mono">
+                  <td colSpan={2} className="p-2 font-normal text-[#787774]">合计：{filteredRecords.length} 批次</td>
+                  <td className="p-2 text-right font-mono font-normal text-[#37352f]">
                     {filteredRecords.reduce((s, r) => s + r.grossWeight, 0).toFixed(1)}kg / {filteredRecords.reduce((s, r) => s + r.netWeight, 0).toFixed(1)}kg
                   </td>
-                  <td className="p-2 text-right font-mono text-[#16a34a]">
+                  <td className="p-2 text-right font-mono font-semibold text-emerald-700">
                     {(avgYieldRate * 100).toFixed(1)}%
                   </td>
-                  <td className="p-2 text-right font-mono text-red-600">
+                  <td className="p-2 text-right font-mono font-normal text-red-600">
                     ¥{filteredRecords.reduce((s, r) => s + r.lossAmount, 0).toFixed(2)}
                   </td>
                   <td colSpan={2}></td>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Power,
   Clock,
@@ -9,37 +9,72 @@ import {
   Info,
   Calendar,
   Store,
-  Bell
+  Bell,
+  UtensilsCrossed,
+  Bike,
+  ShoppingBag
 } from 'lucide-react';
 import {
   BusinessStatusConfig,
-  getBusinessStatus,
-  setBusinessStatus,
-  toggleBusinessOperating
+  getTruckBusinessStatus,
+  setTruckBusinessStatus,
+  DEFAULT_TRUCK_BUSINESS_STATUSES
 } from '../../utils/businessStatusEngine';
 import { useToast } from '../ui/ToastContext';
+import { getUnifiedTruckName } from '../../utils/truckNaming';
+import { SmoothScrollContainer } from './SmoothScrollContainer';
 
 interface BusinessStatusModalProps {
   isOpen: boolean;
   onClose: () => void;
+  truckId?: string;
   truckName?: string;
+  allTrucks?: Array<{ truckId: string; truckName: string; [key: string]: any }>;
   onStatusChanged?: (status: BusinessStatusConfig) => void;
 }
 
 export const BusinessStatusModal: React.FC<BusinessStatusModalProps> = ({
   isOpen,
   onClose,
-  truckName = '黑曜石 01 号流动餐车',
+  truckId = 'truck-01',
+  truckName = '01 号·旗舰车',
+  allTrucks = [],
   onStatusChanged
 }) => {
   const toast = useToast();
-  const [currentConfig, setCurrentConfig] = useState<BusinessStatusConfig>(() => getBusinessStatus());
+  const [selectedTid, setSelectedTid] = useState<string>(truckId);
+
+  // Sync selectedTid when truckId prop changes
+  useEffect(() => {
+    setSelectedTid(truckId);
+  }, [truckId]);
+
+  const [currentConfig, setCurrentConfig] = useState<BusinessStatusConfig>(() => getTruckBusinessStatus(selectedTid));
   const [targetIsOpen, setTargetIsOpen] = useState<boolean>(currentConfig.isOpen);
+  const [targetDineIn, setTargetDineIn] = useState<boolean>(currentConfig.dineInOpen !== false);
+  const [targetDelivery, setTargetDelivery] = useState<boolean>(currentConfig.deliveryOpen !== false);
+  const [targetPickup, setTargetPickup] = useState<boolean>(currentConfig.pickupOpen !== false);
   const [reasonInput, setReasonInput] = useState<string>(currentConfig.closeReason);
   const [reopenTimeInput, setReopenTimeInput] = useState<string>(currentConfig.reopenTime);
   const [autoAcceptOrders, setAutoAcceptOrders] = useState<boolean>(currentConfig.autoAcceptOrders);
 
+  // Reload fields when switching truck inside modal
+  const handleSelectTruckInModal = (tid: string) => {
+    setSelectedTid(tid);
+    const cfg = getTruckBusinessStatus(tid);
+    setCurrentConfig(cfg);
+    setTargetIsOpen(cfg.isOpen);
+    setTargetDineIn(cfg.dineInOpen !== false);
+    setTargetDelivery(cfg.deliveryOpen !== false);
+    setTargetPickup(cfg.pickupOpen !== false);
+    setReasonInput(cfg.closeReason);
+    setReopenTimeInput(cfg.reopenTime);
+    setAutoAcceptOrders(cfg.autoAcceptOrders);
+  };
+
   if (!isOpen) return null;
+
+  const currentTruckName = getUnifiedTruckName(selectedTid, 'standard');
 
   const quickPresets = [
     {
@@ -66,13 +101,17 @@ export const BusinessStatusModal: React.FC<BusinessStatusModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const updated = setBusinessStatus(
+    const updated = setTruckBusinessStatus(
+      selectedTid,
       {
         isOpen: targetIsOpen,
         statusLabel: targetIsOpen ? '营业中' : '已打烊 · 暂停接单',
-        closeReason: targetIsOpen ? '餐车站台正常营运，主理人炭火现烤接单中' : reasonInput,
+        closeReason: targetIsOpen ? `${currentTruckName}站台正常营运，主理人炭火现烤接单中` : reasonInput,
         reopenTime: targetIsOpen ? '正常接单中' : reopenTimeInput,
-        autoAcceptOrders
+        autoAcceptOrders,
+        dineInOpen: targetDineIn,
+        deliveryOpen: targetDelivery,
+        pickupOpen: targetPickup
       },
       '餐车主理人'
     );
@@ -81,9 +120,9 @@ export const BusinessStatusModal: React.FC<BusinessStatusModalProps> = ({
     onStatusChanged?.(updated);
 
     if (targetIsOpen) {
-      toast.success('餐车已恢复全网接单！', '食客端打烊横幅已撤除，在线支付与点单已重新激活。');
+      toast.success(`【${currentTruckName}】已恢复全网接单！`, '堂食/外卖/自提渠道设置已生效，食客端点单已更新。');
     } else {
-      toast.info('餐车已设为【已打烊/暂停接单】', `前台已同步提示打烊：${reasonInput}`);
+      toast.info(`【${currentTruckName}】已设为【已打烊/暂停接单】`, `前台已同步提示打烊：${reasonInput}`);
     }
 
     onClose();
@@ -93,44 +132,79 @@ export const BusinessStatusModal: React.FC<BusinessStatusModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
       <div className="relative w-full max-w-lg bg-white rounded-[6px] shadow-2xl border border-[#e6e6e4] overflow-hidden">
         {/* Modal Header */}
-        <div className="flex items-center justify-between p-4 border-b border-[#f1f1ef] bg-[#fbfbfa]">
+        <div className="flex items-center justify-between p-4 border-b border-[#e6e6e4] bg-white">
           <div className="flex items-center gap-2.5">
             <div
-              className={`w-8 h-8 rounded-[4px] flex items-center justify-center font-bold text-white shadow-2xs ${
-                targetIsOpen ? 'bg-[#2b593f]' : 'bg-[#d44333]'
+              className={`w-7 h-7 rounded-full flex items-center justify-center font-normal border shadow-2xs ${
+                targetIsOpen
+                  ? 'bg-white border-emerald-600 text-emerald-700'
+                  : 'bg-white border-rose-500 text-rose-600'
               }`}
             >
-              <Store className="w-4 h-4" />
+              <Store className="w-3.5 h-3.5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-[#201f1d]">流动餐车营业状态总控中心</h3>
+                <h3 className="text-sm font-normal text-[#201f1d] tracking-tight">流动餐车营业状态总控中心</h3>
                 <span
-                  className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                  className={`text-[10px] font-normal px-1.5 py-0.2 rounded-full border ${
                     targetIsOpen
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : 'bg-rose-100 text-rose-800'
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      : 'bg-rose-50 text-rose-800 border-rose-200'
                   }`}
                 >
                   {targetIsOpen ? '营业接单中' : '已打烊歇业'}
                 </span>
               </div>
-              <p className="text-[11px] text-[#787774] mt-0.5">{truckName}</p>
+              <p className="text-[11px] text-[#787774] mt-0.5 font-normal">当前配置餐车: {currentTruckName}</p>
             </div>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-[#787774] hover:text-[#201f1d] hover:bg-[#f1f1ef] rounded-[3px] cursor-pointer"
+            className="p-1.5 text-[#787774] hover:text-[#201f1d] hover:bg-[#f1f1ef] rounded-full cursor-pointer transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
+        {/* Truck Selector Tabs if multiple trucks */}
+        <div className="px-4 py-2 bg-[#fbfbfa] border-b border-[#e6e6e4] flex items-center gap-1.5 overflow-x-auto">
+          <span className="text-[10px] font-normal text-neutral-500 shrink-0">选择管理餐车:</span>
+          {(allTrucks.length > 0 ? allTrucks : [
+            { truckId: 'truck-01', truckName: getUnifiedTruckName('truck-01', 'short') },
+            { truckId: 'truck-02', truckName: getUnifiedTruckName('truck-02', 'short') },
+            { truckId: 'truck-03', truckName: getUnifiedTruckName('truck-03', 'short') }
+          ]).map((t) => {
+            const isTabActive = t.truckId === selectedTid;
+            const truckSt = getTruckBusinessStatus(t.truckId);
+            return (
+              <button
+                key={t.truckId}
+                type="button"
+                onClick={() => handleSelectTruckInModal(t.truckId)}
+                className={`px-2.5 py-1 rounded-full text-xs font-normal shrink-0 transition-all flex items-center gap-1.5 cursor-pointer ${
+                  isTabActive
+                    ? 'border border-[#1a1918] bg-white text-[#1a1918] shadow-2xs'
+                    : 'border border-transparent text-[#6a6864] hover:border-[#d3d1cb] hover:bg-[#efefed]'
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    truckSt.isOpen ? 'bg-emerald-500' : 'bg-rose-500'
+                  }`}
+                />
+                <span>{getUnifiedTruckName(t.truckId, 'standard')}</span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* Modal Form */}
-        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 text-xs">
-          {/* Toggle Switch Selector */}
+        <form onSubmit={handleSubmit} className="flex flex-col text-xs">
+          <SmoothScrollContainer className="p-4 sm:p-5 space-y-4" maxHeight="calc(85vh - 140px)">
+            {/* Toggle Switch Selector */}
           <div className="p-3 bg-[#f7f7f5] rounded-[4px] border border-[#e6e6e4] space-y-2">
             <label className="font-bold text-[#37352f] block">选择当前营业接单模式:</label>
             <div className="grid grid-cols-2 gap-2">
@@ -168,6 +242,102 @@ export const BusinessStatusModal: React.FC<BusinessStatusModalProps> = ({
                 <span className="text-lg">🔴</span>
                 <span className="font-bold text-xs">已打烊 (暂停接单)</span>
                 <span className="text-[10px] text-[#787774]">前台禁用结算，提示打烊</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 3 Channels Operating Switches: 堂食 = 外卖 = 自提 */}
+          <div className="p-3 bg-[#f7f7f5] rounded-[4px] border border-[#e6e6e4] space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="font-bold text-[#37352f] block">三大就餐渠道独立营业开关:</label>
+              <span className="text-[10px] text-[#787774]">独立控制各渠道是否接单</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {/* 堂食 */}
+              <button
+                type="button"
+                onClick={() => setTargetDineIn((prev) => !prev)}
+                className={`p-2.5 rounded-[3px] border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+                  targetDineIn
+                    ? 'bg-white border-emerald-500 shadow-2xs text-emerald-950 ring-1 ring-emerald-500/20'
+                    : 'bg-[#fafaf9] border-[#d3d1cb] text-[#787774] opacity-75'
+                }`}
+              >
+                <div
+                  className={`w-7 h-7 rounded-full flex items-center justify-center ${
+                    targetDineIn ? 'bg-emerald-100 text-emerald-800' : 'bg-neutral-200 text-neutral-500'
+                  }`}
+                >
+                  <UtensilsCrossed className="w-3.5 h-3.5" />
+                </div>
+                <div className="text-center">
+                  <span className="font-bold text-xs block text-[#201f1d]">堂食营业</span>
+                  <span
+                    className={`inline-block mt-0.5 text-[9.5px] font-bold px-1.5 py-0.2 rounded ${
+                      targetDineIn ? 'bg-emerald-100 text-emerald-800' : 'bg-neutral-200 text-neutral-600'
+                    }`}
+                  >
+                    {targetDineIn ? '开启接单' : '暂停堂食'}
+                  </span>
+                </div>
+              </button>
+
+              {/* 外卖 */}
+              <button
+                type="button"
+                onClick={() => setTargetDelivery((prev) => !prev)}
+                className={`p-2.5 rounded-[3px] border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+                  targetDelivery
+                    ? 'bg-white border-blue-500 shadow-2xs text-blue-950 ring-1 ring-blue-500/20'
+                    : 'bg-[#fafaf9] border-[#d3d1cb] text-[#787774] opacity-75'
+                }`}
+              >
+                <div
+                  className={`w-7 h-7 rounded-full flex items-center justify-center ${
+                    targetDelivery ? 'bg-blue-100 text-blue-800' : 'bg-neutral-200 text-neutral-500'
+                  }`}
+                >
+                  <Bike className="w-3.5 h-3.5" />
+                </div>
+                <div className="text-center">
+                  <span className="font-bold text-xs block text-[#201f1d]">外卖营业</span>
+                  <span
+                    className={`inline-block mt-0.5 text-[9.5px] font-bold px-1.5 py-0.2 rounded ${
+                      targetDelivery ? 'bg-blue-100 text-blue-800' : 'bg-neutral-200 text-neutral-600'
+                    }`}
+                  >
+                    {targetDelivery ? '开启接单' : '暂停外卖'}
+                  </span>
+                </div>
+              </button>
+
+              {/* 自提 */}
+              <button
+                type="button"
+                onClick={() => setTargetPickup((prev) => !prev)}
+                className={`p-2.5 rounded-[3px] border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+                  targetPickup
+                    ? 'bg-white border-amber-500 shadow-2xs text-amber-950 ring-1 ring-amber-500/20'
+                    : 'bg-[#fafaf9] border-[#d3d1cb] text-[#787774] opacity-75'
+                }`}
+              >
+                <div
+                  className={`w-7 h-7 rounded-full flex items-center justify-center ${
+                    targetPickup ? 'bg-amber-100 text-amber-800' : 'bg-neutral-200 text-neutral-500'
+                  }`}
+                >
+                  <ShoppingBag className="w-3.5 h-3.5" />
+                </div>
+                <div className="text-center">
+                  <span className="font-bold text-xs block text-[#201f1d]">自提营业</span>
+                  <span
+                    className={`inline-block mt-0.5 text-[9.5px] font-bold px-1.5 py-0.2 rounded ${
+                      targetPickup ? 'bg-amber-100 text-amber-800' : 'bg-neutral-200 text-neutral-600'
+                    }`}
+                  >
+                    {targetPickup ? '开启接单' : '暂停自提'}
+                  </span>
+                </div>
               </button>
             </div>
           </div>
@@ -247,21 +417,22 @@ export const BusinessStatusModal: React.FC<BusinessStatusModalProps> = ({
               className="w-4 h-4 accent-[#2b593f] cursor-pointer"
             />
           </div>
+        </SmoothScrollContainer>
 
           {/* Actions */}
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#f1f1ef]">
+          <div className="flex items-center justify-end gap-2 p-3 bg-neutral-50 border-t border-[#e6e6e4] shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-1.5 bg-[#efefed] hover:bg-[#e6e6e4] text-[#37352f] rounded-[3px] font-medium cursor-pointer transition-colors"
+              className="px-3.5 py-1.5 bg-white border border-[#d3d1cb] hover:bg-[#efefed] text-[#37352f] rounded-full font-normal text-xs cursor-pointer transition-colors shadow-2xs"
             >
               取消
             </button>
             <button
               type="submit"
-              className={`px-4 py-1.5 rounded-[3px] text-white font-bold transition-all shadow-2xs cursor-pointer ${
+              className={`px-4 py-1.5 rounded-full text-white font-normal text-xs transition-all shadow-2xs cursor-pointer ${
                 targetIsOpen
-                  ? 'bg-[#2b593f] hover:bg-[#204430]'
+                  ? 'bg-[#1a1918] hover:bg-black'
                   : 'bg-[#d44333] hover:bg-[#b03022]'
               }`}
             >

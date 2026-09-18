@@ -26,8 +26,10 @@ import {
   getCategoryBrandConfigs,
   saveCategoryBrandConfigs,
   resetAllCategorySeenRecords,
-  resetSingleCategorySeenRecord
+  resetSingleCategorySeenRecord,
+  CATEGORY_BRAND_STORAGE_KEY
 } from '../../utils/categoryBrandSettings';
+import { softDeleteToRecycleBin } from '../../utils/recycleBinEngine';
 import { CategoryBrandModal } from '../CategoryBrandModal';
 
 interface MerchantCategoryBrandSettingsProps {
@@ -128,12 +130,23 @@ export const MerchantCategoryBrandSettings: React.FC<MerchantCategoryBrandSettin
 
   const handleDeleteCustomCategory = (key: string) => {
     if (confirm(`确认删除【${configs[key]?.categoryName || key}】大类品牌弹窗配置？`)) {
+      // 统一回收站：软删除入站（30 天保留，可恢复）
+      softDeleteToRecycleBin({
+        type: 'category_brand',
+        typeLabel: '大类品牌配置',
+        refId: key,
+        label: configs[key]?.categoryName || key,
+        snapshot: configs[key],
+        storageKey: CATEGORY_BRAND_STORAGE_KEY,
+        container: 'map',
+        idField: 'key'
+      });
       const next = { ...configs };
       delete next[key];
       setConfigs(next);
       saveCategoryBrandConfigs(next);
       setSelectedCatId('skewers');
-      showToast('已删除该自建大类配置');
+      showToast('已删除该自建大类配置（可在回收站恢复）');
     }
   };
 
@@ -172,51 +185,51 @@ export const MerchantCategoryBrandSettings: React.FC<MerchantCategoryBrandSettin
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2.5">
       {/* Top Banner with Guide */}
-      <div className="bg-gradient-to-r from-neutral-900 via-neutral-800 to-neutral-900 text-white rounded-2xl p-4 sm:p-5 border border-neutral-700 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-amber-400 text-black flex items-center justify-center font-black shadow-sm">
-              <Sparkles className="w-4 h-4" />
+      <div className="bg-white rounded-[2px] p-3 border border-[#e6e6e4] flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="space-y-0.5 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="w-6 h-6 rounded-[2px] bg-[#fbfbfa] border border-[#e6e6e4] text-[#787774] flex items-center justify-center shrink-0">
+              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
             </div>
-            <h2 className="text-base sm:text-lg font-black tracking-tight">
+            <h2 className="text-xs font-medium text-[#0f172a] tracking-tight whitespace-nowrap">
               分类品牌弹窗与类目故事管理中枢
             </h2>
-            <span className="text-[10px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded-full">
+            <span className="text-[10px] font-medium bg-[#f1f1ef] text-[#787774] border border-[#e6e6e4] px-1.5 py-0.5 rounded-[2px] whitespace-nowrap">
               三大核心品类 + 自定义大类
             </span>
           </div>
-          <p className="text-xs text-neutral-300 max-w-2xl leading-relaxed">
-            管理顾客在客户端点击切换分类（如<strong>碳烤串串、日式烧鸟、芝士焗类</strong>等）时弹出的品牌故事、专属工艺标准及限时优惠。支持设置<strong>第一次切换弹出</strong>、<strong>每次重复切换弹出</strong>或<strong>每日首次弹出</strong>防打扰策略。
+          <p className="text-[11px] text-[#787774] max-w-2xl leading-relaxed">
+            管理顾客在客户端切换分类时展示的品牌故事、专属工艺标准及限时优惠。支持设置第一次切换弹出、每次重复切换弹出或每日首次弹出防打扰策略。
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+        <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
           <button
             type="button"
             onClick={() => {
               resetAllCategorySeenRecords();
               showToast('已重置所有分类的顾客查看记录，刷新客户端或切换分类将重新触发弹窗！');
             }}
-            className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-bold rounded-xl border border-neutral-600 transition-colors cursor-pointer flex items-center gap-1.5"
+            className="px-2.5 py-1.5 bg-[#fbfbfa] hover:bg-[#f1f1ef] text-[#787774] text-xs font-medium rounded-[2px] border border-[#e6e6e4] transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
             title="清除本地浏览缓存记录以便快速测试"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+            <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
             <span>重置顾客已读记录</span>
           </button>
           <button
             type="button"
             onClick={() => setPreviewConfig(currentConfig)}
-            className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-black text-xs font-black rounded-xl transition-all shadow-sm cursor-pointer flex items-center gap-1.5"
+            className="px-2.5 py-1.5 bg-[#fbfbfa] hover:bg-[#f1f1ef] text-[#0f172a] text-xs font-medium rounded-[2px] border border-[#e6e6e4] transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
           >
-            <Eye className="w-3.5 h-3.5" />
+            <Eye className="w-3.5 h-3.5 text-[#787774]" />
             <span>预览当前分类弹窗</span>
           </button>
           <button
             type="button"
             onClick={handleSaveAll}
-            className="px-4 py-2 bg-white hover:bg-neutral-100 text-black text-xs font-black rounded-xl transition-all shadow-sm cursor-pointer flex items-center gap-1.5"
+            className="px-3 py-1.5 bg-[#0f172a] hover:bg-neutral-800 text-white text-xs font-medium rounded-[2px] transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shadow-xs"
           >
             <Save className="w-3.5 h-3.5" />
             <span>保存全部分类设置</span>
@@ -225,23 +238,23 @@ export const MerchantCategoryBrandSettings: React.FC<MerchantCategoryBrandSettin
       </div>
 
       {/* Category Tabs Switcher */}
-      <div className="bg-white rounded-2xl p-3 border border-[#e2e3e1] shadow-xs space-y-2">
+      <div className="bg-white rounded-[2px] p-2.5 border border-[#e6e6e4] space-y-2">
         <div className="flex items-center justify-between">
-          <div className="text-xs font-bold text-neutral-700 flex items-center gap-1.5">
-            <Layers className="w-3.5 h-3.5 text-neutral-500" />
+          <div className="text-xs font-medium text-[#787774] flex items-center gap-1.5">
+            <Layers className="w-3.5 h-3.5 text-[#787774]" />
             <span>选择要配置的大类分类:</span>
           </div>
           <button
             type="button"
             onClick={() => setIsAddingNewCategory(true)}
-            className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer transition-colors"
+            className="text-xs font-medium text-sky-700 hover:text-sky-800 flex items-center gap-1 cursor-pointer transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>新增自定义大类品牌弹窗</span>
           </button>
         </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
           {Object.values(configs).map((cfg) => {
             const isSelected = selectedCatId === cfg.categoryId;
             const isEnabled = cfg.enabled && cfg.triggerMode !== 'disabled';
@@ -250,22 +263,22 @@ export const MerchantCategoryBrandSettings: React.FC<MerchantCategoryBrandSettin
                 key={cfg.categoryId}
                 type="button"
                 onClick={() => setSelectedCatId(cfg.categoryId)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-2 cursor-pointer border ${
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-all shrink-0 flex items-center gap-1.5 cursor-pointer bg-white border ${
                   isSelected
-                    ? 'bg-black text-white border-black shadow-xs'
-                    : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-800 border-neutral-200'
+                    ? 'border-zinc-900 text-zinc-900 font-semibold shadow-2xs'
+                    : 'border-[#e6e6e4] text-[#5a5854] hover:text-zinc-900 hover:border-zinc-300 hover:bg-slate-50'
                 }`}
               >
                 <span>{cfg.categoryIcon || '✨'}</span>
                 <span>{cfg.categoryName}</span>
                 <span
-                  className={`w-2 h-2 rounded-full ${
-                    isEnabled ? 'bg-emerald-500 ring-2 ring-emerald-500/20' : 'bg-neutral-300'
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    isEnabled ? 'bg-emerald-500' : 'bg-neutral-300'
                   }`}
                   title={isEnabled ? '已启用品牌弹窗' : '已停用'}
                 />
                 {cfg.isCustom && (
-                  <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-neutral-700 text-amber-300">
+                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-[#f1f1ef] text-[#787774] border border-[#e6e6e4]">
                     自建
                   </span>
                 )}
@@ -277,56 +290,56 @@ export const MerchantCategoryBrandSettings: React.FC<MerchantCategoryBrandSettin
 
       {/* Adding Custom Category Dialog Box */}
       {isAddingNewCategory && (
-        <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="text-xs font-black text-amber-950 flex items-center gap-1.5">
-              <Plus className="w-4 h-4 text-amber-700" />
+        <div className="bg-[#fbfbfa] border border-[#e6e6e4] rounded-[2px] p-3 space-y-2.5">
+          <div className="flex items-center justify-between pb-1.5 border-b border-[#f1f1ef]">
+            <div className="text-xs font-medium text-[#0f172a] flex items-center gap-1.5">
+              <Plus className="w-3.5 h-3.5 text-[#787774]" />
               <span>新增自定义大类品牌弹窗配置</span>
             </div>
             <button
               type="button"
               onClick={() => setIsAddingNewCategory(false)}
-              className="text-neutral-500 hover:text-black cursor-pointer"
+              className="text-[#787774] hover:text-[#0f172a] cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <div>
-              <label className="text-xs font-bold text-amber-900 block mb-1">大类显示名称 (如: 特调清补凉 / 川香卤味)</label>
+              <label className="text-[10px] font-medium text-[#787774] block mb-1">大类显示名称 (如: 特调清补凉 / 川香卤味)</label>
               <input
                 type="text"
                 value={newCatName}
                 onChange={(e) => setNewCatName(e.target.value)}
                 placeholder="例如: 现熬热汤 / 精酿啤酒"
-                className="w-full text-xs px-3 py-2 bg-white rounded-xl border border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full text-xs px-2.5 py-1.5 bg-white rounded-[2px] border border-[#e6e6e4] text-[#0f172a] focus:outline-none focus:border-[#0f172a]"
               />
             </div>
             <div>
-              <label className="text-xs font-bold text-amber-900 block mb-1">大类英文标识码 (唯一编码，可选填)</label>
+              <label className="text-[10px] font-medium text-[#787774] block mb-1">大类英文标识码 (唯一编码，可选填)</label>
               <input
                 type="text"
                 value={newCatKey}
                 onChange={(e) => setNewCatKey(e.target.value)}
                 placeholder="例如: soups / craft_beer (不填自动生成)"
-                className="w-full text-xs px-3 py-2 bg-white rounded-xl border border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full text-xs px-2.5 py-1.5 bg-white rounded-[2px] border border-[#e6e6e4] font-mono text-[#0f172a] focus:outline-none focus:border-[#0f172a]"
               />
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-1">
+          <div className="flex justify-end gap-2 pt-1 border-t border-[#f1f1ef]">
             <button
               type="button"
               onClick={() => setIsAddingNewCategory(false)}
-              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-neutral-700 border border-neutral-300 hover:bg-neutral-100 cursor-pointer"
+              className="px-3 py-1.5 rounded-[2px] text-xs font-medium bg-white text-[#787774] border border-[#e6e6e4] hover:bg-[#f1f1ef] cursor-pointer"
             >
               取消
             </button>
             <button
               type="button"
               onClick={handleCreateCustomCategory}
-              className="px-4 py-1.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs cursor-pointer"
+              className="px-3 py-1.5 rounded-[2px] text-xs font-medium bg-[#0f172a] hover:bg-neutral-800 text-white cursor-pointer"
             >
               确认创建并开始配置
             </button>
@@ -335,43 +348,43 @@ export const MerchantCategoryBrandSettings: React.FC<MerchantCategoryBrandSettin
       )}
 
       {/* Main Editing Card for Selected Category */}
-      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-[#e2e3e1] shadow-xs space-y-4">
+      <div className="bg-white rounded-[2px] p-3 border border-[#e6e6e4] space-y-3">
         {/* Header & Status Toggle */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-neutral-100 gap-3">
-          <div className="flex items-center gap-2.5">
-            <span className="text-2xl">{currentConfig.categoryIcon || '🍢'}</span>
-            <div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2.5 border-b border-[#f1f1ef] gap-2.5">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="text-xl shrink-0">{currentConfig.categoryIcon || '🍢'}</span>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-black text-neutral-900">
+                <h3 className="text-xs font-medium text-[#0f172a] truncate">
                   【{currentConfig.categoryName}】品牌弹窗配置
                 </h3>
                 {currentConfig.isCustom && (
                   <button
                     type="button"
                     onClick={() => handleDeleteCustomCategory(currentConfig.categoryId)}
-                    className="text-xs font-bold text-red-500 hover:text-red-700 flex items-center gap-1 cursor-pointer"
+                    className="text-[11px] font-medium text-rose-700 hover:text-rose-800 flex items-center gap-1 cursor-pointer shrink-0"
                     title="删除此自建分类"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-3 h-3" />
                     <span>删除该分类</span>
                   </button>
                 )}
               </div>
-              <p className="text-[11px] text-neutral-500">
-                分类标识: <code className="font-mono">{currentConfig.categoryId}</code> · 控制顾客进入或切换至该分类时的品牌展示
+              <p className="text-[10px] text-[#787774] truncate">
+                分类标识: <code className="font-mono text-[#0f172a]">{currentConfig.categoryId}</code> · 控制顾客进入或切换至该分类时的品牌展示
               </p>
             </div>
           </div>
 
           {/* Quick Enable Toggle */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-neutral-700">启用品牌弹窗:</span>
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-medium text-[#787774]">启用品牌弹窗:</span>
               <input
                 type="checkbox"
                 checked={currentConfig.enabled}
                 onChange={(e) => updateCurrentConfig({ enabled: e.target.checked })}
-                className="w-4 h-4 accent-neutral-900 rounded cursor-pointer"
+                className="w-3.5 h-3.5 accent-[#0f172a] rounded-[2px] cursor-pointer"
               />
             </div>
             <button
@@ -380,20 +393,20 @@ export const MerchantCategoryBrandSettings: React.FC<MerchantCategoryBrandSettin
                 resetSingleCategorySeenRecord(currentConfig.categoryId);
                 showToast(`已重置【${currentConfig.categoryName}】查看记录`);
               }}
-              className="px-2.5 py-1 text-xs font-bold text-neutral-600 hover:text-black bg-neutral-100 hover:bg-neutral-200 rounded-lg transition-colors cursor-pointer"
+              className="px-2 py-1 text-xs font-medium text-[#787774] hover:text-[#0f172a] bg-[#fbfbfa] hover:bg-[#f1f1ef] rounded-[2px] border border-[#e6e6e4] transition-colors cursor-pointer whitespace-nowrap"
             >
               清除本类目查看记录
             </button>
           </div>
         </div>
 
-        {/* 1. Trigger Policy Mode (首次切换 vs 每次切换 vs 每日首次 vs 停用) */}
+        {/* 1. Trigger Policy Mode */}
         <div className="space-y-1.5">
-          <label className="text-xs font-bold text-neutral-800 flex items-center gap-1">
-            <SlidersHorizontal className="w-3.5 h-3.5 text-neutral-600" />
+          <label className="text-xs font-medium text-[#0f172a] flex items-center gap-1">
+            <SlidersHorizontal className="w-3.5 h-3.5 text-[#787774]" />
             <span>切换分类时触发策略 (核心防打扰机制):</span>
           </label>
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
             {[
               {
                 id: 'first_time_only' as CategoryBrandTriggerMode,
@@ -426,24 +439,24 @@ export const MerchantCategoryBrandSettings: React.FC<MerchantCategoryBrandSettin
                   key={mode.id}
                   type="button"
                   onClick={() => updateCurrentConfig({ triggerMode: mode.id })}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between relative ${
+                  className={`p-2.5 rounded-[2px] border text-left transition-all cursor-pointer flex flex-col justify-between ${
                     isSelected
-                      ? 'bg-neutral-900 text-white border-neutral-900 shadow-xs'
-                      : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-800 border-neutral-200'
+                      ? 'bg-[#fbfbfa] border-[#0f172a] ring-1 ring-[#0f172a]'
+                      : 'bg-white hover:bg-[#fbfbfa] border-[#e6e6e4]'
                   }`}
                 >
                   <div>
                     <div className="flex items-center justify-between gap-1 mb-1">
-                      <span className="text-xs font-black">{mode.title}</span>
+                      <span className="text-xs font-medium text-[#0f172a]">{mode.title}</span>
                       <span
-                        className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${
-                          isSelected ? 'bg-amber-400 text-black' : 'bg-neutral-200 text-neutral-700'
+                        className={`text-[9px] font-medium px-1.5 py-0.2 rounded-[2px] border ${
+                          isSelected ? 'bg-[#0f172a] text-white border-[#0f172a]' : 'bg-[#f1f1ef] text-[#787774] border-[#e6e6e4]'
                         }`}
                       >
                         {mode.badge}
                       </span>
                     </div>
-                    <p className={`text-[11px] leading-snug ${isSelected ? 'text-neutral-300' : 'text-neutral-500'}`}>
+                    <p className="text-[11px] leading-snug text-[#787774]">
                       {mode.sub}
                     </p>
                   </div>
@@ -454,84 +467,84 @@ export const MerchantCategoryBrandSettings: React.FC<MerchantCategoryBrandSettin
         </div>
 
         {/* 2. Brand Visual & Typography */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-          <div className="space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          <div className="space-y-2.5">
             <div>
-              <label className="text-xs font-bold text-neutral-800 block mb-1">品牌大标题</label>
+              <label className="text-[10px] font-medium text-[#787774] block mb-1">品牌大标题</label>
               <input
                 type="text"
                 value={currentConfig.brandTitle}
                 onChange={(e) => updateCurrentConfig({ brandTitle: e.target.value })}
-                className="w-full text-xs px-3 py-2 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-black bg-white"
+                className="w-full text-xs px-2.5 py-1.5 rounded-[2px] border border-[#e6e6e4] bg-[#fbfbfa] text-[#0f172a] focus:outline-none focus:border-[#0f172a]"
                 placeholder="例如: 黑曜石 · 果木炭烤工坊"
               />
             </div>
 
             <div>
-              <label className="text-xs font-bold text-neutral-800 block mb-1">品牌副标题 / 核心Slogan</label>
+              <label className="text-[10px] font-medium text-[#787774] block mb-1">品牌副标题 / 核心Slogan</label>
               <input
                 type="text"
                 value={currentConfig.brandSubtitle}
                 onChange={(e) => updateCurrentConfig({ brandSubtitle: e.target.value })}
-                className="w-full text-xs px-3 py-2 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-black bg-white"
+                className="w-full text-xs px-2.5 py-1.5 rounded-[2px] border border-[#e6e6e4] bg-[#fbfbfa] text-[#0f172a] focus:outline-none focus:border-[#0f172a]"
                 placeholder="例如: 280℃果木菊花炭现点现烤 · 独家秘制九味干碟"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-xs font-bold text-neutral-800 block mb-1">角标亮点标签</label>
+                <label className="text-[10px] font-medium text-[#787774] block mb-1">角标亮点标签</label>
                 <input
                   type="text"
                   value={currentConfig.badgeText}
                   onChange={(e) => updateCurrentConfig({ badgeText: e.target.value })}
-                  className="w-full text-xs px-3 py-2 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-black bg-white"
+                  className="w-full text-xs px-2.5 py-1.5 rounded-[2px] border border-[#e6e6e4] bg-[#fbfbfa] text-[#0f172a] focus:outline-none focus:border-[#0f172a]"
                   placeholder="例如: 🔥 果木现烤"
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-neutral-800 block mb-1">引导按钮文案</label>
+                <label className="text-[10px] font-medium text-[#787774] block mb-1">引导按钮文案</label>
                 <input
                   type="text"
                   value={currentConfig.buttonText}
                   onChange={(e) => updateCurrentConfig({ buttonText: e.target.value })}
-                  className="w-full text-xs px-3 py-2 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-black bg-white"
+                  className="w-full text-xs px-2.5 py-1.5 rounded-[2px] border border-[#e6e6e4] bg-[#fbfbfa] text-[#0f172a] focus:outline-none focus:border-[#0f172a]"
                   placeholder="例如: 开始选购炭烤串串"
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-xs font-bold text-neutral-800 block mb-1">专属优惠/特惠权益提示</label>
+              <label className="text-[10px] font-medium text-[#787774] block mb-1">专属优惠/特惠权益提示</label>
               <input
                 type="text"
                 value={currentConfig.couponText || ''}
                 onChange={(e) => updateCurrentConfig({ couponText: e.target.value })}
-                className="w-full text-xs px-3 py-2 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-black bg-white"
+                className="w-full text-xs px-2.5 py-1.5 rounded-[2px] border border-[#e6e6e4] bg-[#fbfbfa] text-[#0f172a] focus:outline-none focus:border-[#0f172a]"
                 placeholder="例如: 炭烤专区专享：满¥35立减¥5 · 免费赠送秘制干碟"
               />
             </div>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             <div>
-              <label className="text-xs font-bold text-neutral-800 block mb-1">品类风味故事与制作工艺标准说明</label>
+              <label className="text-[10px] font-medium text-[#787774] block mb-1">品类风味故事与制作工艺标准说明</label>
               <textarea
                 rows={4}
                 value={currentConfig.storyDescription}
                 onChange={(e) => updateCurrentConfig({ storyDescription: e.target.value })}
-                className="w-full text-xs px-3 py-2 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-black bg-white leading-relaxed"
+                className="w-full text-xs px-2.5 py-1.5 rounded-[2px] border border-[#e6e6e4] bg-[#fbfbfa] text-[#0f172a] focus:outline-none focus:border-[#0f172a] leading-relaxed"
                 placeholder="详细说明该品类的选材标准、烤制温度、独家秘方及口感特色..."
               />
             </div>
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-xs font-bold text-neutral-800 block mb-1">自动关闭倒计时</label>
+                <label className="text-[10px] font-medium text-[#787774] block mb-1">自动关闭倒计时</label>
                 <select
                   value={currentConfig.autoCloseSeconds || 0}
                   onChange={(e) => updateCurrentConfig({ autoCloseSeconds: Number(e.target.value) })}
-                  className="w-full text-xs px-3 py-2 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-black bg-white"
+                  className="w-full text-xs px-2 py-1.5 rounded-[2px] border border-[#e6e6e4] bg-[#fbfbfa] text-[#0f172a] focus:outline-none"
                 >
                   <option value={0}>常开 (需顾客主动点击)</option>
                   <option value={3}>3 秒后自动收起</option>
@@ -541,11 +554,11 @@ export const MerchantCategoryBrandSettings: React.FC<MerchantCategoryBrandSettin
               </div>
 
               <div>
-                <label className="text-xs font-bold text-neutral-800 block mb-1">主题主色调</label>
+                <label className="text-[10px] font-medium text-[#787774] block mb-1">主题主色调</label>
                 <select
                   value={currentConfig.accentColor || 'orange'}
                   onChange={(e) => updateCurrentConfig({ accentColor: e.target.value as any })}
-                  className="w-full text-xs px-3 py-2 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-black bg-white"
+                  className="w-full text-xs px-2 py-1.5 rounded-[2px] border border-[#e6e6e4] bg-[#fbfbfa] text-[#0f172a] focus:outline-none"
                 >
                   <option value="orange">炭烤烈焰橙 (Orange)</option>
                   <option value="amber">居酒屋琥珀金 (Amber)</option>
@@ -560,23 +573,23 @@ export const MerchantCategoryBrandSettings: React.FC<MerchantCategoryBrandSettin
         </div>
 
         {/* 3. Craft Highlights Chips Editor */}
-        <div className="pt-2 border-t border-neutral-100 space-y-2">
-          <label className="text-xs font-bold text-neutral-800 flex items-center justify-between">
+        <div className="pt-2 border-t border-[#f1f1ef] space-y-2">
+          <label className="text-xs font-medium text-[#0f172a] flex items-center justify-between">
             <span>工匠标准与甄选特色标签 (弹窗中展示的4大亮点):</span>
-            <span className="text-[11px] font-normal text-neutral-500">已配置 {currentConfig.craftHighlights?.length || 0} 个</span>
+            <span className="text-[11px] font-normal text-[#787774]">已配置 {currentConfig.craftHighlights?.length || 0} 个</span>
           </label>
           <div className="flex flex-wrap items-center gap-1.5">
             {(currentConfig.craftHighlights || []).map((tag, idx) => (
               <span
                 key={idx}
-                className="px-2.5 py-1 rounded-xl bg-neutral-100 text-neutral-800 text-xs font-bold border border-neutral-200 flex items-center gap-1.5"
+                className="px-2 py-0.5 rounded-[2px] bg-[#fbfbfa] text-[#0f172a] text-xs font-normal border border-[#e6e6e4] flex items-center gap-1.5"
               >
-                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
                 <span>{tag}</span>
                 <button
                   type="button"
                   onClick={() => handleRemoveCraftTag(idx)}
-                  className="w-3.5 h-3.5 rounded-full hover:bg-neutral-300 text-neutral-500 hover:text-black flex items-center justify-center cursor-pointer"
+                  className="w-3.5 h-3.5 rounded-[2px] hover:bg-[#f1f1ef] text-[#787774] hover:text-[#0f172a] flex items-center justify-center cursor-pointer"
                 >
                   <X className="w-2.5 h-2.5" />
                 </button>
@@ -595,12 +608,12 @@ export const MerchantCategoryBrandSettings: React.FC<MerchantCategoryBrandSettin
                   }
                 }}
                 placeholder="新增亮点如: 现烤锁鲜"
-                className="text-xs px-2.5 py-1 rounded-xl border border-neutral-300 focus:outline-none focus:ring-1 focus:ring-black w-36 bg-white"
+                className="text-xs px-2 py-1 rounded-[2px] border border-[#e6e6e4] focus:outline-none focus:border-[#0f172a] w-32 bg-white text-[#0f172a]"
               />
               <button
                 type="button"
                 onClick={handleAddCraftTag}
-                className="px-2.5 py-1 bg-black text-white text-xs font-bold rounded-xl cursor-pointer hover:bg-neutral-800"
+                className="px-2 py-1 bg-[#0f172a] text-white text-xs font-medium rounded-[2px] cursor-pointer hover:bg-neutral-800"
               >
                 添加
               </button>
@@ -609,8 +622,8 @@ export const MerchantCategoryBrandSettings: React.FC<MerchantCategoryBrandSettin
         </div>
 
         {/* 4. Cover Image Selection & Custom URL */}
-        <div className="pt-2 border-t border-neutral-100 space-y-2">
-          <label className="text-xs font-bold text-neutral-800 block">
+        <div className="pt-2 border-t border-[#f1f1ef] space-y-2">
+          <label className="text-xs font-medium text-[#0f172a] block">
             封面大图选择 (可点击预设高清摄影图或输入自定义图床链接):
           </label>
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
@@ -620,17 +633,17 @@ export const MerchantCategoryBrandSettings: React.FC<MerchantCategoryBrandSettin
                 <div
                   key={i}
                   onClick={() => updateCurrentConfig({ coverImageUrl: img.url })}
-                  className={`group relative h-20 rounded-xl overflow-hidden cursor-pointer border-2 transition-all ${
-                    isCurrent ? 'border-amber-500 ring-2 ring-amber-500/30' : 'border-neutral-200 hover:border-neutral-400'
+                  className={`group relative h-18 rounded-[2px] overflow-hidden cursor-pointer border transition-all ${
+                    isCurrent ? 'border-[#0f172a] ring-1 ring-[#0f172a]' : 'border-[#e6e6e4] hover:border-neutral-400'
                   }`}
                 >
                   <img src={img.url} alt={img.label} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-1.5">
-                    <span className="text-[10px] font-bold text-white leading-tight truncate">{img.label}</span>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex items-end p-1">
+                    <span className="text-[10px] font-medium text-white leading-tight truncate">{img.label}</span>
                   </div>
                   {isCurrent && (
-                    <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-amber-500 text-black flex items-center justify-center">
-                      <Check className="w-2.5 h-2.5 stroke-[3]" />
+                    <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-[#0f172a] text-white flex items-center justify-center">
+                      <Check className="w-2.5 h-2.5 stroke-[2.5]" />
                     </div>
                   )}
                 </div>
@@ -638,23 +651,23 @@ export const MerchantCategoryBrandSettings: React.FC<MerchantCategoryBrandSettin
             })}
           </div>
 
-          <div className="pt-1">
+          <div className="pt-0.5">
             <input
               type="text"
               value={currentConfig.coverImageUrl}
               onChange={(e) => updateCurrentConfig({ coverImageUrl: e.target.value })}
-              className="w-full text-xs px-3 py-2 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-black bg-white font-mono text-neutral-700"
+              className="w-full text-xs px-2.5 py-1.5 rounded-[2px] border border-[#e6e6e4] bg-[#fbfbfa] focus:outline-none focus:border-[#0f172a] font-mono text-[#0f172a]"
               placeholder="自定义高清图片 URL (如: https://...)"
             />
           </div>
         </div>
 
         {/* Bottom Actions Bar */}
-        <div className="pt-3 border-t border-neutral-100 flex items-center justify-between flex-wrap gap-2">
+        <div className="pt-2.5 border-t border-[#f1f1ef] flex items-center justify-between flex-wrap gap-2">
           <button
             type="button"
             onClick={handleResetToDefault}
-            className="text-xs font-bold text-neutral-500 hover:text-neutral-800 transition-colors cursor-pointer"
+            className="text-xs font-medium text-[#787774] hover:text-[#0f172a] transition-colors cursor-pointer"
           >
             恢复官方出厂默认配置
           </button>
@@ -663,15 +676,15 @@ export const MerchantCategoryBrandSettings: React.FC<MerchantCategoryBrandSettin
             <button
               type="button"
               onClick={() => setPreviewConfig(currentConfig)}
-              className="px-4 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-900 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+              className="px-3 py-1.5 bg-[#fbfbfa] hover:bg-[#f1f1ef] text-[#0f172a] text-xs font-medium rounded-[2px] border border-[#e6e6e4] transition-all cursor-pointer flex items-center gap-1.5"
             >
-              <Eye className="w-3.5 h-3.5" />
+              <Eye className="w-3.5 h-3.5 text-[#787774]" />
               <span>实时测试预览</span>
             </button>
             <button
               type="button"
               onClick={handleSaveAll}
-              className="px-5 py-2 bg-black hover:bg-neutral-800 text-white text-xs font-black rounded-xl transition-all shadow-md cursor-pointer flex items-center gap-1.5"
+              className="px-3.5 py-1.5 bg-[#0f172a] hover:bg-neutral-800 text-white text-xs font-medium rounded-[2px] transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
             >
               <Save className="w-3.5 h-3.5" />
               <span>保存配置生效</span>

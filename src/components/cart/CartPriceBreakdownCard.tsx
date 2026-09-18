@@ -65,7 +65,7 @@ export const CartPriceBreakdownCard: React.FC<CartPriceBreakdownCardProps> = ({
           {/* Raw item subtotal */}
           <div className="flex items-center justify-between text-neutral-600">
             <span>餐品原价小计</span>
-            <span className="font-medium text-neutral-900">
+            <span className="font-medium text-neutral-900 font-amount">
               ¥<span id="breakdownSubtotal">{subtotal.toFixed(2)}</span>
             </span>
           </div>
@@ -75,12 +75,12 @@ export const CartPriceBreakdownCard: React.FC<CartPriceBreakdownCardProps> = ({
             <span id="deliveryLabel" className="flex items-center gap-1.5">
               <span>{deliveryLabel}</span>
               {diningMode === 'delivery' && subtotal >= freeDeliveryThreshold && (
-                <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded font-medium border border-emerald-200">
+                <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded font-medium border border-emerald-200 font-amount">
                   满 ¥{freeDeliveryThreshold} 免配
                 </span>
               )}
             </span>
-            <span className="font-medium text-neutral-900">
+            <span className="font-medium text-neutral-900 font-amount">
               ¥<span id="breakdownDeliveryFee">{deliveryFee.toFixed(2)}</span>
             </span>
           </div>
@@ -91,7 +91,7 @@ export const CartPriceBreakdownCard: React.FC<CartPriceBreakdownCardProps> = ({
               <span className="flex items-center gap-1">
                 优惠券抵扣 [{appliedCoupon || 'UR-VIP5'}]
               </span>
-              <span className="font-semibold">
+              <span className="font-semibold font-amount">
                 -¥<span id="breakdownDiscount">{discount.toFixed(2)}</span>
               </span>
             </div>
@@ -100,7 +100,7 @@ export const CartPriceBreakdownCard: React.FC<CartPriceBreakdownCardProps> = ({
           {/* Real Food Subtotal */}
           <div className="flex items-center justify-between text-neutral-500 pt-2 border-t border-neutral-100 text-[11px]">
             <span>剔除优惠后菜品实付</span>
-            <span className="text-neutral-700 font-medium">
+            <span className="text-neutral-700 font-medium font-amount">
               ¥<span id="breakdownNetFood">{netFood.toFixed(2)}</span>
             </span>
           </div>

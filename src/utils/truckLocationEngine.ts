@@ -63,18 +63,18 @@ export const FLEET_THEME_PALETTE: TruckThemeConfig[] = [
     id: 'truck-02',
     num: '02',
     name: '02 号流动餐车',
-    themeTitle: '02号车 · 琥珀金',
-    color: '#f59e0b',
-    secondaryColor: '#d97706',
-    glowColor: 'rgba(245, 158, 11, 0.45)',
-    radarFill: 'rgba(245, 158, 11, 0.12)',
-    radarBorder: 'rgba(245, 158, 11, 0.95)',
-    radarSweepGradient: 'conic-gradient(from 0deg, rgba(245, 158, 11, 0.48) 0deg, rgba(245, 158, 11, 0.15) 30deg, rgba(245, 158, 11, 0) 65deg)',
-    ringColor: '#f59e0b',
-    badgeBg: 'bg-amber-50',
-    badgeText: 'text-amber-700',
-    badgeBorder: 'border-amber-200',
-    dotColor: '#f59e0b'
+    themeTitle: '02号车 · 曜岩灰',
+    color: '#262626',
+    secondaryColor: '#171717',
+    glowColor: 'rgba(38, 38, 38, 0.45)',
+    radarFill: 'rgba(38, 38, 38, 0.08)',
+    radarBorder: 'rgba(38, 38, 38, 0.95)',
+    radarSweepGradient: 'conic-gradient(from 0deg, rgba(38, 38, 38, 0.48) 0deg, rgba(38, 38, 38, 0.15) 30deg, rgba(38, 38, 38, 0) 65deg)',
+    ringColor: '#262626',
+    badgeBg: 'bg-neutral-100',
+    badgeText: 'text-neutral-800',
+    badgeBorder: 'border-neutral-300',
+    dotColor: '#262626'
   },
   {
     id: 'truck-03',
@@ -1493,6 +1493,20 @@ export interface AmapRouteStep {
   coordinates: [number, number][]; // [lat, lng]
 }
 
+export interface DeliveryRouteOption {
+  id: string; // 'route-1' | 'route-2' | 'route-3'
+  name: string;
+  tag: string;
+  color: string;
+  glowColor: string;
+  distanceMeters: number;
+  durationMinutes: number;
+  durationSeconds: number;
+  points: [number, number][];
+  steps: AmapRouteStep[];
+  description: string;
+}
+
 export interface AmapRouteResult {
   source: 'amap' | 'fallback_simulated';
   distanceMeters: number;
@@ -1502,6 +1516,7 @@ export interface AmapRouteResult {
   steps: AmapRouteStep[];
   origin: { lat: number; lng: number };
   destination: { lat: number; lng: number };
+  routes?: DeliveryRouteOption[]; // 包含路线1、路线2、路线3等智能可选方案
 }
 
 /**
@@ -1524,9 +1539,77 @@ export function parseAmapPolyline(polylineStr: string): [number, number][] {
 }
 
 /**
- * 启发式生成符合城市路网的备用轨迹折线（起止点之间的直角网格平滑折线）
+ * 路线和街道转弯微弧形视觉效果算法 (Curved Fillet / Soft Arc Turns)
+ * 在街道交叉口、丁字路口与转弯节点处，根据两段道路向量自适应倒圆角生成柔和微弧，
+ * 彻底消除生硬的机械直角/锐角折线感，呈现流畅高雅的城市街道微弧轨迹。
  */
-function generateUrbanGridRoute(
+export function smoothPathWithMicroArcs(
+  points: [number, number][],
+  radiusRatio = 0.28,
+  arcSegments = 6
+): [number, number][] {
+  if (!points || points.length < 3) return points ? [...points] : [];
+
+  const result: [number, number][] = [points[0]];
+
+  for (let i = 1; i < points.length - 1; i++) {
+    const prev = points[i - 1];
+    const curr = points[i];
+    const next = points[i + 1];
+
+    const v1Lat = prev[0] - curr[0];
+    const v1Lng = prev[1] - curr[1];
+    const v2Lat = next[0] - curr[0];
+    const v2Lng = next[1] - curr[1];
+
+    const len1 = Math.sqrt(v1Lat * v1Lat + v1Lng * v1Lng);
+    const len2 = Math.sqrt(v2Lat * v2Lat + v2Lng * v2Lng);
+
+    if (len1 < 0.00001 || len2 < 0.00001) {
+      result.push(curr);
+      continue;
+    }
+
+    // 计算入出向量夹角
+    const dot = (v1Lat * v2Lat + v1Lng * v2Lng) / (len1 * len2);
+    // 接近平角 (无需倒角) 或近乎回头路线
+    if (dot < -0.98 || dot > 0.98) {
+      result.push(curr);
+      continue;
+    }
+
+    // 自适应拐弯半径切距（取较短边的一定比例）
+    const cutDistance = Math.min(len1, len2) * radiusRatio;
+    const cutRatio1 = cutDistance / len1;
+    const cutRatio2 = cutDistance / len2;
+
+    const aLat = curr[0] + v1Lat * cutRatio1;
+    const aLng = curr[1] + v1Lng * cutRatio1;
+    const bLat = curr[0] + v2Lat * cutRatio2;
+    const bLng = curr[1] + v2Lng * cutRatio2;
+
+    result.push([Number(aLat.toFixed(6)), Number(aLng.toFixed(6))]);
+
+    // 二次贝塞尔曲线插值微弧过渡点
+    for (let step = 1; step < arcSegments; step++) {
+      const t = step / arcSegments;
+      const invT = 1 - t;
+      const arcLat = invT * invT * aLat + 2 * invT * t * curr[0] + t * t * bLat;
+      const arcLng = invT * invT * aLng + 2 * invT * t * curr[1] + t * t * bLng;
+      result.push([Number(arcLat.toFixed(6)), Number(arcLng.toFixed(6))]);
+    }
+
+    result.push([Number(bLat.toFixed(6)), Number(bLng.toFixed(6))]);
+  }
+
+  result.push(points[points.length - 1]);
+  return result;
+}
+
+/**
+ * 启发式生成符合城市路网的备用轨迹折线（起止点之间的直角网格平滑折线，带微弧转弯）
+ */
+function generateUrbanRoute1(
   originLat: number,
   originLng: number,
   destLat: number,
@@ -1536,13 +1619,160 @@ function generateUrbanGridRoute(
   const latDiff = destLat - originLat;
   const lngDiff = destLng - originLng;
 
-  // 模拟2~3个转弯节点，符合城市道路街道走势
-  const p1: [number, number] = [originLat + latDiff * 0.1, originLng + lngDiff * 0.45];
-  const p2: [number, number] = [originLat + latDiff * 0.55, originLng + lngDiff * 0.48];
-  const p3: [number, number] = [originLat + latDiff * 0.75, originLng + lngDiff * 0.88];
+  // 路线 1：直达绿波专线
+  const p1: [number, number] = [originLat + latDiff * 0.15, originLng + lngDiff * 0.42];
+  const p2: [number, number] = [originLat + latDiff * 0.58, originLng + lngDiff * 0.46];
+  const p3: [number, number] = [originLat + latDiff * 0.78, originLng + lngDiff * 0.88];
 
   points.push(p1, p2, p3, [destLat, destLng]);
-  return points;
+  return smoothPathWithMicroArcs(points, 0.32, 8);
+}
+
+function generateUrbanRoute2(
+  originLat: number,
+  originLng: number,
+  destLat: number,
+  destLng: number
+): [number, number][] {
+  const points: [number, number][] = [[originLat, originLng]];
+  const latDiff = destLat - originLat;
+  const lngDiff = destLng - originLng;
+
+  // 路线 2：避堵宽道直达（走开阔东侧/南侧大道，拐角少，避开人流）
+  const p1: [number, number] = [originLat + latDiff * 0.05, originLng + lngDiff * 0.72];
+  const p2: [number, number] = [originLat + latDiff * 0.65, originLng + lngDiff * 0.76];
+  const p3: [number, number] = [originLat + latDiff * 0.88, originLng + lngDiff * 0.95];
+
+  points.push(p1, p2, p3, [destLat, destLng]);
+  return smoothPathWithMicroArcs(points, 0.34, 8);
+}
+
+function generateUrbanRoute3(
+  originLat: number,
+  originLng: number,
+  destLat: number,
+  destLng: number
+): [number, number][] {
+  const points: [number, number][] = [[originLat, originLng]];
+  const latDiff = destLat - originLat;
+  const lngDiff = destLng - originLng;
+
+  // 路线 3：园区平坦穿行（商业中庭与内部步行街，路面平稳无颠簸）
+  const p1: [number, number] = [originLat + latDiff * 0.45, originLng + lngDiff * 0.12];
+  const p2: [number, number] = [originLat + latDiff * 0.72, originLng + lngDiff * 0.38];
+  const p3: [number, number] = [originLat + latDiff * 0.90, originLng + lngDiff * 0.65];
+
+  points.push(p1, p2, p3, [destLat, destLng]);
+  return smoothPathWithMicroArcs(points, 0.30, 8);
+}
+
+function buildMultiRouteOptions(
+  originLat: number,
+  originLng: number,
+  destLat: number,
+  destLng: number,
+  primaryPoints?: [number, number][],
+  primaryDistance?: number,
+  primaryDuration?: number,
+  primarySteps?: AmapRouteStep[]
+): DeliveryRouteOption[] {
+  const baseDist = primaryDistance || Math.round(calculateHaversineDistance(originLat, originLng, destLat, destLng) * 1.35);
+  const baseDur = primaryDuration || Math.round((baseDist / 1000 / 22) * 3600);
+
+  const pts1 = primaryPoints && primaryPoints.length >= 2 
+    ? primaryPoints 
+    : generateUrbanRoute1(originLat, originLng, destLat, destLng);
+  const pts2 = generateUrbanRoute2(originLat, originLng, destLat, destLng);
+  const pts3 = generateUrbanRoute3(originLat, originLng, destLat, destLng);
+
+  const dist1 = Math.round(baseDist);
+  const dist2 = Math.round(baseDist * 1.18);
+  const dist3 = Math.max(120, Math.round(baseDist * 0.88));
+
+  const dur1 = Math.max(60, baseDur);
+  const dur2 = Math.max(90, Math.round(baseDur * 1.22));
+  const dur3 = Math.max(60, Math.round(baseDur * 0.85));
+
+  return [
+    {
+      id: 'route-1',
+      name: '路线 1 · 极速绿波',
+      tag: '最快推荐',
+      color: '#00B96B',
+      glowColor: 'rgba(0, 185, 107, 0.35)',
+      distanceMeters: dist1,
+      durationMinutes: Math.max(1, Math.ceil(dur1 / 60)),
+      durationSeconds: dur1,
+      points: pts1,
+      steps: primarySteps || [
+        {
+          instruction: '从流动餐车站台出发，驶入专线主干道',
+          distanceMeters: Math.round(dist1 * 0.45),
+          durationSeconds: Math.round(dur1 * 0.45),
+          coordinates: pts1.slice(0, 3)
+        },
+        {
+          instruction: '沿绿波专用通道直行，进入大悦城商务座落客点',
+          distanceMeters: Math.round(dist1 * 0.55),
+          durationSeconds: Math.round(dur1 * 0.55),
+          coordinates: pts1.slice(2)
+        }
+      ],
+      description: '高德绿波专线 · 直达优先，全程骑行专用道'
+    },
+    {
+      id: 'route-2',
+      name: '路线 2 · 宽道直达',
+      tag: '红绿灯少',
+      color: '#1677FF',
+      glowColor: 'rgba(22, 119, 255, 0.35)',
+      distanceMeters: dist2,
+      durationMinutes: Math.max(1, Math.ceil(dur2 / 60)),
+      durationSeconds: dur2,
+      points: pts2,
+      steps: [
+        {
+          instruction: '沿南侧主干道宽阔畅行，避开人行道交叉口',
+          distanceMeters: Math.round(dist2 * 0.6),
+          durationSeconds: Math.round(dur2 * 0.6),
+          coordinates: pts2.slice(0, 3)
+        },
+        {
+          instruction: '由东门专用货梯通道平稳入楼',
+          distanceMeters: Math.round(dist2 * 0.4),
+          durationSeconds: Math.round(dur2 * 0.4),
+          coordinates: pts2.slice(2)
+        }
+      ],
+      description: '主干道宽阔畅行 · 红绿灯少，颠簸幅度小'
+    },
+    {
+      id: 'route-3',
+      name: '路线 3 · 园区穿行',
+      tag: '路面平坦',
+      color: '#EA580C',
+      glowColor: 'rgba(234, 88, 12, 0.35)',
+      distanceMeters: dist3,
+      durationMinutes: Math.max(1, Math.ceil(dur3 / 60)),
+      durationSeconds: dur3,
+      points: pts3,
+      steps: [
+        {
+          instruction: '穿行中庭商业步道与园区内部连廊，短距快捷',
+          distanceMeters: Math.round(dist3 * 0.5),
+          durationSeconds: Math.round(dur3 * 0.5),
+          coordinates: pts3.slice(0, 3)
+        },
+        {
+          instruction: '直接到达北座后勤电梯直达专柜',
+          distanceMeters: Math.round(dist3 * 0.5),
+          durationSeconds: Math.round(dur3 * 0.5),
+          coordinates: pts3.slice(2)
+        }
+      ],
+      description: '商业步道园区捷径 · 避开主街机动车流'
+    }
+  ];
 }
 
 /**
@@ -1583,15 +1813,28 @@ export async function planAmapRidingRoute(
         if (fullPoints.length >= 2) {
           const totalDistance = Number(path.distance) || calculateHaversineDistance(originLat, originLng, destLat, destLng);
           const totalDuration = Number(path.duration) || Math.round((totalDistance / 1000 / 20) * 3600);
+          const smoothedPoints = smoothPathWithMicroArcs(fullPoints, 0.28, 6);
+          const multiRoutes = buildMultiRouteOptions(
+            originLat,
+            originLng,
+            destLat,
+            destLng,
+            smoothedPoints,
+            Math.round(totalDistance),
+            totalDuration,
+            steps
+          );
+
           return {
             source: 'amap',
             distanceMeters: Math.round(totalDistance),
             durationSeconds: totalDuration,
             durationMinutes: Math.max(1, Math.ceil(totalDuration / 60)),
-            points: fullPoints,
+            points: smoothedPoints,
             steps,
             origin: { lat: originLat, lng: originLng },
-            destination: { lat: destLat, lng: destLng }
+            destination: { lat: destLat, lng: destLng },
+            routes: multiRoutes
           };
         }
       }
@@ -1622,15 +1865,28 @@ export async function planAmapRidingRoute(
         if (fullPoints.length >= 2) {
           const totalDistance = Number(path.distance) || calculateHaversineDistance(originLat, originLng, destLat, destLng);
           const totalDuration = Math.round((Number(path.duration) || 300) * 0.35);
+          const smoothedPoints = smoothPathWithMicroArcs(fullPoints, 0.28, 6);
+          const multiRoutes = buildMultiRouteOptions(
+            originLat,
+            originLng,
+            destLat,
+            destLng,
+            smoothedPoints,
+            Math.round(totalDistance),
+            totalDuration,
+            steps
+          );
+
           return {
             source: 'amap',
             distanceMeters: Math.round(totalDistance),
             durationSeconds: totalDuration,
             durationMinutes: Math.max(1, Math.ceil(totalDuration / 60)),
-            points: fullPoints,
+            points: smoothedPoints,
             steps,
             origin: { lat: originLat, lng: originLng },
-            destination: { lat: destLat, lng: destLng }
+            destination: { lat: destLat, lng: destLng },
+            routes: multiRoutes
           };
         }
       }
@@ -1640,32 +1896,19 @@ export async function planAmapRidingRoute(
   }
 
   // 3. 容灾兜底：基于城市路网网格模拟真实平滑折线
-  const fallbackPoints = generateUrbanGridRoute(originLat, originLng, destLat, destLng);
-  const distance = Math.round(calculateHaversineDistance(originLat, originLng, destLat, destLng) * 1.35); // 加折线系数
-  const durationSec = Math.round((distance / 1000 / 22) * 3600); // 按 22km/h 计算耗时
+  const multiRoutes = buildMultiRouteOptions(originLat, originLng, destLat, destLng);
+  const primary = multiRoutes[0];
 
   return {
     source: 'fallback_simulated',
-    distanceMeters: distance,
-    durationSeconds: durationSec,
-    durationMinutes: Math.max(1, Math.ceil(durationSec / 60)),
-    points: fallbackPoints,
-    steps: [
-      {
-        instruction: '骑手从餐车出发，沿主干道驶向取餐干线',
-        distanceMeters: Math.round(distance * 0.4),
-        durationSeconds: Math.round(durationSec * 0.4),
-        coordinates: fallbackPoints.slice(0, 3)
-      },
-      {
-        instruction: '转入商业街区辅路，开启绿波专送通道',
-        distanceMeters: Math.round(distance * 0.6),
-        durationSeconds: Math.round(durationSec * 0.6),
-        coordinates: fallbackPoints.slice(2)
-      }
-    ],
+    distanceMeters: primary.distanceMeters,
+    durationSeconds: primary.durationSeconds,
+    durationMinutes: primary.durationMinutes,
+    points: primary.points,
+    steps: primary.steps,
     origin: { lat: originLat, lng: originLng },
-    destination: { lat: destLat, lng: destLng }
+    destination: { lat: destLat, lng: destLng },
+    routes: multiRoutes
   };
 }
 

@@ -726,27 +726,27 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
   };
 
   return (
-    <div className="space-y-4 text-xs">
+    <div className="space-y-4 text-xs max-w-[2000px] mx-auto pb-10">
       {/* 顶部主横幅与多维日期切换器 */}
-      <div className="bg-white p-4 rounded-lg border border-[#e6e6e4] shadow-2xs space-y-3">
+      <div className="bg-white p-4 sm:p-5 rounded-[4px] border border-[#e6e6e4] shadow-2xs space-y-3">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded bg-[#edf3ec] text-[#2b593f] flex items-center justify-center font-bold">
+            <div className="w-8 h-8 rounded-[2px] bg-[#f7f7f5] border border-[#e6e6e4] text-[#37352f] flex items-center justify-center shrink-0">
               <TrendingUp className="w-4 h-4" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-bold text-sm text-[#37352f]">餐车营业营收与客流大屏</h3>
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#edf3ec] text-[#2b593f]">
+                <h3 className="font-semibold text-sm text-[#37352f]">餐车营业营收与客流大屏</h3>
+                <span className="px-1.5 py-0.5 rounded-[2px] text-[10px] font-medium bg-[#edf6f1] text-[#2b593f] border border-[#cbe4d7]">
                   正在查看：{targetDateBounds.label}
                 </span>
                 {(deletedOrderIds.length > 0 || Object.keys(orderOverrides).length > 0 || customAdjustments.length > 0) && (
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
+                  <span className="px-1.5 py-0.5 rounded-[2px] text-[10px] font-medium bg-[#fef3d6] text-[#d9730d] border border-[#fae2a0]">
                     已包含自定义修改/调账
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-[#787774]">
+              <p className="text-[11px] text-[#787774] mt-0.5">
                 支持任意自选日期切换、每日菜品销售排行榜单、每日订单号码流水、报表修改与删除
               </p>
             </div>
@@ -758,10 +758,10 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
               <button
                 type="button"
                 onClick={onOpenMasterControl}
-                className="px-2.5 py-1.5 bg-[#37352f] hover:bg-black text-white rounded font-semibold text-xs flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
+                className="px-2.5 py-1.5 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-[2px] font-medium text-xs flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
                 title="打开商家端总控 (用户行为全程监听 / 流失节点漏斗 / 全局备份快照)"
               >
-                <Activity className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+                <Activity className="w-3.5 h-3.5 text-emerald-400" />
                 <span>进入商家端总控中枢</span>
               </button>
             )}
@@ -769,7 +769,7 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
             <button
               type="button"
               onClick={() => setIsAddingAdjustment(true)}
-              className="px-2.5 py-1.5 bg-[#2b593f] hover:bg-[#20432f] text-white rounded font-semibold text-xs flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+              className="px-2.5 py-1.5 bg-[#2b593f] hover:bg-[#20432f] text-white rounded-[2px] font-medium text-xs flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>+ 录入调账/冲账</span>
@@ -778,9 +778,9 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
             <button
               type="button"
               onClick={handleExportOrdersCsv}
-              className="px-2.5 py-1.5 bg-white hover:bg-[#efefed] text-[#37352f] border border-[#d3d1cb] rounded font-semibold text-xs flex items-center gap-1 cursor-pointer transition-colors"
+              className="px-2.5 py-1.5 bg-[#f7f7f5] hover:bg-[#efefed] text-[#37352f] border border-[#e6e6e4] rounded-[2px] font-medium text-xs flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
             >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+              <FileSpreadsheet className="w-3.5 h-3.5 text-[#2b593f]" />
               <span>导出当前日期流水</span>
             </button>
 
@@ -789,7 +789,7 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
                 type="button"
                 onClick={handleResetAllCustomizations}
                 title="清除所有手动修改项，恢复原始真实出单"
-                className="px-2.5 py-1.5 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 rounded font-semibold text-xs flex items-center gap-1 cursor-pointer transition-colors"
+                className="px-2.5 py-1.5 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 rounded-[2px] font-medium text-xs flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>恢复原始流水</span>
@@ -799,15 +799,15 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
         </div>
 
         {/* 核心功能 1：日期切换导航条 (支持切换指定的一个具体日期) */}
-        <div className="flex items-center justify-between border-t border-[#f1f1ef] pt-2.5 flex-wrap gap-2.5">
+        <div className="flex items-center justify-between border-t border-[#efefed] pt-2.5 flex-wrap gap-2.5">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] font-bold text-[#37352f] flex items-center gap-1">
+            <span className="text-[11px] font-medium text-[#37352f] flex items-center gap-1">
               <Calendar className="w-3.5 h-3.5 text-[#2b593f]" />
               <span>日期范围切换:</span>
             </span>
 
             {/* 预设快捷周期 */}
-            <div className="flex bg-[#f1f1ef] p-0.5 rounded border border-[#e6e6e4]">
+            <div className="flex items-center gap-1.5 flex-wrap">
               {[
                 { id: 'today', label: '今日实时' },
                 { id: 'yesterday', label: '昨日' },
@@ -819,10 +819,10 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
                   key={r.id}
                   type="button"
                   onClick={() => setDateMode(r.id as any)}
-                  className={`px-3 py-1 rounded font-semibold text-xs transition-all cursor-pointer ${
+                  className={`px-3 py-1 rounded-full text-xs transition-all cursor-pointer bg-white border ${
                     dateMode === r.id
-                      ? 'bg-white text-[#37352f] shadow-xs'
-                      : 'text-[#787774] hover:text-black'
+                      ? 'text-zinc-900 font-semibold shadow-2xs border-zinc-900'
+                      : 'text-[#5a5854] hover:text-zinc-900 border-[#e6e6e4] hover:border-zinc-300 hover:bg-slate-50'
                   }`}
                 >
                   {r.label}
@@ -831,11 +831,11 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
             </div>
 
             {/* 日期步进器 (< 前一天 / 后一天 >) */}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => handleStepDate(-1)}
-                className="px-2 py-1 bg-white hover:bg-[#efefed] border border-[#d3d1cb] rounded text-[#37352f] text-xs font-semibold cursor-pointer flex items-center gap-0.5 transition-colors shadow-2xs"
+                className="px-2.5 py-1 bg-white hover:bg-slate-50 border border-[#e6e6e4] hover:border-zinc-300 rounded-full text-[#37352f] text-xs font-medium cursor-pointer flex items-center gap-0.5 transition-colors shadow-2xs"
                 title="切换到前一天"
               >
                 <ChevronLeft className="w-3 h-3" />
@@ -844,7 +844,7 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
               <button
                 type="button"
                 onClick={() => handleStepDate(1)}
-                className="px-2 py-1 bg-white hover:bg-[#efefed] border border-[#d3d1cb] rounded text-[#37352f] text-xs font-semibold cursor-pointer flex items-center gap-0.5 transition-colors shadow-2xs"
+                className="px-2.5 py-1 bg-white hover:bg-slate-50 border border-[#e6e6e4] hover:border-zinc-300 rounded-full text-[#37352f] text-xs font-medium cursor-pointer flex items-center gap-0.5 transition-colors shadow-2xs"
                 title="切换到后一天"
               >
                 <span>后一天</span>
@@ -854,13 +854,13 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
 
             {/* 自选指定具体某一天的日历选择器 (Specific Date Picker) */}
             {dateMode === 'specific_day' && (
-              <div className="flex items-center gap-1.5 bg-[#edf3ec] px-2.5 py-0.5 rounded border border-[#c7dbc4] animate-fadeIn">
-                <span className="text-[11px] text-[#2b593f] font-semibold">指定日期:</span>
+              <div className="flex items-center gap-1.5 bg-[#edf6f1] px-2.5 py-0.5 rounded-[2px] border border-[#cbe4d7]">
+                <span className="text-[11px] text-[#2b593f] font-medium">指定日期:</span>
                 <input
                   type="date"
                   value={selectedDateStr}
                   onChange={(e) => setSelectedDateStr(e.target.value)}
-                  className="bg-white border border-[#d3d1cb] rounded px-2 py-0.5 text-xs text-[#37352f] font-mono focus:outline-hidden focus:border-[#2b593f]"
+                  className="bg-white border border-[#e6e6e4] rounded-[2px] px-2 py-0.5 text-xs text-[#37352f] font-mono focus:outline-hidden focus:border-[#2b593f]"
                 />
                 <span className="text-[10px] text-[#2b593f]">已切换至该日全量流水</span>
               </div>
@@ -871,43 +871,43 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
               <button
                 type="button"
                 onClick={() => handleSeedOrdersForDate(dateMode === 'specific_day' ? selectedDateStr : getTodayStr())}
-                className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors shadow-2xs animate-pulse"
+                className="px-2.5 py-1 bg-[#edf6f1] hover:bg-[#d6ecdf] text-[#2b593f] border border-[#cbe4d7] rounded-[2px] text-xs font-medium flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
                 title="一键快速载入该日期 12 笔示范出单记录"
               >
-                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                <Sparkles className="w-3.5 h-3.5 text-[#2b593f]" />
                 <span>一键载入该日示范流水 (12笔)</span>
               </button>
             )}
           </div>
 
           <div className="text-[11px] text-[#787774]">
-            当前周期统计订单数: <span className="font-mono font-bold text-[#37352f]">{totalOrdersCount}</span> 笔
+            当前周期统计订单数: <span className="font-mono font-semibold text-[#37352f]">{totalOrdersCount}</span> 笔
           </div>
         </div>
       </div>
 
       {/* 4 项 KPI 指标概览卡片 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-white p-3.5 rounded border border-[#e6e6e4] space-y-1 shadow-2xs">
+        <div className="bg-white p-3.5 rounded-[4px] border border-[#e6e6e4] space-y-1 shadow-2xs">
           <div className="flex items-center justify-between text-[#787774]">
-            <span>总营业额 (GMV)</span>
+            <span className="text-[11px]">总营业额 (GMV)</span>
             <DollarSign className="w-4 h-4 text-[#2b593f]" />
           </div>
-          <p className="text-xl font-mono font-bold text-[#2b593f]">
+          <p className="text-xl font-mono font-semibold text-[#2b593f]">
             ¥{totalSales.toFixed(2)}
           </p>
           {totalAdjustmentSum !== 0 && (
-            <div className="text-[10px] font-mono text-amber-700">
+            <div className="text-[10px] font-mono text-[#d9730d]">
               包含手工调账: {totalAdjustmentSum >= 0 ? `+¥${totalAdjustmentSum}` : `-¥${Math.abs(totalAdjustmentSum)}`}
             </div>
           )}
           {salesDelta === null ? (
-            <span className="text-[10px] text-[#787774] font-semibold">环比上一周期 暂无对比数据</span>
+            <span className="text-[10px] text-[#787774]">环比上一周期 暂无对比数据</span>
           ) : (() => {
             const up = salesDelta >= 0;
             const Icon = up ? ArrowUpRight : ArrowDownRight;
             return (
-              <span className={`text-[10px] font-semibold flex items-center gap-0.5 ${up ? 'text-[#4dab63]' : 'text-[#eb5757]'}`}>
+              <span className={`text-[10px] font-medium flex items-center gap-0.5 ${up ? 'text-[#2b593f]' : 'text-rose-600'}`}>
                 <Icon className="w-3 h-3" />
                 <span>{up ? `环比上一周期 +${salesDelta.toFixed(1)}%` : `环比上一周期 ${salesDelta.toFixed(1)}%`}</span>
               </span>
@@ -915,26 +915,26 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
           })()}
         </div>
 
-        <div className="bg-white p-3.5 rounded border border-[#e6e6e4] space-y-1 shadow-2xs">
+        <div className="bg-white p-3.5 rounded-[4px] border border-[#e6e6e4] space-y-1 shadow-2xs">
           <div className="flex items-center justify-between text-[#787774]">
-            <span>有效成单总数</span>
+            <span className="text-[11px]">有效成单总数</span>
             <ShoppingBag className="w-4 h-4 text-[#37352f]" />
           </div>
-          <p className="text-xl font-mono font-bold text-[#37352f]">
+          <p className="text-xl font-mono font-semibold text-[#37352f]">
             {totalOrdersCount} <span className="text-xs font-normal text-[#787774]">单</span>
           </p>
           {deletedOrderIds.length > 0 && (
-            <div className="text-[10px] text-[#eb5757]">
+            <div className="text-[10px] text-rose-600">
               已剔除作废单: {deletedOrderIds.length} 单
             </div>
           )}
           {countDelta === null ? (
-            <span className="text-[10px] text-[#787774] font-semibold">环比上一周期 暂无对比数据</span>
+            <span className="text-[10px] text-[#787774]">环比上一周期 暂无对比数据</span>
           ) : (() => {
             const up = countDelta >= 0;
             const Icon = up ? ArrowUpRight : ArrowDownRight;
             return (
-              <span className={`text-[10px] font-semibold flex items-center gap-0.5 ${up ? 'text-[#4dab63]' : 'text-[#eb5757]'}`}>
+              <span className={`text-[10px] font-medium flex items-center gap-0.5 ${up ? 'text-[#2b593f]' : 'text-rose-600'}`}>
                 <Icon className="w-3 h-3" />
                 <span>{up ? `环比上一周期 +${countDelta.toFixed(1)}%` : `环比上一周期 ${countDelta.toFixed(1)}%`}</span>
               </span>
@@ -942,26 +942,26 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
           })()}
         </div>
 
-        <div className="bg-white p-3.5 rounded border border-[#e6e6e4] space-y-1 shadow-2xs">
+        <div className="bg-white p-3.5 rounded-[4px] border border-[#e6e6e4] space-y-1 shadow-2xs">
           <div className="flex items-center justify-between text-[#787774]">
-            <span>笔均客单价</span>
+            <span className="text-[11px]">笔均客单价</span>
             <Award className="w-4 h-4 text-[#d9730d]" />
           </div>
-          <p className="text-xl font-mono font-bold text-[#d9730d]">
+          <p className="text-xl font-mono font-semibold text-[#d9730d]">
             ¥{avgTicketPrice.toFixed(1)}
           </p>
           <span className="text-[10px] text-[#787774]">平均每单消费额度</span>
         </div>
 
-        <div className="bg-white p-3.5 rounded border border-[#e6e6e4] space-y-1 shadow-2xs">
+        <div className="bg-white p-3.5 rounded-[4px] border border-[#e6e6e4] space-y-1 shadow-2xs">
           <div className="flex items-center justify-between text-[#787774]">
-            <span>堂食 vs 外卖占比</span>
-            <PieChartIcon className="w-4 h-4 text-[#2383e2]" />
+            <span className="text-[11px]">堂食 vs 外卖占比</span>
+            <PieChartIcon className="w-4 h-4 text-[#37352f]" />
           </div>
-          <p className="text-xl font-mono font-bold text-[#1c5598]">
+          <p className="text-xl font-mono font-semibold text-[#37352f]">
             {dineVsDeliveryTotal > 0 ? `${dineShare}% : ${deliveryShare}%` : '—'}
           </p>
-          <span className="text-[10px] text-[#2383e2]">
+          <span className="text-[10px] text-[#787774]">
             堂食外摆 {storeSideCount} 单 · 专送 {deliverySideCount} 单
           </span>
         </div>
@@ -970,16 +970,16 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
       {/* 中部双栏：全天时段出餐波峰 + 核心功能 2：每日菜品销售数据榜单 */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
         {/* 左侧：时段波峰图 (5 列) */}
-        <div className="lg:col-span-5 bg-white p-4 rounded-lg border border-[#e6e6e4] space-y-3 shadow-2xs">
+        <div className="lg:col-span-5 bg-white p-4 rounded-[4px] border border-[#e6e6e4] space-y-3 shadow-2xs">
           <div className="flex items-center justify-between border-b border-[#efefed] pb-2">
             <div>
-              <h4 className="font-bold text-xs text-[#37352f] flex items-center gap-1.5">
+              <h4 className="font-semibold text-xs text-[#37352f] flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-[#2b593f]" />
                 <span>全天各时段出单波峰分布</span>
               </h4>
               <span className="text-[10px] text-[#787774]">对应选定日期的出单时段聚合</span>
             </div>
-            <span className="text-[10px] text-[#d9730d] font-semibold">● 峰值时段</span>
+            <span className="text-[10px] text-[#d9730d] font-medium">● 峰值时段</span>
           </div>
 
           <div className="pt-2">
@@ -995,12 +995,12 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
                     </span>
                     <div
                       style={{ height: `${heightPercent}%` }}
-                      className={`w-full rounded-t transition-all ${
+                      className={`w-full rounded-t-[2px] transition-all ${
                         h.isPeak ? 'bg-[#d9730d]' : h.amount > 0 ? 'bg-[#37352f]' : 'bg-[#e6e6e4]'
                       }`}
                       title={`${h.hour} : ¥${h.amount} (${h.count}单)`}
                     />
-                    <span className="font-mono text-[9.5px] text-[#5a5854]">{h.hour}</span>
+                    <span className="font-mono text-[9.5px] text-[#787774]">{h.hour}</span>
                   </div>
                 );
               })}
@@ -1009,14 +1009,14 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
         </div>
 
         {/* 右侧：每日菜品销售数据榜单 (7 列) */}
-        <div className="lg:col-span-7 bg-white p-4 rounded-lg border border-[#e6e6e4] space-y-3 shadow-2xs">
+        <div className="lg:col-span-7 bg-white p-4 rounded-[4px] border border-[#e6e6e4] space-y-3 shadow-2xs">
           <div className="flex items-center justify-between border-b border-[#efefed] pb-2 flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              <h4 className="font-bold text-xs text-[#37352f] flex items-center gap-1">
-                <Flame className="w-3.5 h-3.5 text-[#eb5757]" />
+              <h4 className="font-semibold text-xs text-[#37352f] flex items-center gap-1">
+                <Flame className="w-3.5 h-3.5 text-[#d9730d]" />
                 <span>每日菜品销售数据榜单</span>
               </h4>
-              <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#f1f1ef] text-[#787774]">
+              <span className="text-[10px] px-1.5 py-0.2 rounded-[2px] bg-[#f7f7f5] border border-[#e6e6e4] text-[#787774]">
                 共 {allDishesRankList.length} 道菜品
               </span>
             </div>
@@ -1024,12 +1024,12 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
             {/* 榜单过滤与排序 */}
             <div className="flex items-center gap-2 flex-wrap">
               {/* 排序切换 */}
-              <div className="flex bg-[#f1f1ef] p-0.5 rounded border border-[#e6e6e4] text-[11px]">
+              <div className="flex bg-[#f7f7f5] p-0.5 rounded-[2px] border border-[#e6e6e4] text-[11px]">
                 <button
                   type="button"
                   onClick={() => setDishSortBy('qty')}
-                  className={`px-2 py-0.5 rounded font-semibold cursor-pointer ${
-                    dishSortBy === 'qty' ? 'bg-white text-[#37352f] shadow-xs' : 'text-[#787774]'
+                  className={`px-2 py-0.5 rounded-[2px] font-medium cursor-pointer ${
+                    dishSortBy === 'qty' ? 'bg-white text-[#37352f] shadow-2xs border border-[#e6e6e4]' : 'text-[#787774]'
                   }`}
                 >
                   按销量(份)
@@ -1037,8 +1037,8 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
                 <button
                   type="button"
                   onClick={() => setDishSortBy('revenue')}
-                  className={`px-2 py-0.5 rounded font-semibold cursor-pointer ${
-                    dishSortBy === 'revenue' ? 'bg-white text-[#37352f] shadow-xs' : 'text-[#787774]'
+                  className={`px-2 py-0.5 rounded-[2px] font-medium cursor-pointer ${
+                    dishSortBy === 'revenue' ? 'bg-white text-[#37352f] shadow-2xs border border-[#e6e6e4]' : 'text-[#787774]'
                   }`}
                 >
                   按销售额(¥)
@@ -1049,7 +1049,7 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
               <select
                 value={dishCategoryFilter}
                 onChange={(e) => setDishCategoryFilter(e.target.value)}
-                className="px-2 py-0.5 border border-[#d3d1cb] rounded text-[11px] bg-white text-[#37352f]"
+                className="px-2 py-0.5 border border-[#e6e6e4] rounded-[2px] text-[11px] bg-white text-[#37352f] focus:outline-hidden focus:border-[#37352f]"
               >
                 <option value="all">全部分类</option>
                 {availableCategories.map((c) => (
@@ -1063,7 +1063,7 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
               <button
                 type="button"
                 onClick={() => setShowAllDishes(!showAllDishes)}
-                className="text-[11px] text-[#2b593f] font-semibold hover:underline flex items-center gap-0.5 cursor-pointer"
+                className="text-[11px] text-[#2b593f] font-medium hover:underline flex items-center gap-0.5 cursor-pointer"
               >
                 <span>{showAllDishes ? '收起榜单' : '查看全量'}</span>
                 {showAllDishes ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
@@ -1081,40 +1081,40 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
                 const isTop2 = dish.rank === 2;
                 const isTop3 = dish.rank === 3;
                 return (
-                  <div key={dish.name} className="space-y-1 p-2 rounded hover:bg-[#fafafa] transition-colors border border-transparent hover:border-[#ebebe8]">
+                  <div key={dish.name} className="space-y-1 p-2 rounded-[2px] hover:bg-[#fafaf8] transition-colors border border-transparent hover:border-[#e6e6e4]">
                     <div className="flex items-center justify-between text-[11px]">
                       <div className="flex items-center gap-2 min-w-0">
                         <span
-                          className={`w-4 h-4 rounded font-mono text-[10px] font-bold flex items-center justify-center ${
+                          className={`w-4 h-4 rounded-[2px] font-mono text-[10px] font-semibold flex items-center justify-center ${
                             isTop1
-                              ? 'bg-[#d9730d] text-white'
+                              ? 'bg-[#37352f] text-white'
                               : isTop2
-                              ? 'bg-slate-400 text-white'
+                              ? 'bg-[#787774] text-white'
                               : isTop3
-                              ? 'bg-amber-700 text-white'
-                              : 'bg-[#f1f1ef] text-[#787774]'
+                              ? 'bg-[#9d9d99] text-white'
+                              : 'bg-[#f7f7f5] text-[#787774] border border-[#e6e6e4]'
                           }`}
                         >
                           {dish.rank}
                         </span>
-                        <span className="font-semibold text-[#37352f] truncate">{dish.name}</span>
-                        <span className="text-[10px] text-[#787774] bg-[#f1f1ef] px-1.5 py-0.2 rounded">
+                        <span className="font-medium text-[#37352f] truncate">{dish.name}</span>
+                        <span className="text-[10px] text-[#787774] bg-[#f7f7f5] border border-[#e6e6e4] px-1.5 py-0.2 rounded-[2px]">
                           {dish.category}
                         </span>
                       </div>
 
                       <div className="flex items-center gap-3">
-                        <span className="text-[#5a5854] font-mono">
-                          <strong className="text-[#1a1c1b]">{dish.qty}</strong> 份
+                        <span className="text-[#787774] font-mono">
+                          <strong className="text-[#37352f] font-semibold">{dish.qty}</strong> 份
                         </span>
-                        <span className="font-mono font-bold text-[#2b593f] min-w-[60px] text-right">
+                        <span className="font-mono font-semibold text-[#2b593f] min-w-[60px] text-right">
                           ¥{dish.revenue.toFixed(0)}
                         </span>
                       </div>
                     </div>
 
                     {/* 进度条 */}
-                    <div className="w-full bg-[#f1f1ef] h-1.5 rounded-full overflow-hidden">
+                    <div className="w-full bg-[#f1f1ef] h-1.5 rounded-[1px] overflow-hidden">
                       <div
                         style={{ width: `${dish.percent}%` }}
                         className={`h-full ${isTop1 ? 'bg-[#d9730d]' : 'bg-[#37352f]'}`}
@@ -1130,37 +1130,37 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
 
       {/* 调整单与手工核账记录展示条 (若有) */}
       {matchedAdjustments.length > 0 && (
-        <div className="bg-amber-50/50 p-3.5 rounded-lg border border-amber-200 shadow-2xs space-y-2">
+        <div className="bg-[#fef3d6]/30 p-3.5 rounded-[4px] border border-[#fae2a0] shadow-2xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="font-bold text-xs text-amber-900 flex items-center gap-1.5">
-              <SlidersHorizontal className="w-3.5 h-3.5 text-amber-700" />
+            <span className="font-semibold text-xs text-[#37352f] flex items-center gap-1.5">
+              <SlidersHorizontal className="w-3.5 h-3.5 text-[#d9730d]" />
               <span>所选日期包含的手工调账与冲账记录 ({matchedAdjustments.length} 笔)</span>
             </span>
-            <span className="font-mono font-bold text-xs text-amber-900">
+            <span className="font-mono font-semibold text-xs text-[#37352f]">
               调账合计: {totalAdjustmentSum >= 0 ? `+¥${totalAdjustmentSum}` : `-¥${Math.abs(totalAdjustmentSum)}`}
             </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
             {matchedAdjustments.map((adj) => (
-              <div key={adj.id} className="p-2 bg-white rounded border border-amber-200 flex items-center justify-between">
+              <div key={adj.id} className="p-2 bg-white rounded-[2px] border border-[#e6e6e4] flex items-center justify-between shadow-2xs">
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <span className="font-semibold text-xs text-[#37352f]">{adj.title}</span>
-                    <span className="text-[10px] px-1 py-0.2 rounded bg-amber-100 text-amber-800">
+                    <span className="font-medium text-xs text-[#37352f]">{adj.title}</span>
+                    <span className="text-[10px] px-1 py-0.2 rounded-[2px] bg-[#f7f7f5] text-[#787774] border border-[#e6e6e4]">
                       {adj.category}
                     </span>
                   </div>
                   {adj.remark && <p className="text-[10px] text-[#787774] mt-0.5">{adj.remark}</p>}
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`font-mono font-bold text-xs ${adj.amount >= 0 ? 'text-[#2b593f]' : 'text-[#eb5757]'}`}>
+                  <span className={`font-mono font-semibold text-xs ${adj.amount >= 0 ? 'text-[#2b593f]' : 'text-rose-600'}`}>
                     {adj.amount >= 0 ? `+¥${adj.amount}` : `-¥${Math.abs(adj.amount)}`}
                   </span>
                   <button
                     type="button"
                     onClick={() => handleDeleteAdjustment(adj.id, adj.title)}
-                    className="text-[#787774] hover:text-rose-600 p-0.5 cursor-pointer"
+                    className="text-[#787774] hover:text-rose-600 p-0.5 cursor-pointer rounded-[2px]"
                     title="删除此笔调账"
                   >
                     <X className="w-3.5 h-3.5" />
@@ -1175,10 +1175,10 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
       {/* ------------------------------------------------------------- */}
       {/* 核心功能 3：每日订单列表与订单号码明细看板 (含修改与删除) */}
       {/* ------------------------------------------------------------- */}
-      <div className="bg-white p-4 rounded-lg border border-[#e6e6e4] shadow-2xs space-y-3">
+      <div className="bg-white p-4 rounded-[4px] border border-[#e6e6e4] shadow-2xs space-y-3">
         <div className="flex items-center justify-between border-b border-[#efefed] pb-2 flex-wrap gap-2">
           <div>
-            <h4 className="font-bold text-xs text-[#37352f] flex items-center gap-1.5">
+            <h4 className="font-semibold text-xs text-[#37352f] flex items-center gap-1.5">
               <ShoppingBag className="w-4 h-4 text-[#2b593f]" />
               <span>每日订单列表与订单号码流水记录 ({filteredOrderList.length} 笔)</span>
             </h4>
@@ -1196,14 +1196,14 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
                 placeholder="搜索单号 / 顾客 / 菜品..."
                 value={orderSearchKeyword}
                 onChange={(e) => setOrderSearchKeyword(e.target.value)}
-                className="pl-7 pr-2 py-1 text-xs border border-[#d3d1cb] rounded focus:outline-hidden focus:border-[#2b593f] w-48"
+                className="pl-7 pr-2 py-1 text-xs border border-[#e6e6e4] bg-[#f7f7f5] rounded-[2px] focus:outline-hidden focus:border-[#37352f] w-48 text-[#37352f]"
               />
             </div>
 
             <select
               value={orderChannelFilter}
               onChange={(e) => setOrderChannelFilter(e.target.value)}
-              className="px-2 py-1 border border-[#d3d1cb] rounded text-xs bg-white text-[#37352f]"
+              className="px-2 py-1 border border-[#e6e6e4] rounded-[2px] text-xs bg-white text-[#37352f] focus:outline-hidden focus:border-[#37352f]"
             >
               <option value="all">全部就餐渠道</option>
               <option value="dine_in">堂食外摆</option>
@@ -1217,29 +1217,29 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-[#e6e6e4] bg-[#fbfbfa] text-[#787774] text-[11px]">
-                <th className="p-2.5 font-bold">订单号码 (Order ID)</th>
-                <th className="p-2.5 font-bold">下单时间</th>
-                <th className="p-2.5 font-bold">顾客/联系方式</th>
-                <th className="p-2.5 font-bold">已购餐品明细</th>
-                <th className="p-2.5 font-bold">就餐渠道</th>
-                <th className="p-2.5 font-bold">支付方式</th>
-                <th className="p-2.5 font-bold text-right">实付金额</th>
-                <th className="p-2.5 font-bold">状态</th>
-                <th className="p-2.5 font-bold text-center">报表操作</th>
+              <tr className="border-b border-[#e6e6e4] bg-[#fafaf8] text-[#787774] text-[11px]">
+                <th className="p-2.5 font-semibold">订单号码 (Order ID)</th>
+                <th className="p-2.5 font-semibold">下单时间</th>
+                <th className="p-2.5 font-semibold">顾客/联系方式</th>
+                <th className="p-2.5 font-semibold">已购餐品明细</th>
+                <th className="p-2.5 font-semibold">就餐渠道</th>
+                <th className="p-2.5 font-semibold">支付方式</th>
+                <th className="p-2.5 font-semibold text-right">实付金额</th>
+                <th className="p-2.5 font-semibold">状态</th>
+                <th className="p-2.5 font-semibold text-center">报表操作</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#ebebe8] text-[11px]">
+            <tbody className="divide-y divide-[#efefed] text-[11px]">
               {filteredOrderList.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="p-8 text-center text-[#787774]">
                     <div className="max-w-sm mx-auto space-y-2">
-                      <p className="font-semibold text-xs text-[#37352f]">所选日期【{targetDateBounds.label}】暂无出单记录</p>
+                      <p className="font-medium text-xs text-[#37352f]">所选日期【{targetDateBounds.label}】暂无出单记录</p>
                       <p className="text-[11px] text-[#787774]">您可以手动录入调账/冲账，或一键载入该日示范流水以便进行大屏核算与操作测试。</p>
                       <button
                         type="button"
                         onClick={() => handleSeedOrdersForDate(dateMode === 'specific_day' ? selectedDateStr : getTodayStr())}
-                        className="px-3 py-1.5 bg-[#2b593f] hover:bg-[#20432f] text-white rounded font-semibold text-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
+                        className="px-3 py-1.5 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-[2px] font-medium text-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
                       >
                         <Sparkles className="w-3.5 h-3.5 text-amber-300" />
                         <span>一键载入该日示范流水 (12笔典型订单)</span>
@@ -1250,21 +1250,21 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
               ) : (
                 filteredOrderList.map((order: any) => {
                   return (
-                    <tr key={order.orderNo} className="hover:bg-[#fafafa] transition-colors">
+                    <tr key={order.orderNo} className="hover:bg-[#fafaf8] transition-colors">
                       {/* 单号 + 复制 */}
-                      <td className="p-2.5 font-mono font-bold text-[#1a1c1b]">
+                      <td className="p-2.5 font-mono font-semibold text-[#37352f]">
                         <div className="flex items-center gap-1">
                           <span>{order.orderNo}</span>
                           <button
                             type="button"
                             onClick={() => copyOrderNo(order.orderNo)}
-                            className="text-[#787774] hover:text-black p-0.5 cursor-pointer"
+                            className="text-[#787774] hover:text-[#37352f] p-0.5 cursor-pointer rounded-[2px]"
                             title="复制单号"
                           >
                             <Copy className="w-3 h-3" />
                           </button>
                           {order.isCustomModified && (
-                            <span className="px-1 py-0.2 rounded text-[9px] bg-amber-100 text-amber-800 font-normal">
+                            <span className="px-1 py-0.2 rounded-[2px] text-[9px] bg-[#fef3d6] text-[#d9730d] border border-[#fae2a0] font-normal">
                               已修改
                             </span>
                           )}
@@ -1272,13 +1272,13 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
                       </td>
 
                       {/* 时间 */}
-                      <td className="p-2.5 font-mono text-[#5a5854]">
+                      <td className="p-2.5 font-mono text-[#787774]">
                         {order.createdTime}
                       </td>
 
                       {/* 顾客 */}
                       <td className="p-2.5">
-                        <span className="font-semibold text-[#37352f] block">
+                        <span className="font-medium text-[#37352f] block">
                           {order.customerName || '散客'}
                         </span>
                         <span className="font-mono text-[10px] text-[#787774]">
@@ -1288,10 +1288,10 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
 
                       {/* 菜品 */}
                       <td className="p-2.5 max-w-[220px]">
-                        <div className="truncate text-[#5a5854]" title={order.items.map((i: any) => `${i.name}x${i.quantity}`).join(', ')}>
+                        <div className="truncate text-[#787774]" title={order.items.map((i: any) => `${i.name}x${i.quantity}`).join(', ')}>
                           {order.items.map((i: any, idx: number) => (
                             <span key={idx} className="mr-1.5 inline-block">
-                              {i.name}<span className="font-bold text-[#1a1c1b]">×{i.quantity}</span>
+                              {i.name}<span className="font-semibold text-[#37352f]">×{i.quantity}</span>
                             </span>
                           ))}
                         </div>
@@ -1300,12 +1300,12 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
                       {/* 渠道 */}
                       <td className="p-2.5">
                         <span
-                          className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                          className={`px-1.5 py-0.5 rounded-[2px] text-[10px] font-medium ${
                             order.channelType === 'delivery'
-                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                              ? 'bg-[#edf3f8] text-[#1c5598] border border-[#cbe0f2]'
                               : order.channelType === 'dine_in'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : 'bg-amber-50 text-amber-700 border border-amber-200'
+                              ? 'bg-[#edf6f1] text-[#2b593f] border border-[#cbe4d7]'
+                              : 'bg-[#fef3d6] text-[#d9730d] border border-[#fae2a0]'
                           }`}
                         >
                           {order.channelType === 'delivery'
@@ -1317,18 +1317,18 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
                       </td>
 
                       {/* 支付方式 */}
-                      <td className="p-2.5 text-[#5a5854]">
+                      <td className="p-2.5 text-[#787774]">
                         {order.paymentMethod || '微信支付'}
                       </td>
 
                       {/* 金额 */}
-                      <td className="p-2.5 text-right font-mono font-bold text-[#2b593f]">
+                      <td className="p-2.5 text-right font-mono font-semibold text-[#2b593f]">
                         ¥{order.totalAmount.toFixed(2)}
                       </td>
 
                       {/* 状态 */}
                       <td className="p-2.5">
-                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-[#f1f1ef] text-[#37352f] font-semibold">
+                        <span className="px-1.5 py-0.5 rounded-[2px] bg-[#f7f7f5] border border-[#e6e6e4] text-[#37352f] font-medium text-[10px]">
                           {order.statusText || '已完成'}
                         </span>
                       </td>
@@ -1339,7 +1339,7 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
                           <button
                             type="button"
                             onClick={() => handleOpenEditOrder(order)}
-                            className="p-1 bg-white hover:bg-[#edf3ec] text-[#2b593f] border border-[#d3d1cb] rounded cursor-pointer transition-colors"
+                            className="p-1 bg-[#f7f7f5] hover:bg-[#efefed] text-[#37352f] border border-[#e6e6e4] rounded-[2px] cursor-pointer transition-colors shadow-2xs"
                             title="修改本单金额/渠道/备注"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
@@ -1347,7 +1347,7 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
                           <button
                             type="button"
                             onClick={() => handleDeleteOrder(order.orderNo, order.totalAmount)}
-                            className="p-1 bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 rounded cursor-pointer transition-colors"
+                            className="p-1 bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 rounded-[2px] cursor-pointer transition-colors shadow-2xs"
                             title="从大屏报表中作废删除此单"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -1366,18 +1366,18 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
       {/* 模态框 1：修改订单记录弹窗 */}
       {editingOrder && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-3">
-          <div className="bg-white rounded-lg border border-[#d3d1cb] shadow-xl max-w-md w-full p-4 space-y-3 animate-fadeIn">
+          <div className="bg-white rounded-[4px] border border-[#e6e6e4] shadow-2xs max-w-md w-full p-4 space-y-3 animate-fadeIn">
             <div className="flex items-center justify-between border-b border-[#efefed] pb-2">
               <div className="flex items-center gap-2">
                 <Edit3 className="w-4 h-4 text-[#2b593f]" />
-                <h4 className="font-bold text-sm text-[#37352f]">
+                <h4 className="font-semibold text-sm text-[#37352f]">
                   修改报表订单记录: <span className="font-mono">{editingOrder.orderNo}</span>
                 </h4>
               </div>
               <button
                 type="button"
                 onClick={() => setEditingOrder(null)}
-                className="text-[#787774] hover:text-black cursor-pointer"
+                className="text-[#787774] hover:text-[#37352f] cursor-pointer rounded-[2px]"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1385,7 +1385,7 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
 
             <form onSubmit={handleSaveOrderEdit} className="space-y-3 text-xs">
               <div>
-                <label className="font-semibold text-[#37352f] block mb-1">
+                <label className="font-medium text-[#37352f] block mb-1">
                   实收金额 (元)
                 </label>
                 <input
@@ -1394,7 +1394,7 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
                   required
                   value={editAmount}
                   onChange={(e) => setEditAmount(parseFloat(e.target.value) || 0)}
-                  className="w-full px-2.5 py-1.5 border border-[#d3d1cb] rounded font-mono font-bold text-sm text-[#2b593f]"
+                  className="w-full px-2.5 py-1.5 border border-[#e6e6e4] bg-[#fafaf8] rounded-[2px] font-mono font-semibold text-sm text-[#2b593f] focus:outline-hidden focus:border-[#37352f]"
                 />
                 <span className="text-[10px] text-[#787774] mt-0.5 block">
                   原实收金额为 ¥{editingOrder.totalAmount.toFixed(2)}，保存前系统将自动生成安全快照备份
@@ -1403,11 +1403,11 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="font-semibold text-[#37352f] block mb-1">就餐渠道</label>
+                  <label className="font-medium text-[#37352f] block mb-1">就餐渠道</label>
                   <select
                     value={editChannel}
                     onChange={(e) => setEditChannel(e.target.value)}
-                    className="w-full px-2.5 py-1.5 border border-[#d3d1cb] rounded bg-white text-xs"
+                    className="w-full px-2.5 py-1.5 border border-[#e6e6e4] rounded-[2px] bg-white text-xs text-[#37352f] focus:outline-hidden focus:border-[#37352f]"
                   >
                     <option value="dine_in">堂食外摆</option>
                     <option value="pickup">到店自提</option>
@@ -1416,11 +1416,11 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
                 </div>
 
                 <div>
-                  <label className="font-semibold text-[#37352f] block mb-1">支付途径</label>
+                  <label className="font-medium text-[#37352f] block mb-1">支付途径</label>
                   <select
                     value={editPaymentMethod}
                     onChange={(e) => setEditPaymentMethod(e.target.value)}
-                    className="w-full px-2.5 py-1.5 border border-[#d3d1cb] rounded bg-white text-xs"
+                    className="w-full px-2.5 py-1.5 border border-[#e6e6e4] rounded-[2px] bg-white text-xs text-[#37352f] focus:outline-hidden focus:border-[#37352f]"
                   >
                     <option value="微信支付">微信支付</option>
                     <option value="支付宝">支付宝</option>
@@ -1432,13 +1432,13 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
               </div>
 
               <div>
-                <label className="font-semibold text-[#37352f] block mb-1">修改备注 / 冲账说明</label>
+                <label className="font-medium text-[#37352f] block mb-1">修改备注 / 冲账说明</label>
                 <input
                   type="text"
                   placeholder="例如：店庆特惠折让核减 / 顾客现场菜品调换冲账"
                   value={editNote}
                   onChange={(e) => setEditNote(e.target.value)}
-                  className="w-full px-2.5 py-1.5 border border-[#d3d1cb] rounded text-xs"
+                  className="w-full px-2.5 py-1.5 border border-[#e6e6e4] bg-[#fafaf8] rounded-[2px] text-xs text-[#37352f] focus:outline-hidden focus:border-[#37352f]"
                 />
               </div>
 
@@ -1446,13 +1446,13 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
                 <button
                   type="button"
                   onClick={() => setEditingOrder(null)}
-                  className="px-3 py-1.5 bg-[#f1f1ef] hover:bg-[#e3e2e0] text-[#787774] rounded font-semibold cursor-pointer"
+                  className="px-3 py-1.5 bg-[#f7f7f5] hover:bg-[#efefed] text-[#787774] border border-[#e6e6e4] rounded-[2px] font-medium cursor-pointer"
                 >
                   取消
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-[#2b593f] hover:bg-[#20432f] text-white rounded font-semibold cursor-pointer shadow-2xs"
+                  className="px-4 py-1.5 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-[2px] font-medium cursor-pointer shadow-2xs transition-colors"
                 >
                   确认保存并重新核算
                 </button>
@@ -1465,18 +1465,18 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
       {/* 模态框 2：新增自定义调账/冲账弹窗 */}
       {isAddingAdjustment && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-3">
-          <div className="bg-white rounded-lg border border-[#d3d1cb] shadow-xl max-w-md w-full p-4 space-y-3 animate-fadeIn">
+          <div className="bg-white rounded-[4px] border border-[#e6e6e4] shadow-2xs max-w-md w-full p-4 space-y-3 animate-fadeIn">
             <div className="flex items-center justify-between border-b border-[#efefed] pb-2">
               <div className="flex items-center gap-2">
                 <Plus className="w-4 h-4 text-[#2b593f]" />
-                <h4 className="font-bold text-sm text-[#37352f]">
+                <h4 className="font-semibold text-sm text-[#37352f]">
                   录入报表自定义调整单 / 手工冲账
                 </h4>
               </div>
               <button
                 type="button"
                 onClick={() => setIsAddingAdjustment(false)}
-                className="text-[#787774] hover:text-black cursor-pointer"
+                className="text-[#787774] hover:text-[#37352f] cursor-pointer rounded-[2px]"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1484,20 +1484,20 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
 
             <form onSubmit={handleAddAdjustmentSubmit} className="space-y-3 text-xs">
               <div>
-                <label className="font-semibold text-[#37352f] block mb-1">调整项目名称</label>
+                <label className="font-medium text-[#37352f] block mb-1">调整项目名称</label>
                 <input
                   type="text"
                   required
                   placeholder="例如：线下团餐微信未入账 / 市集赞助补贴"
                   value={adjTitle}
                   onChange={(e) => setAdjTitle(e.target.value)}
-                  className="w-full px-2.5 py-1.5 border border-[#d3d1cb] rounded"
+                  className="w-full px-2.5 py-1.5 border border-[#e6e6e4] bg-[#fafaf8] rounded-[2px] text-[#37352f] focus:outline-hidden focus:border-[#37352f]"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="font-semibold text-[#37352f] block mb-1">
+                  <label className="font-medium text-[#37352f] block mb-1">
                     调整金额 (正数增加/负数扣减)
                   </label>
                   <input
@@ -1507,16 +1507,16 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
                     placeholder="如 100 或 -50"
                     value={adjAmount}
                     onChange={(e) => setAdjAmount(parseFloat(e.target.value) || 0)}
-                    className="w-full px-2.5 py-1.5 border border-[#d3d1cb] rounded font-mono font-bold"
+                    className="w-full px-2.5 py-1.5 border border-[#e6e6e4] bg-[#fafaf8] rounded-[2px] font-mono font-semibold text-[#37352f] focus:outline-hidden focus:border-[#37352f]"
                   />
                 </div>
 
                 <div>
-                  <label className="font-semibold text-[#37352f] block mb-1">账目分类</label>
+                  <label className="font-medium text-[#37352f] block mb-1">账目分类</label>
                   <select
                     value={adjCategory}
                     onChange={(e) => setAdjCategory(e.target.value as any)}
-                    className="w-full px-2.5 py-1.5 border border-[#d3d1cb] rounded bg-white"
+                    className="w-full px-2.5 py-1.5 border border-[#e6e6e4] rounded-[2px] bg-white text-[#37352f] focus:outline-hidden focus:border-[#37352f]"
                   >
                     <option value="线下手工补录">线下手工补录</option>
                     <option value="活动补贴">活动补贴</option>
@@ -1528,13 +1528,13 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
               </div>
 
               <div>
-                <label className="font-semibold text-[#37352f] block mb-1">详细原因备注</label>
+                <label className="font-medium text-[#37352f] block mb-1">详细原因备注</label>
                 <input
                   type="text"
                   placeholder="说明调账依据及经办人"
                   value={adjRemark}
                   onChange={(e) => setAdjRemark(e.target.value)}
-                  className="w-full px-2.5 py-1.5 border border-[#d3d1cb] rounded"
+                  className="w-full px-2.5 py-1.5 border border-[#e6e6e4] bg-[#fafaf8] rounded-[2px] text-[#37352f] focus:outline-hidden focus:border-[#37352f]"
                 />
               </div>
 
@@ -1542,13 +1542,13 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsAddingAdjustment(false)}
-                  className="px-3 py-1.5 bg-[#f1f1ef] hover:bg-[#e3e2e0] text-[#787774] rounded font-semibold cursor-pointer"
+                  className="px-3 py-1.5 bg-[#f7f7f5] hover:bg-[#efefed] text-[#787774] border border-[#e6e6e4] rounded-[2px] font-medium cursor-pointer"
                 >
                   取消
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-[#2b593f] hover:bg-[#20432f] text-white rounded font-semibold cursor-pointer shadow-2xs"
+                  className="px-4 py-1.5 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-[2px] font-medium cursor-pointer shadow-2xs transition-colors"
                 >
                   录入并计入大屏
                 </button>

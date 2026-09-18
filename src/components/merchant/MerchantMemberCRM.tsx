@@ -28,6 +28,9 @@ import {
 } from '../../data/merchantExtendedMockData';
 import { exportToCsv } from '../../utils/dataExportEngine';
 import { playChimeSound } from '../../utils/voiceAlertEngine';
+import { DateRangeFilter } from '../common/DateRangeFilter';
+import { DateFilterState, resolveDateRange, isWithinRange } from '../../utils/dateFilter';
+import { useMemo } from 'react';
 
 interface MerchantMemberCRMProps {
   showToast: (msg: string) => void;
@@ -45,6 +48,13 @@ export const MerchantMemberCRM: React.FC<MerchantMemberCRMProps> = ({ showToast 
   });
 
   const [activeTab, setActiveTab] = useState<'members' | 'recharges' | 'rules'>('members');
+  // 时间区间筛选（充值记录 timestamp）
+  const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'all' });
+  const dateRange = useMemo(() => resolveDateRange(dateFilter), [dateFilter]);
+  const filteredRecharges = useMemo(
+    () => recharges.filter((r) => isWithinRange(new Date(r.timestamp || '').getTime(), dateRange)),
+    [recharges, dateRange]
+  );
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedTier, setSelectedTier] = useState<string>('all');
   
@@ -208,14 +218,16 @@ export const MerchantMemberCRM: React.FC<MerchantMemberCRMProps> = ({ showToast 
   const totalRechargeCash = recharges.reduce((sum, r) => sum + r.rechargeAmount, 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 max-w-[2000px] mx-auto pb-10">
       {/* Header */}
-      <div className="bg-white rounded-lg border border-[#e3e2e0] p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white rounded-[4px] border border-[#e6e6e4] p-4 sm:p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-amber-600" />
-            <h2 className="text-lg font-bold text-[#37352f]">会员储值卡与积分资产中心</h2>
-            <span className="px-2 py-0.5 bg-amber-50 text-amber-900 border border-amber-200 text-xs font-semibold rounded">
+            <div className="w-8 h-8 rounded-[2px] bg-[#f7f7f5] border border-[#e6e6e4] flex items-center justify-center shrink-0">
+              <Users className="w-4 h-4 text-[#37352f]" />
+            </div>
+            <h2 className="text-base font-semibold text-[#37352f]">会员储值卡与积分资产中心</h2>
+            <span className="px-2 py-0.5 bg-[#edf6f1] text-[#2b593f] border border-[#cbe4d7] text-xs font-medium rounded-[2px]">
               注册会员 {members.length} 人
             </span>
           </div>
@@ -228,16 +240,16 @@ export const MerchantMemberCRM: React.FC<MerchantMemberCRMProps> = ({ showToast 
           <button
             type="button"
             onClick={handleExportMembers}
-            className="px-3 py-1.5 bg-[#f7f7f5] hover:bg-[#e3e2e0] text-[#37352f] rounded text-xs font-semibold flex items-center gap-1.5 cursor-pointer border border-[#d3d1cb] transition-colors"
+            className="px-3 py-1.5 bg-[#f7f7f5] hover:bg-[#efefed] text-[#37352f] rounded-[2px] text-xs font-medium flex items-center gap-1.5 cursor-pointer border border-[#e6e6e4] transition-colors shadow-2xs"
           >
-            <Download className="w-3.5 h-3.5" />
+            <Download className="w-3.5 h-3.5 text-[#787774]" />
             <span>导出会员报表</span>
           </button>
 
           <button
             type="button"
             onClick={() => setIsNewMemberModalOpen(true)}
-            className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
+            className="px-3.5 py-1.5 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-[2px] text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>新增会员建档</span>
@@ -246,37 +258,37 @@ export const MerchantMemberCRM: React.FC<MerchantMemberCRMProps> = ({ showToast 
       </div>
 
       {/* KPI Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg border border-[#e3e2e0]">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="bg-white p-3.5 sm:p-4 rounded-[4px] border border-[#e6e6e4] shadow-2xs">
           <span className="text-xs text-[#787774] block">全店储值沉淀资金</span>
           <div className="flex items-baseline gap-1 mt-1">
-            <span className="text-xs text-amber-700 font-bold">¥</span>
-            <span className="text-2xl font-bold text-[#37352f]">{totalMemberBalance.toFixed(2)}</span>
+            <span className="text-xs text-[#d9730d] font-semibold">¥</span>
+            <span className="text-xl sm:text-2xl font-semibold text-[#37352f] font-mono">{totalMemberBalance.toFixed(2)}</span>
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-lg border border-[#e3e2e0]">
+        <div className="bg-white p-3.5 sm:p-4 rounded-[4px] border border-[#e6e6e4] shadow-2xs">
           <span className="text-xs text-[#787774] block">本月累计充值实收</span>
           <div className="flex items-baseline gap-1 mt-1">
-            <span className="text-xs text-emerald-700 font-bold">¥</span>
-            <span className="text-2xl font-bold text-emerald-700">{totalRechargeCash.toFixed(2)}</span>
+            <span className="text-xs text-[#2b593f] font-semibold">¥</span>
+            <span className="text-xl sm:text-2xl font-semibold text-[#2b593f] font-mono">{totalRechargeCash.toFixed(2)}</span>
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-lg border border-[#e3e2e0]">
+        <div className="bg-white p-3.5 sm:p-4 rounded-[4px] border border-[#e6e6e4] shadow-2xs">
           <span className="text-xs text-[#787774] block">黑钻/黄金高净值会员</span>
           <div className="flex items-baseline gap-1 mt-1">
-            <span className="text-2xl font-bold text-[#37352f]">
+            <span className="text-xl sm:text-2xl font-semibold text-[#37352f] font-mono">
               {members.filter(m => m.tier === 'diamond' || m.tier === 'gold').length}
             </span>
-            <span className="text-xs text-[#787774]">位 (占比 {Math.round((members.filter(m => m.tier === 'diamond' || m.tier === 'gold').length / members.length) * 100)}%)</span>
+            <span className="text-xs text-[#787774]">位 (占比 {Math.round((members.filter(m => m.tier === 'diamond' || m.tier === 'gold').length / (members.length || 1)) * 100)}%)</span>
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-lg border border-[#e3e2e0]">
+        <div className="bg-white p-3.5 sm:p-4 rounded-[4px] border border-[#e6e6e4] shadow-2xs">
           <span className="text-xs text-[#787774] block">会员积分总池</span>
           <div className="flex items-baseline gap-1 mt-1">
-            <span className="text-2xl font-bold text-amber-600">
+            <span className="text-xl sm:text-2xl font-semibold text-[#37352f] font-mono">
               {members.reduce((s, m) => s + m.points, 0).toLocaleString()}
             </span>
             <span className="text-xs text-[#787774]">分 (可抵 ¥{(members.reduce((s, m) => s + m.points, 0) / 100).toFixed(0)})</span>
@@ -285,14 +297,16 @@ export const MerchantMemberCRM: React.FC<MerchantMemberCRMProps> = ({ showToast 
       </div>
 
       {/* Sub Tabs */}
-      <div className="bg-white rounded-lg border border-[#e3e2e0] p-3.5 sm:p-4 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#e3e2e0]">
-          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar flex-nowrap max-w-full">
+      <div className="bg-white rounded-[4px] border border-[#e6e6e4] p-3.5 sm:p-4 space-y-4 shadow-2xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#efefed]">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-nowrap max-w-full">
             <button
               type="button"
               onClick={() => setActiveTab('members')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded cursor-pointer whitespace-nowrap shrink-0 ${
-                activeTab === 'members' ? 'bg-[#37352f] text-white' : 'text-[#787774] hover:bg-[#f7f7f5]'
+              className={`px-3 py-1 text-xs font-medium rounded-full cursor-pointer whitespace-nowrap shrink-0 transition-all bg-white border ${
+                activeTab === 'members'
+                  ? 'border-zinc-900 text-zinc-900 font-semibold shadow-2xs'
+                  : 'border-[#e6e6e4] text-[#5a5854] hover:text-zinc-900 hover:border-zinc-300 hover:bg-slate-50'
               }`}
             >
               会员档案名册 ({members.length})
@@ -300,8 +314,10 @@ export const MerchantMemberCRM: React.FC<MerchantMemberCRMProps> = ({ showToast 
             <button
               type="button"
               onClick={() => setActiveTab('recharges')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded cursor-pointer whitespace-nowrap shrink-0 ${
-                activeTab === 'recharges' ? 'bg-[#37352f] text-white' : 'text-[#787774] hover:bg-[#f7f7f5]'
+              className={`px-3 py-1 text-xs font-medium rounded-full cursor-pointer whitespace-nowrap shrink-0 transition-all bg-white border ${
+                activeTab === 'recharges'
+                  ? 'border-zinc-900 text-zinc-900 font-semibold shadow-2xs'
+                  : 'border-[#e6e6e4] text-[#5a5854] hover:text-zinc-900 hover:border-zinc-300 hover:bg-slate-50'
               }`}
             >
               储值充赠明细流水 ({recharges.length})
@@ -309,8 +325,10 @@ export const MerchantMemberCRM: React.FC<MerchantMemberCRMProps> = ({ showToast 
             <button
               type="button"
               onClick={() => setActiveTab('rules')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded cursor-pointer whitespace-nowrap shrink-0 ${
-                activeTab === 'rules' ? 'bg-[#37352f] text-white' : 'text-[#787774] hover:bg-[#f7f7f5]'
+              className={`px-3 py-1 text-xs font-medium rounded-full cursor-pointer whitespace-nowrap shrink-0 transition-all bg-white border ${
+                activeTab === 'rules'
+                  ? 'border-zinc-900 text-zinc-900 font-semibold shadow-2xs'
+                  : 'border-[#e6e6e4] text-[#5a5854] hover:text-zinc-900 hover:border-zinc-300 hover:bg-slate-50'
               }`}
             >
               等级折扣与充值规则配置
@@ -326,14 +344,14 @@ export const MerchantMemberCRM: React.FC<MerchantMemberCRMProps> = ({ showToast 
                   placeholder="搜索卡号/手机号/姓名"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 pr-3 py-1 text-xs border border-[#d3d1cb] rounded focus:outline-none focus:border-amber-500 w-full sm:w-48 text-[#37352f]"
+                  className="pl-8 pr-3 py-1.5 text-xs border border-[#e6e6e4] bg-[#f7f7f5] rounded-[2px] focus:outline-none focus:border-[#37352f] w-full sm:w-48 text-[#37352f]"
                 />
               </div>
 
               <select
                 value={selectedTier}
                 onChange={(e) => setSelectedTier(e.target.value)}
-                className="px-2.5 py-1 text-xs border border-[#d3d1cb] rounded bg-white text-[#37352f] shrink-0"
+                className="px-2.5 py-1.5 text-xs border border-[#e6e6e4] rounded-[2px] bg-white text-[#37352f] shrink-0 focus:outline-none focus:border-[#37352f]"
               >
                 <option value="all">全部等级</option>
                 <option value="diamond">黑钻会员 (85折)</option>
@@ -353,20 +371,20 @@ export const MerchantMemberCRM: React.FC<MerchantMemberCRMProps> = ({ showToast 
               {filteredMembers.map(m => (
                 <div
                   key={m.id}
-                  className="p-3 bg-white border border-[#e3e2e0] rounded-lg space-y-2.5 shadow-2xs"
+                  className="p-3 bg-white border border-[#e6e6e4] rounded-[2px] space-y-2.5 shadow-2xs hover:border-[#37352f] transition-colors"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-sm text-[#37352f]">{m.name}</span>
-                        <span className={`px-1.5 py-0.2 rounded text-[10px] font-semibold border inline-flex items-center gap-0.5 ${
+                        <span className="font-semibold text-sm text-[#37352f]">{m.name}</span>
+                        <span className={`px-1.5 py-0.2 rounded-[2px] text-[10px] font-medium border inline-flex items-center gap-0.5 ${
                           m.tier === 'diamond'
-                            ? 'bg-neutral-900 text-amber-300 border-neutral-800'
+                            ? 'bg-[#37352f] text-white border-[#37352f]'
                             : m.tier === 'gold'
-                            ? 'bg-amber-100 text-amber-900 border-amber-300'
+                            ? 'bg-[#fef3d6] text-[#d9730d] border-[#fae2a0]'
                             : m.tier === 'silver'
-                            ? 'bg-slate-100 text-slate-800 border-slate-300'
-                            : 'bg-neutral-100 text-neutral-600 border-neutral-300'
+                            ? 'bg-[#f7f7f5] text-[#37352f] border-[#e6e6e4]'
+                            : 'bg-[#fafaf8] text-[#787774] border-[#e6e6e4]'
                         }`}>
                           {m.tier === 'diamond' && '💎 '}
                           {m.tier === 'gold' && '🥇 '}
@@ -382,22 +400,22 @@ export const MerchantMemberCRM: React.FC<MerchantMemberCRMProps> = ({ showToast 
                     <button
                       type="button"
                       onClick={() => handleOpenRecharge(m)}
-                      className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded text-xs font-semibold cursor-pointer transition-colors shrink-0"
+                      className="px-2.5 py-1 bg-[#f7f7f5] hover:bg-[#efefed] text-[#37352f] border border-[#e6e6e4] rounded-[2px] text-xs font-medium cursor-pointer transition-colors shrink-0 shadow-2xs"
                     >
                       充值 💳
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-4 gap-1.5 p-2 bg-[#fafaf8] rounded border border-neutral-100 text-center">
+                  <div className="grid grid-cols-4 gap-1.5 p-2 bg-[#fafaf8] rounded-[2px] border border-[#efefed] text-center">
                     <div>
                       <div className="text-[10px] text-[#787774]">储值余额</div>
-                      <div className="font-bold text-xs text-amber-700 font-mono mt-0.5">
+                      <div className="font-semibold text-xs text-[#2b593f] font-mono mt-0.5">
                         ¥{m.balance.toFixed(0)}
                       </div>
                     </div>
                     <div>
                       <div className="text-[10px] text-[#787774]">当前积分</div>
-                      <div className="font-mono text-xs text-[#37352f] font-semibold mt-0.5">
+                      <div className="font-mono text-xs text-[#37352f] font-medium mt-0.5">
                         {m.points}
                       </div>
                     </div>
@@ -421,35 +439,35 @@ export const MerchantMemberCRM: React.FC<MerchantMemberCRMProps> = ({ showToast 
             {/* Desktop Table (>= md) */}
             <div className="hidden md:block overflow-x-auto -mx-3.5 px-3.5 sm:mx-0 sm:px-0">
               <table className="w-full text-xs text-left min-w-[620px]">
-                <thead className="bg-[#f7f7f5] text-[#787774] font-medium border-y border-[#e3e2e0]">
+                <thead className="bg-[#fafaf8] text-[#787774] font-medium border-y border-[#e6e6e4]">
                   <tr>
-                    <th className="py-2.5 px-3">会员卡号 / 姓名</th>
-                    <th className="py-2.5 px-3">手机号</th>
-                    <th className="py-2.5 px-3">会员等级与折扣</th>
-                    <th className="py-2.5 px-3 text-right">储值余额</th>
-                    <th className="py-2.5 px-3 text-right">积分</th>
-                    <th className="py-2.5 px-3 text-right">累计消费</th>
-                    <th className="py-2.5 px-3">最近光顾</th>
-                    <th className="py-2.5 px-3 text-right">操作</th>
+                    <th className="py-2.5 px-3 font-semibold">会员卡号 / 姓名</th>
+                    <th className="py-2.5 px-3 font-semibold">手机号</th>
+                    <th className="py-2.5 px-3 font-semibold">会员等级与折扣</th>
+                    <th className="py-2.5 px-3 text-right font-semibold">储值余额</th>
+                    <th className="py-2.5 px-3 text-right font-semibold">积分</th>
+                    <th className="py-2.5 px-3 text-right font-semibold">累计消费</th>
+                    <th className="py-2.5 px-3 font-semibold">最近光顾</th>
+                    <th className="py-2.5 px-3 text-right font-semibold">操作</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#f1f1ef]">
+                <tbody className="divide-y divide-[#efefed]">
                   {filteredMembers.map(m => (
-                    <tr key={m.id} className="hover:bg-[#fbfbfa]">
+                    <tr key={m.id} className="hover:bg-[#fafaf8] transition-colors">
                       <td className="py-3 px-3">
-                        <div className="font-bold text-[#37352f]">{m.name}</div>
+                        <div className="font-semibold text-[#37352f]">{m.name}</div>
                         <span className="text-[11px] font-mono text-[#787774]">{m.memberNo}</span>
                       </td>
                       <td className="py-3 px-3 font-mono text-[#37352f]">{m.phone}</td>
                       <td className="py-3 px-3">
-                        <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border inline-flex items-center gap-1 ${
+                        <span className={`px-2 py-0.5 rounded-[2px] text-[11px] font-medium border inline-flex items-center gap-1 ${
                           m.tier === 'diamond'
-                            ? 'bg-neutral-900 text-amber-300 border-neutral-800'
+                            ? 'bg-[#37352f] text-white border-[#37352f]'
                             : m.tier === 'gold'
-                            ? 'bg-amber-100 text-amber-900 border-amber-300'
+                            ? 'bg-[#fef3d6] text-[#d9730d] border-[#fae2a0]'
                             : m.tier === 'silver'
-                            ? 'bg-slate-100 text-slate-800 border-slate-300'
-                            : 'bg-neutral-100 text-neutral-600 border-neutral-300'
+                            ? 'bg-[#f7f7f5] text-[#37352f] border-[#e6e6e4]'
+                            : 'bg-[#fafaf8] text-[#787774] border-[#e6e6e4]'
                         }`}>
                           {m.tier === 'diamond' && '💎 '}
                           {m.tier === 'gold' && '🥇 '}
@@ -457,7 +475,7 @@ export const MerchantMemberCRM: React.FC<MerchantMemberCRMProps> = ({ showToast 
                           {m.tierName} · {Math.round(m.discountRate * 100)}折
                         </span>
                       </td>
-                      <td className="py-3 px-3 text-right font-bold text-amber-700">
+                      <td className="py-3 px-3 text-right font-semibold text-[#2b593f] font-mono">
                         ¥{m.balance.toFixed(2)}
                       </td>
                       <td className="py-3 px-3 text-right font-mono text-[#37352f]">
@@ -471,7 +489,7 @@ export const MerchantMemberCRM: React.FC<MerchantMemberCRMProps> = ({ showToast 
                         <button
                           type="button"
                           onClick={() => handleOpenRecharge(m)}
-                          className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded text-xs font-semibold cursor-pointer transition-colors"
+                          className="px-2.5 py-1 bg-[#f7f7f5] hover:bg-[#efefed] text-[#37352f] border border-[#e6e6e4] rounded-[2px] text-xs font-medium cursor-pointer transition-colors shadow-2xs"
                         >
                           充值赠送 💳
                         </button>
@@ -486,129 +504,132 @@ export const MerchantMemberCRM: React.FC<MerchantMemberCRMProps> = ({ showToast 
 
         {/* 2. Recharge Records Table */}
         {activeTab === 'recharges' && (
-          <div>
-            {/* Mobile / Tablet Cards (< md) */}
-            <div className="md:hidden space-y-2.5">
-              {recharges.map(r => (
-                <div
-                  key={r.id}
-                  className="p-3 bg-white border border-[#e3e2e0] rounded-lg space-y-2.5 shadow-2xs"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="font-bold text-sm text-[#37352f]">{r.memberName}</div>
-                      <div className="text-[11px] font-mono text-[#787774] mt-0.5">
-                        {r.phone} · <span className="text-[#787774]">{r.recordNo}</span>
+          <>
+            <div className="mb-2"><DateRangeFilter value={dateFilter} onChange={setDateFilter} compact /></div>
+            <div>
+              {/* Mobile / Tablet Cards (< md) */}
+              <div className="md:hidden space-y-2.5">
+                {filteredRecharges.map(r => (
+                  <div
+                    key={r.id}
+                    className="p-3 bg-white border border-[#e6e6e4] rounded-[2px] space-y-2.5 shadow-2xs"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="font-semibold text-sm text-[#37352f]">{r.memberName}</div>
+                        <div className="text-[11px] font-mono text-[#787774] mt-0.5">
+                          {r.phone} · <span className="text-[#787774]">{r.recordNo}</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold text-sm text-[#37352f] font-mono">
+                          到账 ¥{r.totalReceived.toFixed(2)}
+                        </div>
+                        <div className="text-[10.5px] text-[#787774]">
+                          实付 ¥{r.rechargeAmount.toFixed(0)} + 赠 ¥{r.bonusAmount.toFixed(0)}
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-bold text-sm text-[#37352f] font-mono">
-                        到账 ¥{r.totalReceived.toFixed(2)}
-                      </div>
-                      <div className="text-[10.5px] text-[#787774]">
-                        实付 ¥{r.rechargeAmount.toFixed(0)} + 赠 ¥{r.bonusAmount.toFixed(0)}
-                      </div>
+
+                    <div className="flex items-center justify-between pt-1 border-t border-[#efefed] text-[11px]">
+                      <span className="px-2 py-0.5 bg-[#f7f7f5] border border-[#e6e6e4] rounded-[2px] text-[10.5px] font-medium text-[#37352f]">
+                        {r.paymentMethod === 'wechat' ? '微信支付' : r.paymentMethod === 'alipay' ? '支付宝' : '现金/POS'}
+                      </span>
+                      <span className="text-[#787774]">经手: {r.operator}</span>
+                      <span className="text-[#787774] font-mono text-[10px]">{r.timestamp}</span>
                     </div>
                   </div>
+                ))}
+              </div>
 
-                  <div className="flex items-center justify-between pt-1 border-t border-[#f1f1ef] text-[11px]">
-                    <span className="px-2 py-0.5 bg-[#f1f1ef] rounded text-[10.5px] font-medium text-[#37352f]">
-                      {r.paymentMethod === 'wechat' ? '微信支付' : r.paymentMethod === 'alipay' ? '支付宝' : '现金/POS'}
-                    </span>
-                    <span className="text-[#787774]">经手: {r.operator}</span>
-                    <span className="text-[#787774] font-mono text-[10px]">{r.timestamp}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Desktop Table (>= md) */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-xs text-left min-w-[640px]">
-                <thead className="bg-[#f7f7f5] text-[#787774] font-medium border-y border-[#e3e2e0]">
-                  <tr>
-                    <th className="py-2.5 px-3">流水号</th>
-                    <th className="py-2.5 px-3">会员姓名 / 手机号</th>
-                    <th className="py-2.5 px-3 text-right">充值本金</th>
-                    <th className="py-2.5 px-3 text-right">赠送金额</th>
-                    <th className="py-2.5 px-3 text-right">实际到账</th>
-                    <th className="py-2.5 px-3">支付渠道</th>
-                    <th className="py-2.5 px-3">经手操作员</th>
-                    <th className="py-2.5 px-3">充值时间</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#f1f1ef]">
-                  {recharges.map(r => (
-                    <tr key={r.id} className="hover:bg-[#fbfbfa]">
-                      <td className="py-3 px-3 font-mono text-[#787774]">{r.recordNo}</td>
-                      <td className="py-3 px-3">
-                        <div className="font-bold text-[#37352f]">{r.memberName}</div>
-                        <span className="text-[11px] font-mono text-[#787774]">{r.phone}</span>
-                      </td>
-                      <td className="py-3 px-3 text-right font-bold text-emerald-700">
-                        ¥{r.rechargeAmount.toFixed(2)}
-                      </td>
-                      <td className="py-3 px-3 text-right text-amber-700 font-medium">
-                        +¥{r.bonusAmount.toFixed(2)}
-                      </td>
-                      <td className="py-3 px-3 text-right font-bold text-[#37352f]">
-                        ¥{r.totalReceived.toFixed(2)}
-                      </td>
-                      <td className="py-3 px-3">
-                        <span className="px-2 py-0.5 bg-[#f1f1ef] rounded text-[11px] font-medium text-[#37352f]">
-                          {r.paymentMethod === 'wechat' ? '微信支付' : r.paymentMethod === 'alipay' ? '支付宝' : '现金/POS'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 text-[#787774]">{r.operator}</td>
-                      <td className="py-3 px-3 text-[#787774] font-mono">{r.timestamp}</td>
+              {/* Desktop Table (>= md) */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-xs text-left min-w-[640px]">
+                  <thead className="bg-[#fafaf8] text-[#787774] font-medium border-y border-[#e6e6e4]">
+                    <tr>
+                      <th className="py-2.5 px-3 font-semibold">流水号</th>
+                      <th className="py-2.5 px-3 font-semibold">会员姓名 / 手机号</th>
+                      <th className="py-2.5 px-3 text-right font-semibold">充值本金</th>
+                      <th className="py-2.5 px-3 text-right font-semibold">赠送金额</th>
+                      <th className="py-2.5 px-3 text-right font-semibold">实际到账</th>
+                      <th className="py-2.5 px-3 font-semibold">支付渠道</th>
+                      <th className="py-2.5 px-3 font-semibold">经手操作员</th>
+                      <th className="py-2.5 px-3 font-semibold">充值时间</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-[#efefed]">
+                    {filteredRecharges.map(r => (
+                      <tr key={r.id} className="hover:bg-[#fafaf8] transition-colors">
+                        <td className="py-3 px-3 font-mono text-[#787774]">{r.recordNo}</td>
+                        <td className="py-3 px-3">
+                          <div className="font-semibold text-[#37352f]">{r.memberName}</div>
+                          <span className="text-[11px] font-mono text-[#787774]">{r.phone}</span>
+                        </td>
+                        <td className="py-3 px-3 text-right font-semibold text-[#2b593f] font-mono">
+                          ¥{r.rechargeAmount.toFixed(2)}
+                        </td>
+                        <td className="py-3 px-3 text-right text-[#d9730d] font-medium font-mono">
+                          +¥{r.bonusAmount.toFixed(2)}
+                        </td>
+                        <td className="py-3 px-3 text-right font-semibold text-[#37352f] font-mono">
+                          ¥{r.totalReceived.toFixed(2)}
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className="px-2 py-0.5 bg-[#f7f7f5] border border-[#e6e6e4] rounded-[2px] text-[11px] font-medium text-[#37352f]">
+                            {r.paymentMethod === 'wechat' ? '微信支付' : r.paymentMethod === 'alipay' ? '支付宝' : '现金/POS'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-[#787774]">{r.operator}</td>
+                        <td className="py-3 px-3 text-[#787774] font-mono">{r.timestamp}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          </>
         )}
 
         {/* 3. Tier Rules & Recharge Packages */}
         {activeTab === 'rules' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-1">
             {/* Tier Rules */}
-            <div className="border border-[#e3e2e0] rounded-lg p-4 bg-[#fbfbfa]">
-              <h4 className="font-bold text-sm text-[#37352f] mb-3 flex items-center gap-1.5">
-                <Award className="w-4 h-4 text-amber-600" />
+            <div className="border border-[#e6e6e4] rounded-[4px] p-4 bg-[#fafaf8] shadow-2xs">
+              <h4 className="font-semibold text-sm text-[#37352f] mb-3 flex items-center gap-1.5">
+                <Award className="w-4 h-4 text-[#d9730d]" />
                 <span>会员等级成长与专属权益矩阵</span>
               </h4>
 
-              <div className="space-y-3 text-xs">
-                <div className="p-3 bg-white rounded border border-[#e3e2e0] flex items-center justify-between">
+              <div className="space-y-2.5 text-xs">
+                <div className="p-3 bg-white rounded-[2px] border border-[#e6e6e4] flex items-center justify-between shadow-2xs">
                   <div>
-                    <span className="font-bold text-neutral-900 block">💎 黑钻会员 (Diamond)</span>
+                    <span className="font-semibold text-[#37352f] block">💎 黑钻会员 (Diamond)</span>
                     <span className="text-[11px] text-[#787774]">门槛：累计消费满 ¥3,000</span>
                   </div>
                   <div className="text-right">
-                    <span className="text-sm font-bold text-amber-600">全场 8.5 折</span>
+                    <span className="text-sm font-semibold text-[#d9730d]">全场 8.5 折</span>
                     <span className="text-[10px] text-[#787774] block">消费双倍积分</span>
                   </div>
                 </div>
 
-                <div className="p-3 bg-white rounded border border-[#e3e2e0] flex items-center justify-between">
+                <div className="p-3 bg-white rounded-[2px] border border-[#e6e6e4] flex items-center justify-between shadow-2xs">
                   <div>
-                    <span className="font-bold text-amber-800 block">🥇 黄金会员 (Gold)</span>
+                    <span className="font-semibold text-[#37352f] block">🥇 黄金会员 (Gold)</span>
                     <span className="text-[11px] text-[#787774]">门槛：累计消费满 ¥1,500</span>
                   </div>
                   <div className="text-right">
-                    <span className="text-sm font-bold text-amber-700">全场 9.0 折</span>
+                    <span className="text-sm font-semibold text-[#d9730d]">全场 9.0 折</span>
                     <span className="text-[10px] text-[#787774] block">消费 1.5 倍积分</span>
                   </div>
                 </div>
 
-                <div className="p-3 bg-white rounded border border-[#e3e2e0] flex items-center justify-between">
+                <div className="p-3 bg-white rounded-[2px] border border-[#e6e6e4] flex items-center justify-between shadow-2xs">
                   <div>
-                    <span className="font-bold text-slate-700 block">🥈 白银会员 (Silver)</span>
+                    <span className="font-semibold text-[#37352f] block">🥈 白银会员 (Silver)</span>
                     <span className="text-[11px] text-[#787774]">门槛：累计消费满 ¥500</span>
                   </div>
                   <div className="text-right">
-                    <span className="text-sm font-bold text-slate-800">全场 9.5 折</span>
+                    <span className="text-sm font-semibold text-[#37352f]">全场 9.5 折</span>
                     <span className="text-[10px] text-[#787774] block">每月赠 10 元代金券</span>
                   </div>
                 </div>
@@ -616,26 +637,26 @@ export const MerchantMemberCRM: React.FC<MerchantMemberCRMProps> = ({ showToast 
             </div>
 
             {/* Popular Recharge Packages */}
-            <div className="border border-[#e3e2e0] rounded-lg p-4 bg-[#fbfbfa]">
-              <h4 className="font-bold text-sm text-[#37352f] mb-3 flex items-center gap-1.5">
-                <Gift className="w-4 h-4 text-emerald-600" />
+            <div className="border border-[#e6e6e4] rounded-[4px] p-4 bg-[#fafaf8] shadow-2xs">
+              <h4 className="font-semibold text-sm text-[#37352f] mb-3 flex items-center gap-1.5">
+                <Gift className="w-4 h-4 text-[#2b593f]" />
                 <span>热门储值充赠活动配置</span>
               </h4>
 
-              <div className="space-y-2.5 text-xs">
+              <div className="space-y-2 text-xs">
                 {[
                   { pay: 200, gift: 30, tag: '尝鲜推荐' },
                   { pay: 500, gift: 100, tag: '最划算 / 畅销' },
                   { pay: 1000, gift: 250, tag: 'VIP 专属赠礼' }
                 ].map((pkg, idx) => (
-                  <div key={idx} className="p-3 bg-white rounded border border-[#e3e2e0] flex items-center justify-between">
+                  <div key={idx} className="p-3 bg-white rounded-[2px] border border-[#e6e6e4] flex items-center justify-between shadow-2xs">
                     <div>
-                      <div className="font-bold text-sm text-[#37352f]">
-                        充值 ¥{pkg.pay} <span className="text-amber-700">赠送 ¥{pkg.gift}</span>
+                      <div className="font-semibold text-sm text-[#37352f]">
+                        充值 ¥{pkg.pay} <span className="text-[#d9730d]">赠送 ¥{pkg.gift}</span>
                       </div>
                       <span className="text-[11px] text-[#787774]">实际到账 ¥{pkg.pay + pkg.gift}（综合折扣 8.7 折）</span>
                     </div>
-                    <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded text-[11px] font-semibold">
+                    <span className="px-2 py-0.5 bg-[#edf6f1] text-[#2b593f] border border-[#cbe4d7] rounded-[2px] text-[11px] font-medium">
                       {pkg.tag}
                     </span>
                   </div>
@@ -648,23 +669,23 @@ export const MerchantMemberCRM: React.FC<MerchantMemberCRMProps> = ({ showToast 
 
       {/* Recharge Modal */}
       {isRechargeModalOpen && targetMember && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-in fade-in duration-150">
-          <div className="bg-white rounded-lg border border-[#d3d1cb] shadow-2xl w-full max-w-md p-4 sm:p-5 text-[#37352f] max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-[#e3e2e0] mb-4">
-              <h3 className="font-bold text-base">会员储值卡充值</h3>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-white rounded-[4px] border border-[#e6e6e4] shadow-2xs w-full max-w-md p-4 sm:p-5 text-[#37352f] max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-[#efefed] mb-4">
+              <h3 className="font-semibold text-base text-[#37352f]">会员储值卡充值</h3>
               <button
                 type="button"
                 onClick={() => setIsRechargeModalOpen(false)}
-                className="text-[#787774] hover:text-[#37352f] p-1 cursor-pointer"
+                className="text-[#787774] hover:text-[#37352f] p-1 cursor-pointer rounded-[2px]"
               >
                 ✕
               </button>
             </div>
 
-            <div className="bg-[#f7f7f5] p-3 rounded border border-[#e3e2e0] mb-4 text-xs">
-              <div className="flex justify-between font-bold text-sm mb-1">
+            <div className="bg-[#fafaf8] p-3 rounded-[2px] border border-[#e6e6e4] mb-4 text-xs">
+              <div className="flex justify-between font-semibold text-sm mb-1">
                 <span>{targetMember.name} ({targetMember.phone})</span>
-                <span className="text-amber-700">余额 ¥{targetMember.balance.toFixed(2)}</span>
+                <span className="text-[#2b593f] font-mono">余额 ¥{targetMember.balance.toFixed(2)}</span>
               </div>
               <span className="text-[#787774]">等级：{targetMember.tierName}（享受 {Math.round(targetMember.discountRate * 100)} 折）</span>
             </div>
@@ -685,13 +706,13 @@ export const MerchantMemberCRM: React.FC<MerchantMemberCRMProps> = ({ showToast 
                         setRechargeAmount(p.pay);
                         setBonusAmount(p.bonus);
                       }}
-                      className={`p-2 rounded border text-center cursor-pointer ${
+                      className={`p-2 rounded-[2px] border text-center cursor-pointer transition-colors ${
                         rechargeAmount === p.pay && bonusAmount === p.bonus
                           ? 'bg-[#37352f] text-white border-[#37352f]'
-                          : 'bg-[#f7f7f5] border-[#d3d1cb] hover:bg-[#e3e2e0]'
+                          : 'bg-[#fafaf8] border-[#e6e6e4] hover:bg-[#efefed] text-[#37352f]'
                       }`}
                     >
-                      <div className="font-bold text-sm">¥{p.pay}</div>
+                      <div className="font-semibold text-sm font-mono">¥{p.pay}</div>
                       <div className="text-[10px]">赠 ¥{p.bonus}</div>
                     </button>
                   ))}
@@ -706,7 +727,7 @@ export const MerchantMemberCRM: React.FC<MerchantMemberCRMProps> = ({ showToast 
                     min="1"
                     value={rechargeAmount}
                     onChange={(e) => setRechargeAmount(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-1.5 border border-[#d3d1cb] rounded focus:outline-none focus:border-amber-500 font-bold text-[#37352f]"
+                    className="w-full px-3 py-1.5 border border-[#e6e6e4] bg-[#fafaf8] rounded-[2px] focus:outline-none focus:border-[#37352f] font-semibold text-[#37352f] font-mono"
                     required
                   />
                 </div>
@@ -718,7 +739,7 @@ export const MerchantMemberCRM: React.FC<MerchantMemberCRMProps> = ({ showToast 
                     min="0"
                     value={bonusAmount}
                     onChange={(e) => setBonusAmount(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-1.5 border border-[#d3d1cb] rounded focus:outline-none focus:border-amber-500 text-amber-700 font-bold"
+                    className="w-full px-3 py-1.5 border border-[#e6e6e4] bg-[#fafaf8] rounded-[2px] focus:outline-none focus:border-[#37352f] text-[#d9730d] font-semibold font-mono"
                   />
                 </div>
               </div>
@@ -735,10 +756,10 @@ export const MerchantMemberCRM: React.FC<MerchantMemberCRMProps> = ({ showToast 
                       key={m.id}
                       type="button"
                       onClick={() => setPaymentMethod(m.id as any)}
-                      className={`py-1.5 rounded border text-center cursor-pointer ${
+                      className={`py-1.5 rounded-[2px] border text-center cursor-pointer transition-colors text-xs ${
                         paymentMethod === m.id
-                          ? 'bg-emerald-700 text-white border-emerald-700 font-semibold'
-                          : 'bg-[#f7f7f5] border-[#d3d1cb] hover:bg-[#e3e2e0]'
+                          ? 'bg-[#37352f] text-white border-[#37352f] font-medium'
+                          : 'bg-[#fafaf8] border-[#e6e6e4] hover:bg-[#efefed] text-[#37352f]'
                       }`}
                     >
                       {m.label}
@@ -747,22 +768,22 @@ export const MerchantMemberCRM: React.FC<MerchantMemberCRMProps> = ({ showToast 
                 </div>
               </div>
 
-              <div className="pt-2 bg-amber-50 p-2.5 rounded border border-amber-200 text-amber-900 flex justify-between items-center font-bold">
+              <div className="pt-2 bg-[#fef3d6]/30 p-2.5 rounded-[2px] border border-[#fae2a0] text-[#37352f] flex justify-between items-center font-medium">
                 <span>实际到账总额：</span>
-                <span className="text-base">¥{(rechargeAmount + bonusAmount).toFixed(2)}</span>
+                <span className="text-base font-semibold font-mono text-[#2b593f]">¥{(rechargeAmount + bonusAmount).toFixed(2)}</span>
               </div>
 
-              <div className="pt-3 border-t border-[#e3e2e0] flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-[#efefed] flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsRechargeModalOpen(false)}
-                  className="px-3 py-1.5 text-[#787774] hover:text-[#37352f] rounded cursor-pointer"
+                  className="px-3 py-1.5 text-[#787774] hover:text-[#37352f] rounded-[2px] cursor-pointer"
                 >
                   取消
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-semibold cursor-pointer shadow-xs"
+                  className="px-4 py-1.5 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-[2px] font-medium cursor-pointer shadow-2xs transition-colors"
                 >
                   确认收款入账
                 </button>
@@ -774,14 +795,14 @@ export const MerchantMemberCRM: React.FC<MerchantMemberCRMProps> = ({ showToast 
 
       {/* New Member Registration Modal */}
       {isNewMemberModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-in fade-in duration-150">
-          <div className="bg-white rounded-lg border border-[#d3d1cb] shadow-2xl w-full max-w-md p-4 sm:p-5 text-[#37352f] max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-[#e3e2e0] mb-4">
-              <h3 className="font-bold text-base">新增会员登记</h3>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-white rounded-[4px] border border-[#e6e6e4] shadow-2xs w-full max-w-md p-4 sm:p-5 text-[#37352f] max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-[#efefed] mb-4">
+              <h3 className="font-semibold text-base text-[#37352f]">新增会员登记</h3>
               <button
                 type="button"
                 onClick={() => setIsNewMemberModalOpen(false)}
-                className="text-[#787774] hover:text-[#37352f] p-1 cursor-pointer"
+                className="text-[#787774] hover:text-[#37352f] p-1 cursor-pointer rounded-[2px]"
               >
                 ✕
               </button>
@@ -795,7 +816,7 @@ export const MerchantMemberCRM: React.FC<MerchantMemberCRMProps> = ({ showToast 
                   placeholder="如: 王建国"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  className="w-full px-3 py-1.5 border border-[#d3d1cb] rounded focus:outline-none focus:border-amber-500"
+                  className="w-full px-3 py-1.5 border border-[#e6e6e4] bg-[#fafaf8] rounded-[2px] focus:outline-none focus:border-[#37352f] text-[#37352f]"
                   required
                 />
               </div>
@@ -807,7 +828,7 @@ export const MerchantMemberCRM: React.FC<MerchantMemberCRMProps> = ({ showToast 
                   placeholder="如: 13812345678"
                   value={newPhone}
                   onChange={(e) => setNewPhone(e.target.value)}
-                  className="w-full px-3 py-1.5 border border-[#d3d1cb] rounded focus:outline-none focus:border-amber-500 font-mono"
+                  className="w-full px-3 py-1.5 border border-[#e6e6e4] bg-[#fafaf8] rounded-[2px] focus:outline-none focus:border-[#37352f] font-mono text-[#37352f]"
                   required
                 />
               </div>
@@ -817,7 +838,7 @@ export const MerchantMemberCRM: React.FC<MerchantMemberCRMProps> = ({ showToast 
                 <select
                   value={newTier}
                   onChange={(e) => setNewTier(e.target.value as MemberTier)}
-                  className="w-full px-3 py-1.5 border border-[#d3d1cb] rounded bg-white"
+                  className="w-full px-3 py-1.5 border border-[#e6e6e4] rounded-[2px] bg-white text-[#37352f] focus:outline-none focus:border-[#37352f]"
                 >
                   <option value="regular">大众会员 (无折扣)</option>
                   <option value="silver">白银会员 (9.5折)</option>
@@ -826,17 +847,17 @@ export const MerchantMemberCRM: React.FC<MerchantMemberCRMProps> = ({ showToast 
                 </select>
               </div>
 
-              <div className="pt-3 border-t border-[#e3e2e0] flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-[#efefed] flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsNewMemberModalOpen(false)}
-                  className="px-3 py-1.5 text-[#787774] hover:text-[#37352f] rounded cursor-pointer"
+                  className="px-3 py-1.5 text-[#787774] hover:text-[#37352f] rounded-[2px] cursor-pointer"
                 >
                   取消
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded font-semibold cursor-pointer shadow-xs"
+                  className="px-4 py-1.5 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-[2px] font-medium cursor-pointer shadow-2xs transition-colors"
                 >
                   保存并开卡
                 </button>

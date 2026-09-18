@@ -39,7 +39,7 @@ const TASKS = [
   },
   {
     file: 'audition_sweet_frontdesk.wav',
-    voice: 'Kore',
+    voice: 'Aoede',
     gender: 'female',
     text: '叮咚！欢迎光临，我是甜美前台领位，请问今天想吃点什么呢？'
   },
@@ -50,86 +50,40 @@ const TASKS = [
     text: '您好，我是沉稳专业男声播报员，专注为后厨制作、出餐提醒与安全运营提供清晰指令。'
   },
   {
+    file: 'audition_energetic_rep.wav',
+    voice: 'Leda',
+    gender: 'female',
+    text: '您好！我是元气活力客服，已开启加急提醒与快速响应通道，祝您用餐愉快！'
+  },
+  {
     file: 'audition_speedy_rider.wav',
     voice: 'Puck',
     gender: 'male',
     text: '骑士您好！极速专送调度指令已准备，接单即走，保障每一单快速准时送达！'
   },
   {
-    file: 'audition_energetic_rep.wav',
-    voice: 'Kore',
-    gender: 'female',
-    text: '您好！我是元气活力客服，已开启加急提醒与快速响应通道，祝您用餐愉快！'
-  },
-  {
-    file: 'alert_order_female.wav',
-    voice: 'Kore',
-    gender: 'female',
-    text: '叮咚！您有新的自营专送订单，请及时接单处理！'
-  },
-  {
     file: 'alert_order_male.wav',
     voice: 'Charon',
     gender: 'male',
-    text: '叮咚！您有新的外卖订单，请及时接单处理！'
-  },
-  {
-    file: 'alert_call_pickup_female.wav',
-    voice: 'Kore',
-    gender: 'female',
-    text: '请 A01 号顾客到餐车前台取餐！'
+    text: '叮咚！您有新的外卖专送订单，请及时接单处理！'
   },
   {
     file: 'alert_call_pickup_male.wav',
     voice: 'Charon',
     gender: 'male',
     text: '请 A01 号顾客到餐车前台取餐！'
-  },
-  {
-    file: 'alert_call_table_female.wav',
-    voice: 'Kore',
-    gender: 'female',
-    text: '请 B02 号顾客，两位就餐，桌位已准备就绪，请入座！'
-  },
-  {
-    file: 'alert_call_table_male.wav',
-    voice: 'Charon',
-    gender: 'male',
-    text: '请 B02 号顾客，两位就餐，请到堂食区就座！'
-  },
-  {
-    file: 'alert_urgent_male.wav',
-    voice: 'Charon',
-    gender: 'male',
-    text: '催单提醒！顾客发起了加急催单，请后厨优先出餐！'
-  },
-  {
-    file: 'alert_rider_grab_male.wav',
-    voice: 'Puck',
-    gender: 'male',
-    text: '骑士您好！收到新的顺路订单，配送费已锁定，请及时抢单！'
-  },
-  {
-    file: 'alert_delivered_male.wav',
-    voice: 'Puck',
-    gender: 'male',
-    text: '订单已确认妥投送达！配送佣金已即时入账！'
   }
 ];
 
 async function generateWithRetry(task) {
   const filePath = path.join(OUT_DIR, task.file);
-  if (fs.existsSync(filePath) && fs.statSync(filePath).size > 1000) {
-    console.log(`[SKIP] Already exists: ${task.file}`);
-    return;
-  }
 
   let success = false;
   for (let attempt = 1; attempt <= 4; attempt++) {
     try {
       console.log(`[START] Generating ${task.file} (Voice: ${task.voice}, Attempt: ${attempt})...`);
       const res = await ai.models.generateContent({
-        model: 'gemini-3.1-flash-tts-preview',
+        model: 'gemini-2.5-flash-preview-tts',
         contents: [{ parts: [{ text: task.text }] }],
         config: {
           responseModalities: [Modality.AUDIO],

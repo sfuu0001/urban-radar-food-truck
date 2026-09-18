@@ -23,6 +23,7 @@ import { voiceAlerts, speakText, getVoiceConfig, VOICE_PERSONAS } from '../../ut
 import { globalBluetoothAudio } from '../../utils/bluetoothAudioEngine';
 import { getOrGeneratePickupCode } from '../../utils/pickupCodeEngine';
 import { resolveOrderChannelType } from '../../utils/orderNormalizer';
+import { SmoothScrollContainer } from './SmoothScrollContainer';
 
 interface GlobalQuickCallModalProps {
   isOpen: boolean;
@@ -217,37 +218,37 @@ export const GlobalQuickCallModal: React.FC<GlobalQuickCallModalProps> = ({
           className="bg-[#ffffff] w-full max-w-xl rounded-[4px] border border-[#d3d1cb] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden text-[#1a1c1b]"
         >
           {/* Header */}
-          <div className="px-4 py-3 bg-[#1a1c1b] text-white flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-[3px] bg-amber-500 text-slate-900 flex items-center justify-center font-bold">
-                <Megaphone className="w-4 h-4" />
+          <div className="px-4 py-3 bg-white text-[#201f1d] border-b border-[#e6e6e4] flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-full bg-white border border-[#1a1918] text-[#1a1918] flex items-center justify-center font-normal shadow-2xs">
+                <Megaphone className="w-3.5 h-3.5 text-[#1a1918]" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="font-bold text-sm leading-tight text-white">全局即时喊号广播小窗</h3>
-                  <span className="text-[10px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1.5 py-0.2 rounded-[2px]">
+                  <h3 className="font-normal text-sm leading-tight text-[#201f1d]">全局即时喊号广播小窗</h3>
+                  <span className="text-[10px] font-mono bg-neutral-100 text-[#201f1d] border border-neutral-300 px-1.5 py-0.2 rounded-full font-normal">
                     全域快捷
                   </span>
                 </div>
-                <p className="text-[11px] text-neutral-400">流动餐车外放喇叭 · 蓝牙音箱立体声联动</p>
+                <p className="text-[11px] text-[#787774]">流动餐车外放喇叭 · 蓝牙音箱立体声联动</p>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
               {/* Soundwave animation */}
               {isSpeaking && (
-                <div className="flex items-center gap-0.5 px-2 py-0.5 bg-emerald-950/80 border border-emerald-500/50 rounded text-emerald-400 text-[10px] font-mono">
-                  <span className="w-1 h-3 bg-emerald-400 animate-pulse" />
-                  <span className="w-1 h-4 bg-emerald-400 animate-pulse delay-75" />
-                  <span className="w-1 h-2 bg-emerald-400 animate-pulse delay-150" />
-                  <span className="ml-1">播报中...</span>
+                <div className="flex items-center gap-0.5 px-2 py-0.5 bg-emerald-50 border border-emerald-300 rounded-full text-emerald-800 text-[10px] font-mono">
+                  <span className="w-1 h-3 bg-emerald-500 animate-pulse" />
+                  <span className="w-1 h-4 bg-emerald-500 animate-pulse delay-75" />
+                  <span className="w-1 h-2 bg-emerald-500 animate-pulse delay-150" />
+                  <span className="ml-1 font-normal">播报中...</span>
                 </div>
               )}
 
               <button
                 type="button"
                 onClick={onClose}
-                className="p-1.5 text-neutral-400 hover:text-white hover:bg-white/10 rounded transition-colors cursor-pointer"
+                className="p-1.5 text-[#787774] hover:text-[#201f1d] hover:bg-neutral-100 rounded-full transition-colors cursor-pointer"
                 title="关闭浮窗 (ESC)"
               >
                 <X className="w-4 h-4" />
@@ -342,7 +343,7 @@ export const GlobalQuickCallModal: React.FC<GlobalQuickCallModalProps> = ({
           </div>
 
           {/* Tab Contents */}
-          <div className="p-4 overflow-y-auto flex-1 space-y-4">
+          <SmoothScrollContainer className="p-4 space-y-4" maxHeight="calc(85vh - 160px)">
             {/* 1. 自提叫号 */}
             {activeCategory === 'pickup' && (
               <div className="space-y-3.5">
@@ -658,7 +659,7 @@ export const GlobalQuickCallModal: React.FC<GlobalQuickCallModalProps> = ({
                 </div>
               </div>
             )}
-          </div>
+          </SmoothScrollContainer>
 
           {/* Modal Footer */}
           <div className="p-3 bg-[#fafafa] border-t border-[#e6e6e4] flex items-center justify-between text-xs shrink-0">
@@ -668,7 +669,7 @@ export const GlobalQuickCallModal: React.FC<GlobalQuickCallModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-1.5 bg-neutral-200 hover:bg-neutral-300 text-neutral-800 font-bold rounded-[3px] cursor-pointer transition-colors"
+              className="px-4 py-1.5 bg-white border border-[#d3d1cb] hover:bg-neutral-100 text-neutral-800 font-normal rounded-full cursor-pointer transition-colors shadow-2xs"
             >
               关闭
             </button>

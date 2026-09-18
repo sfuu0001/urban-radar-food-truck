@@ -73,6 +73,9 @@ export interface AntiAbuseConfig {
   preventCouponDoubleDip: boolean; // 是否禁止相同类型优惠券多重叠加
   singleItemMaxDiscountCap: number; // 单品场景立减最高封顶
   logAbuseWarnings: boolean; // 是否记录预警日志
+  enableTruckIsolationRiskControl?: boolean; // 开启多餐车优惠券隔离防护
+  preventCrossTruckArbitrage?: boolean; // 拦截跨餐车站口套券与套利
+  maxUniversalCouponBurnPerTruck?: number; // 通用券单车每日核销限额（元）
 }
 
 // 默认支付渠道立减策略配置
@@ -209,6 +212,8 @@ export interface CalculationResult {
   cappedDiscount: number; // 风控截断后的最终实际优惠总和
   isAbusePrevented: boolean; // 是否触发了防薅羊毛拦截截断
   abuseReason?: string; // 拦截触发原因说明
+  isTruckIsolated?: boolean; // 是否触发了多餐车隔离拦截
+  isolationWarning?: string; // 餐车隔离风控警告说明
   isStackingConflict: boolean; // 是否存在优惠互斥
   stackingExplanation: string; // 优惠同享/互斥状态解释说明
   grandTotal: number; // 最终顾客应付实付金额
@@ -252,6 +257,7 @@ export function calculateOrderDiscounts(params: {
   paymentMethod: 'wechat' | 'alipay' | 'card' | 'enterprise';
   couponCode?: string | null;
   isVIPActive?: boolean;
+  truckId?: string;
   activityRules?: ActivityPromoRule[];
   paymentRules?: PaymentDiscountRule[];
   stackingSettings?: PromotionStackingSettings;
@@ -263,6 +269,7 @@ export function calculateOrderDiscounts(params: {
     paymentMethod,
     couponCode,
     isVIPActive = false,
+    truckId = 'truck-01',
     activityRules = getStoredActivityRules(),
     paymentRules = DEFAULT_PAYMENT_RULES,
     stackingSettings = getStoredStackingSettings(),
@@ -330,6 +337,8 @@ export function calculateOrderDiscounts(params: {
   // 3. 计算优惠券抵扣
   let couponDiscount = 0;
   let couponApplied: string | null = null;
+  let isTruckIsolated = false;
+  let isolationWarning: string | undefined = undefined;
   const activeCoupon = couponCode || (isVIPActive ? 'UR-VIP5' : null);
 
   if (activeCoupon && subtotal > 0) {
@@ -341,14 +350,28 @@ export function calculateOrderDiscounts(params: {
       if (savedMerchant) {
         const list = JSON.parse(savedMerchant);
         const match = list.find((c: any) => c.code.toUpperCase() === cleanCode);
-        if (match && subtotal >= (match.minSpend || 0)) {
-          if (match.couponType === 'discount_percent') {
-            const calculated = subtotal * (1 - match.discountValue);
-            matchedCouponVal = Math.min(calculated, match.maxDiscountCap || 20);
-          } else if (match.couponType === 'delivery_free') {
-            matchedCouponVal = effectiveDeliveryFee > 0 ? effectiveDeliveryFee : 5.0;
-          } else {
-            matchedCouponVal = match.discountValue;
+        if (match) {
+          // 校验多餐车隔离与风控规则
+          if (match.truckScopeType === 'specific_trucks' && match.applicableTruckIds && match.applicableTruckIds.length > 0) {
+            if (!match.applicableTruckIds.includes(truckId)) {
+              isTruckIsolated = true;
+              const names = match.applicableTruckNames?.join(' / ') || match.applicableTruckIds.join(', ');
+              isolationWarning = `触发餐车隔离风控：优惠券【${cleanCode}】仅限【${names}】使用，当前餐车(${truckId})已被隔离拦截`;
+              matchedCouponVal = 0;
+            }
+          }
+
+          if (!isTruckIsolated && subtotal >= (match.minSpend || 0)) {
+            if (match.couponType === 'discount_percent') {
+              const calculated = subtotal * (1 - match.discountValue);
+              matchedCouponVal = Math.min(calculated, match.maxDiscountCap || 20);
+            } else if (match.couponType === 'delivery_free') {
+              matchedCouponVal = effectiveDeliveryFee > 0 ? effectiveDeliveryFee : 5.0;
+            } else {
+              matchedCouponVal = match.discountValue;
+            }
+          } else if (!isTruckIsolated && subtotal < (match.minSpend || 0)) {
+            matchedCouponVal = 0;
           }
         }
       } else {
@@ -364,8 +387,10 @@ export function calculateOrderDiscounts(params: {
       else matchedCouponVal = 5.0;
     }
 
-    couponDiscount = parseFloat(matchedCouponVal.toFixed(2));
-    couponApplied = activeCoupon;
+    if (!isTruckIsolated) {
+      couponDiscount = parseFloat(matchedCouponVal.toFixed(2));
+      couponApplied = activeCoupon;
+    }
   }
 
   // 4. VIP 会员专享抵扣 (例如黑金 VIP 专享优惠)
@@ -520,6 +545,8 @@ export function calculateOrderDiscounts(params: {
     cappedDiscount: parseFloat(cappedDiscount.toFixed(2)),
     isAbusePrevented,
     abuseReason,
+    isTruckIsolated,
+    isolationWarning,
     isStackingConflict,
     stackingExplanation,
     grandTotal: Math.max(0, parseFloat(grandTotal.toFixed(2))),

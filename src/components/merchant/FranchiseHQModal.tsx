@@ -153,19 +153,19 @@ export const FranchiseHQModal: React.FC<FranchiseHQModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-2 sm:p-4">
       <div className="bg-white border border-slate-300 w-full max-w-5xl max-h-[92vh] flex flex-col shadow-2xl rounded-none">
         {/* Header */}
-        <div className="p-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-700">
+        <div style={{ backgroundColor: '#ffffff', color: '#000000' }} className="p-4 bg-white text-black flex items-center justify-between border-b border-slate-200">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-amber-300">
+            <div className="w-9 h-9 bg-amber-50 border border-amber-300 flex items-center justify-center text-amber-700">
               <Building2 className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold tracking-tight text-white">特许经营与加盟商多租户中枢</h3>
-                <span className="text-[11px] font-mono px-2 py-0.5 bg-amber-400/20 text-amber-300 border border-amber-400/30 font-semibold">
+                <h3 style={{ color: '#000000' }} className="text-base font-bold tracking-tight text-black">特许经营与加盟商多租户中枢</h3>
+                <span className="text-[11px] font-mono px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 font-semibold rounded-[2px]">
                   Franchise Hub v4.0 Full
                 </span>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p style={{ color: '#4b5563' }} className="text-xs text-slate-600 mt-0.5">
                 五级组织架构 · 爆品配方锁 · BOM防飞单 · 供应链订货 · 电子围栏 · D+1实时分账 · 督导巡检
               </p>
             </div>
@@ -180,11 +180,12 @@ export const FranchiseHQModal: React.FC<FranchiseHQModalProps> = ({
                 globalFranchiseEngine.setFranchiseMode(next);
                 showToast(next ? '已启用【特许经营多租户中台模式】' : '已切换为【单店标准轻量模式】');
               }}
-              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-xs border border-slate-700 rounded-none cursor-pointer transition-colors"
+              style={{ backgroundColor: '#ffffff', color: '#000000', borderColor: '#cbd5e1' }}
+              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-white hover:bg-slate-50 text-xs border border-slate-300 rounded-[3px] cursor-pointer transition-colors"
               title="切换加盟多租户模式或单店标准模式"
             >
-              <span className="text-slate-400">特许模式:</span>
-              <span className={`font-bold font-mono ${isFranchiseMode ? 'text-amber-400' : 'text-slate-400'}`}>
+              <span className="text-slate-600">特许模式:</span>
+              <span className={`font-bold font-mono ${isFranchiseMode ? 'text-amber-700' : 'text-slate-500'}`}>
                 {isFranchiseMode ? '联邦已开启' : '单店模式'}
               </span>
             </button>
@@ -192,7 +193,8 @@ export const FranchiseHQModal: React.FC<FranchiseHQModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              style={{ color: '#000000' }}
+              className="p-1.5 text-slate-500 hover:text-black hover:bg-slate-100 rounded-[3px] transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>

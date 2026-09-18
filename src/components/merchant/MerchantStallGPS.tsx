@@ -368,24 +368,24 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
   };
 
   return (
-    <div className="space-y-3 text-xs">
+    <div className="space-y-2.5 text-xs">
       {/* ============================================================
        * 1. 顶层紧凑控制条 (纯图标按钮与微型状态)
        * ============================================================ */}
-      <div className="bg-white p-2.5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between gap-2 flex-wrap">
+      <div className="bg-white p-2.5 rounded-[2px] border border-[#e6e6e4] flex items-center justify-between gap-2 flex-wrap">
         {/* 左侧：餐车当前编号与 5G 指示灯 */}
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold shadow-xs">
+          <div className="w-6 h-6 rounded-[2px] bg-[#0f172a] text-white flex items-center justify-center font-medium">
             <Truck className="w-3.5 h-3.5 text-emerald-400" />
           </div>
-          <span className="font-black text-xs text-slate-900 tracking-tight">
+          <span className="font-medium text-xs text-[#0f172a] tracking-tight">
             {currentTruckConfig.name.replace(/黑曜石\s*/, '').replace(/流动餐车/, '')}
           </span>
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="5G 在线" />
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" title="5G 在线" />
         </div>
 
         {/* 中间：车队纯图标/编号切换按钮 */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+        <div className="flex items-center gap-1 bg-[#fbfbfa] p-1 rounded-[2px] border border-[#e6e6e4]">
           {allTrucks.map((t, idx) => {
             const isCur = t.id === selectedTruckId;
             const theme = getTruckTheme(t.id);
@@ -395,17 +395,17 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
                 key={t.id}
                 type="button"
                 onClick={() => handleTruckChange(t.id)}
-                className={`relative w-7 h-7 rounded-lg flex items-center justify-center font-mono font-bold text-xs transition-all cursor-pointer ${
+                className={`relative w-6 h-6 rounded-[2px] flex items-center justify-center font-mono font-medium text-xs transition-all cursor-pointer ${
                   isCur
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'text-slate-600 hover:bg-white hover:text-slate-900'
+                    ? 'bg-[#0f172a] text-white'
+                    : 'text-[#787774] hover:bg-white hover:text-[#0f172a]'
                 }`}
                 style={
                   isCur
                     ? {
                         color: theme.color,
-                        boxShadow: `0 0 10px ${theme.glowColor}`,
-                        border: `1.5px solid ${theme.color}`
+                        boxShadow: `0 0 6px ${theme.glowColor}`,
+                        border: `1px solid ${theme.color}`
                       }
                     : {
                         border: `1px solid transparent`
@@ -414,7 +414,7 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
                 title={`${t.name} (${t.deliveryRadiusKm}km · ${theme.themeTitle})`}
               >
                 <span
-                  className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full"
+                  className="absolute top-0.5 right-0.5 w-1 h-1 rounded-full"
                   style={{ backgroundColor: theme.color }}
                 />
                 {num}
@@ -426,17 +426,17 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
         {/* 右侧：营运状态纯图标按钮 + 锁定/解锁 + Key设置 */}
         <div className="flex items-center gap-1.5">
           {/* 状态纯图标按钮 */}
-          <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-xl">
+          <div className="flex items-center gap-0.5 bg-[#fbfbfa] p-0.5 rounded-[2px] border border-[#e6e6e4]">
             <button
               type="button"
               onClick={() => {
                 setStallStatus('open');
                 showToast('营业中');
               }}
-              className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+              className={`w-6 h-6 rounded-[2px] flex items-center justify-center transition-all cursor-pointer ${
                 stallStatus === 'open'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800'
+                  ? 'bg-emerald-600 text-white'
+                  : 'text-[#787774] hover:text-[#0f172a]'
               }`}
               title="营业中"
             >
@@ -448,10 +448,10 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
                 setStallStatus('transit');
                 showToast('巡游中');
               }}
-              className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+              className={`w-6 h-6 rounded-[2px] flex items-center justify-center transition-all cursor-pointer ${
                 stallStatus === 'transit'
-                  ? 'bg-amber-500 text-white shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800'
+                  ? 'bg-amber-500 text-white'
+                  : 'text-[#787774] hover:text-[#0f172a]'
               }`}
               title="巡游中"
             >
@@ -463,10 +463,10 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
                 setStallStatus('closed');
                 showToast('打烊');
               }}
-              className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+              className={`w-6 h-6 rounded-[2px] flex items-center justify-center transition-all cursor-pointer ${
                 stallStatus === 'closed'
-                  ? 'bg-slate-700 text-white shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800'
+                  ? 'bg-slate-700 text-white'
+                  : 'text-[#787774] hover:text-[#0f172a]'
               }`}
               title="打烊"
             >
@@ -479,7 +479,7 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
             <button
               type="button"
               onClick={handleUnlock}
-              className="w-7 h-7 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-700 flex items-center justify-center transition-all cursor-pointer shadow-xs"
+              className="w-6 h-6 rounded-[2px] bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-700 flex items-center justify-center transition-all cursor-pointer"
               title="已锁定（防误触），点击解锁编辑"
             >
               <Lock className="w-3.5 h-3.5" />
@@ -488,7 +488,7 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
             <button
               type="button"
               onClick={handleLock}
-              className="w-7 h-7 rounded-xl bg-slate-900 hover:bg-slate-800 text-emerald-400 flex items-center justify-center transition-all cursor-pointer shadow-xs ring-1 ring-emerald-500"
+              className="w-6 h-6 rounded-[2px] bg-[#0f172a] hover:bg-slate-800 text-emerald-400 flex items-center justify-center transition-all cursor-pointer border border-emerald-500"
               title="编辑中，点击完成锁定"
             >
               <Unlock className="w-3.5 h-3.5" />
@@ -499,10 +499,10 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
           <button
             type="button"
             onClick={() => setAmapKeyOpen(!amapKeyOpen)}
-            className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all cursor-pointer border ${
+            className={`w-6 h-6 rounded-[2px] flex items-center justify-center transition-all cursor-pointer border ${
               amapKeyOpen || customKeyActive
                 ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
-                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                : 'bg-white border-[#e6e6e4] text-[#787774] hover:bg-[#fbfbfa]'
             }`}
             title="高德 Web 服务 Key 设置"
           >
@@ -513,19 +513,19 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
 
       {/* 高德 Key 展开内嵌行 */}
       {amapKeyOpen && (
-        <div className="p-2 bg-white border border-slate-200 rounded-xl shadow-xs flex items-center gap-1.5">
-          <KeyRound className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+        <div className="p-2 bg-white border border-[#e6e6e4] rounded-[2px] flex items-center gap-1.5">
+          <KeyRound className="w-3.5 h-3.5 text-[#787774] shrink-0" />
           <input
             type="text"
             value={amapKeyText}
             onChange={(e) => setAmapKeyText(e.target.value)}
             placeholder="高德 Web 服务 Key (留空保存则恢复默认)"
-            className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-mono outline-none focus:border-emerald-600 focus:bg-white"
+            className="flex-1 bg-[#fbfbfa] border border-[#e6e6e4] rounded-[2px] px-2.5 py-1 text-xs font-mono outline-none focus:border-[#0f172a] focus:bg-white text-[#0f172a]"
           />
           <button
             type="button"
             onClick={handleSaveAmapKey}
-            className="w-7 h-7 bg-slate-900 hover:bg-slate-800 text-white rounded-lg flex items-center justify-center cursor-pointer shrink-0"
+            className="w-6 h-6 bg-[#0f172a] hover:bg-slate-800 text-white rounded-[2px] flex items-center justify-center cursor-pointer shrink-0"
             title="保存 Key"
           >
             <Check className="w-3.5 h-3.5" />
@@ -536,28 +536,28 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
       {/* ============================================================
        * 2. 核心布局：左侧紧凑操作控制台，右侧大地图
        * ============================================================ */}
-      <div className="flex flex-col lg:flex-row gap-3 items-stretch">
+      <div className="flex flex-col lg:flex-row gap-2.5 items-stretch">
         {/* ------------------------------------------------------------
          * 左边: 极简参数控制台 (Left Modification Console)
          * ------------------------------------------------------------ */}
-        <div className="w-full lg:w-[320px] xl:w-[340px] shrink-0 bg-white border border-slate-200 rounded-2xl shadow-xs flex flex-col overflow-hidden">
+        <div className="w-full lg:w-[320px] xl:w-[340px] shrink-0 bg-white border border-[#e6e6e4] rounded-[2px] flex flex-col overflow-hidden">
           {/* 微型坐标与半径状态条 */}
-          <div className="px-3 py-2 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between font-mono text-[11px] text-slate-600">
+          <div className="px-3 py-1.5 bg-[#fbfbfa] border-b border-[#f1f1ef] flex items-center justify-between font-mono text-[11px] text-[#787774]">
             <span className="flex items-center gap-1">
               <MapPin className="w-3.5 h-3.5 text-emerald-600" />
               {pinLat.toFixed(4)}, {pinLng.toFixed(4)}
             </span>
-            <span className="font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+            <span className="font-medium text-[#0f172a] bg-white px-1.5 py-0.5 rounded-[2px] border border-[#e6e6e4]">
               {fenceRadius.toFixed(1)} km
             </span>
           </div>
 
-          <div className="p-3 space-y-3 flex-1 overflow-y-auto max-h-[480px] lg:max-h-[calc(100vh-250px)]">
+          <div className="p-2.5 space-y-2.5 flex-1 overflow-y-auto max-h-[480px] lg:max-h-[calc(100vh-250px)]">
             {/* 搜索框与纯图标按钮 */}
             <div className="relative">
               <div className="flex gap-1.5">
                 <div className="relative flex-1">
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <Search className="w-3.5 h-3.5 text-[#787774] absolute left-2.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     value={searchInput}
@@ -565,14 +565,14 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
                     onChange={(e) => handleSearchChange(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSearchSubmit()}
                     placeholder={locationLocked ? '已锁定当前位置' : '搜索地址或商圈'}
-                    className="w-full pl-8 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-600 focus:bg-white disabled:opacity-50"
+                    className="w-full pl-8 pr-2 py-1.5 text-xs bg-[#fbfbfa] border border-[#e6e6e4] rounded-[2px] focus:outline-none focus:border-[#0f172a] focus:bg-white text-[#0f172a] disabled:opacity-50"
                   />
                 </div>
                 <button
                   type="button"
                   disabled={locationLocked || isSearching}
                   onClick={handleSearchSubmit}
-                  className="w-8 h-8 bg-slate-900 hover:bg-slate-800 text-white rounded-xl flex items-center justify-center cursor-pointer disabled:opacity-40 shrink-0"
+                  className="w-7 h-7 bg-[#0f172a] hover:bg-slate-800 text-white rounded-[2px] flex items-center justify-center cursor-pointer disabled:opacity-40 shrink-0"
                   title="搜索"
                 >
                   <Search className="w-3.5 h-3.5" />
@@ -581,15 +581,15 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
 
               {/* 联想建议下拉 */}
               {suggestOpen && suggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-float z-50 overflow-hidden max-h-48 overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#e6e6e4] rounded-[2px] shadow-sm z-50 overflow-hidden max-h-48 overflow-y-auto">
                   {suggestions.map((s, idx) => (
                     <button
                       key={idx}
                       type="button"
                       onClick={() => handleSelectSuggestion(s)}
-                      className="w-full px-2.5 py-1.5 text-left hover:bg-emerald-50 border-b border-slate-50 last:border-0 transition-colors flex items-center justify-between gap-1"
+                      className="w-full px-2.5 py-1.5 text-left hover:bg-[#fbfbfa] border-b border-[#f1f1ef] last:border-0 transition-colors flex items-center justify-between gap-1"
                     >
-                      <span className="font-bold text-slate-800 text-xs truncate">{s.title}</span>
+                      <span className="font-medium text-[#0f172a] text-xs truncate">{s.title}</span>
                       <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
                     </button>
                   ))}
@@ -599,38 +599,38 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
 
             {/* 停靠点名称直接编辑 */}
             <div className="relative">
-              <Navigation className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <Navigation className="w-3.5 h-3.5 text-[#787774] absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={locationName}
                 disabled={locationLocked}
                 onChange={(e) => setLocationName(e.target.value)}
                 placeholder="停靠点名称"
-                className="w-full pl-8 pr-2.5 py-1.5 font-bold text-xs text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:border-emerald-600 focus:bg-white outline-none disabled:bg-slate-100 disabled:text-slate-600"
+                className="w-full pl-8 pr-2.5 py-1.5 font-medium text-xs text-[#0f172a] bg-[#fbfbfa] border border-[#e6e6e4] rounded-[2px] focus:border-[#0f172a] focus:bg-white outline-none disabled:bg-[#f1f1ef] disabled:text-[#787774]"
               />
             </div>
 
             {/* 快捷商圈图钉按钮组 */}
-            <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="flex items-center gap-1 flex-wrap">
               {QUICK_LANDMARKS.map((loc, idx) => (
                 <button
                   key={idx}
                   type="button"
                   disabled={locationLocked}
                   onClick={() => handlePresetLoad(loc)}
-                  className="px-2 py-1 rounded-lg border border-slate-200 hover:border-emerald-500 bg-slate-50 hover:bg-emerald-50/50 text-[11px] text-slate-700 hover:text-emerald-700 flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-40"
+                  className="px-2 py-0.5 rounded-[2px] border border-[#e6e6e4] hover:border-emerald-500 bg-[#fbfbfa] hover:bg-emerald-50/50 text-[11px] text-[#787774] hover:text-emerald-700 flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-40"
                   title={`${loc.locationName} (${loc.radius}km)`}
                 >
-                  <Building2 className="w-3 h-3 text-slate-400" />
+                  <Building2 className="w-3 h-3 text-[#787774]" />
                   <span>{loc.name}</span>
                 </button>
               ))}
             </div>
 
-            <div className="border-t border-slate-100" />
+            <div className="border-t border-[#f1f1ef]" />
 
             {/* 外卖半径档位：纯数字/图标按钮 */}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <div className="grid grid-cols-4 gap-1">
                 {[1, 3, 5, 8].map((tier) => {
                   const isCur = Math.abs(fenceRadius - tier) < 0.2;
@@ -640,10 +640,10 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
                       type="button"
                       disabled={locationLocked}
                       onClick={() => handleSelectTier(tier)}
-                      className={`py-1.5 rounded-xl font-mono font-bold text-xs border text-center transition-all cursor-pointer disabled:opacity-40 ${
+                      className={`py-1 rounded-[2px] font-mono font-medium text-xs border text-center transition-all cursor-pointer disabled:opacity-40 ${
                         isCur
-                          ? 'bg-slate-900 text-emerald-400 border-slate-900 shadow-xs ring-1 ring-emerald-500'
-                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-white'
+                          ? 'bg-[#0f172a] text-emerald-400 border-[#0f172a]'
+                          : 'bg-[#fbfbfa] text-[#787774] border-[#e6e6e4] hover:bg-white'
                       }`}
                       title={`${tier}.0 km`}
                     >
@@ -654,12 +654,12 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
               </div>
 
               {/* 滑块与步进纯图标按钮 */}
-              <div className="flex items-center gap-1.5 px-2 py-1.5 bg-slate-50 rounded-xl border border-slate-200">
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-[#fbfbfa] rounded-[2px] border border-[#e6e6e4]">
                 <button
                   type="button"
                   disabled={locationLocked || fenceRadius <= 0.5}
                   onClick={() => handleRadiusStep(-0.5)}
-                  className="w-6 h-6 bg-white border border-slate-200 rounded-lg flex items-center justify-center text-slate-700 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
+                  className="w-5 h-5 bg-white border border-[#e6e6e4] rounded-[2px] flex items-center justify-center text-[#787774] hover:bg-[#f1f1ef] disabled:opacity-40 cursor-pointer"
                   title="减小 0.5km"
                 >
                   <Minus className="w-3 h-3" />
@@ -672,13 +672,13 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
                   value={fenceRadius}
                   disabled={locationLocked}
                   onChange={(e) => setFenceRadius(parseFloat(e.target.value))}
-                  className="flex-1 h-1.5 rounded-lg appearance-none cursor-pointer accent-slate-900 disabled:opacity-40"
+                  className="flex-1 h-1.5 rounded-none appearance-none cursor-pointer accent-[#0f172a] disabled:opacity-40"
                 />
                 <button
                   type="button"
                   disabled={locationLocked || fenceRadius >= 15.0}
                   onClick={() => handleRadiusStep(0.5)}
-                  className="w-6 h-6 bg-white border border-slate-200 rounded-lg flex items-center justify-center text-slate-700 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
+                  className="w-5 h-5 bg-white border border-[#e6e6e4] rounded-[2px] flex items-center justify-center text-[#787774] hover:bg-[#f1f1ef] disabled:opacity-40 cursor-pointer"
                   title="增加 0.5km"
                 >
                   <Plus className="w-3 h-3" />
@@ -688,7 +688,7 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
           </div>
 
           {/* 底部操作条 (聚焦图标按钮 + 广播按钮) */}
-          <div className="p-2.5 bg-white border-t border-slate-200 shrink-0 flex items-center gap-2">
+          <div className="p-2 bg-white border-t border-[#f1f1ef] shrink-0 flex items-center gap-2">
             <button
               type="button"
               onClick={() => {
@@ -697,19 +697,19 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
                   setFlyTo({ lat: config.latitude, lng: config.longitude, seq: Date.now() });
                 }
               }}
-              className="w-9 h-9 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center cursor-pointer shrink-0"
+              className="w-8 h-8 rounded-[2px] border border-[#e6e6e4] text-[#787774] hover:bg-[#fbfbfa] flex items-center justify-center cursor-pointer shrink-0"
               title="聚焦当前餐车"
             >
-              <Navigation className="w-4 h-4" />
+              <Navigation className="w-3.5 h-3.5" />
             </button>
             <button
               type="button"
               onClick={handleBroadcast}
               disabled={locationLocked || isBroadcasting}
-              className="flex-1 h-9 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex-1 h-8 bg-[#0f172a] hover:bg-slate-800 text-white rounded-[2px] font-medium text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               title="保存并全网广播"
             >
-              <Radio className="w-4 h-4 text-emerald-400" />
+              <Radio className="w-3.5 h-3.5 text-emerald-400" />
               <span>{isBroadcasting ? '广播中…' : `广播同步 (${fenceRadius.toFixed(1)}k)`}</span>
             </button>
           </div>
@@ -718,7 +718,7 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
         {/* ------------------------------------------------------------
          * 右边: 沉浸式地图视口 (Right Map Viewport)
          * ------------------------------------------------------------ */}
-        <div className="flex-1 min-h-[420px] lg:min-h-0 h-[500px] lg:h-[calc(100vh-210px)] relative rounded-2xl border border-slate-200 overflow-hidden shadow-xs bg-slate-100">
+        <div className="flex-1 min-h-[420px] lg:min-h-0 h-[500px] lg:h-[calc(100vh-210px)] relative rounded-[2px] border border-[#e6e6e4] overflow-hidden bg-[#f1f1ef]">
           <TruckLocationMapPicker
             truckId={selectedTruckId}
             initialLat={pinLat}

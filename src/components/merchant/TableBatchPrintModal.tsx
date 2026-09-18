@@ -14,11 +14,14 @@ import {
 } from 'lucide-react';
 import { TableItem } from '../../types';
 import { useToast } from '../ui/ToastContext';
+import { getQrPayloadByTableCode } from '../../utils/tableQrEngine';
+import { getUnifiedTruckName } from '../../utils/truckNaming';
 
 interface TableBatchPrintModalProps {
   isOpen: boolean;
   onClose: () => void;
   tables: TableItem[];
+  truckId?: string;
   truckName?: string;
   isEmbedded?: boolean;
 }
@@ -27,10 +30,12 @@ export const TableBatchPrintModal: React.FC<TableBatchPrintModalProps> = ({
   isOpen,
   onClose,
   tables,
-  truckName = '黑曜石 01 号流动餐车',
+  truckId,
+  truckName,
   isEmbedded = false
 }) => {
   const toast = useToast();
+  const resolvedTruckName = getUnifiedTruckName(truckId || truckName || 'truck-01', 'standard');
   const [selectedZone, setSelectedZone] = useState<string>('all');
   const [singleInspectTable, setSingleInspectTable] = useState<TableItem | null>(null);
 
@@ -49,6 +54,10 @@ export const TableBatchPrintModal: React.FC<TableBatchPrintModalProps> = ({
       : 'https://tc100-d9gz0e2ko5929e360-1445454244.tcloudbaseapp.com/';
 
   const getTableScanUrl = (tableCode: string) => {
+    // T3：数据源切换为 tableQrEngine —— URL 携带轮换令牌（qrToken），
+    // 旧的无令牌 URL 仅作引擎未初始化时的兜底。
+    const payload = getQrPayloadByTableCode(tableCode);
+    if (payload?.url) return payload.url;
     return `${baseUrl}?table=${encodeURIComponent(tableCode)}&mode=dine_in`;
   };
 
@@ -184,7 +193,7 @@ export const TableBatchPrintModal: React.FC<TableBatchPrintModalProps> = ({
                   <div className="text-left min-w-0">
                     <div className="text-[11px] font-bold text-[#201f1d] flex items-center gap-1 truncate">
                       <Utensils className="w-3 h-3 text-[#2b593f] shrink-0" />
-                      <span className="truncate">{truckName}</span>
+                      <span className="truncate">{resolvedTruckName}</span>
                     </div>
                     <div className="text-[9.5px] text-[#787774] truncate">{table.zoneLabel || '外摆就餐区'}</div>
                   </div>
@@ -219,6 +228,15 @@ export const TableBatchPrintModal: React.FC<TableBatchPrintModalProps> = ({
                   <div className="text-[10px] text-[#787774]">
                     无需排队 · 现烤现制 · 直送本桌
                   </div>
+                  {/* T3：人眼可读短码 —— 二维码破损时的人工兜底录入通道 */}
+                  {(() => {
+                    const payload = getQrPayloadByTableCode(table.code);
+                    return payload?.shortCode ? (
+                      <div className="text-[11px] font-bold font-mono text-[#201f1d] mt-1 tracking-widest">
+                        短码 {payload.shortCode}
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
 
                 {/* Action links (Hidden on print) */}

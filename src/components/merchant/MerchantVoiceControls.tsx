@@ -20,7 +20,8 @@ import {
   Smartphone,
   Activity,
   RefreshCw,
-  HelpCircle
+  HelpCircle,
+  StopCircle
 } from 'lucide-react';
 import { 
   VoiceConfig, 
@@ -30,15 +31,51 @@ import {
   playChimeSound, 
   playPersonaAudition,
   stopCurrentAudio,
+  forceStopAllBroadcasts,
+  getBroadcastState,
+  BroadcastState,
+  VOICE_FORCE_STOP_EVENT,
   voiceAlerts,
   VOICE_PERSONAS,
   VoicePersonaId,
   getAvailableSystemVoices,
   findBestPersonaVoice,
+  resolvePersonaVoiceName,
+  checkVoicePackAvailability,
   unlockAudioContext,
   diagnoseAndRepairVoiceEngine,
   VoiceEngineDiagnosis
 } from '../../utils/voiceAlertEngine';
+import {
+  mergeLocalPrefs,
+  fetchPrefsFromCloud,
+  getWorkspacePrefsSnapshot
+} from '../../utils/workspacePreferences';
+
+/** 语音配置 → wsPrefs.voice 云端镜像（写时双发，fire-and-forget） */
+function syncVoiceToWorkspacePrefs(cfg: VoiceConfig): void {
+  try {
+    mergeLocalPrefs({
+      voice: {
+        enabled: cfg.enabled,
+        volume: cfg.volume,
+        rate: cfg.rate,
+        pitch: cfg.pitch,
+        persona: cfg.persona,
+        personaVoiceMap: cfg.personaVoiceMap,
+        chimeStyle: cfg.chimeStyle,
+        soundEffectEnabled: cfg.soundEffectEnabled,
+        humanCadenceEnabled: cfg.humanCadenceEnabled,
+        autoPlayNewOrder: cfg.autoPlayNewOrder,
+        autoPlayUrgent: cfg.autoPlayUrgent,
+        autoPlayCalling: cfg.autoPlayCalling,
+        autoPlayQueueWait: cfg.autoPlayQueueWait,
+        autoPlayRiderPool: cfg.autoPlayRiderPool,
+        autoPlayRiderAction: cfg.autoPlayRiderAction
+      }
+    });
+  } catch { /* 云同步失败不影响本地生效 */ }
+}
 import { 
   globalBluetoothAudio,
   BluetoothAudioConfig,
@@ -60,6 +97,9 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
   const [activeBtDevice, setActiveBtDevice] = useState<BluetoothSpeakerDevice | null>(() => globalBluetoothAudio.getActiveDevice());
   const [diagnosis, setDiagnosis] = useState<VoiceEngineDiagnosis | null>(null);
   const [isDiagnosing, setIsDiagnosing] = useState<boolean>(false);
+  // 连续播报状态（强制中断按钮的数据源）与语音包装载状态
+  const [broadcastState, setBroadcastState] = useState<BroadcastState>(() => getBroadcastState());
+  const [voicePackStatus, setVoicePackStatus] = useState<Partial<Record<VoicePersonaId, boolean>>>({});
 
   const runDiagnosis = async () => {
     setIsDiagnosing(true);
@@ -89,21 +129,60 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
     };
   }, []);
 
+  // v3 偏好云端绑定：本地语音键缺失时从 wsPrefs（云端镜像）自愈回写
+  useEffect(() => {
+    const healFromPrefs = () => {
+      try {
+        if (localStorage.getItem('obsidian_merchant_voice_config_v2')) return; // 本地健在，不接管
+        const snap = getWorkspacePrefsSnapshot();
+        if (!snap.voice) return;
+        saveVoiceConfig({ ...getVoiceConfig(), ...snap.voice } as VoiceConfig);
+        setConfig(getVoiceConfig());
+        window.dispatchEvent(new CustomEvent('voiceConfigChanged', { detail: getVoiceConfig() }));
+      } catch { /* 自愈失败静默降级 */ }
+    };
+    healFromPrefs();
+    // 挂载期云端拉取完成后再补一次（首次设备/清库场景）
+    fetchPrefsFromCloud().then((cloud) => { if (cloud) healFromPrefs(); });
+  }, []);
+
   useEffect(() => {
     const updateVoices = () => {
       const voices = getAvailableSystemVoices();
       setSystemVoices(voices);
     };
     updateVoices();
+    // 深度修复：必须 addEventListener，禁止 onvoiceschanged 赋值——
+    // 此前该赋值会覆盖引擎侧同名监听，导致引擎音源缓存失效、角色切换解析不到新音源
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.onvoiceschanged = updateVoices;
+      window.speechSynthesis.addEventListener('voiceschanged', updateVoices);
+      return () => window.speechSynthesis.removeEventListener('voiceschanged', updateVoices);
     }
+  }, [isOpen]);
+
+  // 连续播报状态轮询（1.2s）：驱动顶栏与面板中的强制中断按钮可见性
+  useEffect(() => {
+    const tick = () => setBroadcastState(getBroadcastState());
+    tick();
+    const timer = setInterval(tick, 1200);
+    window.addEventListener(VOICE_FORCE_STOP_EVENT, tick);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener(VOICE_FORCE_STOP_EVENT, tick);
+    };
+  }, []);
+
+  // 语音包（WAV 母带）装载状态检测（面板打开时检测一次）
+  useEffect(() => {
+    if (!isOpen) return;
+    checkVoicePackAvailability().then(setVoicePackStatus);
   }, [isOpen]);
 
   const updateConfig = (partial: Partial<VoiceConfig>) => {
     const updated = { ...config, ...partial };
     setConfig(updated);
     saveVoiceConfig(updated);
+    syncVoiceToWorkspacePrefs(updated);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('voiceConfigChanged', { detail: updated }));
     }
@@ -114,6 +193,7 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
     const newCfg = { ...config, enabled: nextState };
     setConfig(newCfg);
     saveVoiceConfig(newCfg);
+    syncVoiceToWorkspacePrefs(newCfg);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('voiceConfigChanged', { detail: newCfg }));
     }
@@ -135,6 +215,7 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
 
     setConfig(updated);
     saveVoiceConfig(updated); // 关键：立即同步写入存储，防止异步延迟读取旧配置
+    syncVoiceToWorkspacePrefs(updated);
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('voiceConfigChanged', { detail: updated }));
@@ -148,10 +229,29 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
 
   const currentPersona = VOICE_PERSONAS.find(p => p.id === config.persona) || VOICE_PERSONAS[0];
 
+  // 连续播报强制中断结束：立即停当前语音 + 清空待播队列 + 停母带音频
+  const handleForceStop = () => {
+    forceStopAllBroadcasts();
+    setBroadcastState(getBroadcastState());
+    showToast('⏹ 已强制中断全部连续播报（含排队队列）');
+  };
+
+  // 为指定真人角色绑定专属系统音源（精准切换的核心：角色 ↔ 音源 1:1 记忆）
+  const handleBindPersonaVoice = (personaId: VoicePersonaId, voiceName: string) => {
+    const map = { ...(config.personaVoiceMap || {}) };
+    if (voiceName) {
+      map[personaId] = voiceName;
+    } else {
+      delete map[personaId]; // 清除绑定 = 回落自动独占分配
+    }
+    updateConfig({ personaVoiceMap: map });
+    showToast(voiceName ? `已为该角色绑定专属音源，下次播报即生效` : '已解除绑定，回落智能独占分配');
+  };
+
   return (
     <div className="relative">
       {/* Top Bar Quick Indicator & Controls */}
-      <div className="flex items-center gap-1 bg-[#f1f1ef] hover:bg-[#e3e2e0] px-1.5 sm:px-2 py-1 rounded-[4px] border border-[#d3d1cb] text-xs transition-colors shrink-0">
+      <div style={{ backgroundColor: '#ffffff' }} className="group/voice flex items-center gap-1 bg-white hover:bg-[#f8f8f7] px-1.5 py-1 rounded-[4px] border border-[#d3d1cb] text-xs transition-all shrink-0 cursor-pointer">
         <button
           type="button"
           onClick={handleToggleMute}
@@ -161,19 +261,39 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
           title={config.enabled ? '点击静音语音播报' : '点击开启语音播报'}
         >
           {config.enabled ? (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center">
               <Volume2 className="w-3.5 h-3.5 text-emerald-600 animate-pulse shrink-0" />
-              <span className="hidden md:inline font-semibold">语音</span>
+              <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 group-hover/voice:max-w-[48px] group-hover/voice:opacity-100 group-hover/voice:ml-1 transition-all duration-200 font-semibold">语音</span>
             </div>
           ) : (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center">
               <VolumeX className="w-3.5 h-3.5 text-[#787774] shrink-0" />
-              <span className="hidden md:inline font-semibold">静音</span>
+              <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 group-hover/voice:max-w-[48px] group-hover/voice:opacity-100 group-hover/voice:ml-1 transition-all duration-200 font-semibold">静音</span>
             </div>
           )}
         </button>
 
-        <span className="text-[#d3d1cb]">|</span>
+        {(broadcastState.speaking || broadcastState.queueLength > 0) && (
+          <>
+            <span className="text-[#d3d1cb] hidden group-hover/voice:inline transition-opacity duration-200">|</span>
+            <button
+              type="button"
+              onClick={handleForceStop}
+              className="relative flex items-center cursor-pointer shrink-0"
+              title={`强制中断全部连续播报（当前排队 ${broadcastState.queueLength} 条）`}
+            >
+              <StopCircle className="w-3.5 h-3.5 text-rose-600 animate-pulse shrink-0" />
+              <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 group-hover/voice:max-w-[48px] group-hover/voice:opacity-100 group-hover/voice:ml-1 transition-all duration-200 font-semibold text-rose-700">中断</span>
+              {broadcastState.queueLength > 0 && (
+                <span className="absolute -top-1 -right-1.5 min-w-[12px] h-[12px] px-0.5 rounded-full bg-rose-600 text-white text-[8px] font-bold flex items-center justify-center">
+                  {broadcastState.queueLength}
+                </span>
+              )}
+            </button>
+          </>
+        )}
+
+        <span className="text-[#d3d1cb] hidden group-hover/voice:inline transition-opacity duration-200">|</span>
 
         <button
           type="button"
@@ -184,6 +304,8 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
           <Settings2 className="w-3.5 h-3.5" />
         </button>
       </div>
+
+        <span className="text-[#d3d1cb] hidden group-hover/voice:inline transition-opacity duration-200">|</span>
 
       {/* Voice Settings Backdrop on Mobile */}
       {isOpen && (
@@ -256,6 +378,51 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
               >
                 <RefreshCw className={`w-3 h-3 text-emerald-600 ${isDiagnosing ? 'animate-spin' : ''}`} />
                 <span>{isDiagnosing ? '诊断中' : '自检修复'}</span>
+              </button>
+            </div>
+
+            {/* 连续播报强制中断（引擎级：停当前语音 + 清空队列 + 停母带音频） */}
+            <div className={`p-2.5 rounded-lg border flex items-center justify-between gap-2 ${
+              broadcastState.speaking || broadcastState.queueLength > 0
+                ? 'bg-rose-50/70 border-rose-200'
+                : 'bg-[#fbfbfa] border-[#e3e2e0]'
+            }`}>
+              <div className="flex items-center gap-2 min-w-0">
+                <StopCircle className={`w-4 h-4 shrink-0 ${broadcastState.speaking ? 'text-rose-600 animate-pulse' : 'text-[#787774]'}`} />
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-semibold text-[#37352f]">连续播报强制中断</span>
+                    <span className={`text-[9px] px-1 py-0.2 rounded font-semibold ${
+                      broadcastState.speaking
+                        ? 'bg-rose-100 text-rose-800'
+                        : 'bg-[#e6e6e4] text-[#787774]'
+                    }`}>
+                      {broadcastState.speaking ? '播报中' : '空闲'}
+                    </span>
+                    {broadcastState.queueLength > 0 && (
+                      <span className="text-[9px] px-1 py-0.2 rounded font-semibold bg-amber-100 text-amber-800">
+                        队列 {broadcastState.queueLength} 条待播
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-[#787774] block truncate">
+                    一键结束当前语音与全部排队连续播报（叫号连播/重复播报立即终止）
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleForceStop}
+                disabled={!broadcastState.speaking && broadcastState.queueLength === 0}
+                className={`shrink-0 px-2.5 py-1.5 rounded-md font-bold text-[11px] flex items-center gap-1 border transition-all active:scale-95 ${
+                  broadcastState.speaking || broadcastState.queueLength > 0
+                    ? 'bg-rose-600 hover:bg-rose-700 text-white border-rose-700 cursor-pointer shadow-xs'
+                    : 'bg-[#f5f5f4] text-[#b0afa9] border-[#e6e6e4] cursor-not-allowed'
+                }`}
+                title="立即停止所有正在播出与排队中的语音"
+              >
+                <StopCircle className="w-3.5 h-3.5" />
+                强制中断
               </button>
             </div>
 
@@ -415,6 +582,30 @@ export const MerchantVoiceControls: React.FC<MerchantVoiceControlsProps> = ({ sh
                           <div className="text-[9px] text-[#908e89] flex items-center gap-1 mt-0.5">
                             <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
                             <span className="text-emerald-700 font-medium">独立真人录音母带 (WAV高保真)</span>
+                            {voicePackStatus[p.id] !== undefined && (
+                              <span className={`px-1 py-0.2 rounded font-semibold border ${
+                                voicePackStatus[p.id]
+                                  ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                                  : 'text-amber-800 bg-amber-50 border-amber-200'
+                              }`}>
+                                {voicePackStatus[p.id] ? '母带已装载' : '母带缺失·回退合成'}
+                              </span>
+                            )}
+                          </div>
+                          {/* 精准音源绑定：实际生效音源可见 + 角色专属绑定（修复切换不精准） */}
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className="text-[9px] text-[#908e89] shrink-0 font-medium">实际音源</span>
+                            <select
+                              value={resolvePersonaVoiceName(p.id)}
+                              onChange={(e) => handleBindPersonaVoice(p.id, e.target.value)}
+                              className="max-w-[180px] px-1 py-0.5 rounded border border-[#e3e2e0] bg-white text-[9px] text-[#37352f] cursor-pointer truncate"
+                              title="该角色实际使用的系统音源；可手动绑定专属音源，修复切换语音不精准"
+                            >
+                              <option value="">智能独占分配</option>
+                              {systemVoices.map(v => (
+                                <option key={v.name} value={v.name}>{v.name}</option>
+                              ))}
+                            </select>
                           </div>
                         </div>
                       </div>

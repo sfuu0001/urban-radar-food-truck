@@ -111,14 +111,14 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header Banner */}
-      <div className="bg-white rounded-lg border border-[#e3e2e0] p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white rounded-[4px] border border-[#e6e6e4] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">
         <div>
           <div className="flex items-center gap-2">
-            <Printer className="w-5 h-5 text-amber-600" />
-            <h2 className="text-lg font-bold text-[#37352f]">多档口拆单打印与小票模板中心</h2>
-            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold rounded">
+            <Printer className="w-5 h-5 text-[#d9730d]" />
+            <h2 className="text-sm font-semibold text-[#37352f]">多档口拆单打印与小票模板中心</h2>
+            <span className="px-2 py-0.5 bg-[#edf6f1] text-[#2b593f] border border-[#cbe4d7] text-xs font-medium rounded-[2px]">
               {stations.filter(s => s.status === 'online').length}/{stations.length} 台在线
             </span>
           </div>
@@ -128,13 +128,13 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex items-center gap-1 bg-[#f7f7f5] p-1 rounded-md border border-[#e3e2e0] overflow-x-auto no-scrollbar flex-nowrap max-w-full">
+        <div className="flex items-center gap-1 bg-[#f7f7f5] p-1 rounded-[2px] border border-[#e6e6e4] overflow-x-auto no-scrollbar flex-nowrap max-w-full">
           <button
             type="button"
             onClick={() => setActiveSubTab('bluetooth')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded cursor-pointer transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 text-xs font-semibold rounded-[2px] cursor-pointer transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
               activeSubTab === 'bluetooth'
-                ? 'bg-[#37352f] text-white shadow-xs'
+                ? 'bg-[#37352f] text-white shadow-2xs'
                 : 'text-[#787774] hover:text-[#37352f]'
             }`}
           >
@@ -144,9 +144,9 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
           <button
             type="button"
             onClick={() => setActiveSubTab('stations')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
+            className={`px-3 py-1.5 text-xs font-semibold rounded-[2px] cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
               activeSubTab === 'stations'
-                ? 'bg-white text-[#37352f] shadow-xs'
+                ? 'bg-white text-[#37352f] shadow-2xs'
                 : 'text-[#787774] hover:text-[#37352f]'
             }`}
           >
@@ -155,9 +155,9 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
           <button
             type="button"
             onClick={() => setActiveSubTab('template')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
+            className={`px-3 py-1.5 text-xs font-semibold rounded-[2px] cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
               activeSubTab === 'template'
-                ? 'bg-white text-[#37352f] shadow-xs'
+                ? 'bg-white text-[#37352f] shadow-2xs'
                 : 'text-[#787774] hover:text-[#37352f]'
             }`}
           >
@@ -166,9 +166,9 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
           <button
             type="button"
             onClick={() => setActiveSubTab('split_preview')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
+            className={`px-3 py-1.5 text-xs font-semibold rounded-[2px] cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
               activeSubTab === 'split_preview'
-                ? 'bg-white text-[#37352f] shadow-xs'
+                ? 'bg-white text-[#37352f] shadow-2xs'
                 : 'text-[#787774] hover:text-[#37352f]'
             }`}
           >
@@ -194,20 +194,20 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
             return (
               <div 
                 key={station.id}
-                className={`bg-white rounded-lg border transition-all p-4 relative flex flex-col justify-between ${
-                  isSelected ? 'border-neutral-900 ring-1 ring-neutral-900' : 'border-[#e3e2e0] hover:border-[#c5c3bc]'
+                className={`bg-white rounded-[4px] border transition-all p-4 relative flex flex-col justify-between shadow-2xs ${
+                  isSelected ? 'border-[#37352f]' : 'border-[#e6e6e4] hover:border-[#37352f]'
                 }`}
               >
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <span className="p-1.5 bg-neutral-100 rounded text-neutral-800">
+                      <span className="p-1.5 bg-[#f7f7f5] rounded-[2px] text-[#37352f] border border-[#e6e6e4]">
                         <Printer className="w-4 h-4" />
                       </span>
-                      <span className="font-bold text-sm text-[#37352f]">{station.name}</span>
+                      <span className="font-semibold text-sm text-[#37352f]">{station.name}</span>
                     </div>
-                    <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span className="flex items-center gap-1 text-[11px] font-medium text-[#2b593f] bg-[#edf6f1] px-2 py-0.5 rounded-[2px] border border-[#cbe4d7]">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#2b593f] animate-pulse"></span>
                       在线
                     </span>
                   </div>
@@ -219,7 +219,7 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
                     </div>
                     <div className="flex justify-between">
                       <span>纸张规格：</span>
-                      <span className="font-semibold text-[#37352f]">{station.paperWidth} 热敏纸</span>
+                      <span className="font-medium text-[#37352f]">{station.paperWidth} 热敏纸</span>
                     </div>
                     <div className="flex justify-between">
                       <span>打印联数：</span>
@@ -231,11 +231,11 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
                     </div>
                   </div>
 
-                  <div className="pt-2 border-t border-[#f1f1ef]">
-                    <span className="text-[11px] text-[#787774] block mb-1">负责品类分流：</span>
+                  <div className="pt-2 border-t border-[#efefed]">
+                    <span className="text-[11px] text-[#787774] block mb-1 font-medium">负责品类分流：</span>
                     <div className="flex flex-wrap gap-1">
                       {station.categoriesHandled.map(cat => (
-                        <span key={cat} className="px-1.5 py-0.5 bg-[#f7f7f5] text-[#37352f] rounded text-[11px] border border-[#e3e2e0]">
+                        <span key={cat} className="px-1.5 py-0.5 bg-[#f7f7f5] text-[#37352f] rounded-[2px] text-[11px] border border-[#e6e6e4]">
                           {cat === 'all' ? '全部菜品' : cat === 'skewers' ? '炭烤串品' : cat === 'western' ? '西式主餐' : cat === 'drinks' ? '水吧冷饮' : cat === 'desserts' ? '烘焙甜点' : '风味小吃'}
                         </span>
                       ))}
@@ -243,13 +243,13 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
                   </div>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-[#f1f1ef] flex items-center justify-between gap-2">
+                <div className="mt-4 pt-3 border-t border-[#efefed] flex items-center justify-between gap-2">
                   <button
                     type="button"
                     onClick={() => handleTestPrint(station.name)}
-                    className="flex-1 py-1.5 bg-[#f7f7f5] hover:bg-[#e3e2e0] text-[#37352f] rounded text-xs font-semibold border border-[#d3d1cb] flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                    className="flex-1 py-1.5 bg-[#f7f7f5] hover:bg-[#efefed] text-[#37352f] rounded-[2px] text-xs font-semibold border border-[#e6e6e4] flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-2xs"
                   >
-                    <Play className="w-3 h-3 text-neutral-700" />
+                    <Play className="w-3 h-3 text-[#37352f]" />
                     <span>测试打印</span>
                   </button>
                   <button
@@ -258,9 +258,9 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
                       setSelectedStation(station);
                       setActiveSubTab('split_preview');
                     }}
-                    className="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-900 rounded text-xs font-semibold border border-neutral-300 flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                    className="px-3 py-1.5 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-[2px] text-xs font-semibold border border-[#37352f] flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-2xs"
                   >
-                    <Eye className="w-3 h-3 text-neutral-700" />
+                    <Eye className="w-3 h-3 text-white" />
                     <span>预览小票</span>
                   </button>
                 </div>
@@ -274,11 +274,11 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
       {activeSubTab === 'template' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Controls on Left */}
-          <div className="lg:col-span-7 bg-white rounded-lg border border-[#e3e2e0] p-5 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#e3e2e0]">
+          <div className="lg:col-span-7 bg-white rounded-[4px] border border-[#e6e6e4] p-5 space-y-4 shadow-2xs">
+            <div className="flex items-center justify-between pb-3 border-b border-[#e6e6e4]">
               <div className="flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-amber-600" />
-                <h3 className="font-bold text-sm text-[#37352f]">热敏小票内容与排版配置</h3>
+                <Sliders className="w-4 h-4 text-[#d9730d]" />
+                <h3 className="font-semibold text-sm text-[#37352f]">热敏小票内容与排版配置</h3>
               </div>
               <button
                 type="button"
@@ -296,7 +296,7 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
                   type="text"
                   value={template.headerTitle}
                   onChange={(e) => setTemplate({ ...template, headerTitle: e.target.value })}
-                  className="w-full px-3 py-1.5 border border-[#d3d1cb] rounded focus:outline-none focus:border-amber-500 text-[#37352f]"
+                  className="w-full px-3 py-1.5 bg-[#f7f7f5] border border-[#e6e6e4] rounded-[2px] focus:bg-white focus:outline-none focus:border-[#37352f] text-[#37352f]"
                 />
               </div>
 
@@ -306,7 +306,7 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
                   type="text"
                   value={template.subHeader}
                   onChange={(e) => setTemplate({ ...template, subHeader: e.target.value })}
-                  className="w-full px-3 py-1.5 border border-[#d3d1cb] rounded focus:outline-none focus:border-amber-500 text-[#37352f]"
+                  className="w-full px-3 py-1.5 bg-[#f7f7f5] border border-[#e6e6e4] rounded-[2px] focus:bg-white focus:outline-none focus:border-[#37352f] text-[#37352f]"
                 />
               </div>
 
@@ -316,7 +316,7 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
                   type="text"
                   value={template.wifiName}
                   onChange={(e) => setTemplate({ ...template, wifiName: e.target.value })}
-                  className="w-full px-3 py-1.5 border border-[#d3d1cb] rounded focus:outline-none focus:border-amber-500 text-[#37352f]"
+                  className="w-full px-3 py-1.5 bg-[#f7f7f5] border border-[#e6e6e4] rounded-[2px] focus:bg-white focus:outline-none focus:border-[#37352f] text-[#37352f]"
                 />
               </div>
 
@@ -326,50 +326,50 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
                   type="text"
                   value={template.wifiPassword || ''}
                   onChange={(e) => setTemplate({ ...template, wifiPassword: e.target.value })}
-                  className="w-full px-3 py-1.5 border border-[#d3d1cb] rounded focus:outline-none focus:border-amber-500 text-[#37352f]"
+                  className="w-full px-3 py-1.5 bg-[#f7f7f5] border border-[#e6e6e4] rounded-[2px] focus:bg-white focus:outline-none focus:border-[#37352f] text-[#37352f]"
                 />
               </div>
             </div>
 
-            <div className="pt-3 border-t border-[#f1f1ef]">
-              <span className="text-xs font-bold text-[#37352f] block mb-2">小票元素展示开关</span>
+            <div className="pt-3 border-t border-[#efefed]">
+              <span className="text-xs font-semibold text-[#37352f] block mb-2">小票元素展示开关</span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                <label className="flex items-center gap-2 p-2 bg-[#f7f7f5] rounded cursor-pointer border border-[#e3e2e0]">
+                <label className="flex items-center gap-2 p-2 bg-[#f7f7f5] rounded-[2px] cursor-pointer border border-[#e6e6e4]">
                   <input
                     type="checkbox"
                     checked={template.showOrderNo}
                     onChange={(e) => setTemplate({ ...template, showOrderNo: e.target.checked })}
-                    className="rounded text-amber-600 focus:ring-0"
+                    className="rounded-[2px] text-[#37352f] focus:ring-0"
                   />
                   <span>醒目打印大号单号/取餐号</span>
                 </label>
 
-                <label className="flex items-center gap-2 p-2 bg-[#f7f7f5] rounded cursor-pointer border border-[#e3e2e0]">
+                <label className="flex items-center gap-2 p-2 bg-[#f7f7f5] rounded-[2px] cursor-pointer border border-[#e6e6e4]">
                   <input
                     type="checkbox"
                     checked={template.showOptionNotes}
                     onChange={(e) => setTemplate({ ...template, showOptionNotes: e.target.checked })}
-                    className="rounded text-amber-600 focus:ring-0"
+                    className="rounded-[2px] text-[#37352f] focus:ring-0"
                   />
                   <span>打印口味/辣度/做法详细备注</span>
                 </label>
 
-                <label className="flex items-center gap-2 p-2 bg-[#f7f7f5] rounded cursor-pointer border border-[#e3e2e0]">
+                <label className="flex items-center gap-2 p-2 bg-[#f7f7f5] rounded-[2px] cursor-pointer border border-[#e6e6e4]">
                   <input
                     type="checkbox"
                     checked={template.showPrice}
                     onChange={(e) => setTemplate({ ...template, showPrice: e.target.checked })}
-                    className="rounded text-amber-600 focus:ring-0"
+                    className="rounded-[2px] text-[#37352f] focus:ring-0"
                   />
                   <span>打印单价与实付金额明细</span>
                 </label>
 
-                <label className="flex items-center gap-2 p-2 bg-[#f7f7f5] rounded cursor-pointer border border-[#e3e2e0]">
+                <label className="flex items-center gap-2 p-2 bg-[#f7f7f5] rounded-[2px] cursor-pointer border border-[#e6e6e4]">
                   <input
                     type="checkbox"
                     checked={template.showQrCode}
                     onChange={(e) => setTemplate({ ...template, showQrCode: e.target.checked })}
-                    className="rounded text-amber-600 focus:ring-0"
+                    className="rounded-[2px] text-[#37352f] focus:ring-0"
                   />
                   <span>底部打印电子发票/评价二维码</span>
                 </label>
@@ -382,7 +382,7 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
                 rows={2}
                 value={template.footerNotes}
                 onChange={(e) => setTemplate({ ...template, footerNotes: e.target.value })}
-                className="w-full px-3 py-1.5 border border-[#d3d1cb] rounded focus:outline-none focus:border-amber-500 text-xs text-[#37352f]"
+                className="w-full px-3 py-1.5 bg-[#f7f7f5] border border-[#e6e6e4] rounded-[2px] focus:bg-white focus:outline-none focus:border-[#37352f] text-xs text-[#37352f]"
               />
             </div>
 
@@ -390,7 +390,7 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
               <button
                 type="button"
                 onClick={() => saveTemplate(template)}
-                className="px-4 py-2 bg-[#37352f] hover:bg-black text-white rounded text-xs font-semibold cursor-pointer transition-colors shadow-xs"
+                className="px-4 py-1.5 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-[2px] text-xs font-semibold cursor-pointer transition-colors shadow-2xs"
               >
                 保存模板配置
               </button>
@@ -401,13 +401,13 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
           <div className="lg:col-span-5 flex flex-col items-center">
             <div className="w-full max-w-sm">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-[#787774]">热敏纸打印效果实时模拟</span>
+                <span className="text-xs font-semibold text-[#787774]">热敏纸打印效果实时模拟</span>
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() => setPreviewPaperWidth('58mm')}
-                    className={`px-2 py-0.5 text-[11px] font-semibold rounded cursor-pointer ${
-                      previewPaperWidth === '58mm' ? 'bg-[#37352f] text-white' : 'bg-white text-[#787774] border'
+                    className={`px-2 py-0.5 text-[11px] font-medium rounded-[2px] cursor-pointer ${
+                      previewPaperWidth === '58mm' ? 'bg-[#37352f] text-white' : 'bg-white text-[#787774] border border-[#e6e6e4]'
                     }`}
                   >
                     58mm 窄票
@@ -415,8 +415,8 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
                   <button
                     type="button"
                     onClick={() => setPreviewPaperWidth('80mm')}
-                    className={`px-2 py-0.5 text-[11px] font-semibold rounded cursor-pointer ${
-                      previewPaperWidth === '80mm' ? 'bg-[#37352f] text-white' : 'bg-white text-[#787774] border'
+                    className={`px-2 py-0.5 text-[11px] font-medium rounded-[2px] cursor-pointer ${
+                      previewPaperWidth === '80mm' ? 'bg-[#37352f] text-white' : 'bg-white text-[#787774] border border-[#e6e6e4]'
                     }`}
                   >
                     80mm 宽票
@@ -426,38 +426,38 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
 
               {/* Thermal Paper Simulation Card */}
               <div 
-                className={`bg-[#fafaf8] border border-[#d3d1cb] shadow-md p-4 sm:p-5 text-[#222] font-mono mx-auto transition-all max-w-full ${
+                className={`bg-[#fafaf8] border border-[#e6e6e4] shadow-2xs p-4 sm:p-5 text-[#37352f] font-mono mx-auto transition-all max-w-full rounded-[4px] ${
                   previewPaperWidth === '58mm' ? 'w-full max-w-[260px] text-[11px]' : 'w-full max-w-[310px] text-xs'
                 }`}
                 style={{
-                  backgroundImage: 'radial-gradient(#e3e2e0 0.75px, transparent 0.75px)',
+                  backgroundImage: 'radial-gradient(#e6e6e4 0.75px, transparent 0.75px)',
                   backgroundSize: '12px 12px'
                 }}
               >
                 {/* Header */}
-                <div className="text-center pb-3 border-b border-dashed border-neutral-400">
-                  <h4 className="font-bold text-sm tracking-wide">{template.headerTitle}</h4>
-                  <p className="text-[11px] text-neutral-600 mt-0.5">{template.subHeader}</p>
-                  <span className="inline-block mt-1 px-2 py-0.5 bg-neutral-200 text-neutral-800 text-[10px] font-bold">
+                <div className="text-center pb-3 border-b border-dashed border-[#d3d1cb]">
+                  <h4 className="font-semibold text-sm tracking-wide text-[#37352f]">{template.headerTitle}</h4>
+                  <p className="text-[11px] text-[#787774] mt-0.5">{template.subHeader}</p>
+                  <span className="inline-block mt-1 px-2 py-0.5 bg-[#efefed] text-[#37352f] text-[10px] font-medium rounded-[2px]">
                     {template.customerCopyText}
                   </span>
                 </div>
 
                 {/* Meta */}
-                <div className="py-2.5 border-b border-dashed border-neutral-400 space-y-1">
+                <div className="py-2.5 border-b border-dashed border-[#d3d1cb] space-y-1">
                   <div className="flex justify-between items-baseline">
-                    <span className="font-bold text-lg">{testOrder.orderNo}</span>
-                    <span className="text-[11px]">{testOrder.createdTime} 下单</span>
+                    <span className="font-semibold text-base text-[#37352f]">{testOrder.orderNo}</span>
+                    <span className="text-[11px] text-[#787774]">{testOrder.createdTime} 下单</span>
                   </div>
-                  <div className="flex justify-between text-[11px] text-neutral-600">
+                  <div className="flex justify-between text-[11px] text-[#787774]">
                     <span>渠道：外卖专送</span>
                     <span>顾客：{testOrder.customerName}</span>
                   </div>
                 </div>
 
                 {/* Items Table */}
-                <div className="py-3 border-b border-dashed border-neutral-400">
-                  <div className="flex justify-between font-bold pb-1 text-[11px] border-b border-neutral-300 mb-2">
+                <div className="py-3 border-b border-dashed border-[#d3d1cb]">
+                  <div className="flex justify-between font-medium pb-1 text-[11px] border-b border-[#e6e6e4] mb-2 text-[#787774]">
                     <span>品名 / 规格</span>
                     <span>数量 / 金额</span>
                   </div>
@@ -465,12 +465,12 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
                   <div className="space-y-2">
                     {testOrder.items.map((it, idx) => (
                       <div key={idx}>
-                        <div className="flex justify-between font-medium">
+                        <div className="flex justify-between font-medium text-[#37352f]">
                           <span className="break-words max-w-[170px]">{it.name}</span>
                           <span>x{it.quantity}  ¥{(it.price * it.quantity).toFixed(1)}</span>
                         </div>
                         {template.showOptionNotes && it.options && (
-                          <span className="text-[10px] text-neutral-500 block pl-2">↳ {it.options}</span>
+                          <span className="text-[10px] text-[#787774] block pl-2">↳ {it.options}</span>
                         )}
                       </div>
                     ))}
@@ -478,35 +478,35 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
                 </div>
 
                 {/* Totals */}
-                <div className="py-2.5 border-b border-dashed border-neutral-400 space-y-1 text-right">
-                  <div className="flex justify-between text-neutral-600 text-[11px]">
+                <div className="py-2.5 border-b border-dashed border-[#d3d1cb] space-y-1 text-right">
+                  <div className="flex justify-between text-[#787774] text-[11px]">
                     <span>商品小计：</span>
                     <span>¥{testOrder.totalAmount.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between font-bold text-sm pt-1">
+                  <div className="flex justify-between font-semibold text-sm pt-1 text-[#37352f]">
                     <span>实收总额：</span>
                     <span>¥{testOrder.totalAmount.toFixed(2)}</span>
                   </div>
                 </div>
 
                 {/* Footer & QR */}
-                <div className="pt-3 text-center space-y-2 text-[10px] text-neutral-600">
+                <div className="pt-3 text-center space-y-2 text-[10px] text-[#787774]">
                   {template.wifiName && (
-                    <div className="bg-neutral-100 p-1.5 rounded border border-neutral-200">
+                    <div className="bg-[#f7f7f5] p-1.5 rounded-[2px] border border-[#e6e6e4]">
                       <span>WiFi: <b>{template.wifiName}</b> | 密码: <b>{template.wifiPassword}</b></span>
                     </div>
                   )}
 
                   {template.showQrCode && (
                     <div className="flex flex-col items-center justify-center pt-1">
-                      <div className="w-16 h-16 bg-neutral-900 text-white flex items-center justify-center rounded">
+                      <div className="w-16 h-16 bg-[#37352f] text-white flex items-center justify-center rounded-[2px]">
                         <QrCode className="w-12 h-12 text-white" />
                       </div>
-                      <span className="text-[9px] text-neutral-500 mt-1">扫码开具电子发票与会员积分</span>
+                      <span className="text-[9px] text-[#787774] mt-1">扫码开具电子发票与会员积分</span>
                     </div>
                   )}
 
-                  <p className="italic text-neutral-500 pt-1">{template.footerNotes}</p>
+                  <p className="italic text-[#787774] pt-1">{template.footerNotes}</p>
                 </div>
               </div>
 
@@ -515,7 +515,7 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
                 <button
                   type="button"
                   onClick={handleBrowserPrint}
-                  className="w-full py-2 bg-[#37352f] hover:bg-black text-white rounded text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                  className="w-full py-2 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-[2px] text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>唤起浏览器真实打印</span>
@@ -529,10 +529,10 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
       {/* 3. Sub-Tab: Split Printing Simulation */}
       {activeSubTab === 'split_preview' && (
         <SimulationProbe pointId="SIM_PRINTER_STATION_SPLIT" className="block">
-          <div className="bg-white rounded-lg border border-[#e3e2e0] p-5 space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#e3e2e0]">
+          <div className="bg-white rounded-[4px] border border-[#e6e6e4] p-5 space-y-5 shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#e6e6e4]">
             <div>
-              <h3 className="font-bold text-sm text-[#37352f]">全渠道订单智能多档口拆分飞单</h3>
+              <h3 className="font-semibold text-sm text-[#37352f]">全渠道订单智能多档口拆分飞单</h3>
               <p className="text-xs text-[#787774] mt-0.5">
                 系统根据每道菜品的品类属性，自动分发飞单至对应档口（无需人工干预），保障前后厨极速协同。
               </p>
@@ -540,7 +540,7 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
             <button
               type="button"
               onClick={() => window.print()}
-              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
+              className="px-3.5 py-1.5 bg-[#2b593f] hover:bg-[#204430] text-white rounded-[2px] text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-2xs"
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
               <span>一键触发全档口拆单打印</span>
@@ -552,11 +552,11 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
             {stations.map(station => {
               const splitItems = getSplitItemsForStation(station);
               return (
-                <div key={station.id} className="border border-[#d3d1cb] rounded-lg p-3.5 bg-[#fbfbfa] flex flex-col justify-between">
+                <div key={station.id} className="border border-[#e6e6e4] rounded-[4px] p-3.5 bg-[#fafaf8] flex flex-col justify-between shadow-2xs">
                   <div>
-                    <div className="flex items-center justify-between pb-2 border-b border-[#e3e2e0] mb-2">
-                      <span className="font-bold text-xs text-[#37352f]">{station.name}</span>
-                      <span className="px-1.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 text-[10px] rounded font-semibold">
+                    <div className="flex items-center justify-between pb-2 border-b border-[#e6e6e4] mb-2">
+                      <span className="font-semibold text-xs text-[#37352f]">{station.name}</span>
+                      <span className="px-1.5 py-0.5 bg-[#fef3d6] text-[#d9730d] border border-[#fae2a0] text-[10px] rounded-[2px] font-medium">
                         {station.paperWidth}
                       </span>
                     </div>
@@ -566,17 +566,17 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
                       <div>类别：{station.categoriesHandled.join(', ')}</div>
                     </div>
 
-                    <div className="bg-white rounded border border-[#e3e2e0] p-2 space-y-2 min-h-[140px]">
+                    <div className="bg-white rounded-[2px] border border-[#e6e6e4] p-2 space-y-2 min-h-[140px]">
                       {splitItems.length === 0 ? (
                         <div className="h-full flex items-center justify-center text-xs text-[#787774] py-8">
                           本单无该档口菜品
                         </div>
                       ) : (
                         splitItems.map((item, i) => (
-                          <div key={i} className="text-xs border-b border-dashed border-[#f1f1ef] pb-1 last:border-0">
-                            <div className="flex justify-between font-semibold text-[#37352f]">
+                          <div key={i} className="text-xs border-b border-dashed border-[#efefed] pb-1 last:border-0">
+                            <div className="flex justify-between font-medium text-[#37352f]">
                               <span>{item.name}</span>
-                              <span className="text-amber-700">x{item.quantity}</span>
+                              <span className="text-[#d9730d]">x{item.quantity}</span>
                             </div>
                             {item.options && (
                               <span className="text-[10px] text-[#787774] block pl-1">↳ {item.options}</span>
@@ -587,12 +587,12 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
                     </div>
                   </div>
 
-                  <div className="mt-3 pt-2 border-t border-[#e3e2e0] flex items-center justify-between text-[11px]">
+                  <div className="mt-3 pt-2 border-t border-[#e6e6e4] flex items-center justify-between text-[11px]">
                     <span className="text-[#787774]">包含菜品：<b>{splitItems.length}</b> 种</span>
                     <button
                       type="button"
                       onClick={() => handleTestPrint(station.name)}
-                      className="text-amber-700 hover:text-amber-900 font-semibold cursor-pointer"
+                      className="text-[#d9730d] hover:text-[#b06000] font-medium cursor-pointer"
                     >
                       单机补打 🖨️
                     </button>

@@ -119,74 +119,79 @@ export const CraftStandardView: React.FC<CraftStandardViewProps> = ({ showToast 
   };
 
   return (
-    <div id="craft-standard-view" className="space-y-3.5 text-xs text-[#0f172a]">
-      {/* 1. Top Global Search Bar (From screenshot top: 搜索原料、报损记录、员工、SKU...) */}
-      <div className="bg-white p-2.5 sm:p-3 rounded-[24px] border border-[#e2e8f0] shadow-xs flex items-center gap-2.5">
-        <Search className="w-4 h-4 text-[#94a3b8] shrink-0 ml-1" />
+    <div id="craft-standard-view" className="space-y-3 text-xs text-[#0f172a]">
+      {/* 1. Top Global Search Bar */}
+      <div className="bg-white p-2.5 rounded-[3px] border border-[#e6e6e4] shadow-2xs flex items-center gap-2">
+        <Search className="w-3.5 h-3.5 text-[#787774] shrink-0 ml-1" />
         <input
           type="text"
           placeholder="搜索原料、报损记录、员工、SKU..."
           value={globalSearchQuery}
           onChange={(e) => setGlobalSearchQuery(e.target.value)}
-          className="w-full text-xs text-[#0f172a] placeholder-[#94a3b8] bg-transparent focus:outline-none"
+          className="w-full text-xs text-[#37352f] placeholder-[#9b9a97] bg-transparent focus:outline-none font-normal"
         />
       </div>
 
-      {/* 2. Main Page Header matching screenshot */}
-      <div className="flex items-center justify-between gap-3 pt-1">
-        <h1 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
-          烤串工艺
-        </h1>
+      {/* 2. Main Page Header matching precision standard */}
+      <div className="flex items-center justify-between gap-3 pt-0.5">
+        <div className="flex items-center gap-2">
+          <h1 className="text-base sm:text-lg font-bold text-[#0f172a] tracking-tight">
+            烤串工艺与配方标准
+          </h1>
+          <span className="text-[11px] text-[#787774] hidden sm:inline font-normal">
+            出肉率核算与标准克重穿串 SOP
+          </span>
+        </div>
 
         <div className="flex items-center gap-2">
           {/* Segmented Switcher [ 新样式 | 原样式 ] */}
-          <div className="bg-[#f1f5f9] p-0.5 rounded-full border border-[#e2e8f0] flex items-center">
+          <div className="bg-[#f1f1ef] p-0.5 rounded-[3px] border border-[#e6e6e4] flex items-center">
             <button
               type="button"
               onClick={() => setStyleMode('new')}
-              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+              className={`px-2.5 py-0.5 rounded-[2px] text-xs transition-all cursor-pointer ${
                 styleMode === 'new'
-                  ? 'bg-black text-white shadow-xs'
-                  : 'text-[#64748b] hover:text-[#0f172a]'
+                  ? 'bg-white text-[#37352f] font-medium shadow-2xs'
+                  : 'text-[#787774] hover:text-black font-normal'
               }`}
             >
-              新样式
+              紧凑视图
             </button>
             <button
               type="button"
               onClick={() => setStyleMode('original')}
-              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+              className={`px-2.5 py-0.5 rounded-[2px] text-xs transition-all cursor-pointer ${
                 styleMode === 'original'
-                  ? 'bg-black text-white shadow-xs'
-                  : 'text-[#64748b] hover:text-[#0f172a]'
+                  ? 'bg-white text-[#37352f] font-medium shadow-2xs'
+                  : 'text-[#787774] hover:text-black font-normal'
               }`}
             >
-              原样式
+              明细清单
             </button>
           </div>
 
           {/* Status Badge: ● 云端 */}
-          <div className="bg-[#ecfdf5] border border-[#a7f3d0] text-[#059669] px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-2xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
-            <span>云端</span>
+          <div className="bg-[#f0fdf4] border border-[#bbf7d0] text-[#166534] px-2 py-0.5 rounded-[3px] text-[11px] font-normal flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            <span>云端基准</span>
           </div>
         </div>
       </div>
 
-      {/* 3. Sub Search Bar (搜索串品 / 原料 / 味型...) */}
+      {/* 3. Sub Search Bar */}
       <div className="relative">
-        <Search className="w-4 h-4 text-[#94a3b8] absolute left-3.5 top-1/2 -translate-y-1/2" />
+        <Search className="w-3.5 h-3.5 text-[#787774] absolute left-3 top-1/2 -translate-y-1/2" />
         <input
           type="text"
           placeholder="搜索串品 / 原料 / 味型…"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full bg-white border border-[#e2e8f0] rounded-full pl-9 pr-4 py-2 text-xs text-[#0f172a] placeholder-[#94a3b8] focus:outline-none focus:border-[#0f172a] shadow-2xs"
+          className="w-full bg-white border border-[#e6e6e4] rounded-[3px] pl-8 pr-3 py-1.5 text-xs text-[#37352f] placeholder-[#9b9a97] focus:outline-none focus:border-[#2383e2] shadow-2xs font-normal"
         />
       </div>
 
-      {/* 4. Category Pills Horizontal Filter (全部, 烤肉类, 海鲜类, 蔬菜类, 豆制品类, 主食面点类, 特色网红类, 特色内脏类) */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 hide-scrollbar">
+      {/* 4. Category Pills Horizontal Filter */}
+      <div className="flex items-center gap-1 overflow-x-auto pb-1 hide-scrollbar">
         {categories.map((cat) => {
           const isSelected = selectedCategory === cat;
           return (
@@ -194,10 +199,10 @@ export const CraftStandardView: React.FC<CraftStandardViewProps> = ({ showToast 
               key={cat}
               type="button"
               onClick={() => setSelectedCategory(cat)}
-              className={`px-4 py-1.5 rounded-full text-[13px] font-semibold whitespace-nowrap transition-colors cursor-pointer shrink-0 ${
+              className={`px-2.5 py-1 rounded-[3px] text-xs whitespace-nowrap transition-colors cursor-pointer shrink-0 border ${
                 isSelected
-                  ? 'bg-black text-white shadow-xs'
-                  : 'bg-[#f1f5f9] text-[#475569] hover:bg-[#e2e8f0]'
+                  ? 'bg-[#37352f] text-white border-[#37352f] font-medium shadow-2xs'
+                  : 'bg-white text-[#5a5853] hover:text-black border-[#e6e6e4] hover:bg-[#f1f1ef] font-normal'
               }`}
             >
               {cat}
@@ -206,10 +211,10 @@ export const CraftStandardView: React.FC<CraftStandardViewProps> = ({ showToast 
         })}
       </div>
 
-      {/* 5. Content Area depending on styleMode (新样式 2列卡片 vs 原样式 单列全宽条目卡片) */}
+      {/* 5. Content Area depending on styleMode */}
       {styleMode === 'new' ? (
         /* --- NEW STYLE: 2-column Compact Bento Skewer Cards --- */
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 pb-2">
+        <div className="grid grid-cols-2 gap-2.5 pb-2">
           {filteredCrafts.map((craft) => {
             const yieldVal = craft.yieldRate
               ? (craft.yieldRate <= 1 ? Math.round(craft.yieldRate * 100) : craft.yieldRate)
@@ -226,54 +231,54 @@ export const CraftStandardView: React.FC<CraftStandardViewProps> = ({ showToast 
                 key={craft.id}
                 type="button"
                 onClick={() => handleOpenDetail(craft)}
-                className="bg-white border border-[#e2e8f0] rounded-[6px] sm:rounded-lg p-3 text-left active:scale-[0.98] transition-all duration-200 group cursor-pointer shadow-2xs hover:border-[#cbd5e1] hover:shadow-xs flex flex-col justify-between"
+                className="bg-white border border-[#e6e6e4] rounded-[3px] p-2.5 sm:p-3 text-left active:scale-[0.99] transition-all duration-150 group cursor-pointer shadow-2xs hover:border-[#d3d1cb] flex flex-col justify-between"
               >
                 <div>
                   {/* Header: Title + Flavor Badge */}
                   <div className="flex items-start justify-between gap-1">
-                    <h3 className="text-[15px] font-bold text-[#0f172a] leading-tight group-hover:text-[#2563eb] transition-colors">
+                    <h3 className="text-sm font-semibold text-[#0f172a] leading-snug group-hover:text-[#2383e2] transition-colors truncate">
                       {craft.name}
                     </h3>
-                    <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border ${flavorStyle.bg} font-semibold shrink-0`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${flavorStyle.dot}`} />
+                    <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-[2px] border ${flavorStyle.bg} font-normal shrink-0`}>
+                      <span className={`w-1 h-1 rounded-full ${flavorStyle.dot}`} />
                       {displayFlavor}
                     </span>
                   </div>
 
                   {/* Subcategory Tags */}
                   <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                    <span className="text-[10px] px-1.5 py-0.5 bg-[#f1f5f9] text-[#475569] font-medium rounded-[3px] border border-[#e2e8f0]">
+                    <span className="text-[10px] px-1.5 py-0.5 bg-[#fbfbfa] text-[#787774] font-normal rounded-[2px] border border-[#e6e6e4]">
                       {craft.categoryName || '烤肉类'}
                     </span>
-                    <span className="text-[10px] px-1.5 py-0.5 bg-[#f1f5f9] text-[#475569] font-medium rounded-[3px] border border-[#e2e8f0]">
+                    <span className="text-[10px] px-1.5 py-0.5 bg-[#fbfbfa] text-[#787774] font-normal rounded-[2px] border border-[#e6e6e4]">
                       {craft.subCategory || '猪肉类'}
                     </span>
                   </div>
 
                   {/* 3 Metric Rows */}
-                  <div className="mt-2 space-y-1 text-[12px] text-[#64748b]">
+                  <div className="mt-2 space-y-0.5 text-[11px] text-[#787774]">
                     <div className="flex justify-between">
-                      <span>克重</span>
-                      <span className="font-semibold text-[#0f172a]">{craft.standardWeightG || 30}g</span>
+                      <span className="font-normal">克重</span>
+                      <span className="font-normal font-mono text-[#37352f]">{craft.standardWeightG || 30}g</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>出肉率</span>
-                      <span className="font-semibold text-[#10b981]">{yieldVal}%</span>
+                      <span className="font-normal">出肉率</span>
+                      <span className="font-medium font-mono text-emerald-700">{yieldVal}%</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>每kg串数</span>
-                      <span className="font-semibold text-[#0f172a]">{skewersPerKgVal}串</span>
+                      <span className="font-normal">每kg出串</span>
+                      <span className="font-normal font-mono text-[#37352f]">{skewersPerKgVal}串</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Footer: Price + Profit */}
-                <div className="mt-2 pt-2 border-t border-[#f1f5f9] flex items-center justify-between">
-                  <span className="text-[14px] font-bold text-[#0f172a]">
+                <div className="mt-2 pt-2 border-t border-[#f1f1ef] flex items-center justify-between">
+                  <span className="text-xs font-semibold text-[#0f172a] font-mono">
                     ¥{craft.pricePerSkewer.toFixed(2)}
-                    <span className="text-[10px] font-medium text-[#64748b]">/串</span>
+                    <span className="text-[10px] font-normal text-[#787774]">/串</span>
                   </span>
-                  <span className="text-[11px] font-semibold text-[#047857]">
+                  <span className="text-[10.5px] font-medium text-emerald-800 font-mono">
                     毛利 ¥{profitVal}
                   </span>
                 </div>
@@ -283,7 +288,7 @@ export const CraftStandardView: React.FC<CraftStandardViewProps> = ({ showToast 
         </div>
       ) : (
         /* --- ORIGINAL STYLE: 1-column Full Width Detailed Cards with SOP Summary & Cost Calculation --- */
-        <div className="space-y-2.5 pb-2">
+        <div className="space-y-2 pb-2">
           {filteredCrafts.map((craft) => {
             const yieldVal = craft.yieldRate
               ? (craft.yieldRate <= 1 ? Math.round(craft.yieldRate * 100) : craft.yieldRate)
@@ -301,78 +306,78 @@ export const CraftStandardView: React.FC<CraftStandardViewProps> = ({ showToast 
                 key={craft.id}
                 type="button"
                 onClick={() => handleOpenDetail(craft)}
-                className="w-full bg-white border border-[#e2e8f0] rounded-[6px] sm:rounded-lg p-3.5 sm:p-4 text-left active:scale-[0.98] transition-all cursor-pointer shadow-2xs hover:border-[#cbd5e1] hover:shadow-xs group"
+                className="w-full bg-white border border-[#e6e6e4] rounded-[3px] p-3 sm:p-3.5 text-left active:scale-[0.99] transition-all cursor-pointer shadow-2xs hover:border-[#d3d1cb] group"
               >
                 {/* Header: Name + Flavor + Subcategories + Yield Rate */}
-                <div className="flex justify-between items-start border-b border-[#f1f5f9] pb-2.5 gap-2">
+                <div className="flex justify-between items-start border-b border-[#f1f1ef] pb-2 gap-2">
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <h3 className="font-bold text-[#0f172a] text-[15px] group-hover:text-[#2563eb] transition-colors">
+                      <h3 className="font-semibold text-[#0f172a] text-sm group-hover:text-[#2383e2] transition-colors">
                         {craft.name}
                       </h3>
-                      <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border ${flavorStyle.bg} font-semibold shrink-0`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${flavorStyle.dot}`} />
+                      <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-[2px] border ${flavorStyle.bg} font-normal shrink-0`}>
+                        <span className={`w-1 h-1 rounded-full ${flavorStyle.dot}`} />
                         {displayFlavor}
                       </span>
                     </div>
                     <div className="flex items-center gap-1 mt-1 flex-wrap">
-                      <span className="text-[11px] px-2 py-0.5 bg-[#f1f5f9] text-[#475569] font-medium rounded-[3px] border border-[#e2e8f0]">
+                      <span className="text-[10.5px] px-1.5 py-0.5 bg-[#fbfbfa] text-[#787774] font-normal rounded-[2px] border border-[#e6e6e4]">
                         {craft.categoryName || '烤肉类'}
                       </span>
-                      <span className="text-[11px] px-2 py-0.5 bg-[#f1f5f9] text-[#475569] font-medium rounded-[3px] border border-[#e2e8f0]">
+                      <span className="text-[10.5px] px-1.5 py-0.5 bg-[#fbfbfa] text-[#787774] font-normal rounded-[2px] border border-[#e6e6e4]">
                         {craft.subCategory || '猪肉类'}
                       </span>
                     </div>
                   </div>
-                  <span className="text-[12px] font-bold text-[#10b981] shrink-0">
+                  <span className="text-[11.5px] font-semibold text-emerald-700 font-mono shrink-0">
                     出肉率 {yieldVal}%
                   </span>
                 </div>
 
                 {/* Detailed Metrics Table */}
-                <div className="space-y-1.5 text-[13px] text-[#64748b] mt-2.5">
+                <div className="space-y-1 text-xs text-[#787774] mt-2">
                   <div className="flex justify-between gap-2">
-                    <span>原料肉名称</span>
-                    <span className="font-bold text-[#0f172a] text-right truncate max-w-[200px]">
+                    <span className="font-normal">原料肉名称</span>
+                    <span className="font-normal text-[#37352f] text-right truncate max-w-[200px]">
                       {craft.recommendedPart || craft.name}
                     </span>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <span>每串标准克重</span>
-                    <span className="font-bold text-[#0f172a]">{craft.standardWeightG || 30} g</span>
+                    <span className="font-normal">每串标准克重</span>
+                    <span className="font-normal font-mono text-[#37352f]">{craft.standardWeightG || 30} g</span>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <span>毛肉每kg理论出串数</span>
-                    <span className="font-bold text-[#0f172a]">{skewersPerKgVal} 串</span>
+                    <span className="font-normal">毛肉每kg理论出串数</span>
+                    <span className="font-normal font-mono text-[#37352f]">{skewersPerKgVal} 串</span>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <span>单串理论成本</span>
-                    <span className="font-bold text-[#0f172a]">¥{theoreticalCost}</span>
+                    <span className="font-normal">单串理论成本</span>
+                    <span className="font-medium font-mono text-[#37352f]">¥{theoreticalCost}</span>
                   </div>
                 </div>
 
                 {/* SOP Key Note Box */}
-                <div className="mt-2.5 pt-2 border-t border-[#f1f5f9] text-[12px] text-[#475569] leading-relaxed bg-[#f8fafc] p-2.5 rounded-[4px] border border-[#e2e8f0]">
-                  <span className="font-bold text-[#0f172a] block mb-0.5">穿串与切割要领:</span>
-                  <span className="line-clamp-2">
+                <div className="mt-2 text-[11px] text-[#787774] leading-relaxed bg-[#fbfbfa] p-2 rounded-[2px] border border-[#e6e6e4]">
+                  <span className="font-medium text-[#37352f] inline-block mr-1">穿串与切割要领:</span>
+                  <span className="font-normal text-[#5a5853] line-clamp-2">
                     {craft.threadingMethod || craft.cutDirection || `${craft.name}标准工艺，中火快烤锁汁。`}
                   </span>
                 </div>
 
                 {/* Card Bottom: Price + Profit + 查看详情 */}
-                <div className="mt-2.5 pt-2 border-t border-[#f1f5f9] flex items-center justify-between">
+                <div className="mt-2 pt-2 border-t border-[#f1f1ef] flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <span className="text-[15px] font-bold text-[#0f172a]">
+                    <span className="text-xs font-semibold text-[#0f172a] font-mono">
                       ¥{craft.pricePerSkewer.toFixed(2)}
-                      <span className="text-[11px] font-medium text-[#64748b]">/串</span>
+                      <span className="text-[10px] font-normal text-[#787774]">/串</span>
                     </span>
-                    <span className="text-[11px] font-semibold text-[#047857]">
+                    <span className="text-[10.5px] font-medium text-emerald-800 font-mono">
                       毛利 ¥{profitVal}
                     </span>
                   </div>
-                  <span className="flex items-center gap-0.5 text-[12px] font-semibold text-[#2563eb]">
-                    <span>查看详情</span>
-                    <ChevronRight className="w-4 h-4" />
+                  <span className="flex items-center gap-0.5 text-[11px] font-normal text-[#2383e2]">
+                    <span>查看工艺详情</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
                   </span>
                 </div>
               </button>

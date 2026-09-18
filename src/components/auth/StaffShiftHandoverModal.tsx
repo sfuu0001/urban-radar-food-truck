@@ -18,6 +18,7 @@ import {
   maskPhoneNumber
 } from '../../utils/staffAndRiderAuthEngine';
 import { ROLE_LEVEL_META } from '../../utils/rbacEngine';
+import { syncCascadeIdentityFromSession } from '../../utils/cascadeMeshEngine';
 
 interface StaffShiftHandoverModalProps {
   isOpen: boolean;
@@ -46,6 +47,7 @@ export const StaffShiftHandoverModal: React.FC<StaffShiftHandoverModalProps> = (
       });
 
       if (res.success && res.session) {
+        syncCascadeIdentityFromSession(res.session, 'merchant');
         showToast(`交接班成功！当前当值人员已切换为【${staff.name}】(${staff.roleTitle})`);
         onHandoverSuccess(res.session);
         onClose();

@@ -52,6 +52,7 @@ export type UserActionType =
   | 'enter_checkout'           // 点击去结算
   | 'select_payment_method'    // 切换支付方式
   | 'apply_coupon'             // 选择并使用卡券
+  | 'claim_coupon_qr'          // 扫码领取优惠券
   | 'cancel_coupon'            // 取消卡券
   | 'input_order_notes'        // 输入订单备注
   | 'cancel_checkout'          // 退出结算台

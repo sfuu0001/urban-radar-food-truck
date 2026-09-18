@@ -388,18 +388,18 @@ export const PaymentConfirmCashierModal: React.FC<PaymentConfirmCashierModalProp
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 8 }}
         transition={{ duration: 0.2 }}
-        className="bg-white rounded-2xl border border-neutral-200 shadow-2xl max-w-lg w-full overflow-hidden text-neutral-900"
+        className="bg-white rounded-[5px] border border-[#e2e2dc] shadow-2xl max-w-lg w-full overflow-hidden text-neutral-900"
       >
         {/* Header Strip */}
-        <div className="bg-neutral-900 text-white px-4 py-3 sm:px-5 sm:py-3.5 flex items-center justify-between">
+        <div className="bg-[#1a1a17] text-white px-4 py-3 sm:px-5 sm:py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400">
+            <div className="w-7 h-7 rounded-[5px] bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400">
               <ShieldCheck className="w-4 h-4" />
             </div>
             <div>
               <h3 className="text-sm font-black flex items-center gap-1.5">
                 <span>黑曜石餐车 · 安全收银台</span>
-                <span className="text-[9.5px] px-1.5 py-0.2 bg-emerald-500/30 text-emerald-300 rounded font-mono font-bold">
+                <span className="text-[9.5px] px-1.5 py-0.2 bg-emerald-500/30 text-emerald-300 rounded-[5px] font-mono font-bold">
                   256-Bit SSL
                 </span>
               </h3>
@@ -413,14 +413,14 @@ export const PaymentConfirmCashierModal: React.FC<PaymentConfirmCashierModalProp
             type="button"
             onClick={onClose}
             disabled={isProcessing}
-            className="w-7 h-7 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer disabled:opacity-30"
+            className="w-7 h-7 rounded-[5px] bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer disabled:opacity-30"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Amount Hero Section */}
-        <div className="p-4 sm:p-5 bg-[#fafaf8] border-b border-neutral-200 text-center space-y-1">
+        <div className="p-4 sm:p-5 bg-[#fafaf8] border-b border-[#e2e2dc] text-center space-y-1">
           <div className="text-[10.5px] text-neutral-500 font-bold uppercase tracking-wider">
             应付实缴金额 (CNY)
           </div>
@@ -432,7 +432,7 @@ export const PaymentConfirmCashierModal: React.FC<PaymentConfirmCashierModalProp
             <span>小计 ¥{subtotal.toFixed(2)}</span>
             {deliveryFee > 0 && <span>+ 配送 ¥{deliveryFee.toFixed(2)}</span>}
             {discountAmount > 0 && (
-              <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded font-bold">
+              <span className="text-emerald-700 bg-[#eafaf1] border border-emerald-200 px-1.5 py-0.2 rounded-[5px] font-bold">
                 已享立减 -¥{discountAmount.toFixed(2)}
               </span>
             )}
@@ -467,12 +467,12 @@ export const PaymentConfirmCashierModal: React.FC<PaymentConfirmCashierModalProp
                       setValidationError(null);
                       setFallbackWarning(null);
                     }}
-                    className={`w-full p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                    className={`w-full p-2.5 rounded-[5px] border text-left transition-all cursor-pointer flex items-center justify-between ${
                       isSelected
                         ? `${opt.accentBg} ${opt.accentBorder} border-2 shadow-2xs`
                         : !isEnabled
                         ? 'bg-neutral-100/60 border-neutral-200 opacity-60'
-                        : 'bg-white border-neutral-200 hover:bg-neutral-50'
+                        : 'bg-white border-[#e2e2dc] hover:bg-[#f9f9f7]'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -487,7 +487,7 @@ export const PaymentConfirmCashierModal: React.FC<PaymentConfirmCashierModalProp
                             {opt.name}
                           </span>
                           <span
-                            className={`text-[9.5px] px-1.5 py-0.2 rounded font-bold ${
+                            className={`text-[9.5px] px-1.5 py-0.2 rounded-[5px] font-bold ${
                               isSelected
                                 ? 'bg-black text-white'
                                 : 'bg-neutral-100 text-neutral-600'
@@ -496,7 +496,7 @@ export const PaymentConfirmCashierModal: React.FC<PaymentConfirmCashierModalProp
                             {opt.badge}
                           </span>
                           {!isEnabled && (
-                            <span className="text-[9px] bg-red-100 text-red-700 px-1 rounded font-bold">
+                            <span className="text-[9px] bg-red-100 text-red-700 px-1 rounded-[5px] font-bold">
                               商户未开通
                             </span>
                           )}
@@ -526,7 +526,7 @@ export const PaymentConfirmCashierModal: React.FC<PaymentConfirmCashierModalProp
 
           {/* Real-time Channel Gateway Readiness Card */}
           <div
-            className={`p-3 rounded-xl border text-xs space-y-2 ${
+            className={`p-3 rounded-[5px] border text-xs space-y-2 ${
               validationResult.valid
                 ? 'bg-emerald-50/50 border-emerald-200 text-emerald-950'
                 : 'bg-red-50/60 border-red-200 text-red-950'
@@ -546,7 +546,7 @@ export const PaymentConfirmCashierModal: React.FC<PaymentConfirmCashierModalProp
                 </span>
               </div>
               <span
-                className={`text-[9.5px] px-1.5 py-0.2 rounded font-mono font-bold ${
+                className={`text-[9.5px] px-1.5 py-0.2 rounded-[5px] font-mono font-bold ${
                   validationResult.valid
                     ? 'bg-emerald-100 text-emerald-800'
                     : 'bg-red-100 text-red-800'
@@ -636,17 +636,17 @@ export const PaymentConfirmCashierModal: React.FC<PaymentConfirmCashierModalProp
         </div>
 
         {/* Modal Footer / Action Button */}
-        <div className="p-4 sm:p-5 bg-white border-t border-neutral-200 space-y-2">
+        <div className="p-4 sm:p-5 bg-white border-t border-[#e2e2dc] space-y-2">
           <button
             type="button"
             disabled={isProcessing || !validationResult.valid}
             onClick={handleConfirmPay}
-            className={`w-full py-3 rounded-xl font-black text-sm flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer active:scale-98 ${
+            className={`w-full py-3 rounded-[5px] font-black text-sm flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer active:scale-98 ${
               isProcessing
                 ? 'bg-neutral-800 text-white cursor-wait'
                 : !validationResult.valid
                 ? 'bg-neutral-300 text-neutral-500 cursor-not-allowed'
-                : 'bg-neutral-900 hover:bg-black text-white'
+                : 'bg-[#1a1a17] hover:bg-black text-white'
             }`}
           >
             {isProcessing ? (
@@ -688,13 +688,13 @@ export const PaymentConfirmCashierModal: React.FC<PaymentConfirmCashierModalProp
     {/* 渠道收款台：模拟跳转微信/支付宝等渠道完成真实收款，付款后系统回查支付状态 */}
     <AnimatePresence>
       {payStage !== 'idle' && (
-        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
           <motion.div
             initial={{ y: 60, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 60, opacity: 0 }}
             transition={{ duration: 0.22, ease: 'easeOut' }}
-            className="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl overflow-hidden shadow-2xl"
+            className="w-full sm:max-w-sm bg-white rounded-t-[8px] sm:rounded-[5px] overflow-hidden shadow-2xl border border-[#e2e2dc]"
           >
             {/* 渠道品牌栏 */}
             <div
@@ -707,7 +707,7 @@ export const PaymentConfirmCashierModal: React.FC<PaymentConfirmCashierModalProp
                   {channelBrand[selectedChannel]?.name || '渠道收款台'}
                 </span>
               </div>
-              <span className="text-[10px] px-1.5 py-0.2 bg-white/20 rounded font-bold">
+              <span className="text-[10px] px-1.5 py-0.2 bg-white/20 rounded-[5px] font-bold">
                 官方安全收款
               </span>
             </div>
@@ -735,11 +735,11 @@ export const PaymentConfirmCashierModal: React.FC<PaymentConfirmCashierModalProp
               {/* 真实动态扫码收款码展示 (支持手机直接扫码) */}
               {cloudPayResult?.qrDisplayUrl && (
                 <div className="pt-2 flex flex-col items-center justify-center">
-                  <div className="p-2 bg-white rounded-xl border border-neutral-200 shadow-2xs inline-block">
+                  <div className="p-2 bg-white rounded-[5px] border border-neutral-200 shadow-2xs inline-block">
                     <img
                       src={cloudPayResult.qrDisplayUrl}
                       alt="动态收款二维码"
-                      className="w-36 h-36 mx-auto rounded"
+                      className="w-36 h-36 mx-auto rounded-[5px]"
                     />
                   </div>
                   <span className="text-[10px] font-bold text-neutral-600 mt-1.5 flex items-center gap-1">
@@ -759,7 +759,7 @@ export const PaymentConfirmCashierModal: React.FC<PaymentConfirmCashierModalProp
                 <button
                   type="button"
                   onClick={handleChannelPay}
-                  className="w-full py-3 rounded-xl text-white text-sm font-black shadow-sm active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full py-3 rounded-[5px] text-white text-sm font-black shadow-xs active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-2"
                   style={{ backgroundColor: channelBrand[selectedChannel]?.bg || '#07C160' }}
                 >
                   <Smartphone className="w-4 h-4" />
@@ -768,7 +768,7 @@ export const PaymentConfirmCashierModal: React.FC<PaymentConfirmCashierModalProp
                 <button
                   type="button"
                   onClick={handleCancelChannelPay}
-                  className="w-full py-2.5 rounded-xl bg-white border border-neutral-200 text-neutral-600 text-xs font-bold hover:bg-neutral-100 transition-all cursor-pointer"
+                  className="w-full py-2.5 rounded-[5px] bg-white border border-neutral-200 text-neutral-600 text-xs font-bold hover:bg-neutral-100 transition-all cursor-pointer"
                 >
                   暂不支付（订单保持待支付）
                 </button>

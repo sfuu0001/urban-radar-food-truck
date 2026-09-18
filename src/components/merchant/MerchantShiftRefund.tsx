@@ -311,21 +311,23 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
   return (
     <div className="space-y-4 text-xs">
       {/* 1. Header Sub-tab Controller */}
-      <div className="bg-white p-2.5 sm:p-3 rounded-[3px] border border-[#e6e6e4] flex items-center justify-between gap-2.5 sm:gap-3 flex-wrap shadow-2xs">
+      <div className="bg-white p-2.5 sm:p-3 rounded-[4px] border border-[#e6e6e4] flex items-center justify-between gap-2.5 sm:gap-3 flex-wrap shadow-2xs">
         <div className="flex items-center gap-1.5 flex-wrap">
           <button
             type="button"
             onClick={() => setSubTab('shift')}
-            className={`px-2.5 sm:px-3 py-1.5 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-full font-medium text-xs transition-all cursor-pointer flex items-center gap-1.5 bg-white border ${
               subTab === 'shift'
-                ? 'bg-[#37352f] text-white shadow-xs'
-                : 'bg-[#f1f1ef] text-[#5a5854] hover:bg-[#e8e8e6]'
+                ? 'border-zinc-900 text-zinc-900 font-semibold shadow-2xs'
+                : 'border-[#e6e6e4] text-[#5a5854] hover:text-zinc-900 hover:border-zinc-300 hover:bg-slate-50'
             }`}
           >
-            <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+            <RotateCcw className="w-3.5 h-3.5 shrink-0 text-zinc-700" />
             <span className="hidden sm:inline">收银交接班与钱箱对账 (Shift Handover)</span>
             <span className="sm:hidden">交接班对账</span>
-            <span className="font-mono text-[10px] bg-black/20 px-1 rounded">
+            <span className={`font-mono text-[10px] px-1.5 py-0.2 rounded-full ${
+              subTab === 'shift' ? 'bg-zinc-900 text-white' : 'bg-[#f0f0ee] text-[#5a5854] border border-[#e6e6e4]'
+            }`}>
               {shifts.length}
             </span>
           </button>
@@ -333,16 +335,18 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
           <button
             type="button"
             onClick={() => setSubTab('refund')}
-            className={`px-2.5 sm:px-3 py-1.5 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-full font-medium text-xs transition-all cursor-pointer flex items-center gap-1.5 bg-white border ${
               subTab === 'refund'
-                ? 'bg-[#37352f] text-white shadow-xs'
-                : 'bg-[#f1f1ef] text-[#5a5854] hover:bg-[#e8e8e6]'
+                ? 'border-zinc-900 text-zinc-900 font-semibold shadow-2xs'
+                : 'border-[#e6e6e4] text-[#5a5854] hover:text-zinc-900 hover:border-zinc-300 hover:bg-slate-50'
             }`}
           >
             <CreditCard className="w-3.5 h-3.5 text-[#d44333] shrink-0" />
             <span className="hidden sm:inline">POS 内部退款台账</span>
             <span className="sm:hidden">POS退款</span>
-            <span className="font-mono text-[10px] bg-black/20 px-1 rounded">
+            <span className={`font-mono text-[10px] px-1.5 py-0.2 rounded-full ${
+              subTab === 'refund' ? 'bg-zinc-900 text-white' : 'bg-[#f0f0ee] text-[#5a5854] border border-[#e6e6e4]'
+            }`}>
               {refunds.length}
             </span>
           </button>
@@ -350,21 +354,23 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
           <button
             type="button"
             onClick={() => setSubTab('customer_refund')}
-            className={`px-2.5 sm:px-3 py-1.5 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-full font-medium text-xs transition-all cursor-pointer flex items-center gap-1.5 bg-white border ${
               subTab === 'customer_refund'
-                ? 'bg-[#37352f] text-white shadow-xs'
-                : 'bg-[#f1f1ef] text-[#5a5854] hover:bg-[#e8e8e6]'
+                ? 'border-zinc-900 text-zinc-900 font-semibold shadow-2xs'
+                : 'border-[#e6e6e4] text-[#5a5854] hover:text-zinc-900 hover:border-zinc-300 hover:bg-slate-50'
             }`}
           >
             <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
             <span className="hidden sm:inline">顾客线上退款申请流</span>
             <span className="sm:hidden">线上退款流</span>
             {pendingCustomerRefunds.length > 0 ? (
-              <span className="font-mono text-[10px] bg-rose-500 text-white px-1.5 py-0.2 rounded-full font-bold animate-pulse">
+              <span className="font-mono text-[10px] bg-rose-500 text-white px-1.5 py-0.2 rounded-full font-semibold animate-pulse">
                 {pendingCustomerRefunds.length} 待审
               </span>
             ) : (
-              <span className="font-mono text-[10px] bg-black/20 px-1 rounded">
+              <span className={`font-mono text-[10px] px-1.5 py-0.2 rounded-full ${
+                subTab === 'customer_refund' ? 'bg-zinc-900 text-white' : 'bg-[#f0f0ee] text-[#5a5854] border border-[#e6e6e4]'
+              }`}>
                 {allRefundOrders.length}
               </span>
             )}
@@ -373,16 +379,18 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
           <button
             type="button"
             onClick={() => setSubTab('reservation')}
-            className={`px-2.5 sm:px-3 py-1.5 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-full font-medium text-xs transition-all cursor-pointer flex items-center gap-1.5 bg-white border ${
               subTab === 'reservation'
-                ? 'bg-[#37352f] text-white shadow-xs'
-                : 'bg-[#f1f1ef] text-[#5a5854] hover:bg-[#e8e8e6]'
+                ? 'border-zinc-900 text-zinc-900 font-semibold shadow-2xs'
+                : 'border-[#e6e6e4] text-[#5a5854] hover:text-zinc-900 hover:border-zinc-300 hover:bg-slate-50'
             }`}
           >
             <CalendarCheck className="w-3.5 h-3.5 text-[#1c5598] shrink-0" />
             <span className="hidden sm:inline">桌台预定 Pipeline (Reservations)</span>
             <span className="sm:hidden">桌台预定</span>
-            <span className="font-mono text-[10px] bg-black/20 px-1 rounded">
+            <span className={`font-mono text-[10px] px-1.5 py-0.2 rounded-full ${
+              subTab === 'reservation' ? 'bg-zinc-900 text-white' : 'bg-[#f0f0ee] text-[#5a5854] border border-[#e6e6e4]'
+            }`}>
               {reservations.length}
             </span>
           </button>
@@ -393,7 +401,7 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
           <button
             type="button"
             onClick={handleExportCsv}
-            className="px-3 py-1.5 bg-white hover:bg-[#f1f1ef] text-[#37352f] border border-[#d3d1cb] rounded-[3px] font-semibold text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
+            className="px-3 py-1.5 bg-white hover:bg-[#f1f1ef] text-[#37352f] border border-[#e6e6e4] rounded-[2px] font-medium text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
             title="一键导出当前报表为标准 CSV/Excel 格式"
           >
             <Download className="w-3.5 h-3.5 text-[#5a5854]" />
@@ -404,7 +412,7 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
             <button
               type="button"
               onClick={() => setIsClosingShift(!isClosingShift)}
-              className="px-3.5 py-1.5 bg-[#2b593f] hover:bg-[#204430] text-white rounded-[3px] font-semibold text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              className="px-3.5 py-1.5 bg-[#2b593f] hover:bg-[#204430] text-white rounded-[2px] font-semibold text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>办理当班交接</span>
@@ -415,7 +423,7 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
             <button
               type="button"
               onClick={() => setIsCreatingRefund(!isCreatingRefund)}
-              className="px-3.5 py-1.5 bg-[#d44333] hover:bg-[#b03022] text-white rounded-[3px] font-semibold text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              className="px-3.5 py-1.5 bg-[#d44333] hover:bg-[#b03022] text-white rounded-[2px] font-semibold text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs"
             >
               <CreditCard className="w-3.5 h-3.5" />
               <span>发起退款 / 退菜申请</span>
@@ -426,7 +434,7 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
             <button
               type="button"
               onClick={() => setIsAddingReservation(!isAddingReservation)}
-              className="px-3.5 py-1.5 bg-[#1c5598] hover:bg-[#143e70] text-white rounded-[3px] font-semibold text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              className="px-3.5 py-1.5 bg-[#1c5598] hover:bg-[#143e70] text-white rounded-[2px] font-semibold text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>新增预约订台</span>
@@ -441,10 +449,10 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
         return (
         <form
           onSubmit={handleCloseShiftSubmit}
-          className="bg-[#fbfbfa] p-4 rounded-[3px] border border-[#2b593f] space-y-3 shadow-sm animate-in fade-in duration-150"
+          className="bg-[#fbfbfa] p-4 rounded-[4px] border border-[#2b593f] space-y-3 shadow-2xs animate-in fade-in duration-150"
         >
           <div className="flex items-center justify-between border-b border-[#e6e6e4] pb-2">
-            <h4 className="font-bold text-xs text-[#37352f] flex items-center gap-1.5">
+            <h4 className="font-semibold text-xs text-[#37352f] flex items-center gap-1.5">
               <RotateCcw className="w-3.5 h-3.5 text-[#2b593f]" />
               <span>办理当班收银交接与实点现金对账</span>
             </h4>
@@ -454,7 +462,7 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
           </div>
 
           {/* 关账风控预检审查条 */}
-          <div className={`p-2.5 rounded-[3px] border text-xs flex items-start gap-2 ${
+          <div className={`p-2.5 rounded-[4px] border text-xs flex items-start gap-2 ${
             precheck.canProceed
               ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
               : 'bg-amber-50 border-amber-300 text-amber-900'
@@ -462,7 +470,7 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
             <ShieldCheck className={`w-4 h-4 shrink-0 mt-0.5 ${precheck.canProceed ? 'text-emerald-600' : 'text-amber-600'}`} />
             <div className="flex-1 space-y-0.5">
               <div className="flex items-center justify-between">
-                <span className="font-bold">
+                <span className="font-semibold">
                   {precheck.canProceed ? '✅ 关账预检合规达标' : '⚠️ 关账合规警报与挂账排查'}
                 </span>
                 <span className="text-[10px] font-mono">
@@ -477,33 +485,33 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">
+              <label className="text-[10.5px] font-medium text-[#5a5854] block mb-1">
                 交班人 (当前当班)
               </label>
               <input
                 type="text"
                 value={closedBy}
                 onChange={(e) => setClosedBy(e.target.value)}
-                className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f]"
+                className="w-full bg-white border border-[#e6e6e4] focus:border-[#37352f] rounded-[2px] px-2 py-1.5 text-xs text-[#37352f] outline-none"
                 required
               />
             </div>
 
             <div>
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">
+              <label className="text-[10.5px] font-medium text-[#5a5854] block mb-1">
                 接班人 (接岗员工)
               </label>
               <input
                 type="text"
                 value={successor}
                 onChange={(e) => setSuccessor(e.target.value)}
-                className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f]"
+                className="w-full bg-white border border-[#e6e6e4] focus:border-[#37352f] rounded-[2px] px-2 py-1.5 text-xs text-[#37352f] outline-none"
                 required
               />
             </div>
 
             <div>
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">
+              <label className="text-[10.5px] font-medium text-[#5a5854] block mb-1">
                 钱箱实点现金 (¥)
               </label>
               <input
@@ -511,19 +519,19 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                 step="0.1"
                 value={actualCashInput}
                 onChange={(e) => setActualCashInput(e.target.value)}
-                className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f] font-mono"
+                className="w-full bg-white border border-[#e6e6e4] focus:border-[#37352f] rounded-[2px] px-2 py-1.5 text-xs text-[#37352f] font-mono outline-none"
                 required
               />
             </div>
 
             <div>
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">
+              <label className="text-[10.5px] font-medium text-[#5a5854] block mb-1">
                 现金差异归因 (如 $\neq$ 0)
               </label>
               <select
                 value={diffReason}
                 onChange={(e) => setDiffReason(e.target.value as any)}
-                className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f]"
+                className="w-full bg-white border border-[#e6e6e4] focus:border-[#37352f] rounded-[2px] px-2 py-1.5 text-xs text-[#37352f] outline-none"
               >
                 <option value="none">无差异 (吻合)</option>
                 <option value="count_error">点钞清点误差</option>
@@ -534,14 +542,14 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
             </div>
 
             <div className="sm:col-span-2">
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">
+              <label className="text-[10.5px] font-medium text-[#5a5854] block mb-1">
                 交班备注与事项说明
               </label>
               <input
                 type="text"
                 value={shiftNote}
                 onChange={(e) => setShiftNote(e.target.value)}
-                className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f]"
+                className="w-full bg-white border border-[#e6e6e4] focus:border-[#37352f] rounded-[2px] px-2 py-1.5 text-xs text-[#37352f] outline-none"
               />
             </div>
           </div>
@@ -550,13 +558,13 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
             <button
               type="button"
               onClick={() => setIsClosingShift(false)}
-              className="px-3 py-1 bg-[#efefed] hover:bg-[#e6e6e4] text-[#5a5854] rounded-[3px] font-semibold text-xs cursor-pointer"
+              className="px-3 py-1 bg-[#efefed] hover:bg-[#e6e6e4] text-[#5a5854] rounded-[2px] font-medium text-xs cursor-pointer"
             >
               取消
             </button>
             <button
               type="submit"
-              className="px-4 py-1 bg-[#2b593f] hover:bg-[#204430] text-white rounded-[3px] font-semibold text-xs cursor-pointer shadow-xs flex items-center gap-1"
+              className="px-4 py-1 bg-[#2b593f] hover:bg-[#204430] text-white rounded-[2px] font-semibold text-xs cursor-pointer shadow-2xs flex items-center gap-1"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>确认结算并打印交班单</span>
@@ -570,10 +578,10 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
       {isCreatingRefund && subTab === 'refund' && (
         <form
           onSubmit={handleCreateRefundSubmit}
-          className="bg-[#fbfbfa] p-4 rounded-[3px] border border-[#d44333] space-y-3 shadow-sm animate-in fade-in duration-150"
+          className="bg-[#fbfbfa] p-4 rounded-[4px] border border-[#d44333] space-y-3 shadow-2xs animate-in fade-in duration-150"
         >
           <div className="flex items-center justify-between border-b border-[#e6e6e4] pb-2">
-            <h4 className="font-bold text-xs text-[#37352f] flex items-center gap-1.5">
+            <h4 className="font-semibold text-xs text-[#37352f] flex items-center gap-1.5">
               <CreditCard className="w-3.5 h-3.5 text-[#d44333]" />
               <span>发起原路退款 / 退菜审计申请</span>
             </h4>
@@ -584,18 +592,18 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">关联工单号</label>
+              <label className="text-[10.5px] font-medium text-[#5a5854] block mb-1">关联工单号</label>
               <input
                 type="text"
                 value={refundOrderNo}
                 onChange={(e) => setRefundOrderNo(e.target.value)}
-                className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f] font-mono"
+                className="w-full bg-white border border-[#e6e6e4] focus:border-[#37352f] rounded-[2px] px-2 py-1.5 text-xs text-[#37352f] font-mono outline-none"
                 required
               />
             </div>
 
             <div>
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">
+              <label className="text-[10.5px] font-medium text-[#5a5854] block mb-1">
                 退款金额 (¥)
               </label>
               <input
@@ -603,17 +611,17 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                 step="0.1"
                 value={refundAmount}
                 onChange={(e) => setRefundAmount(e.target.value)}
-                className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f] font-mono"
+                className="w-full bg-white border border-[#e6e6e4] focus:border-[#37352f] rounded-[2px] px-2 py-1.5 text-xs text-[#37352f] font-mono outline-none"
                 required
               />
             </div>
 
             <div>
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">退款原因归类</label>
+              <label className="text-[10.5px] font-medium text-[#5a5854] block mb-1">退款原因归类</label>
               <select
                 value={refundReasonCategory}
                 onChange={(e) => setRefundReasonCategory(e.target.value)}
-                className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f]"
+                className="w-full bg-white border border-[#e6e6e4] focus:border-[#37352f] rounded-[2px] px-2 py-1.5 text-xs text-[#37352f] outline-none"
               >
                 <option value="taste_dislike">口味不适 / 咸淡要求</option>
                 <option value="timeout">后厨上菜超时催单</option>
@@ -624,18 +632,18 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
             </div>
 
             <div className="sm:col-span-2">
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">详细原因备注</label>
+              <label className="text-[10.5px] font-medium text-[#5a5854] block mb-1">详细原因备注</label>
               <input
                 type="text"
                 value={refundReasonNote}
                 onChange={(e) => setRefundReasonNote(e.target.value)}
-                className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f]"
+                className="w-full bg-white border border-[#e6e6e4] focus:border-[#37352f] rounded-[2px] px-2 py-1.5 text-xs text-[#37352f] outline-none"
                 required
               />
             </div>
 
             <div>
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">
+              <label className="text-[10.5px] font-medium text-[#5a5854] block mb-1">
                 主管授权密码 (超 ¥200 必填, 演示: 8888)
               </label>
               <input
@@ -643,7 +651,7 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                 value={managerAuthPin}
                 onChange={(e) => setManagerAuthPin(e.target.value)}
                 placeholder="输入 4 位主管 PIN"
-                className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f] font-mono"
+                className="w-full bg-white border border-[#e6e6e4] focus:border-[#37352f] rounded-[2px] px-2 py-1.5 text-xs text-[#37352f] font-mono outline-none"
               />
             </div>
           </div>
@@ -654,17 +662,17 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                 type="checkbox"
                 checked={notifyKitchen}
                 onChange={(e) => setNotifyKitchen(e.target.checked)}
-                className="rounded text-[#2b593f]"
+                className="rounded-[2px] text-[#2b593f]"
               />
               <span>通知后厨取消制作 (KDS联动)</span>
             </label>
 
-            <label className="flex items-center gap-1.5 text-[11px] text-[#d44333] font-semibold cursor-pointer">
+            <label className="flex items-center gap-1.5 text-[11px] text-[#d44333] font-medium cursor-pointer">
               <input
                 type="checkbox"
                 checked={cookedIsLoss}
                 onChange={(e) => setCookedIsLoss(e.target.checked)}
-                className="rounded text-[#d44333]"
+                className="rounded-[2px] text-[#d44333]"
               />
               <span>已制作退菜 $\to$ 自动记入厨房报损单 (cookedIsLoss)</span>
             </label>
@@ -674,13 +682,13 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
             <button
               type="button"
               onClick={() => setIsCreatingRefund(false)}
-              className="px-3 py-1 bg-[#efefed] hover:bg-[#e6e6e4] text-[#5a5854] rounded-[3px] font-semibold text-xs cursor-pointer"
+              className="px-3 py-1 bg-[#efefed] hover:bg-[#e6e6e4] text-[#5a5854] rounded-[2px] font-medium text-xs cursor-pointer"
             >
               取消
             </button>
             <button
               type="submit"
-              className="px-4 py-1 bg-[#d44333] hover:bg-[#b03022] text-white rounded-[3px] font-semibold text-xs cursor-pointer shadow-xs"
+              className="px-4 py-1 bg-[#d44333] hover:bg-[#b03022] text-white rounded-[2px] font-semibold text-xs cursor-pointer shadow-2xs"
             >
               确认原路退款
             </button>
@@ -692,10 +700,10 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
       {isAddingReservation && subTab === 'reservation' && (
         <form
           onSubmit={handleAddReservationSubmit}
-          className="bg-[#fbfbfa] p-4 rounded-[3px] border border-[#1c5598] space-y-3 shadow-sm animate-in fade-in duration-150"
+          className="bg-[#fbfbfa] p-4 rounded-[4px] border border-[#1c5598] space-y-3 shadow-2xs animate-in fade-in duration-150"
         >
           <div className="flex items-center justify-between border-b border-[#e6e6e4] pb-2">
-            <h4 className="font-bold text-xs text-[#37352f] flex items-center gap-1.5">
+            <h4 className="font-semibold text-xs text-[#37352f] flex items-center gap-1.5">
               <CalendarCheck className="w-3.5 h-3.5 text-[#1c5598]" />
               <span>录入桌台预约 Pipeline (Reservations)</span>
             </h4>
@@ -706,81 +714,81 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">顾客姓名 / 称呼</label>
+              <label className="text-[10.5px] font-medium text-[#5a5854] block mb-1">顾客姓名 / 称呼</label>
               <input
                 type="text"
                 value={resName}
                 onChange={(e) => setResName(e.target.value)}
-                className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f]"
+                className="w-full bg-white border border-[#e6e6e4] focus:border-[#37352f] rounded-[2px] px-2 py-1.5 text-xs text-[#37352f] outline-none"
                 required
               />
             </div>
 
             <div>
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">预留联系电话</label>
+              <label className="text-[10.5px] font-medium text-[#5a5854] block mb-1">预留联系电话</label>
               <input
                 type="text"
                 value={resPhone}
                 onChange={(e) => setResPhone(e.target.value)}
-                className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f]"
+                className="w-full bg-white border border-[#e6e6e4] focus:border-[#37352f] rounded-[2px] px-2 py-1.5 text-xs text-[#37352f] outline-none"
                 required
               />
             </div>
 
             <div>
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">就餐人数</label>
+              <label className="text-[10.5px] font-medium text-[#5a5854] block mb-1">就餐人数</label>
               <input
                 type="number"
                 value={resCount}
                 onChange={(e) => setResCount(e.target.value)}
-                className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f] font-mono"
+                className="w-full bg-white border border-[#e6e6e4] focus:border-[#37352f] rounded-[2px] px-2 py-1.5 text-xs text-[#37352f] font-mono outline-none"
                 required
               />
             </div>
 
             <div>
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">锁定桌台编号</label>
+              <label className="text-[10.5px] font-medium text-[#5a5854] block mb-1">锁定桌台编号</label>
               <input
                 type="text"
                 value={resTable}
                 onChange={(e) => setResTable(e.target.value)}
-                className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f] font-mono"
+                className="w-full bg-white border border-[#e6e6e4] focus:border-[#37352f] rounded-[2px] px-2 py-1.5 text-xs text-[#37352f] font-mono outline-none"
                 required
               />
             </div>
 
             <div>
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">预约到达时间</label>
+              <label className="text-[10.5px] font-medium text-[#5a5854] block mb-1">预约到达时间</label>
               <input
                 type="text"
                 value={resTime}
                 onChange={(e) => setResTime(e.target.value)}
-                className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f] font-mono"
+                className="w-full bg-white border border-[#e6e6e4] focus:border-[#37352f] rounded-[2px] px-2 py-1.5 text-xs text-[#37352f] font-mono outline-none"
                 required
               />
             </div>
 
             <div>
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">
+              <label className="text-[10.5px] font-medium text-[#5a5854] block mb-1">
                 预收定金金额 (¥)
               </label>
               <input
                 type="number"
                 value={resDeposit}
                 onChange={(e) => setResDeposit(e.target.value)}
-                className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f] font-mono"
+                className="w-full bg-white border border-[#e6e6e4] focus:border-[#37352f] rounded-[2px] px-2 py-1.5 text-xs text-[#37352f] font-mono outline-none"
                 required
               />
             </div>
           </div>
 
           <div>
-            <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">特殊需求与备注</label>
+            <label className="text-[10.5px] font-medium text-[#5a5854] block mb-1">特殊需求与备注</label>
             <input
               type="text"
               value={resNote}
               onChange={(e) => setResNote(e.target.value)}
-              className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f]"
+              className="w-full bg-white border border-[#e6e6e4] focus:border-[#37352f] rounded-[2px] px-2 py-1.5 text-xs text-[#37352f] outline-none"
             />
           </div>
 
@@ -788,13 +796,13 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
             <button
               type="button"
               onClick={() => setIsAddingReservation(false)}
-              className="px-3 py-1 bg-[#efefed] hover:bg-[#e6e6e4] text-[#5a5854] rounded-[3px] font-semibold text-xs cursor-pointer"
+              className="px-3 py-1 bg-[#efefed] hover:bg-[#e6e6e4] text-[#5a5854] rounded-[2px] font-medium text-xs cursor-pointer"
             >
               取消
             </button>
             <button
               type="submit"
-              className="px-4 py-1 bg-[#1c5598] hover:bg-[#143e70] text-white rounded-[3px] font-semibold text-xs cursor-pointer shadow-xs"
+              className="px-4 py-1 bg-[#1c5598] hover:bg-[#143e70] text-white rounded-[2px] font-semibold text-xs cursor-pointer shadow-2xs"
             >
               确认预约并锁定桌台
             </button>
@@ -804,9 +812,9 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
 
       {/* 5. Shifts List View */}
       {subTab === 'shift' && (
-        <div className="bg-white rounded-[3px] border border-[#e6e6e4] overflow-hidden shadow-2xs">
+        <div className="bg-white rounded-[4px] border border-[#e6e6e4] overflow-hidden shadow-2xs">
           <div className="p-3 bg-[#f7f7f5] border-b border-[#e6e6e4] flex items-center justify-between">
-            <h4 className="font-bold text-xs text-[#37352f] flex items-center gap-1.5">
+            <h4 className="font-semibold text-xs text-[#37352f] flex items-center gap-1.5">
               <RotateCcw className="w-3.5 h-3.5 text-[#2b593f]" />
               <span>历史班次营收与现金钱箱对账单 (Shift Logs)</span>
             </h4>
@@ -818,21 +826,21 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
             {shifts.map((s) => (
               <div key={s.id} className="p-3 space-y-2 hover:bg-[#fbfbfa]">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono font-bold text-xs text-[#37352f]">{s.shiftNo}</span>
-                  <span className="font-mono font-bold text-sm text-[#2b593f]">¥{s.grossSales.toFixed(2)}</span>
+                  <span className="font-mono font-semibold text-xs text-[#37352f]">{s.shiftNo}</span>
+                  <span className="font-mono font-semibold text-sm text-[#2b593f]">¥{s.grossSales.toFixed(2)}</span>
                 </div>
                 <div className="text-[11px] text-[#787774] flex items-center justify-between">
                   <span>{s.startTime} - {s.endTime} ({s.orderCount}单)</span>
-                  <span className="text-[#37352f] font-semibold">{s.closedBy} → 接班: {s.successor}</span>
+                  <span className="text-[#37352f] font-medium">{s.closedBy} → 接班: {s.successor}</span>
                 </div>
-                <div className="bg-[#f7f7f5] rounded p-2 text-[10.5px] space-y-1 font-mono">
+                <div className="bg-[#f7f7f5] rounded-[2px] p-2 text-[10.5px] space-y-1 font-mono">
                   <div className="flex justify-between text-[#5a5854]">
                     <span>微: ¥{s.wechatSales.toFixed(1)} / 支: ¥{s.alipaySales.toFixed(1)}</span>
                     <span>现: ¥{s.cashSales.toFixed(1)}</span>
                   </div>
                   <div className="flex justify-between border-t border-[#e6e6e4] pt-1">
                     <span className="text-[#37352f]">实点现金: ¥{s.actualCash.toFixed(1)}</span>
-                    <span className={`font-bold ${s.cashDiff === 0 ? 'text-[#2b593f]' : 'text-[#d44333]'}`}>
+                    <span className={`font-semibold ${s.cashDiff === 0 ? 'text-[#2b593f]' : 'text-[#d44333]'}`}>
                       {s.cashDiff === 0 ? '平账 0.0' : `差异 ¥${s.cashDiff.toFixed(1)}`}
                     </span>
                   </div>
@@ -842,7 +850,7 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                   <button
                     type="button"
                     onClick={() => window.print()}
-                    className="px-2 py-1 bg-[#f1f1ef] hover:bg-[#e8e8e6] text-[#37352f] rounded-[2px] font-semibold text-[10.5px] flex items-center gap-1 cursor-pointer shrink-0"
+                    className="px-2 py-1 bg-[#f1f1ef] hover:bg-[#e8e8e6] text-[#37352f] rounded-[2px] font-medium text-[10.5px] flex items-center gap-1 cursor-pointer shrink-0"
                   >
                     <Printer className="w-3 h-3" />
                     <span>补打小票</span>
@@ -857,34 +865,34 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b border-[#e6e6e4] bg-[#fbfbfa] text-[#787774] text-[10.5px]">
-                  <th className="p-2.5 font-bold">班次/时间</th>
-                  <th className="p-2.5 font-bold">交接人员</th>
-                  <th className="p-2.5 font-bold">班次总营收</th>
-                  <th className="p-2.5 font-bold">微信 / 支付宝 / 现金</th>
-                  <th className="p-2.5 font-bold">实点现金 vs 差异</th>
-                  <th className="p-2.5 font-bold">钱箱差异说明</th>
-                  <th className="p-2.5 font-bold">操作</th>
+                  <th className="p-2.5 font-semibold">班次/时间</th>
+                  <th className="p-2.5 font-semibold">交接人员</th>
+                  <th className="p-2.5 font-semibold">班次总营收</th>
+                  <th className="p-2.5 font-semibold">微信 / 支付宝 / 现金</th>
+                  <th className="p-2.5 font-semibold">实点现金 vs 差异</th>
+                  <th className="p-2.5 font-semibold">钱箱差异说明</th>
+                  <th className="p-2.5 font-semibold">操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#efefed]">
                 {shifts.map((s) => (
                   <tr key={s.id} className="hover:bg-[#fbfbfa] transition-colors">
                     <td className="p-2.5">
-                      <span className="font-mono font-bold text-xs text-[#37352f] block">{s.shiftNo}</span>
+                      <span className="font-mono font-semibold text-xs text-[#37352f] block">{s.shiftNo}</span>
                       <span className="text-[10px] text-[#787774]">
                         {s.startTime} - {s.endTime} ({s.orderCount}单)
                       </span>
                     </td>
 
                     <td className="p-2.5 text-xs">
-                      <span className="text-[#37352f] font-semibold">{s.closedBy}</span>
+                      <span className="text-[#37352f] font-medium">{s.closedBy}</span>
                       <span className="text-[#787774] block text-[10px]">
                         接班: {s.successor}
                       </span>
                     </td>
 
                     <td className="p-2.5">
-                      <span className="font-mono font-bold text-sm text-[#2b593f]">
+                      <span className="font-mono font-semibold text-sm text-[#2b593f]">
                         ¥{s.grossSales.toFixed(2)}
                       </span>
                     </td>
@@ -895,11 +903,11 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                     </td>
 
                     <td className="p-2.5">
-                      <span className="font-mono font-bold text-xs text-[#37352f] block">
+                      <span className="font-mono font-semibold text-xs text-[#37352f] block">
                         ¥{s.actualCash.toFixed(1)}
                       </span>
                       <span
-                        className={`font-mono text-[10px] font-bold ${
+                        className={`font-mono text-[10px] font-semibold ${
                           s.cashDiff === 0
                             ? 'text-[#2b593f]'
                             : 'text-[#d44333]'
@@ -918,7 +926,7 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                       <button
                         type="button"
                         onClick={() => window.print()}
-                        className="px-2 py-1 bg-[#f1f1ef] hover:bg-[#e8e8e6] text-[#37352f] rounded-[2px] font-semibold text-[11px] flex items-center gap-1 cursor-pointer"
+                        className="px-2 py-1 bg-[#f1f1ef] hover:bg-[#e8e8e6] text-[#37352f] rounded-[2px] font-medium text-[11px] flex items-center gap-1 cursor-pointer"
                       >
                         <Printer className="w-3 h-3" />
                         <span>补打</span>
@@ -934,9 +942,9 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
 
       {/* 6. Refund List View */}
       {subTab === 'refund' && (
-        <div className="bg-white rounded-[3px] border border-[#e6e6e4] overflow-hidden shadow-2xs">
+        <div className="bg-white rounded-[4px] border border-[#e6e6e4] overflow-hidden shadow-2xs">
           <div className="p-3 bg-[#f7f7f5] border-b border-[#e6e6e4] flex items-center justify-between">
-            <h4 className="font-bold text-xs text-[#37352f] flex items-center gap-1.5">
+            <h4 className="font-semibold text-xs text-[#37352f] flex items-center gap-1.5">
               <CreditCard className="w-3.5 h-3.5 text-[#d44333]" />
               <span>退款退菜审批与授权明细 (Refund &amp; Return Logs)</span>
             </h4>
@@ -949,16 +957,16 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
               <div key={r.id} className="p-3 space-y-2 hover:bg-[#fbfbfa]">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="font-mono font-bold text-xs text-[#37352f]">{r.refundNo}</span>
+                    <span className="font-mono font-semibold text-xs text-[#37352f]">{r.refundNo}</span>
                     <span className="text-[10px] text-[#787774]">{r.date}</span>
                   </div>
-                  <span className="font-mono font-bold text-sm text-[#d44333]">¥{r.amount.toFixed(2)}</span>
+                  <span className="font-mono font-semibold text-sm text-[#d44333]">¥{r.amount.toFixed(2)}</span>
                 </div>
                 <div className="text-[11px] text-[#5a5854] flex items-center justify-between">
                   <span>订单: <span className="font-mono font-semibold text-[#37352f]">{r.orderNo}</span></span>
-                  <span className="text-[10px] bg-[#f1f1ef] px-1.5 py-0.5 rounded">{r.method}</span>
+                  <span className="text-[10px] bg-[#f1f1ef] px-1.5 py-0.5 rounded-[2px]">{r.method}</span>
                 </div>
-                <div className="bg-[#f7f7f5] rounded p-2 text-[10.5px] space-y-1">
+                <div className="bg-[#f7f7f5] rounded-[2px] p-2 text-[10.5px] space-y-1">
                   <div className="font-semibold text-[#37352f]">
                     原因: {r.reasonCategory === 'taste_dislike' ? '口味不适' : r.reasonCategory === 'customer_cancel' ? '顾客取消' : '其他原因'}
                   </div>
@@ -970,11 +978,11 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                     <span>主管: {r.authorizedBy}</span>
                   </span>
                   {r.cookedIsLoss ? (
-                    <span className="text-[10px] bg-[#fde8e8] text-[#d44333] border border-[#f8b4b4] px-1.5 py-0.5 rounded font-bold">
+                    <span className="text-[10px] bg-[#fde8e8] text-[#d44333] border border-[#f8b4b4] px-1.5 py-0.5 rounded-[2px] font-semibold">
                       已记厨房报损
                     </span>
                   ) : (
-                    <span className="text-[10px] bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc] px-1.5 py-0.5 rounded font-bold">
+                    <span className="text-[10px] bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc] px-1.5 py-0.5 rounded-[2px] font-semibold">
                       未制作免报损
                     </span>
                   )}
@@ -988,19 +996,19 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b border-[#e6e6e4] bg-[#fbfbfa] text-[#787774] text-[10.5px]">
-                  <th className="p-2.5 font-bold">退款单号/时间</th>
-                  <th className="p-2.5 font-bold">工单号</th>
-                  <th className="p-2.5 font-bold">退款金额 &amp; 方式</th>
-                  <th className="p-2.5 font-bold">退款原因</th>
-                  <th className="p-2.5 font-bold">主管授权人</th>
-                  <th className="p-2.5 font-bold">损耗状态</th>
+                  <th className="p-2.5 font-semibold">退款单号/时间</th>
+                  <th className="p-2.5 font-semibold">工单号</th>
+                  <th className="p-2.5 font-semibold">退款金额 &amp; 方式</th>
+                  <th className="p-2.5 font-semibold">退款原因</th>
+                  <th className="p-2.5 font-semibold">主管授权人</th>
+                  <th className="p-2.5 font-semibold">损耗状态</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#efefed]">
                 {refunds.map((r) => (
                   <tr key={r.id} className="hover:bg-[#fbfbfa] transition-colors">
                     <td className="p-2.5">
-                      <span className="font-mono font-bold text-xs text-[#37352f] block">{r.refundNo}</span>
+                      <span className="font-mono font-semibold text-xs text-[#37352f] block">{r.refundNo}</span>
                       <span className="text-[10px] text-[#787774]">{r.date}</span>
                     </td>
 
@@ -1009,7 +1017,7 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                     </td>
 
                     <td className="p-2.5">
-                      <span className="font-mono font-bold text-sm text-[#d44333] block">
+                      <span className="font-mono font-semibold text-sm text-[#d44333] block">
                         ¥{r.amount.toFixed(2)}
                       </span>
                       <span className="text-[10px] text-[#787774]">{r.method}</span>
@@ -1035,11 +1043,11 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
 
                     <td className="p-2.5">
                       {r.cookedIsLoss ? (
-                        <span className="text-[10px] bg-[#fde8e8] text-[#d44333] border border-[#f8b4b4] px-1.5 py-0.5 rounded font-bold">
+                        <span className="text-[10px] bg-[#fde8e8] text-[#d44333] border border-[#f8b4b4] px-1.5 py-0.5 rounded-[2px] font-semibold">
                           已记入厨房报损
                         </span>
                       ) : (
-                        <span className="text-[10px] bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc] px-1.5 py-0.5 rounded font-bold">
+                        <span className="text-[10px] bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc] px-1.5 py-0.5 rounded-[2px] font-semibold">
                           未制作免报损
                         </span>
                       )}
@@ -1054,9 +1062,9 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
 
       {/* 7. Reservation List View */}
       {subTab === 'reservation' && (
-        <div className="bg-white rounded-[3px] border border-[#e6e6e4] overflow-hidden shadow-2xs">
+        <div className="bg-white rounded-[4px] border border-[#e6e6e4] overflow-hidden shadow-2xs">
           <div className="p-3 bg-[#f7f7f5] border-b border-[#e6e6e4] flex items-center justify-between">
-            <h4 className="font-bold text-xs text-[#37352f] flex items-center gap-1.5">
+            <h4 className="font-semibold text-xs text-[#37352f] flex items-center gap-1.5">
               <CalendarCheck className="w-3.5 h-3.5 text-[#1c5598]" />
               <span>桌台预约与定金预收管线 (Reservation Pipeline)</span>
             </h4>
@@ -1069,22 +1077,22 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
               <div key={res.id} className="p-3 space-y-2 hover:bg-[#fbfbfa]">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-xs text-[#37352f]">{res.guestName}</span>
+                    <span className="font-semibold text-xs text-[#37352f]">{res.guestName}</span>
                     <span className="text-[10.5px] text-[#787774]">({res.guestCount} 位)</span>
                   </div>
-                  <span className="font-mono font-bold text-xs bg-[#37352f] text-white px-2 py-0.5 rounded-[2px]">
+                  <span className="font-mono font-semibold text-xs bg-[#37352f] text-white px-2 py-0.5 rounded-[2px]">
                     桌台 {res.tableCode}
                   </span>
                 </div>
                 <div className="text-[11px] text-[#5a5854] flex items-center justify-between">
                   <span>电话: <span className="font-mono">{res.phone}</span></span>
-                  <span className="text-[#2b593f] font-mono font-bold">已付定金 ¥{res.depositAmount.toFixed(1)}</span>
+                  <span className="text-[#2b593f] font-mono font-semibold">已付定金 ¥{res.depositAmount.toFixed(1)}</span>
                 </div>
-                <div className="bg-[#f7f7f5] rounded p-2 text-[10.5px] flex items-center justify-between">
+                <div className="bg-[#f7f7f5] rounded-[2px] p-2 text-[10.5px] flex items-center justify-between">
                   <div>
                     <span className="font-mono font-semibold text-[#37352f]">{res.reservationTime}</span>
                     {res.status === 'confirmed' && (
-                      <span className="ml-2 text-[10px] font-mono text-[#d9730d] font-bold">
+                      <span className="ml-2 text-[10px] font-mono text-[#d9730d] font-semibold">
                         距到店 {res.countdownMin}m
                       </span>
                     )}
@@ -1108,7 +1116,7 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                       确认到店开台
                     </button>
                   ) : (
-                    <span className="text-[10px] bg-[#edf3ec] text-[#2b593f] px-2 py-0.5 rounded font-bold">
+                    <span className="text-[10px] bg-[#edf3ec] text-[#2b593f] px-2 py-0.5 rounded-[2px] font-semibold">
                       已入座消费
                     </span>
                   )}
@@ -1122,20 +1130,20 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b border-[#e6e6e4] bg-[#fbfbfa] text-[#787774] text-[10.5px]">
-                  <th className="p-2.5 font-bold">顾客姓名/人数</th>
-                  <th className="p-2.5 font-bold">联系电话</th>
-                  <th className="p-2.5 font-bold">锁定桌台</th>
-                  <th className="p-2.5 font-bold">预约时间 &amp; 倒计时</th>
-                  <th className="p-2.5 font-bold">定金状态</th>
-                  <th className="p-2.5 font-bold">备注需求</th>
-                  <th className="p-2.5 font-bold">状态/操作</th>
+                  <th className="p-2.5 font-semibold">顾客姓名/人数</th>
+                  <th className="p-2.5 font-semibold">联系电话</th>
+                  <th className="p-2.5 font-semibold">锁定桌台</th>
+                  <th className="p-2.5 font-semibold">预约时间 &amp; 倒计时</th>
+                  <th className="p-2.5 font-semibold">定金状态</th>
+                  <th className="p-2.5 font-semibold">备注需求</th>
+                  <th className="p-2.5 font-semibold">状态/操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#efefed]">
                 {reservations.map((res) => (
                   <tr key={res.id} className="hover:bg-[#fbfbfa] transition-colors">
                     <td className="p-2.5">
-                      <span className="font-bold text-xs text-[#37352f] block">{res.guestName}</span>
+                      <span className="font-semibold text-xs text-[#37352f] block">{res.guestName}</span>
                       <span className="text-[10px] text-[#787774]">{res.guestCount} 位贵宾</span>
                     </td>
 
@@ -1144,24 +1152,24 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                     </td>
 
                     <td className="p-2.5">
-                      <span className="font-mono font-bold text-xs bg-[#37352f] text-white px-2 py-0.5 rounded-[2px]">
+                      <span className="font-mono font-semibold text-xs bg-[#37352f] text-white px-2 py-0.5 rounded-[2px]">
                         桌台 {res.tableCode}
                       </span>
                     </td>
 
                     <td className="p-2.5">
-                      <span className="font-mono font-bold text-xs text-[#37352f] block">
+                      <span className="font-mono font-semibold text-xs text-[#37352f] block">
                         {res.reservationTime}
                       </span>
                       {res.status === 'confirmed' && (
-                        <span className="text-[10px] font-mono text-[#d9730d] font-bold">
+                        <span className="text-[10px] font-mono text-[#d9730d] font-semibold">
                           距到店 {res.countdownMin}m
                         </span>
                       )}
                     </td>
 
                     <td className="p-2.5">
-                      <span className="font-mono font-bold text-xs text-[#2b593f] block">
+                      <span className="font-mono font-semibold text-xs text-[#2b593f] block">
                         ¥{res.depositAmount.toFixed(1)}
                       </span>
                       <span className="text-[10px] text-[#2b593f]">已付定金</span>
@@ -1188,7 +1196,7 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                           确认到店开台
                         </button>
                       ) : (
-                        <span className="text-[10px] bg-[#edf3ec] text-[#2b593f] px-1.5 py-0.5 rounded font-bold">
+                        <span className="text-[10px] bg-[#edf3ec] text-[#2b593f] px-1.5 py-0.5 rounded-[2px] font-semibold">
                           已入座消费
                         </span>
                       )}
@@ -1205,11 +1213,11 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
       {subTab === 'customer_refund' && (
         <div className="space-y-4 animate-in fade-in duration-150">
           {/* Status summary banner */}
-          <div className="bg-amber-50 border border-amber-200 rounded-[3px] p-3 flex items-center justify-between flex-wrap gap-2 text-[#37352f]">
+          <div className="bg-amber-50 border border-amber-200 rounded-[4px] p-3 flex items-center justify-between flex-wrap gap-2 text-[#37352f]">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
               <div>
-                <span className="font-bold text-xs block text-amber-950">
+                <span className="font-semibold text-xs block text-amber-950">
                   顾客在线退款 / 售后审核流（资金原路退回闭环）
                 </span>
                 <span className="text-[11px] text-amber-800">
@@ -1218,19 +1226,19 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-white text-amber-900 border border-amber-300">
-                待审核: <strong className="font-mono font-bold text-rose-600">{pendingCustomerRefunds.length}</strong> 笔
+              <span className="text-xs font-medium px-2 py-0.5 rounded-[2px] bg-white text-amber-900 border border-amber-300">
+                待审核: <strong className="font-mono font-semibold text-rose-600">{pendingCustomerRefunds.length}</strong> 笔
               </span>
-              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-white text-neutral-700 border border-neutral-300">
-                累计售后: <strong className="font-mono">{allRefundOrders.length}</strong> 笔
+              <span className="text-xs font-medium px-2 py-0.5 rounded-[2px] bg-white text-neutral-700 border border-neutral-300">
+                累计售后: <strong className="font-mono font-semibold">{allRefundOrders.length}</strong> 笔
               </span>
             </div>
           </div>
 
           {/* Pending Refunds Table */}
-          <div className="bg-white rounded-[3px] border border-[#e6e6e4] overflow-hidden shadow-2xs">
+          <div className="bg-white rounded-[4px] border border-[#e6e6e4] overflow-hidden shadow-2xs">
             <div className="p-3 bg-[#f7f7f5] border-b border-[#e6e6e4] flex items-center justify-between">
-              <h4 className="font-bold text-xs text-[#37352f] flex items-center gap-1.5">
+              <h4 className="font-semibold text-xs text-[#37352f] flex items-center gap-1.5">
                 <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
                 <span>待审核顾客退款申请 ({pendingCustomerRefunds.length})</span>
               </h4>
@@ -1251,14 +1259,14 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                     <div key={o.id} className="p-3 space-y-2.5 hover:bg-amber-50/40">
                       <div className="flex items-center justify-between gap-2">
                         <div>
-                          <span className="font-mono font-bold text-xs text-[#37352f] block">{o.orderNo}</span>
+                          <span className="font-mono font-semibold text-xs text-[#37352f] block">{o.orderNo}</span>
                           <span className="text-[10px] text-neutral-500">{o.createdTime}</span>
                         </div>
                         <div className="text-right">
-                          <span className="font-mono font-bold text-sm text-rose-600 block">
+                          <span className="font-mono font-semibold text-sm text-rose-600 block">
                             ¥{o.totalAmount.toFixed(2)}
                           </span>
-                          <span className={`text-[9.5px] px-1 py-0.2 rounded font-semibold inline-block ${
+                          <span className={`text-[9.5px] px-1 py-0.2 rounded-[2px] font-medium inline-block ${
                             o.paymentMethod === 'alipay'
                               ? 'bg-blue-50 text-blue-800 border border-blue-200'
                               : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
@@ -1275,7 +1283,7 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                       </div>
 
                       {/* Items */}
-                      <div className="bg-[#f7f7f5] rounded p-2 text-[10.5px] space-y-0.5">
+                      <div className="bg-[#f7f7f5] rounded-[2px] p-2 text-[10.5px] space-y-0.5">
                         {o.items?.map((item, idx) => (
                           <div key={idx} className="text-neutral-700 flex justify-between gap-1">
                             <span className="truncate">{item.name}</span>
@@ -1285,8 +1293,8 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                       </div>
 
                       {/* Reason */}
-                      <div className="bg-rose-50/80 border border-rose-200 rounded p-2 text-[11px]">
-                        <span className="text-rose-900 font-semibold block">
+                      <div className="bg-rose-50/80 border border-rose-200 rounded-[2px] p-2 text-[11px]">
+                        <span className="text-rose-900 font-medium block">
                           退款原因: {o.refundReason || '未说明退款原因'}
                         </span>
                         <span className="text-[10px] text-rose-600 block mt-0.5">
@@ -1332,7 +1340,7 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                               showToast(`退款处理失败: ${err.message || '网络异常'}`);
                             }
                           }}
-                          className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[2px] font-bold text-xs cursor-pointer shadow-2xs flex items-center justify-center gap-1"
+                          className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[2px] font-semibold text-xs cursor-pointer shadow-2xs flex items-center justify-center gap-1"
                         >
                           <Check className="w-3.5 h-3.5" />
                           <span>同意原路退款</span>
@@ -1344,7 +1352,7 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                             setRejectModalOrder(o);
                             setRejectReasonInput('餐品已新鲜现制出炉，骑手正专送中，无法取消退单');
                           }}
-                          className="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border border-neutral-300 rounded-[2px] font-semibold text-xs cursor-pointer shadow-2xs flex items-center justify-center gap-1"
+                          className="px-3 py-1.5 bg-[#f1f1ef] hover:bg-[#e8e8e6] text-[#37352f] border border-[#e6e6e4] rounded-[2px] font-medium text-xs cursor-pointer shadow-2xs flex items-center justify-center gap-1"
                         >
                           <X className="w-3.5 h-3.5 text-rose-500" />
                           <span>驳回</span>
@@ -1359,19 +1367,19 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
                       <tr className="border-b border-[#e6e6e4] bg-[#fbfbfa] text-[#787774] text-[10.5px]">
-                        <th className="p-2.5 font-bold">订单流水 / 顾客</th>
-                        <th className="p-2.5 font-bold">下单时间</th>
-                        <th className="p-2.5 font-bold">退款金额 &amp; 支付原路</th>
-                        <th className="p-2.5 font-bold">购买菜品</th>
-                        <th className="p-2.5 font-bold">顾客退款申请理由</th>
-                        <th className="p-2.5 font-bold text-right">审核操作</th>
+                        <th className="p-2.5 font-semibold">订单流水 / 顾客</th>
+                        <th className="p-2.5 font-semibold">下单时间</th>
+                        <th className="p-2.5 font-semibold">退款金额 &amp; 支付原路</th>
+                        <th className="p-2.5 font-semibold">购买菜品</th>
+                        <th className="p-2.5 font-semibold">顾客退款申请理由</th>
+                        <th className="p-2.5 font-semibold text-right">审核操作</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#efefed]">
                       {pendingCustomerRefunds.map((o) => (
                         <tr key={o.id} className="hover:bg-amber-50/40 transition-colors">
                           <td className="p-2.5">
-                            <span className="font-mono font-bold text-xs text-[#37352f] block">{o.orderNo}</span>
+                            <span className="font-mono font-semibold text-xs text-[#37352f] block">{o.orderNo}</span>
                             <span className="text-[10.5px] text-neutral-600 flex items-center gap-1 mt-0.5">
                               <User className="w-3 h-3 text-neutral-400" />
                               <span>{o.customerName || '先锋食客'}</span>
@@ -1384,10 +1392,10 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                           </td>
 
                           <td className="p-2.5">
-                            <span className="font-mono font-bold text-sm text-rose-600 block">
+                            <span className="font-mono font-semibold text-sm text-rose-600 block">
                               ¥{o.totalAmount.toFixed(2)}
                             </span>
-                            <span className={`text-[10px] px-1 py-0.2 rounded font-semibold inline-block mt-0.5 ${
+                            <span className={`text-[10px] px-1 py-0.2 rounded-[2px] font-medium inline-block mt-0.5 ${
                               o.paymentMethod === 'alipay'
                                 ? 'bg-blue-50 text-blue-800 border border-blue-200'
                                 : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
@@ -1408,8 +1416,8 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                           </td>
 
                           <td className="p-2.5 max-w-[220px]">
-                            <div className="bg-rose-50/80 border border-rose-200 rounded p-1.5 text-xs">
-                              <span className="text-rose-900 font-semibold block text-[11px]">
+                            <div className="bg-rose-50/80 border border-rose-200 rounded-[2px] p-1.5 text-xs">
+                              <span className="text-rose-900 font-medium block text-[11px]">
                                 {o.refundReason || '未说明退款原因'}
                               </span>
                               <span className="text-[10px] text-rose-600 block mt-0.5">
@@ -1459,7 +1467,7 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                                   showToast(`退款处理失败: ${err.message || '网络异常'}`);
                                 }
                               }}
-                              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[2px] font-bold text-xs cursor-pointer shadow-2xs inline-flex items-center gap-1"
+                              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[2px] font-semibold text-xs cursor-pointer shadow-2xs inline-flex items-center gap-1"
                             >
                               <Check className="w-3.5 h-3.5" />
                               <span>同意退款 (原路返还)</span>
@@ -1472,7 +1480,7 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                                 setRejectModalOrder(o);
                                 setRejectReasonInput('餐品已新鲜现制出炉，骑手正专送中，无法取消退单');
                               }}
-                              className="px-2.5 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border border-neutral-300 rounded-[2px] font-semibold text-xs cursor-pointer shadow-2xs inline-flex items-center gap-1"
+                              className="px-2.5 py-1.5 bg-[#f1f1ef] hover:bg-[#e8e8e6] text-[#37352f] border border-[#e6e6e4] rounded-[2px] font-medium text-xs cursor-pointer shadow-2xs inline-flex items-center gap-1"
                             >
                               <X className="w-3.5 h-3.5 text-rose-500" />
                               <span>驳回申请</span>
@@ -1488,13 +1496,13 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
           </div>
 
           {/* Historical Audited Refunds Table */}
-          <div className="bg-white rounded-[3px] border border-[#e6e6e4] overflow-hidden shadow-2xs">
+          <div className="bg-white rounded-[4px] border border-[#e6e6e4] overflow-hidden shadow-2xs">
             <div className="p-3 bg-[#f7f7f5] border-b border-[#e6e6e4] flex items-center justify-between">
-              <h4 className="font-bold text-xs text-[#37352f] flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+              <h4 className="font-semibold text-xs text-[#37352f] flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#1c5598]" />
                 <span>已审核退款与售后处理流水 ({allRefundOrders.length})</span>
               </h4>
-              <span className="text-[10px] text-neutral-500">双向对账数据 · 已存档</span>
+              <span className="text-[10px] text-[#787774]">双向对账数据 · 已存档</span>
             </div>
 
             {/* Mobile Card List (< md) */}
@@ -1503,45 +1511,45 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                 <div key={o.id} className="p-3 space-y-2 hover:bg-[#fbfbfa]">
                   <div className="flex items-center justify-between gap-2">
                     <div>
-                      <span className="font-mono font-bold text-xs text-[#37352f] block">{o.orderNo}</span>
-                      <span className="text-[10px] text-neutral-500">
+                      <span className="font-mono font-semibold text-xs text-[#37352f] block">{o.orderNo}</span>
+                      <span className="text-[10px] text-[#787774]">
                         {o.customerName || '顾客'} ({o.userPhone || '到店客'})
                       </span>
                     </div>
                     <div className="text-right">
-                      <span className="font-mono font-bold text-sm text-neutral-800 block">
+                      <span className="font-mono font-semibold text-sm text-[#37352f] block">
                         ¥{o.totalAmount.toFixed(2)}
                       </span>
-                      <span className="text-[9.5px] text-neutral-600">
+                      <span className="text-[9.5px] text-[#787774]">
                         {o.paymentMethod === 'alipay' ? '支付宝' : '微信支付'}
                       </span>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between text-[10.5px]">
-                    <span className="text-neutral-500">处理状态:</span>
+                    <span className="text-[#787774]">处理状态:</span>
                     {o.refundStatus === 'approved' ? (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      <span className="px-1.5 py-0.5 rounded-[2px] text-[10px] font-semibold bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc]">
                         已原路全额退款
                       </span>
                     ) : o.refundStatus === 'rejected' ? (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                      <span className="px-1.5 py-0.5 rounded-[2px] text-[10px] font-semibold bg-[#fde8e8] text-[#d44333] border border-[#f8b4b4]">
                         已驳回退款
                       </span>
                     ) : (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                      <span className="px-1.5 py-0.5 rounded-[2px] text-[10px] font-semibold bg-[#fef3d6] text-[#b06000] border border-[#fae2a0]">
                         待商家审核
                       </span>
                     )}
                   </div>
 
-                  <div className="bg-[#f7f7f5] rounded p-2 text-[10.5px] space-y-1">
-                    <p className="text-neutral-700">
-                      <strong>顾客申请:</strong> {o.refundReason || '未填写'}
+                  <div className="bg-[#f7f7f5] rounded-[2px] p-2 text-[10.5px] space-y-1">
+                    <p className="text-[#5a5854]">
+                      <strong className="text-[#37352f] font-medium">顾客申请:</strong> {o.refundReason || '未填写'}
                     </p>
                     {o.refundRejectReason && (
-                      <p className="text-rose-600 border-t border-[#e6e6e4] pt-1">
-                        <strong>驳回说明:</strong> {o.refundRejectReason}
+                      <p className="text-[#d44333] border-t border-[#e6e6e4] pt-1">
+                        <strong className="font-medium">驳回说明:</strong> {o.refundRejectReason}
                       </p>
                     )}
                   </div>
@@ -1554,54 +1562,54 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-[#e6e6e4] bg-[#fbfbfa] text-[#787774] text-[10.5px]">
-                    <th className="p-2.5 font-bold">订单号 / 顾客</th>
-                    <th className="p-2.5 font-bold">订单金额</th>
-                    <th className="p-2.5 font-bold">原支付方式</th>
-                    <th className="p-2.5 font-bold">审核处理状态</th>
-                    <th className="p-2.5 font-bold">退款理由 / 商家答复</th>
+                    <th className="p-2.5 font-semibold">订单号 / 顾客</th>
+                    <th className="p-2.5 font-semibold">订单金额</th>
+                    <th className="p-2.5 font-semibold">原支付方式</th>
+                    <th className="p-2.5 font-semibold">审核处理状态</th>
+                    <th className="p-2.5 font-semibold">退款理由 / 商家答复</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#efefed]">
                   {allRefundOrders.map((o) => (
                     <tr key={o.id} className="hover:bg-[#fbfbfa] transition-colors">
                       <td className="p-2.5">
-                        <span className="font-mono font-bold text-xs text-[#37352f]">{o.orderNo}</span>
-                        <span className="text-[10.5px] text-neutral-500 block">
+                        <span className="font-mono font-semibold text-xs text-[#37352f]">{o.orderNo}</span>
+                        <span className="text-[10.5px] text-[#787774] block">
                           {o.customerName || '顾客'} ({o.userPhone || '到店客'})
                         </span>
                       </td>
 
-                      <td className="p-2.5 font-mono font-bold text-neutral-800">
+                      <td className="p-2.5 font-mono font-semibold text-[#37352f]">
                         ¥{o.totalAmount.toFixed(2)}
                       </td>
 
                       <td className="p-2.5">
-                        <span className="text-[10.5px] text-neutral-600">
+                        <span className="text-[10.5px] text-[#5a5854]">
                           {o.paymentMethod === 'alipay' ? '支付宝' : '微信支付'}
                         </span>
                       </td>
 
                       <td className="p-2.5">
                         {o.refundStatus === 'approved' ? (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                          <span className="px-2 py-0.5 rounded-[2px] text-[10px] font-semibold bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc]">
                             已原路全额退款
                           </span>
                         ) : o.refundStatus === 'rejected' ? (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                          <span className="px-2 py-0.5 rounded-[2px] text-[10px] font-semibold bg-[#fde8e8] text-[#d44333] border border-[#f8b4b4]">
                             已驳回退款
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                          <span className="px-2 py-0.5 rounded-[2px] text-[10px] font-semibold bg-[#fef3d6] text-[#b06000] border border-[#fae2a0]">
                             待商家审核
                           </span>
                         )}
                       </td>
 
-                      <td className="p-2.5 text-neutral-600 text-[11px] max-w-sm">
-                        <p className="truncate"><strong className="text-neutral-700">顾客申请:</strong> {o.refundReason || '未填写'}</p>
+                      <td className="p-2.5 text-[#5a5854] text-[11px] max-w-sm">
+                        <p className="truncate"><strong className="text-[#37352f] font-medium">顾客申请:</strong> {o.refundReason || '未填写'}</p>
                         {o.refundRejectReason && (
-                          <p className="text-rose-600 truncate mt-0.5">
-                            <strong>驳回说明:</strong> {o.refundRejectReason}
+                          <p className="text-[#d44333] truncate mt-0.5">
+                            <strong className="font-medium">驳回说明:</strong> {o.refundRejectReason}
                           </p>
                         )}
                       </td>
@@ -1616,30 +1624,30 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
 
       {/* Reject Refund Modal */}
       {rejectModalOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-[4px] border border-neutral-300 shadow-2xl max-w-md w-full p-4 space-y-3">
-            <div className="flex items-center justify-between border-b pb-2 border-neutral-200">
-              <h4 className="font-bold text-sm text-neutral-800 flex items-center gap-1.5">
-                <AlertTriangle className="w-4 h-4 text-rose-500" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-[4px] border border-[#e6e6e4] shadow-xl max-w-md w-full p-4 space-y-3">
+            <div className="flex items-center justify-between border-b pb-2 border-[#e6e6e4]">
+              <h4 className="font-semibold text-sm text-[#37352f] flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 text-[#d44333]" />
                 <span>驳回顾客退款申请 · {rejectModalOrder.orderNo}</span>
               </h4>
               <button
                 type="button"
                 onClick={() => setRejectModalOrder(null)}
-                className="text-neutral-400 hover:text-neutral-600 p-1 cursor-pointer"
+                className="text-[#787774] hover:text-[#37352f] p-1 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="bg-neutral-50 p-2.5 rounded text-xs space-y-1 text-neutral-700 border border-neutral-200">
-              <p><strong>顾客称呼:</strong> {rejectModalOrder.customerName || '先锋食客'} ({rejectModalOrder.userPhone || '无电话'})</p>
-              <p><strong>申请退款金额:</strong> ¥{rejectModalOrder.totalAmount.toFixed(2)}</p>
-              <p><strong>顾客退款理由:</strong> {rejectModalOrder.refundReason || '未填写'}</p>
+            <div className="bg-[#f7f7f5] p-2.5 rounded-[2px] text-xs space-y-1 text-[#5a5854] border border-[#e6e6e4]">
+              <p><strong className="text-[#37352f] font-medium">顾客称呼:</strong> {rejectModalOrder.customerName || '先锋食客'} ({rejectModalOrder.userPhone || '无电话'})</p>
+              <p><strong className="text-[#37352f] font-medium">申请退款金额:</strong> ¥{rejectModalOrder.totalAmount.toFixed(2)}</p>
+              <p><strong className="text-[#37352f] font-medium">顾客退款理由:</strong> {rejectModalOrder.refundReason || '未填写'}</p>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-neutral-700 block">
+              <label className="text-xs font-semibold text-[#37352f] block">
                 选择或输入驳回原因 (将实时反馈至顾客端):
               </label>
               
@@ -1655,7 +1663,7 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                     key={idx}
                     type="button"
                     onClick={() => setRejectReasonInput(preset)}
-                    className="text-[10px] bg-neutral-100 hover:bg-neutral-200 text-neutral-800 px-2 py-0.8 rounded border border-neutral-200 cursor-pointer"
+                    className="text-[10px] bg-[#f1f1ef] hover:bg-[#e8e8e6] text-[#37352f] px-2 py-0.8 rounded-[2px] border border-[#e6e6e4] cursor-pointer"
                   >
                     {preset}
                   </button>
@@ -1666,16 +1674,16 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                 value={rejectReasonInput}
                 onChange={(e) => setRejectReasonInput(e.target.value)}
                 rows={3}
-                className="w-full bg-white border border-neutral-300 rounded p-2 text-xs text-neutral-800 focus:outline-none focus:border-rose-500"
+                className="w-full bg-white border border-[#e6e6e4] rounded-[2px] p-2 text-xs text-[#37352f] focus:outline-none focus:border-[#37352f]"
                 placeholder="请输入详细的驳回原因..."
               />
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-200">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#e6e6e4]">
               <button
                 type="button"
                 onClick={() => setRejectModalOrder(null)}
-                className="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded font-semibold text-xs cursor-pointer"
+                className="px-3 py-1.5 bg-[#f1f1ef] hover:bg-[#e8e8e6] text-[#37352f] rounded-[2px] font-medium text-xs cursor-pointer"
               >
                 取消
               </button>
@@ -1686,7 +1694,7 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                   showToast(`已驳回订单 ${rejectModalOrder.orderNo} 的退款申请`);
                   setRejectModalOrder(null);
                 }}
-                className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded font-bold text-xs cursor-pointer shadow-xs inline-flex items-center gap-1"
+                className="px-4 py-1.5 bg-[#d44333] hover:bg-[#b03527] text-white rounded-[2px] font-semibold text-xs cursor-pointer shadow-2xs inline-flex items-center gap-1"
               >
                 <X className="w-3.5 h-3.5" />
                 <span>确认驳回退款</span>

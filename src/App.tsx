@@ -1,9 +1,8 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState, useMemo, useRef, useEffect, useCallback, useSyncExternalStore } from 'react';
+import { motion, AnimatePresence, MotionConfig } from 'motion/react';
 import { Header } from './components/Header';
 import { TruckBanner } from './components/TruckBanner';
 import { TruckPullUpMenu } from './components/TruckPullUpMenu';
-import { FilterBar } from './components/FilterBar';
 import { DishCard } from './components/DishCard';
 import { DishListRow } from './components/DishListRow';
 import { DishDetailModal } from './components/DishDetailModal';
@@ -19,43 +18,66 @@ import { BottomNavBar, NavTabType } from './components/BottomNavBar';
 import { FilterModal } from './components/FilterModal';
 import { BatchActionBar } from './components/BatchActionBar';
 import { DiningMode } from './components/DiningModeSelector';
+import { DynamicTableMorphWidget } from './components/table/DynamicTableMorphWidget';
 import { UserRole } from './components/RoleSwitcherDropdown';
 import { OrdersPageView } from './components/OrdersPageView';
 import { ProfilePageView } from './components/ProfilePageView';
 import { UserCouponsPageView } from './components/UserCouponsPageView';
 import { MerchantSystemView } from './components/merchant/MerchantSystemView';
+// ⛔ 分辨率锁定：客食端电脑端手机壳视口（iPhone 15 Pro Max 430×932）——尺寸常量禁止修改，见 src/constants/deviceViewport.ts
+import { CustomerPhoneFrame } from './components/customer/CustomerPhoneFrame';
 import { RiderSystemView } from './components/rider/RiderSystemView';
 import { PlatformSystemView } from './components/platform/PlatformSystemView';
 import { OrderHistoryMessagesModal } from './components/chat/OrderHistoryMessagesModal';
-import { OrderHistoryMessagesView } from './components/chat/OrderHistoryMessagesView';
+import { TruckSynergyRoomPageView } from './components/chat/TruckSynergyRoomPageView';
+import { DynamicFeedsPageView } from './components/chat/DynamicFeedsPageView';
 import { CloudbaseStatusModal } from './components/CloudbaseStatusModal';
 import { INITIAL_DISHES, INITIAL_ORDERS, INITIAL_TRUCK_INFO } from './data/mockData';
+// ---- 客食端预览（v3 根层分栏）----
+import { CustomerPreviewColumn } from './components/preview/CustomerPreviewColumn';
+import { subscribeWorkspacePrefs, getWorkspacePrefsSnapshot, mergeLocalPrefs, PreviewRoleId } from './utils/workspacePreferences';
+import { DESKTOP_MEDIA_QUERY } from './constants/deviceViewport';
+import { IS_EMBED_CUSTOMER } from './utils/embedMode';
+
+/** 角色持久化（embed 预览会话内不写 storage，避免污染宿主账号） */
+function persistUserRole(role: UserRole) {
+  if (IS_EMBED_CUSTOMER) return;
+  safeSetStorage('obsidian_user_role', role);
+}
 import { CATEGORY_TAXONOMY } from './data/categoryTaxonomy';
 import { INITIAL_USER_PROFILE } from './data/mockUser';
 import { CategoryType, DishItem, Order, ViewMode, CartItem, TruckInfo, UserProfile, DishVariant, TableDishItem } from './types';
 import { PaymentVoucher } from './types/payment';
 import { FilterOptions, INITIAL_FILTER_OPTIONS } from './types/filter';
-import { UtensilsCrossed, RefreshCw, FilterX, CheckSquare, Square } from 'lucide-react';
+import { UtensilsCrossed, RefreshCw, FilterX, CheckSquare, Square, Smartphone } from 'lucide-react';
 import { FlyingCartProvider } from './utils/FlyingCartContext';
 import { ToastProvider, useToast } from './components/ui/ToastContext';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { DishSkeletonGrid } from './components/ui/DishSkeletonGrid';
 import { safeGetStorage, safeSetStorage } from './utils/safeStorage';
-import { applyAvailabilityOverrides, setAvailabilityOverride } from './utils/dishAvailability';
+import { getTruckBusinessStatus } from './utils/businessStatusEngine';
+import { applyAvailabilityOverrides, setAvailabilityOverride, isDishAvailableInChannel } from './utils/dishAvailability';
 import { applyDishFieldOverrides } from './utils/dishFieldOverrides';
-import { resolveCouponByCode, markCouponUsed } from './utils/couponEngine';
+import { resolveCouponByCode, markCouponUsed, claimCouponByCode } from './utils/couponEngine';
 import { getTruckInfo, saveTruckInfo } from './utils/truckInfo';
 import { isOrderMatch, normalizeOrderKey, getCanonicalOrderNo } from './utils/orderNormalizer';
-import { getCurrentBoundTable, bindOrderToMerchantTable } from './utils/tableStorage';
+import { getCurrentBoundTable, setCurrentBoundTable, bindOrderToMerchantTable } from './utils/tableStorage';
 import { sendOrderChatMessage } from './utils/chatHub';
 import { rematchAllDishImages } from './utils/dishImageMatcher';
 import { merchantBackupEngine } from './utils/merchantBackupEngine';
 import { performAutoLogin } from './utils/autoAuthEngine';
-import { StaffRiderPhoneAuthModal } from './components/auth/StaffRiderPhoneAuthModal';
+import { AuthGateView, type AuthGateRole } from './components/auth/AuthGateView';
+import { syncCascadeIdentityFromSession } from './utils/cascadeMeshEngine';
 import { PlatformAuthModal } from './components/auth/PlatformAuthModal';
 import { isPlatformAuthorized } from './utils/platformAuthEngine';
 import { automatedSentinel, SentinelSystemState } from './utils/automatedSentinelEngine';
+import { initGovernance } from './utils/versionPointerEngine';
+import { initRealtimeTransport } from './utils/realtimeBootstrap';
 import { reactiveSyncBus } from './utils/reactiveSyncBus';
+import { useTableSessionUi } from './components/table/useTableSessionUi';
+import { TableScanLanding } from './components/table/TableScanLanding';
+import { TableMembersPanel } from './components/table/TableMembersPanel';
+import { TableBindModal } from './components/table/TableBindModal';
 import {
   isMerchantLoggedIn,
   isRiderLoggedIn,
@@ -82,7 +104,8 @@ import {
   TCB_ENV_ID 
 } from './utils/cloudbase';
 import { syncEngine } from './utils/syncEngine';
-import { globalScannerEngine, ensureDishBarcodes } from './utils/barcodeScannerEngine';
+import { globalScannerEngine, ensureDishBarcodes, playScannerBeep } from './utils/barcodeScannerEngine';
+import { parseQrScanResult, QrActionPayload } from './utils/qrCodeEngine';
 import { globalFranchiseEngine } from './utils/franchiseTenantEngine';
 import { globalFranchiseSplitEngine } from './utils/franchiseSplitPayEngine';
 import { INITIAL_TABLES } from './data/posMockData';
@@ -103,13 +126,6 @@ import {
 } from './utils/categoryBrandSettings';
 import { userJourneyTracker } from './utils/userJourneyTracker';
 import { CategoryBrandModal } from './components/CategoryBrandModal';
-import { StoreCampaignCarousel } from './components/StoreCampaignCarousel';
-import {
-  MenuDesignSystem,
-  getMenuDesignSystem,
-  subscribeMenuDesignSystem
-} from './utils/menuDesignSystem';
-import { DeliveryRangeGuideBanner } from './components/DeliveryRangeGuideBanner';
 import { DeliveryRangeModal } from './components/DeliveryRangeModal';
 import {
   getActiveTruckConfig,
@@ -121,15 +137,18 @@ import { DevSimulationProvider } from './context/DevSimulationContext';
 import { DevFloatingDock } from './components/dev/DevFloatingDock';
 import { DevAuthModal } from './components/dev/DevAuthModal';
 import { DevSimulationControlCenter } from './components/dev/DevSimulationControlCenter';
+import { CascadeAuthProvider, useCascadeAuth } from './context/CascadeAuthContext';
 
 export default function App() {
   return (
     <ErrorBoundary>
       <DevSimulationProvider>
         <ToastProvider>
-          <FlyingCartProvider>
-            <MainAppContent />
-          </FlyingCartProvider>
+          <CascadeAuthProvider>
+            <FlyingCartProvider>
+              <MainAppContent />
+            </FlyingCartProvider>
+          </CascadeAuthProvider>
         </ToastProvider>
       </DevSimulationProvider>
     </ErrorBoundary>
@@ -202,15 +221,67 @@ function MainAppContent() {
   const [isLoadingMenu, setIsLoadingMenu] = useState(false);
   const [onlyDiscountFilter, setOnlyDiscountFilter] = useState(false);
 
+  // Cascade authorization & mesh tier sync
+  const { switchTier } = useCascadeAuth();
+
   // Dining Mode & Role State
   const [diningMode, setDiningMode] = useState<DiningMode>('delivery');
-  const [currentRole, setCurrentRole] = useState<UserRole>('customer');
+  const [currentRole, setCurrentRole] = useState<UserRole>(() => {
+    if (IS_EMBED_CUSTOMER) return 'customer';
+    const saved = safeGetStorage<UserRole>('obsidian_user_role', 'customer');
+    return saved || 'customer';
+  });
   const [activeTrackingOrderId, setActiveTrackingOrderId] = useState<string | null>(null);
 
+  // ---- T3 桌台会话：状态聚合 + 扫码参数 + 成员面板开关 ----
+  const tableSession = useTableSessionUi();
+  const [membersPanelOpen, setMembersPanelOpen] = useState(false);
+  const scanParams = useMemo(() => {
+    if (typeof window === 'undefined') return { table: undefined, token: undefined, shortCode: undefined };
+    const params = new URLSearchParams(window.location.search);
+    let table = params.get('table') ?? undefined;
+    if (!table && window.location.pathname.includes('/t/')) {
+      const parts = window.location.pathname.split('/t/');
+      if (parts[1]) {
+        table = decodeURIComponent(parts[1].split('/')[0]).toUpperCase();
+      }
+    }
+    const token = params.get('token') ?? params.get('t') ?? undefined;
+    const shortCode = params.get('shortCode') ?? params.get('sc') ?? undefined;
+    return {
+      table,
+      token,
+      shortCode
+    };
+  }, []);
+  const hasScanParams = useMemo(() => {
+    return Boolean(scanParams.table || scanParams.token || scanParams.shortCode);
+  }, [scanParams]);
+
+  // 当通过外部扫码、携带桌号链接进入时，自动无缝切换至堂食扫码点餐模式
+  useEffect(() => {
+    if (scanParams.table) {
+      setDiningMode('dine_in');
+    }
+  }, [scanParams.table]);
+
+  useEffect(() => {
+    void tableSession.actions.init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 行为节点上报：分类切换（节流在 actions 内）
+  useEffect(() => {
+    tableSession.actions.reportCategory(activeCategory, activeCategory);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCategory]);
+
+
   // Staff & Rider Phone Authentication Gating States (强制手机号实名登录，设备硬件指纹保持绑定不变)
-  const [isStaffRiderAuthModalOpen, setIsStaffRiderAuthModalOpen] = useState(false);
   const [isPlatformAuthModalOpen, setIsPlatformAuthModalOpen] = useState(false);
   const [targetAuthRole, setTargetAuthRole] = useState<'merchant' | 'rider'>('merchant');
+  // 统一路由登录门：全屏接管式登录（AuthGateView），替代旧的弹窗式登录入口
+  const [authGateRole, setAuthGateRole] = useState<AuthGateRole | null>(null);
   const [merchantSession, setMerchantSession] = useState<MerchantSession | null>(() => getMerchantSession());
   const [riderSession, setRiderSession] = useState<RiderSession | null>(() => getRiderSession());
 
@@ -270,7 +341,8 @@ function MainAppContent() {
     });
     const unsubOrderMutated = reactiveSyncBus.subscribe('ORDER_STATUS_MUTATED', () => {
       // 订单流转 -> 广播同步引擎，追踪视图读取最新 orders 自动刷新
-      syncEngine.broadcast('ORDERS_CHANGED', ordersRef.current);
+      // embed 预览实例不广播（防跨文档回声）
+      if (!IS_EMBED_CUSTOMER) syncEngine.broadcast('ORDERS_CHANGED', ordersRef.current);
     });
     return () => {
       unsubSentinel();
@@ -311,6 +383,7 @@ function MainAppContent() {
   const [isCloudbaseModalOpen, setIsCloudbaseModalOpen] = useState(false);
   const [isMessageFormModalOpen, setIsMessageFormModalOpen] = useState(false);
   const [isPullUpMenuOpen, setIsPullUpMenuOpen] = useState(false);
+  const [isTableBindModalOpen, setIsTableBindModalOpen] = useState(false);
   const [isCloudbaseConnected, setIsCloudbaseConnected] = useState(false);
   const [cloudbaseAuthUserId, setCloudbaseAuthUserId] = useState<string | undefined>(undefined);
   const [activeNavTab, setActiveNavTab] = useState<NavTabType>('home');
@@ -392,22 +465,39 @@ function MainAppContent() {
     return unsub;
   }, []);
 
-  // 全程监听食客端端操作行为会话
+  // 全程监听食客端端操作行为会话（embed 预览会话内跳过，降低主线程占用）
   useEffect(() => {
+    if (IS_EMBED_CUSTOMER) return;
     userJourneyTracker.initCurrentSession(userProfile?.nickname || '先锋食客');
     userJourneyTracker.generateMockSessionsIfEmpty();
   }, []);
 
-  const [menuDesignSystem, setMenuDesignSystem] = useState<MenuDesignSystem>(() =>
-    getMenuDesignSystem()
-  );
-  const [merchantInitialTab, setMerchantInitialTab] = useState<string>('tables');
+  const [merchantActiveTab, setMerchantActiveTab] = useState<string>(() => {
+    return safeGetStorage<string>('obsidian_merchant_active_tab', 'tables');
+  });
+
+  // 角色端视图保活生命周期管理（Keep-Alive）：避免多端来回切换时 DOM 被销毁重挂载而导致视觉标签与滚动位置重置
+  const [mountedRoles, setMountedRoles] = useState<Record<UserRole, boolean>>(() => ({
+    customer: true,
+    merchant: currentRole === 'merchant',
+    rider: currentRole === 'rider',
+    platform: currentRole === 'platform'
+  }));
 
   useEffect(() => {
-    const unsub = subscribeMenuDesignSystem((newDesign) => {
-      setMenuDesignSystem(newDesign);
+    setMountedRoles((prev) => {
+      if (prev[currentRole]) return prev;
+      return { ...prev, [currentRole]: true };
     });
-    return unsub;
+  }, [currentRole]);
+
+  // 「菜单界面与活动轮播」模块已下线：一次性清除其本地残留数据（用户确认不保留）
+  useEffect(() => {
+    try {
+      localStorage.removeItem('obsidian_menu_design_system_v2');
+    } catch {
+      // ignore
+    }
   }, []);
 
   // Ensure page resets to top whenever switching navigation tabs to prevent scroll overflow offsets
@@ -426,6 +516,20 @@ function MainAppContent() {
   useEffect(() => {
     let isMounted = true;
 
+    // 0. 启动数据治理子系统（幂等）：IndexedDB 持久化、历史存证补链、
+    //    持久化出口写入网关（覆盖率 100%）、网关一致性自检
+    initGovernance();
+
+    // 0.1 启动跨设备实时通道（幂等，不阻塞界面）。
+    //      身份解析与云通道就绪均可能失败，降级为 device_local 是合法状态，
+    //      因此这里不 await —— 失败也不能挡住应用启动。
+    //      embed 预览实例不启动（避免双份 WebSocket / 健康定时器 / 出箱写盘）。
+    if (!IS_EMBED_CUSTOMER) {
+      void initRealtimeTransport().catch((err) => {
+        console.warn('[Realtime] 实时通道启动异常（降级本地总线）:', err);
+      });
+    }
+
     // 1. 匿名鉴权连接
     ensureCloudbaseAuth()
       .then((authRes) => {
@@ -434,6 +538,13 @@ function MainAppContent() {
           setIsCloudbaseConnected(true);
           setCloudbaseAuthUserId(authRes.userId);
           console.log('[TCB] 腾讯云开发后台连接成功! 环境:', TCB_ENV_ID, 'UID:', authRes.userId);
+          // 登录态就绪后强制重新解析身份，把 participantId 从
+          // 设备指纹派生值升级为云端 uid 派生值（否则换设备会丢失桌台成员身份）
+          if (!IS_EMBED_CUSTOMER) {
+            void initRealtimeTransport({ force: true }).catch((err) => {
+              console.warn('[Realtime] 身份重绑定失败（保持设备内有效模式）:', err);
+            });
+          }
         }
       })
       .catch((err) => {
@@ -495,50 +606,89 @@ function MainAppContent() {
       });
 
     // 5. 实时监听订单变动（三端同步）
-    const watcher = watchCloudOrders((liveOrders) => {
-      if (!isMounted) return;
-      if (liveOrders && liveOrders.length > 0) {
-        setOrders(liveOrders);
-        syncEngine.broadcast('ORDERS_CHANGED', liveOrders);
-      }
-    });
+    //    embed 预览实例不参与：不注册 storage 监听、不连云端 watch WebSocket，
+    //    仅一次性读取本地快照，防止与宿主形成跨文档回声循环（性能杀手）。
+    let watcher: { close: () => void } | null = null;
+    if (!IS_EMBED_CUSTOMER) {
+      watcher = watchCloudOrders((liveOrders) => {
+        if (!isMounted) return;
+        if (liveOrders && liveOrders.length > 0) {
+          setOrders(liveOrders);
+          syncEngine.broadcast('ORDERS_CHANGED', liveOrders);
+        }
+      });
+    }
 
-    // 6. 订阅五层同步总线 (L5 跨标签页 / 跨端广播监听)
-    const unsubSync = syncEngine.subscribe((event) => {
-      if (!isMounted) return;
-      if (event.type === 'ORDERS_CHANGED' && event.data && Array.isArray(event.data)) {
-        setOrders(event.data);
-      } else if (event.type === 'DISHES_CHANGED' && event.data && Array.isArray(event.data)) {
-        setDishes(applyDishFieldOverrides(applyAvailabilityOverrides(event.data)));
-      } else if (event.type === 'OUTBOX_DRAINED') {
-        fetchOrdersFromCloud().then((res) => {
-          if (res.orders && res.orders.length > 0 && isMounted) {
-            setOrders(res.orders);
+    // 6. 订阅五层同步总线 (L5 跨标签页 / 跨端广播监听) —— embed 预览实例不参与
+    let unsubSync: (() => void) | null = null;
+    if (!IS_EMBED_CUSTOMER) {
+      unsubSync = syncEngine.subscribe((event) => {
+        if (!isMounted) return;
+        if (event.type === 'ORDERS_CHANGED' && event.data && Array.isArray(event.data)) {
+          setOrders(event.data);
+        } else if (event.type === 'DISHES_CHANGED' && event.data && Array.isArray(event.data)) {
+          setDishes(applyDishFieldOverrides(applyAvailabilityOverrides(event.data)));
+        } else if (event.type === 'OUTBOX_DRAINED') {
+          fetchOrdersFromCloud().then((res) => {
+            if (res.orders && res.orders.length > 0 && isMounted) {
+              setOrders(res.orders);
+            }
+          });
+        }
+      });
+    }
+
+    // 6.2 embed 预览实例：菜品/店铺信息单向实时同步（只听 storage、永不回写）。
+    //     订单的单向同步由 watchCloudOrders 的 embed 分支负责。
+    let unsubEmbedSync: (() => void) | null = null;
+    if (IS_EMBED_CUSTOMER) {
+      const handleEmbedStorage = (e: StorageEvent) => {
+        if (!isMounted || !e.newValue) return;
+        try {
+          if (e.key === 'obsidian_truck_dishes') {
+            const parsed = JSON.parse(e.newValue);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setDishes(applyAvailabilityOverrides(applyDishFieldOverrides(rematchAllDishImages(ensureDishBarcodes(parsed)))));
+            }
+          } else if (e.key === 'obsidian_truck_info') {
+            const parsed = JSON.parse(e.newValue);
+            if (parsed && typeof parsed === 'object') {
+              setTruck(parsed as TruckInfo);
+            }
           }
-        });
-      }
-    });
+        } catch {
+          // ignore
+        }
+      };
+      window.addEventListener('storage', handleEmbedStorage);
+      unsubEmbedSync = () => window.removeEventListener('storage', handleEmbedStorage);
+    }
 
     return () => {
       isMounted = false;
       if (watcher) watcher.close();
-      unsubSync();
+      if (unsubSync) unsubSync();
+      if (unsubEmbedSync) unsubEmbedSync();
     };
   }, []);
 
   // Synchronize orders to secure local storage & sync engine whenever changed
+  // embed 预览实例只读不写：写入共享键会向宿主派发 storage 事件（回声循环源头之一）
   useEffect(() => {
+    if (IS_EMBED_CUSTOMER) return;
     safeSetStorage('obsidian_truck_orders', orders);
     notifyOrdersChanged(orders);
   }, [orders]);
 
   // Synchronize dishes to secure local storage & sync engine whenever changed
   useEffect(() => {
+    if (IS_EMBED_CUSTOMER) return;
     safeSetStorage('obsidian_truck_dishes', dishes);
   }, [dishes]);
 
   // Synchronize truck (店铺/餐车信息) to secure local storage whenever changed
   useEffect(() => {
+    if (IS_EMBED_CUSTOMER) return;
     saveTruckInfo(truck);
   }, [truck]);
 
@@ -782,33 +932,60 @@ function MainAppContent() {
     if (role === 'merchant') {
       if (!isMerchantLoggedIn()) {
         setTargetAuthRole('merchant');
-        setIsStaffRiderAuthModalOpen(true);
+        // 统一路由登录：进入全屏登录门，而非弹窗
+        setAuthGateRole('merchant');
         return;
       }
+      switchTier('L3');
     } else if (role === 'rider') {
       if (!isRiderLoggedIn()) {
         setTargetAuthRole('rider');
-        setIsStaffRiderAuthModalOpen(true);
+        setAuthGateRole('rider');
         return;
       }
+      switchTier('L4');
     } else if (role === 'platform') {
       if (!isPlatformAuthorized()) {
         setIsPlatformAuthModalOpen(true);
         return;
       }
+      switchTier('L1');
+    } else if (role === 'customer') {
+      switchTier('CUSTOMER');
     }
     setCurrentRole(role);
+    persistUserRole(role);
   };
 
-  const handleStaffRiderAuthSuccess = (session: MerchantSession | RiderSession) => {
-    if (targetAuthRole === 'merchant') {
-      setMerchantSession(session as MerchantSession);
+  const handleStaffRiderAuthSuccess = (
+    session: MerchantSession | RiderSession,
+    authenticatedRole?: AuthGateRole
+  ) => {
+    // 自动类型辨识，杜绝角色混淆
+    const isMerchant = authenticatedRole
+      ? authenticatedRole === 'merchant'
+      : 'staffNo' in session;
+
+    if (isMerchant) {
+      const mSession = session as MerchantSession;
+      setMerchantSession(mSession);
       setCurrentRole('merchant');
+      setTargetAuthRole('merchant');
+      persistUserRole('merchant');
+      switchTier('L3');
+      syncCascadeIdentityFromSession(mSession, 'merchant');
+      toast.success(`商户工作台已核验登入：${mSession.name} (${mSession.roleTitle})`);
     } else {
-      setRiderSession(session as RiderSession);
+      const rSession = session as RiderSession;
+      setRiderSession(rSession);
       setCurrentRole('rider');
+      setTargetAuthRole('rider');
+      persistUserRole('rider');
+      switchTier('L4');
+      syncCascadeIdentityFromSession(rSession, 'rider');
+      toast.success(`骑士专送工作台已核验登入：${rSession.name} (${rSession.levelTitle})`);
     }
-    setIsStaffRiderAuthModalOpen(false);
+    setAuthGateRole(null);
   };
 
   // Toggle dish available state for merchant portal
@@ -842,6 +1019,43 @@ function MainAppContent() {
   // Dining Mode Change
   const handleDiningModeChange = (mode: DiningMode) => {
     setDiningMode(mode);
+    const activeTruckStatus = getTruckBusinessStatus(truck.id || 'truck-01');
+
+    if (!activeTruckStatus.isOpen) {
+      toast.warning('当前餐车已打烊', `${activeTruckStatus.closeReason || '暂停接单中'}，预计恢复：${activeTruckStatus.reopenTime}`);
+      return;
+    }
+
+    if (mode === 'delivery') {
+      if (activeTruckStatus.deliveryOpen === false) {
+        toast.warning('当前餐车已暂停外卖专送', '该站台暂未开放外送接单，下单前请切换堂食或自提');
+      } else if (deliveryEvaluation.isOutOfRange) {
+        toast.warning('已切换为外卖模式', '当前地址超出餐车 1.5km 极速配送范围，请核对地址');
+      } else {
+        toast.success('已切换为外卖专送', '餐车专人直送 · 满¥80免配送费');
+      }
+    } else if (mode === 'dine_in') {
+      if (activeTruckStatus.dineInOpen === false) {
+        toast.warning('当前餐车已暂停堂食就餐', '该站台暂未开放堂食就座点餐，下单前请切换自提或外卖');
+      }
+      const bound = getCurrentBoundTable();
+      const activeCode = tableSession.activeSession?.tableCode || bound?.code;
+      if (activeCode) {
+        toast.success('已切换为堂食模式', `当前就餐桌位: ${activeCode} 号桌 · 免包装费现点现制`);
+      } else {
+        toast.info('已切换为堂食模式', '请选座开台或扫码，餐车将直接传菜至桌');
+        // 仅在非外部扫码进入时弹出选座开台，避免与外部扫码落点组件双开
+        if (!hasScanParams) {
+          setIsTableBindModalOpen(true);
+        }
+      }
+    } else if (mode === 'pickup') {
+      if (activeTruckStatus.pickupOpen === false) {
+        toast.warning('当前餐车已暂停到车自提', '该站台暂未开放窗口自提预订，下单前请切换外卖或堂食');
+      } else {
+        toast.success('已切换为自提模式', '0元配送费 · 凭提货码至餐车窗口秒取');
+      }
+    }
   };
 
   // Refresh menu simulation
@@ -1409,7 +1623,8 @@ function MainAppContent() {
       if (!catDef) return null;
 
       const matchingDishes = dishes.filter((dish) => {
-        if (!dish.available) return false;
+        const isAvailableInCurrentMode = isDishAvailableInChannel(dish, diningMode);
+        if (!isAvailableInCurrentMode) return false;
 
         // Category match
         if (catKey === 'popular') {
@@ -1439,7 +1654,7 @@ function MainAppContent() {
         if (filterOptions.orderType === 'dine_in' && dish.orderType === 'delivery') return false;
 
         // Availability filter
-        if (filterOptions.onlyAvailable && !dish.available) return false;
+        if (filterOptions.onlyAvailable && !isAvailableInCurrentMode) return false;
 
         // Discount filter
         if ((filterOptions.hasDiscount || onlyDiscountFilter) && !dish.discountTag && !dish.originalPrice && !dish.prevPrice) {
@@ -1483,7 +1698,7 @@ function MainAppContent() {
     }).filter((section): section is { catKey: CategoryType; category: typeof CATEGORY_TAXONOMY[CategoryType]; dishes: DishItem[] } =>
       section !== null && section.dishes.length > 0
     );
-  }, [dishes, activeCategory, activeSubCategory, filterOptions, searchQuery, onlyDiscountFilter, categorySortMap]);
+  }, [dishes, diningMode, activeCategory, activeSubCategory, filterOptions, searchQuery, onlyDiscountFilter, categorySortMap]);
 
   // Dynamic available taxonomy category keys for linked floating bar
   const availableTaxonomyKeys = useMemo(() => {
@@ -1498,7 +1713,7 @@ function MainAppContent() {
 
   // Category counts (front-end customer menu)
   const categoryCounts = useMemo(() => {
-    const availableList = dishes.filter((d) => d.available);
+    const availableList = dishes.filter((d) => isDishAvailableInChannel(d, diningMode));
     return {
       all: availableList.length,
       popular: availableList.filter((d) => d.isPopular).length,
@@ -1511,18 +1726,18 @@ function MainAppContent() {
       desserts: availableList.filter((d) => d.category === 'desserts').length,
       snacks: availableList.filter((d) => d.category === 'snacks').length
     };
-  }, [dishes]);
+  }, [dishes, diningMode]);
 
   // Subcategory Counts
   const subCategoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     dishes.forEach((d) => {
-      if (d.available && d.subCategory) {
+      if (isDishAvailableInChannel(d, diningMode) && d.subCategory) {
         counts[d.subCategory] = (counts[d.subCategory] || 0) + 1;
       }
     });
     return counts;
-  }, [dishes]);
+  }, [dishes, diningMode]);
 
   // Cart helper totals
   const totalCartCount = useMemo(() => {
@@ -1532,6 +1747,12 @@ function MainAppContent() {
   const totalCartPrice = useMemo(() => {
     return cart.reduce((sum, item) => sum + item.calculatedPrice, 0);
   }, [cart]);
+
+  // 行为节点上报：购物车摘要（桌台会话内才生效，actions 内部短路）
+  useEffect(() => {
+    tableSession.actions.reportCart(cart.length, totalCartPrice);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart.length, totalCartPrice]);
 
   const totalCartSavings = useMemo(() => {
     const dishSavings = cart.reduce((sum, item) => {
@@ -1656,6 +1877,9 @@ function MainAppContent() {
       return;
     }
 
+    // 行为节点上报：菜品点击（节流 800ms，未入座时内部短路静默）
+    tableSession.actions.reportDishClick(dish.id, dish.name);
+
     const optionKey = Object.entries(selectedOptions)
       .sort()
       .map(([k, v]) => `${k}:${v}`)
@@ -1701,6 +1925,164 @@ function MainAppContent() {
       'cart_active'
     );
   };
+
+  // -------------------------------------------------------------
+  // Real Usable QR Code Engine Execution (单点/直接支付/组合扫码加购与直达支付)
+  // -------------------------------------------------------------
+  const executeQrAction = useCallback(
+    (payload: QrActionPayload) => {
+      if (!payload) return;
+
+      if (payload.type === 'single') {
+        const dish = dishes.find((d) => d.id === payload.dishId);
+        if (!dish) {
+          toast.error('未找到对应菜品', `菜品 ID: ${payload.dishId} 暂未在当前菜单中发现`);
+          return;
+        }
+
+        const variant = payload.variantId
+          ? dish.variants?.find((v) => v.id === payload.variantId)
+          : undefined;
+
+        const unitPrice = variant ? variant.price : dish.price;
+        const qty = payload.qty || 1;
+        const options = payload.options || {};
+        const totalPrice = unitPrice * qty;
+
+        handleAddToCart(dish, qty, options, totalPrice, false, variant);
+
+        if (payload.action === 'quick_pay') {
+          setActiveNavTab('checkout');
+          setIsCartOpen(false);
+          setIsPullUpMenuOpen(false);
+          const varText = variant ? ` (${variant.name})` : '';
+          toast.success(
+            '扫码直达收银台',
+            `已为您将【${dish.name}${varText}】加入收银台，请核对并支付`
+          );
+          playScannerBeep('beep_order');
+        } else {
+          setActiveNavTab('cart');
+          const varText = variant ? ` (${variant.name})` : '';
+          toast.success(
+            '扫码加购成功',
+            `已自动将【${dish.name}${varText} x${qty}】加入选购单`
+          );
+          playScannerBeep('beep_cart');
+        }
+      } else if (payload.type === 'combo') {
+        let addedCount = 0;
+        payload.items.forEach((item) => {
+          const dish = dishes.find((d) => d.id === item.dishId);
+          if (dish) {
+            const variant = item.variantId
+              ? dish.variants?.find((v) => v.id === item.variantId)
+              : undefined;
+            const unitPrice = variant ? variant.price : item.price || dish.price;
+            const qty = item.qty || 1;
+            const options = item.selectedOptions || {};
+            handleAddToCart(dish, qty, options, unitPrice * qty, false, variant);
+            addedCount++;
+          }
+        });
+
+        if (payload.action === 'combo_pay') {
+          setActiveNavTab('checkout');
+          setIsCartOpen(false);
+          setIsPullUpMenuOpen(false);
+          toast.success(
+            '扫码套餐直达支付',
+            `【${payload.comboName}】(共 ${addedCount} 样餐品) 已自动装入收银台，请核对并完成支付`
+          );
+          playScannerBeep('beep_order');
+        } else {
+          setActiveNavTab('cart');
+          toast.success(
+            '扫码套餐加购成功',
+            `【${payload.comboName}】(共 ${addedCount} 样餐品) 已自动加入选购单`
+          );
+          playScannerBeep('beep_cart');
+        }
+      } else if (payload.type === 'coupon') {
+        // 优惠券扫码直领与风控校验
+        const claimRes = claimCouponByCode(payload.couponCode, { currentTruckId: truck.id });
+        if (claimRes.success) {
+          playScannerBeep('beep_coupon');
+          toast.success(
+            '优惠券领取成功',
+            claimRes.message
+          );
+          userJourneyTracker.trackAction(
+            'claim_coupon_qr',
+            `扫码领取优惠券: ${payload.couponCode}`,
+            { couponCode: payload.couponCode, truckId: truck.id },
+            'cart_active'
+          );
+        } else {
+          playScannerBeep('beep_error');
+          toast.warning('优惠券领取提示', claimRes.message);
+        }
+      } else if (payload.type === 'table') {
+        // 桌台扫码接入
+        setDiningMode('dine_in');
+        playScannerBeep('beep_table');
+        toast.info(
+          '识别就餐桌位二维码',
+          `桌号: ${payload.tableCode} · 正在接入点餐台...`
+        );
+        if (tableSession.ready) {
+          tableSession.actions.scan(payload.tableCode, payload.token, payload.shortCode);
+        }
+      } else if (payload.type === 'pickup') {
+        // 订单取餐码核销识别
+        playScannerBeep('beep_order');
+        toast.success(
+          '扫码识别取餐码',
+          `提货取餐码: ${payload.pickupCode} · 已完成核验`
+        );
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dishes, truck.id, tableSession]
+  );
+
+  // 1. 挂载时检测 URL 搜索参数（真实手机相机扫码打开 / 浏览器访问）
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const search = window.location.search;
+    const pathname = window.location.pathname;
+    if (!search && !pathname.includes('/t/')) return;
+    if (!search.includes('action=') && !search.includes('table=') && !search.includes('coupon=') && !search.includes('dishId=') && !search.includes('combo=') && !pathname.includes('/t/')) return;
+
+    const payload = parseQrScanResult(window.location.href);
+    if (payload) {
+      if (payload.type === 'table') {
+        setDiningMode('dine_in');
+      }
+      // 避免页面刷新重复加购或领券，在非桌台模式下清理 URL 参数
+      if (payload.type !== 'table') {
+        const cleanUrl = window.location.pathname + window.location.hash;
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+      setTimeout(() => {
+        executeQrAction(payload);
+      }, 400);
+    }
+  }, [executeQrAction]);
+
+  // 2. 监听站内扫码枪/扫码摄像头/仿真调试事件
+  useEffect(() => {
+    const handleCustomQrAction = (e: Event) => {
+      const customEvent = e as CustomEvent<QrActionPayload>;
+      if (customEvent.detail) {
+        executeQrAction(customEvent.detail);
+      }
+    };
+    window.addEventListener('URBAN_RADAR_QR_ACTION', handleCustomQrAction);
+    return () => {
+      window.removeEventListener('URBAN_RADAR_QR_ACTION', handleCustomQrAction);
+    };
+  }, [executeQrAction]);
 
   const handleQuickAdd = (dish: DishItem, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1765,6 +2147,31 @@ function MainAppContent() {
     paymentMethod?: string,
     paymentVoucher?: PaymentVoucher
   ): string | void => {
+    // 检查当前餐车及对应就餐方式的营业状态
+    const activeTruckStatus = getTruckBusinessStatus(truck.id || 'truck-01');
+    if (!activeTruckStatus.isOpen) {
+      toast.error('当前餐车站台已打烊歇业', `${activeTruckStatus.closeReason || '暂停接单中'}，预计恢复接单时间：${activeTruckStatus.reopenTime}`);
+      return;
+    }
+    if (diningMode === 'dine_in' && activeTruckStatus.dineInOpen === false) {
+      toast.error('当前餐车暂停堂食就餐', '该餐车暂未开放堂食就座点单，请在商家后台开启堂食或切换到车自提/外卖配送');
+      return;
+    }
+    if (diningMode === 'delivery' && activeTruckStatus.deliveryOpen === false) {
+      toast.error('当前餐车暂停外卖配送', '该餐车暂未开放外卖专送，请在商家后台开启外卖或切换到车自提/堂食');
+      return;
+    }
+    if (diningMode === 'pickup' && activeTruckStatus.pickupOpen === false) {
+      toast.error('当前餐车暂停到车自提', '该餐车暂未开放到车自提预订，请在商家后台开启自提或切换外卖/堂食');
+      return;
+    }
+
+    // T3 授权判定下沉数据层：桌台会话内无下单权限 → 阻断并引导申请加入
+    if (diningMode === 'dine_in' && !tableSession.actions.canOrder()) {
+      toast.error('暂不能下单', '你需要先加入本桌点餐并获得授权');
+      setMembersPanelOpen(true);
+      return;
+    }
     const userUidSuffix = userProfile.uid.slice(-4);
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);
     const isDineIn = diningMode === 'dine_in';
@@ -2126,208 +2533,297 @@ function MainAppContent() {
     }
   };
 
-  if (currentRole === 'merchant') {
-    return (
-      <>
-        <MerchantSystemView
-          dishes={dishes}
-          orders={orders}
-          truck={truck}
-          initialTab={merchantInitialTab as any}
-          merchantSession={merchantSession}
-          onOpenPhoneAuth={() => {
-            setTargetAuthRole('merchant');
-            setIsStaffRiderAuthModalOpen(true);
-          }}
-          onLogoutMerchant={() => {
-            logoutMerchant();
-            setMerchantSession(null);
-            setCurrentRole('customer');
-            toast.info('已退出商家工作台');
-          }}
-          onUpdateDishes={setDishes}
-          onAdvanceOrderStatus={handleAdvanceOrderStatus}
-          onRejectOrder={handleRejectOrder}
-          onDeleteOrder={handleDeleteOrder}
-          onUpdateTruckLocation={handleUpdateTruckLocation}
-          onSwitchRole={handleSelectRole}
-          onAuditRefund={handleAuditRefund}
-          onSyncOrderItems={handleSyncTableOrderItems}
-          onToggleNonRefundable={handleToggleNonRefundable}
-        />
-        <CloudbaseStatusModal
-          isOpen={isCloudbaseModalOpen}
-          onClose={() => setIsCloudbaseModalOpen(false)}
-          dishes={dishes}
-          orders={orders}
-          onDishesUpdated={setDishes}
-          isConnected={isCloudbaseConnected}
-          authUserId={cloudbaseAuthUserId}
-        />
-        <StaffRiderPhoneAuthModal
-          isOpen={isStaffRiderAuthModalOpen}
-          role={targetAuthRole}
-          onClose={() => setIsStaffRiderAuthModalOpen(false)}
-          onSuccess={handleStaffRiderAuthSuccess}
-        />
-      </>
-    );
-  }
+  const isFullScreenView =
+    activeNavTab === 'tracking' ||
+    activeNavTab === 'orders' ||
+    activeNavTab === 'profile' ||
+    activeNavTab === 'trucks' ||
+    activeNavTab === 'order_messages';
 
-  if (currentRole === 'rider') {
-    return (
-      <>
-        <RiderSystemView
-          orders={orders}
-          truck={truck}
-          riderSession={riderSession}
-          onOpenPhoneAuth={() => {
-            setTargetAuthRole('rider');
-            setIsStaffRiderAuthModalOpen(true);
-          }}
-          onLogoutRider={() => {
-            logoutRider();
-            setRiderSession(null);
-            setCurrentRole('customer');
-            toast.info('已退出骑士专送工作台');
-          }}
-          onAdvanceOrderStatus={handleAdvanceOrderStatus}
-          onUpdateTruckLocation={handleUpdateTruckLocation}
-          onSwitchRole={handleSelectRole}
-        />
-        <CloudbaseStatusModal
-          isOpen={isCloudbaseModalOpen}
-          onClose={() => setIsCloudbaseModalOpen(false)}
-          dishes={dishes}
-          orders={orders}
-          onDishesUpdated={setDishes}
-          isConnected={isCloudbaseConnected}
-          authUserId={cloudbaseAuthUserId}
-        />
-        <StaffRiderPhoneAuthModal
-          isOpen={isStaffRiderAuthModalOpen}
-          role={targetAuthRole}
-          onClose={() => setIsStaffRiderAuthModalOpen(false)}
-          onSuccess={handleStaffRiderAuthSuccess}
-        />
-      </>
-    );
-  }
+  // ============ 客食端预览：根层分栏（v3）· 生效判定链 ============
+  const [isDesktopDevice, setIsDesktopDevice] = useState<boolean>(() =>
+    typeof window !== 'undefined' && window.matchMedia
+      ? window.matchMedia(DESKTOP_MEDIA_QUERY).matches
+      : false
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mql = window.matchMedia(DESKTOP_MEDIA_QUERY);
+    const onChange = (e: MediaQueryListEvent) => setIsDesktopDevice(e.matches);
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
+  const wsPrefsLive = useSyncExternalStore(subscribeWorkspacePrefs, getWorkspacePrefsSnapshot);
+  const previewRole: PreviewRoleId | null =
+    currentRole === 'merchant' || currentRole === 'rider' || currentRole === 'platform' ? currentRole : null;
+  const previewFeatureOn = isDesktopDevice && previewRole !== null && wsPrefsLive.previewControl.masterEnabled && wsPrefsLive.previewControl.ends[previewRole];
+  const previewColumnOpen = previewFeatureOn && previewRole !== null && wsPrefsLive.previewPanelOpen[previewRole];
+  // embed 预览轻量模式：暂停 CSS 装饰动画（html[data-embed-lite] 规则）
+  useEffect(() => {
+    if (IS_EMBED_CUSTOMER) {
+      document.documentElement.dataset.embedLite = '1';
+    } else {
+      delete document.documentElement.dataset.embedLite;
+    }
+  }, []);
 
-  if (currentRole === 'platform') {
-    return (
-      <div className="min-h-screen bg-[#f9f9f7] text-[#1a1c1b] flex flex-col antialiased">
-        <Header
-          cartCount={totalCartCount}
-          onOpenCart={() => navigateTo('cart')}
-          onOpenRadar={() => navigateTo('tracking')}
-          onOpenVIP={() => setIsVIPModalOpen(true)}
-          isVIPActive={isVIPActive}
-          diningMode={diningMode}
-          onDiningModeChange={handleDiningModeChange}
-          deliveryAddress={deliveryAddress}
-          onChangeAddress={() => setIsAddressModalOpen(true)}
-          currentRole={currentRole}
-          onSelectRole={handleSelectRole}
-          pendingOrdersCount={orders.filter((o) => o.status === 'cooking').length}
-          activeNavTab={activeNavTab}
-          previousNavTab={previousNavTab}
-          onBackToMenu={handleBackNav}
-          onOpenCloudbaseModal={() => setIsCloudbaseModalOpen(true)}
-          onOpenMessageForm={() => setIsMessageFormModalOpen(true)}
-          isCloudbaseConnected={isCloudbaseConnected}
-          deliveryEvaluation={deliveryEvaluation}
-        />
-        <main className="max-w-7xl w-full mx-auto px-2 sm:px-4 py-2 flex-grow">
-          <PlatformSystemView
-            orders={orders}
-            onSelectRole={handleSelectRole}
-            showToast={(msg) => toast.info(msg)}
-          />
-        </main>
-        <CloudbaseStatusModal
-          isOpen={isCloudbaseModalOpen}
-          onClose={() => setIsCloudbaseModalOpen(false)}
-          dishes={dishes}
-          orders={orders}
-          onDishesUpdated={setDishes}
-          isConnected={isCloudbaseConnected}
-          authUserId={cloudbaseAuthUserId}
-        />
-        <OrderHistoryMessagesModal
-          isOpen={isMessageFormModalOpen}
-          onClose={() => setIsMessageFormModalOpen(false)}
-          orders={orders}
-          dishes={dishes}
-          viewerRole={currentRole}
-          onAdvanceOrderStatus={handleAdvanceOrderStatus}
-          onRejectOrder={handleRejectOrder}
-          onAuditRefund={handleAuditRefund}
-          showToast={(t, d) => toast.success(t, d)}
-          onTrackOrder={() => {
-            setIsMessageFormModalOpen(false);
-            navigateTo('tracking');
-          }}
-        />
-      </div>
-    );
-  }
+  const togglePreviewPanel = (open: boolean) => {
+    if (previewRole) mergeLocalPrefs({ previewPanelOpen: { [previewRole]: open } as Partial<Record<PreviewRoleId, boolean>> });
+  };
 
   return (
-    <div className="h-screen h-[100dvh] max-h-[100dvh] w-full bg-[#f9f9f7] text-[#1a1c1b] flex flex-col overflow-hidden antialiased">
-      {/* Top Header with Dynamic Dining Mode Selector, Role Switcher Dropdown */}
-      <div className="shrink-0 w-full z-40">
-        <Header
-          cartCount={totalCartCount}
-          onOpenCart={() => navigateTo('cart')}
-          onOpenRadar={() => navigateTo('tracking')}
-          onOpenVIP={() => setIsVIPModalOpen(true)}
-          isVIPActive={isVIPActive}
-          diningMode={diningMode}
-          onDiningModeChange={handleDiningModeChange}
-          deliveryAddress={deliveryAddress}
-          onChangeAddress={() => setIsAddressModalOpen(true)}
-          currentRole={currentRole}
-          onSelectRole={handleSelectRole}
-          pendingOrdersCount={orders.filter((o) => o.status === 'cooking').length}
-          activeNavTab={activeNavTab}
-          previousNavTab={previousNavTab}
-          onBackToMenu={handleBackNav}
-          onOpenCloudbaseModal={() => setIsCloudbaseModalOpen(true)}
-          onOpenMessageForm={() => {
-            if (activeNavTab === 'order_messages') {
-              handleBackNav();
-            } else {
-              navigateTo('order_messages');
-            }
+    <MotionConfig reducedMotion={IS_EMBED_CUSTOMER ? 'always' : 'never'}>
+      {/* 统一路由登录门：需要核验身份时全屏接管（商户端 / 骑手端共用，保持 Hook 计数始终稳定） */}
+      {authGateRole ? (
+        <AuthGateView
+          role={authGateRole}
+          onSwitchRole={(next) => {
+            setAuthGateRole(next);
+            setTargetAuthRole(next);
           }}
-          isCloudbaseConnected={isCloudbaseConnected}
-          deliveryEvaluation={deliveryEvaluation}
+          onSuccess={(session, role) => {
+            handleStaffRiderAuthSuccess(session, role);
+          }}
+          onCancel={() => {
+            setAuthGateRole(null);
+            setCurrentRole('customer');
+            switchTier('CUSTOMER');
+            persistUserRole('customer');
+            toast.info('已切回前台顾客点餐');
+          }}
         />
+      ) : (
+        <div className="h-screen w-full flex overflow-hidden">
+      <div className="flex-1 min-w-0 h-full">
+        <>
+      {/* 1. 商家端工作台 (Keep-Alive 保活容器，状态、横向导航与滚动位置完全持久化) */}
+      {mountedRoles.merchant && (
+        <div
+          id="role-container-merchant"
+          className={`w-full min-h-screen ${currentRole === 'merchant' ? 'block' : 'hidden'}`}
+          style={{ display: currentRole === 'merchant' ? 'block' : 'none' }}
+        >
+          <MerchantSystemView
+            dishes={dishes}
+            orders={orders}
+            truck={truck}
+            initialTab={merchantActiveTab as any}
+            activeTabControlled={merchantActiveTab as any}
+            onTabChange={(tab) => {
+              setMerchantActiveTab(tab);
+              safeSetStorage('obsidian_merchant_active_tab', tab);
+            }}
+            isRoleActive={currentRole === 'merchant'}
+            merchantSession={merchantSession}
+            onOpenPhoneAuth={() => {
+              setTargetAuthRole('merchant');
+              setAuthGateRole('merchant');
+            }}
+            onLogoutMerchant={() => {
+              logoutMerchant();
+              setMerchantSession(null);
+              setCurrentRole('customer');
+              switchTier('CUSTOMER');
+              persistUserRole('customer');
+              toast.info('已退出商家工作台，切回前台顾客点餐');
+            }}
+            onUpdateDishes={setDishes}
+            onAdvanceOrderStatus={handleAdvanceOrderStatus}
+            onRejectOrder={handleRejectOrder}
+            onDeleteOrder={handleDeleteOrder}
+            onUpdateTruckLocation={handleUpdateTruckLocation}
+            onSwitchRole={handleSelectRole}
+            onAuditRefund={handleAuditRefund}
+            onSyncOrderItems={handleSyncTableOrderItems}
+            onToggleNonRefundable={handleToggleNonRefundable}
+          />
+        </div>
+      )}
 
-        {/* 自动化安全与高峰削峰感知自适应通知横幅 (Sentinel Auto-Mitigation Banner) */}
-        {(peakMitigationNotice?.isActive || sentinelState.threatLevel === 'CRITICAL' || sentinelState.isOnlineOrderAdmissionPaused) && (
-          <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-xs text-amber-900 flex items-center justify-between shadow-2xs">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping shrink-0" />
-              <span className="font-bold">
-                {sentinelState.isOnlineOrderAdmissionPaused
-                  ? '⚠️ 餐车当前暂停线上接单（驻点复核中），仅支持现场咨询'
-                  : `⚡ 后厨高峰自适应限流已介入：预估等候时长附加 +${sentinelState.adaptiveExtraQueueMinutes} 分钟，极速配送半径自适应调节至 ${sentinelState.activeDynamicDeliveryRadiusKm}km`}
-              </span>
-            </div>
-            <span className="text-[11px] font-mono opacity-75 hidden sm:inline">
-              自动化安全评分: {sentinelState.overallHealthScore} / 100
-            </span>
+      {/* 2. 骑士配送专送工作台 (Keep-Alive 保活容器) */}
+      {mountedRoles.rider && (
+        <div
+          id="role-container-rider"
+          className={`w-full min-h-screen ${currentRole === 'rider' ? 'block' : 'hidden'}`}
+          style={{ display: currentRole === 'rider' ? 'block' : 'none' }}
+        >
+          <RiderSystemView
+            orders={orders}
+            truck={truck}
+            riderSession={riderSession}
+            onOpenPhoneAuth={() => {
+              setTargetAuthRole('rider');
+              setAuthGateRole('rider');
+            }}
+            onLogoutRider={() => {
+              logoutRider();
+              setRiderSession(null);
+              setCurrentRole('customer');
+              switchTier('CUSTOMER');
+              persistUserRole('customer');
+              toast.info('已退出骑士专送工作台，切回前台顾客点餐');
+            }}
+            onAdvanceOrderStatus={handleAdvanceOrderStatus}
+            onUpdateTruckLocation={handleUpdateTruckLocation}
+            onSwitchRole={handleSelectRole}
+          />
+        </div>
+      )}
+
+      {/* 3. 平台端总控工作台 (Keep-Alive 保活容器) */}
+      {mountedRoles.platform && (
+        <div
+          id="role-container-platform"
+          className={`min-h-screen bg-[#f9f9f7] text-[#1a1c1b] flex flex-col antialiased ${currentRole === 'platform' ? 'flex' : 'hidden'}`}
+          style={{ display: currentRole === 'platform' ? 'flex' : 'none' }}
+        >
+          <Header
+            cartCount={totalCartCount}
+            onOpenCart={() => navigateTo('cart')}
+            onOpenRadar={() => navigateTo('tracking')}
+            onOpenVIP={() => setIsVIPModalOpen(true)}
+            isVIPActive={isVIPActive}
+            diningMode={diningMode}
+            onDiningModeChange={handleDiningModeChange}
+            deliveryAddress={deliveryAddress}
+            onChangeAddress={() => setIsAddressModalOpen(true)}
+            currentRole={currentRole}
+            onSelectRole={handleSelectRole}
+            onOpenAuthGate={(role) => setAuthGateRole(role)}
+            pendingOrdersCount={orders.filter((o) => o.status === 'cooking').length}
+            activeNavTab={activeNavTab}
+            previousNavTab={previousNavTab}
+            onBackToMenu={handleBackNav}
+            onOpenCloudbaseModal={() => setIsCloudbaseModalOpen(true)}
+            onOpenMessageForm={() => setIsMessageFormModalOpen(true)}
+            isCloudbaseConnected={isCloudbaseConnected}
+            deliveryEvaluation={deliveryEvaluation}
+            currentTable={
+              tableSession.activeSession?.tableCode
+                ? `${tableSession.activeSession.tableCode} 号桌`
+                : getCurrentBoundTable()?.code
+                ? `${getCurrentBoundTable()!.code} 号桌`
+                : 'A-08 桌'
+            }
+            onSwitchTable={() => setIsTableBindModalOpen(true)}
+            truckSpotName="黑曜石01车 · 北座中庭"
+            onOpenPickupDetail={() => setIsDeliveryRangeModalOpen(true)}
+          />
+          <main className="w-full px-2 sm:px-4 lg:px-6 py-2 flex-grow">
+            <PlatformSystemView
+              orders={orders}
+              onSelectRole={handleSelectRole}
+              showToast={(msg) => toast.info(msg)}
+            />
+          </main>
+        </div>
+      )}
+
+      {/* 4. 顾客端前台点餐体验区 (Keep-Alive 保活容器) */}
+      <div
+        id="role-container-customer"
+        className={`w-full h-full ${currentRole === 'customer' ? 'block' : 'hidden'}`}
+        style={{ display: currentRole === 'customer' ? 'block' : 'none' }}
+      >
+        {/* ⛔ 分辨率锁定 RESOLUTION LOCK（产品负责人 2026-09-16 指定）：
+            客食端在电脑端统一装入 iPhone 15 Pro Max 手机壳视口（逻辑 430×932 CSS px）。
+            尺寸唯一权威来源 src/constants/deviceViewport.ts —— 任何 AI/开发者修复
+            其他问题时禁止改动分辨率；确需变更必须获产品负责人明确授权。 */}
+        <CustomerPhoneFrame>
+        <div className="absolute inset-0 w-full text-[#121212] flex flex-col bg-white selection:bg-black selection:text-white font-sans antialiased overflow-hidden">
+          {/* Full-Screen Container matching requested layout */}
+          <div className="w-full h-full bg-white flex flex-col relative overflow-hidden">
+        {/* T3 桌台门禁：仅在存在 URL 扫码参数且未入座、且未打开选座开台弹窗时显示，彻底杜绝双组件同时打开冲突 */}
+        {hasScanParams && diningMode === 'dine_in' && tableSession.ready && !tableSession.activeSession && !isTableBindModalOpen && (
+          <div className="absolute inset-0 z-[70] overflow-y-auto bg-page-bg">
+            <TableScanLanding
+              tableCode={scanParams.table}
+              token={scanParams.token}
+              shortCode={scanParams.shortCode}
+              onEntered={() => {
+                /* 入座判定由 activeSession 事件驱动，无需手动解除门禁 */
+              }}
+              onClose={() => {
+                setDiningMode('delivery');
+                toast.info('已退出扫码点餐', '已切换回外卖专送模式');
+              }}
+              onOpenMatrix={() => {
+                setIsTableBindModalOpen(true);
+              }}
+              showToast={(msg) => toast.info(msg)}
+            />
           </div>
         )}
-      </div>
+
+        {/* T3 同桌成员管理面板 */}
+        <TableMembersPanel
+          open={membersPanelOpen && !!tableSession.activeSession}
+          onClose={() => setMembersPanelOpen(false)}
+          showToast={(msg) => toast.info(msg)}
+        />
+
+        {/* Top Header with Dynamic Dining Mode Selector, Role Switcher Dropdown (仅在点单等主界面显示，全屏界面由各界面专属标题栏承载) */}
+        {!isFullScreenView && activeNavTab !== 'checkout' && (
+          <div className="shrink-0 w-full z-40">
+            <Header
+              cartCount={totalCartCount}
+              onOpenCart={() => navigateTo('cart')}
+              onOpenRadar={() => navigateTo('tracking')}
+              onOpenVIP={() => navigateTo('profile')}
+              isVIPActive={isVIPActive}
+              diningMode={diningMode}
+              onDiningModeChange={handleDiningModeChange}
+              deliveryAddress={deliveryAddress}
+              onChangeAddress={() => setIsAddressModalOpen(true)}
+              currentRole={currentRole}
+              onSelectRole={handleSelectRole}
+              onOpenAuthGate={(role) => setAuthGateRole(role)}
+              pendingOrdersCount={orders.filter((o) => o.status === 'cooking').length}
+              activeNavTab={activeNavTab}
+              previousNavTab={previousNavTab}
+              onBackToMenu={handleBackNav}
+              onOpenCloudbaseModal={() => setIsCloudbaseModalOpen(true)}
+              onOpenMessageForm={() => navigateTo('order_messages')}
+              isCloudbaseConnected={isCloudbaseConnected}
+              deliveryEvaluation={deliveryEvaluation}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              currentTable={
+                tableSession.activeSession?.tableCode
+                  ? `${tableSession.activeSession.tableCode} 号桌`
+                  : getCurrentBoundTable()?.code
+                  ? `${getCurrentBoundTable()!.code} 号桌`
+                  : 'A-08 桌'
+              }
+              onSwitchTable={() => setIsTableBindModalOpen(true)}
+              truckSpotName="黑曜石01车 · 北座中庭"
+              onOpenPickupDetail={() => setIsDeliveryRangeModalOpen(true)}
+              activeOrderNo="8921"
+              onOpenFilterModal={() => setIsFilterModalOpen(true)}
+              onlyDiscountFilter={onlyDiscountFilter}
+              onToggleDiscountFilter={() => setOnlyDiscountFilter((prev) => !prev)}
+            />
+          </div>
+        )}
 
       {/* Main Content Area - Independently scrollable, flex-1, strictly bounded above bottom navbar so navbar never covers content */}
       <main 
         id="main-content-scroll-area"
         ref={mainScrollContainerRef}
-        className="flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden max-w-7xl mx-auto px-[2px] pt-0 pb-[3px] space-y-[2px] scroll-smooth"
+        style={{
+          WebkitOverflowScrolling: 'touch',
+          scrollPaddingTop: isFullScreenView ? '0px' : '64px',
+          scrollPaddingBottom: isFullScreenView ? '60px' : '110px'
+        }}
+        className={`flex-1 min-h-0 w-full relative ${
+          activeNavTab === 'checkout' || activeNavTab === 'order_messages'
+            ? 'overflow-hidden p-0 m-0 flex flex-col h-full'
+            : isFullScreenView
+            ? 'overflow-y-auto overflow-x-hidden w-full p-0 m-0 overscroll-contain touch-pan-y scroll-smooth [scrollbar-gutter:stable]'
+            : 'overflow-y-auto overflow-x-hidden w-full px-0 sm:px-2 pt-0 pb-16 overscroll-contain touch-pan-y scroll-smooth [scrollbar-gutter:stable]'
+        }`}
       >
         {activeNavTab === 'checkout' ? (
           <CheckoutPageView
@@ -2441,7 +2937,7 @@ function MainAppContent() {
         ) : activeNavTab === 'profile' ? (
           <ProfilePageView
             onOpenRadar={() => navigateTo('tracking')}
-            onOpenVIP={() => setIsVIPModalOpen(true)}
+            onOpenVIP={() => navigateTo('profile')}
             onOpenAddress={() => setIsAddressModalOpen(true)}
             onOpenCoupons={() => navigateTo('coupons')}
             onOpenCloudSync={() => setIsCloudbaseModalOpen(true)}
@@ -2460,11 +2956,27 @@ function MainAppContent() {
               handleCategorySelect(cat);
               navigateTo('home');
             }}
-            onOpenVIP={() => setIsVIPModalOpen(true)}
+            onOpenVIP={() => navigateTo('profile')}
             isVIPActive={isVIPActive}
           />
+        ) : activeNavTab === 'trucks' ? (
+          <DynamicFeedsPageView
+            orders={orders}
+            dishes={dishes}
+            viewerRole={currentRole}
+            onBackToMenu={handleBackNav}
+            onTrackOrder={(ordId) => {
+              setActiveTrackingOrderId(ordId);
+              navigateTo('tracking');
+            }}
+            onAdvanceOrderStatus={handleAdvanceOrderStatus}
+            onRejectOrder={handleRejectOrder}
+            onAuditRefund={handleAuditRefund}
+            showToast={(t, d) => toast.success(t, d)}
+            embedded={false}
+          />
         ) : activeNavTab === 'order_messages' ? (
-          <OrderHistoryMessagesView
+          <TruckSynergyRoomPageView
             orders={orders}
             dishes={dishes}
             viewerRole={currentRole}
@@ -2480,113 +2992,22 @@ function MainAppContent() {
           />
         ) : (
           <>
-            {/* Filters, View Switcher & Search (全新设计设计顶栏) */}
-            <div
-              ref={menuSectionRef}
-              className="relative z-30 bg-white h-[44px] pt-[4px] pb-[4px] pl-[4px] pr-1 sm:pr-2 transition-all"
-            >
-              <FilterBar
-                viewMode={viewMode}
-                onViewModeChange={setViewMode}
-                activeCategory={activeCategory}
-                onCategoryChange={handleCategorySelect}
-                activeSubCategory={activeSubCategory}
-                onSubCategoryChange={setActiveSubCategory}
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                categoryCounts={categoryCounts}
-                onOpenFilterModal={() => setIsFilterModalOpen(true)}
-                activeFilterCount={activeFilterCount}
-                isMultiSelectMode={isMultiSelectMode}
-                onToggleMultiSelectMode={() => {
-                  setIsMultiSelectMode((prev) => {
-                    const next = !prev;
-                    if (!next) {
-                      setSelectedDishIds(new Set());
-                      toast.info('已退出自选模式');
-                    } else {
-                      setSelectedDishIds(new Set());
-                      toast.info('已开启自选模式', '请自主点击菜品卡片勾选您心仪的餐品');
-                    }
-                    return next;
-                  });
-                }}
-                isAllSelected={isAllSelected}
-                onToggleSelectAll={handleToggleSelectAll}
-                selectedCount={selectedDishes.length}
-                allDishes={dishes}
-                searchResults={filteredDishes}
-                onSelectDish={(d) => setSelectedDishForDetail(d)}
-                onQuickAdd={(d, e) => handleQuickAdd(d, e)}
+            {/* A1号桌同桌多人点餐小组件：灵动组件变形效果 + 竖向多头像点餐状态流 */}
+            {diningMode === 'dine_in' && (
+              <DynamicTableMorphWidget
+                currentTable={
+                  tableSession.activeSession?.tableCode ||
+                  getCurrentBoundTable()?.code ||
+                  'A1'
+                }
+                onSwitchTable={() => setIsTableBindModalOpen(true)}
+                showToast={(title, desc) => toast.info(title, desc)}
                 diningMode={diningMode}
-                onlyDiscountFilter={onlyDiscountFilter}
-                onToggleDiscountFilter={() => setOnlyDiscountFilter((prev) => !prev)}
-                hideHorizontalCategories={true}
-              />
-
-              {/* Multi-Select Custom Guide Banner (提醒用户自主点选) */}
-              {isMultiSelectMode && (
-                <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  className="mt-2 bg-neutral-900 text-white px-3 sm:px-3.5 py-2 rounded-xl text-xs flex items-center justify-between shadow-2xs gap-2 border border-neutral-800"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-                    <span className="truncate text-neutral-200">
-                      <strong className="text-white">自选模式已开启</strong>：请在菜品卡片上自主点选
-                      {selectedDishes.length > 0 ? (
-                        <span className="ml-1 text-emerald-400 font-bold">（已勾选 {selectedDishes.length} 款）</span>
-                      ) : (
-                        <span className="ml-1 text-neutral-400">（点击任意菜品卡片即可勾选）</span>
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {selectedDishes.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedDishIds(new Set());
-                          toast.info('已清空勾选');
-                        }}
-                        className="text-neutral-400 hover:text-white underline text-[11px] cursor-pointer"
-                      >
-                        清空
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsMultiSelectMode(false);
-                        setSelectedDishIds(new Set());
-                        toast.info('已退出自选模式');
-                      }}
-                      className="px-2.5 py-1 rounded-lg bg-neutral-800 border border-neutral-700 text-white hover:bg-neutral-700 font-semibold text-[11px] shadow-2xs cursor-pointer transition-colors"
-                    >
-                      退出自选
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-            </div>
-
-            {/* Smart Delivery Range Guidance Banner (Prompts user distance, radius, and quick actions) */}
-            {diningMode === 'delivery' && (
-              <DeliveryRangeGuideBanner
-                evaluation={deliveryEvaluation}
-                onOpenRangeDetails={() => setIsDeliveryRangeModalOpen(true)}
-                onSwitchToPickup={() => {
-                  setDiningMode('pickup');
-                  toast.info('已切换为到车自提模式 (免配送费/无配送范围限制)');
-                }}
-                onChangeAddress={() => setIsAddressModalOpen(true)}
               />
             )}
 
             {/* Menu Dishes Sequential Content: Displayed by Category in Ordered Sequence with Linked Breakpoints */}
-            <div className="w-full min-w-0 pt-1">
+            <div ref={menuSectionRef} className="w-full min-w-0 pt-1">
               {isLoadingMenu ? (
                 <DishSkeletonGrid count={6} viewMode={viewMode} />
               ) : categorySections.length === 0 ? (
@@ -2627,8 +3048,8 @@ function MainAppContent() {
                   </div>
                 </div>
               ) : (
-                <div className="flex items-start gap-1.5 sm:gap-2.5 pt-1">
-                  {/* Left Column: Delivery Category Sidebar (外卖专业分类侧边栏，支持动态深度进度轨/触觉音效/角标/联动高亮) */}
+                <div className="flex flex-1 min-h-0 relative items-start">
+                  {/* Left Column: Delivery Category Sidebar */}
                   <DeliveryCategorySidebar
                     categories={ORDERED_CATEGORY_KEYS}
                     activeCategory={activeCategory}
@@ -2642,176 +3063,99 @@ function MainAppContent() {
                   />
 
                   {/* Right Column: Ordered Category Breakpoints & Dish Stream */}
-                  <div className="flex-1 min-w-0 space-y-6 sm:space-y-8">
-                    {categorySections.map((section, sectionIdx) => {
-                      const isCurrentActive = activeCategory === section.catKey;
-                      const isHighlighted = highlightedCategorySection === section.catKey;
-
+                  <div className="flex-1 min-w-0 bg-white pb-24 select-none">
+                    {categorySections.map((section) => {
                       return (
-                      <section
-                        key={section.catKey}
-                        id={`category-section-${section.catKey}`}
-                        data-category-section={section.catKey}
-                        className="scroll-mt-16 sm:scroll-mt-20 space-y-2.5 sm:space-y-3 transition-all duration-300 rounded-none p-0 w-full min-w-0"
-                      >
-                        {/* Store Campaign Carousel for popular if enabled (non-list view) */}
-                        {section.catKey === 'popular' && menuDesignSystem.carousel?.enabled && viewMode !== 'list' ? (
-                          <StoreCampaignCarousel
-                            designSystem={menuDesignSystem}
-                            categoryName={section.category.name}
-                            categoryIcon={section.category.icon}
-                            categoryTagline={section.category.tagline}
-                            categoryBadge={section.category.badge}
-                            categoryBubblePill={section.category.bubblePill}
-                            dishCount={section.dishes.length}
-                            isCurrentActive={isCurrentActive}
-                            isHighlighted={isHighlighted}
-                            categoryScrollProgress={categoryScrollProgress}
-                            onNavigateCategory={(cat) => handleCategorySelect(cat as any)}
-                            onOpenMerchantDesign={() => {
-                              setMerchantInitialTab('menu_design');
-                              setCurrentRole('merchant');
-                            }}
-                            onClaimCoupon={(coupon) => {
-                              toast.success(`已为您激活【${coupon}】优惠券！`, '结算时将自动应用抵扣');
-                            }}
-                          />
-                        ) : null}
-
-                        {/* Dishes in this Category Section */}
-                        {viewMode === 'grid2' ? (
-                          <div className="grid grid-cols-2 gap-x-2 sm:gap-x-3 gap-y-2.5 sm:gap-y-3.5 w-full min-w-0">
-                            {section.dishes.map((dish, dishIdx) => {
-                              const isDishOutOfRange =
-                                diningMode === 'delivery' &&
-                                deliveryEvaluation.isOutOfRange &&
-                                (dish.orderType === 'delivery' || dish.orderType === 'both');
-                              const isFirstPopular = section.catKey === 'popular' && dishIdx === 0;
-
-                              return (
-                                <DishCard
-                                  key={dish.id}
-                                  dish={dish}
-                                  diningMode={diningMode}
-                                  cartQuantity={dishQuantitiesInCart[dish.id] || 0}
-                                  onSelect={(d) => setSelectedDishForDetail(d)}
-                                  onQuickAdd={(d, e) => handleQuickAdd(d, e)}
-                                  isMultiSelectMode={isMultiSelectMode}
-                                  isSelected={selectedDishIds.has(dish.id)}
-                                  onToggleSelect={(d) => handleToggleSelect(d)}
-                                  isOutOfRange={isDishOutOfRange}
-                                  deliveryRadiusKm={deliveryEvaluation.radiusKm}
-                                  currentDistanceKm={deliveryEvaluation.distanceKm}
-                                  onOutOfRangeClick={() => setIsDeliveryRangeModalOpen(true)}
-                                  style={
-                                    isFirstPopular
-                                      ? {
-                                          marginBottom: '3px',
-                                          paddingTop: '4px',
-                                          paddingBottom: '4px',
-                                          paddingRight: '4px',
-                                          paddingLeft: '4px',
-                                          fontSize: '16px'
-                                        }
-                                      : undefined
-                                  }
-                                />
-                              );
-                            })}
+                        <section
+                          key={section.catKey}
+                          id={`category-section-${section.catKey}`}
+                          data-category-section={section.catKey}
+                          className="w-full min-w-0"
+                        >
+                          {/* Category Header Strip matching new design */}
+                          <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-xs px-3 py-1.5 border-b border-[#E2E4E8] flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <span className="w-2 h-2 rounded-[1px] bg-black shrink-0" />
+                              <span className="font-bold text-xs tracking-tight text-black">
+                                {section.category.name}
+                              </span>
+                              <span className="font-mono text-[9px] text-gray-400">
+                                /{section.category.enName || section.catKey.toUpperCase()}
+                              </span>
+                            </div>
+                            <span className="text-[10px] font-mono text-gray-500">
+                              {section.dishes.length} ITEMS
+                            </span>
                           </div>
-                        ) : viewMode === 'grid' ? (
-                          <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-2 sm:gap-x-3 gap-y-2.5 sm:gap-y-3.5 w-full min-w-0">
-                            {section.dishes.map((dish, dishIdx) => {
-                              const isDishOutOfRange =
-                                diningMode === 'delivery' &&
-                                deliveryEvaluation.isOutOfRange &&
-                                (dish.orderType === 'delivery' || dish.orderType === 'both');
-                              const isFirstPopular = section.catKey === 'popular' && dishIdx === 0;
 
-                              return (
-                                <DishCard
-                                  key={dish.id}
-                                  dish={dish}
-                                  diningMode={diningMode}
-                                  cartQuantity={dishQuantitiesInCart[dish.id] || 0}
-                                  onSelect={(d) => setSelectedDishForDetail(d)}
-                                  onQuickAdd={(d, e) => handleQuickAdd(d, e)}
-                                  isMultiSelectMode={isMultiSelectMode}
-                                  isSelected={selectedDishIds.has(dish.id)}
-                                  onToggleSelect={(d) => handleToggleSelect(d)}
-                                  isOutOfRange={isDishOutOfRange}
-                                  deliveryRadiusKm={deliveryEvaluation.radiusKm}
-                                  currentDistanceKm={deliveryEvaluation.distanceKm}
-                                  onOutOfRangeClick={() => setIsDeliveryRangeModalOpen(true)}
-                                  style={
-                                    isFirstPopular
-                                      ? {
-                                          marginBottom: '3px',
-                                          paddingTop: '4px',
-                                          paddingBottom: '4px',
-                                          paddingRight: '4px',
-                                          paddingLeft: '4px',
-                                          fontSize: '16px'
-                                        }
-                                      : undefined
-                                  }
-                                />
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <div className="space-y-3 sm:space-y-3.5 w-full min-w-0">
-                            {section.dishes.map((dish, dishIdx) => {
-                              const isDishOutOfRange =
-                                diningMode === 'delivery' &&
-                                deliveryEvaluation.isOutOfRange &&
-                                (dish.orderType === 'delivery' || dish.orderType === 'both');
-                              const isFirstPopular = section.catKey === 'popular' && dishIdx === 0;
+                          {/* Dishes in this Category Section */}
+                          {viewMode === 'grid2' ? (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 p-2 sm:p-3 bg-white">
+                              {section.dishes.map((dish) => {
+                                const isDishOutOfRange =
+                                  diningMode === 'delivery' &&
+                                  deliveryEvaluation.isOutOfRange &&
+                                  (dish.orderType === 'delivery' || dish.orderType === 'both');
 
-                              return (
-                                <DishListRow
-                                  key={dish.id}
-                                  dish={dish}
-                                  diningMode={diningMode}
-                                  cartQuantity={dishQuantitiesInCart[dish.id] || 0}
-                                  onSelect={(d) => setSelectedDishForDetail(d)}
-                                  onQuickAdd={(d, e) => handleQuickAdd(d, e)}
-                                  isMultiSelectMode={isMultiSelectMode}
-                                  isSelected={selectedDishIds.has(dish.id)}
-                                  onToggleSelect={(d) => handleToggleSelect(d)}
-                                  isOutOfRange={isDishOutOfRange}
-                                  deliveryRadiusKm={deliveryEvaluation.radiusKm}
-                                  currentDistanceKm={deliveryEvaluation.distanceKm}
-                                  onOutOfRangeClick={() => setIsDeliveryRangeModalOpen(true)}
-                                  style={
-                                    isFirstPopular
-                                      ? {
-                                          marginBottom: '3px',
-                                          paddingTop: '4px',
-                                          paddingBottom: '4px',
-                                          paddingRight: '4px',
-                                          paddingLeft: '4px',
-                                          fontSize: '16px'
-                                        }
-                                      : undefined
-                                  }
-                                />
-                              );
-                            })}
-                          </div>
-                        )}
-                      </section>
-                    );
-                  })}
+                                return (
+                                  <DishCard
+                                    key={dish.id}
+                                    dish={dish}
+                                    diningMode={diningMode}
+                                    cartQuantity={dishQuantitiesInCart[dish.id] || 0}
+                                    onSelect={(d) => setSelectedDishForDetail(d)}
+                                    onQuickAdd={(d, e) => handleQuickAdd(d, e)}
+                                    isMultiSelectMode={isMultiSelectMode}
+                                    isSelected={selectedDishIds.has(dish.id)}
+                                    onToggleSelect={(d) => handleToggleSelect(d)}
+                                    isOutOfRange={isDishOutOfRange}
+                                    deliveryRadiusKm={deliveryEvaluation.radiusKm}
+                                    currentDistanceKm={deliveryEvaluation.distanceKm}
+                                    onOutOfRangeClick={() => setIsDeliveryRangeModalOpen(true)}
+                                  />
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="bg-white">
+                              {section.dishes.map((dish) => {
+                                const isDishOutOfRange =
+                                  diningMode === 'delivery' &&
+                                  deliveryEvaluation.isOutOfRange &&
+                                  (dish.orderType === 'delivery' || dish.orderType === 'both');
+
+                                return (
+                                  <DishListRow
+                                    key={dish.id}
+                                    dish={dish}
+                                    diningMode={diningMode}
+                                    cartQuantity={dishQuantitiesInCart[dish.id] || 0}
+                                    onSelect={(d) => setSelectedDishForDetail(d)}
+                                    onQuickAdd={(d, e) => handleQuickAdd(d, e)}
+                                    isMultiSelectMode={isMultiSelectMode}
+                                    isSelected={selectedDishIds.has(dish.id)}
+                                    onToggleSelect={(d) => handleToggleSelect(d)}
+                                    isOutOfRange={isDishOutOfRange}
+                                    deliveryRadiusKm={deliveryEvaluation.radiusKm}
+                                    currentDistanceKm={deliveryEvaluation.distanceKm}
+                                    onOutOfRangeClick={() => setIsDeliveryRangeModalOpen(true)}
+                                  />
+                                );
+                              })}
+                            </div>
+                          )}
+                        </section>
+                      );
+                    })}
 
                     {/* End of Menu Obsidian Guarantee Card */}
-                    <div className="pt-6 pb-6 sm:pb-8 text-center flex flex-col items-center justify-center gap-2 text-neutral-400 select-none">
-                      <div className="h-[1px] w-28 bg-gradient-to-r from-transparent via-neutral-300 to-transparent" />
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#e8e8e6] text-[11px] font-semibold text-neutral-600 shadow-2xs">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    <div className="pt-6 pb-6 text-center flex flex-col items-center justify-center gap-2 text-gray-400 select-none">
+                      <div className="h-[1px] w-28 bg-gray-200" />
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-[#F4F5F7] border border-[#E2E4E8] text-[11px] font-semibold text-gray-700 shadow-2xs">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#FF9900]" />
                         <span>黑曜石 01 号餐车 · 现制热食全品类已浏览完毕</span>
                       </div>
-                      <p className="text-[10px] text-neutral-400 font-mono">
+                      <p className="text-[10px] text-gray-400 font-mono">
                         全单即点现烹 · 优质食材锁鲜直达
                       </p>
                     </div>
@@ -2825,7 +3169,7 @@ function MainAppContent() {
 
       {/* 菜品卡片滚动与侧边栏联动反馈悬浮指示器 (Floating Linked Scroll HUD - 已按要求默认删除，保持全屏纯净点单体验；可由后台设计系统按需控制) */}
       <AnimatePresence>
-        {((menuDesignSystem.theme.showScrollLinkageHud ?? false) || (truckExpandConfig.showScrollLinkageHud ?? false)) && linkageToastInfo && isScrollingDishes && (
+        {(truckExpandConfig.showScrollLinkageHud ?? false) && linkageToastInfo && isScrollingDishes && (
           <motion.div
             initial={{ opacity: 0, y: -16, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -3002,6 +3346,26 @@ function MainAppContent() {
         }}
       />
 
+      {/* 堂食选座开台 / 换桌模态框 */}
+      <TableBindModal
+        isOpen={isTableBindModalOpen}
+        onClose={() => {
+          setIsTableBindModalOpen(false);
+          // 若关闭时未绑定桌台且未建立会话，平滑回退至外卖模式，避免卡在无桌台状态
+          if (!getCurrentBoundTable() && !tableSession.activeSession) {
+            setDiningMode('delivery');
+            toast.info('已退出堂食选座', '为您保留外卖专送模式');
+          }
+        }}
+        currentBoundTable={getCurrentBoundTable()}
+        onConfirmBind={(table) => {
+          setCurrentBoundTable(table);
+          setIsTableBindModalOpen(false);
+          toast.success(`已选定 ${table.code} 号桌`, `${table.zoneLabel} · ${table.guests}人就座`);
+        }}
+        truckName={truck.name}
+      />
+
       {/* Position #3: Truck Pull-Up Menu / Drawer (Elements moved from #1) */}
       <TruckPullUpMenu
         isOpen={isPullUpMenuOpen}
@@ -3057,7 +3421,7 @@ function MainAppContent() {
           orders={orders}
           onOpenOrders={() => navigateTo('orders')}
           isVIPActive={isVIPActive}
-          onOpenVIP={() => setIsVIPModalOpen(true)}
+          onOpenVIP={() => navigateTo('profile')}
           deliveryAddress={deliveryAddress}
           onChangeAddress={() => setIsAddressModalOpen(true)}
           currentRole={currentRole}
@@ -3109,25 +3473,89 @@ function MainAppContent() {
         onNavigateToTracking={() => navigateTo('tracking')}
       />
 
-      {/* Staff & Rider Phone Login Modal (Mandatory phone verification while preserving hardware fingerprint) */}
-      <StaffRiderPhoneAuthModal
-        isOpen={isStaffRiderAuthModalOpen}
-        role={targetAuthRole}
-        onClose={() => setIsStaffRiderAuthModalOpen(false)}
-        onSuccess={handleStaffRiderAuthSuccess}
-      />
-
       {/* Platform Level-4 Security Access Gatekeeper */}
       <PlatformAuthModal
         isOpen={isPlatformAuthModalOpen}
         onClose={() => setIsPlatformAuthModalOpen(false)}
         onSuccess={() => {
           setCurrentRole('platform');
+          switchTier('L1');
+          persistUserRole('platform');
           toast.success('平台总控安全门禁认证通过');
         }}
         showToast={(msg) => toast.info(msg)}
       />
+        </div>
+      </div>
+        </CustomerPhoneFrame>
     </div>
+
+    {/* 全局公用弹窗与硬件/云端连接中心 */}
+    <CloudbaseStatusModal
+      isOpen={isCloudbaseModalOpen}
+      onClose={() => setIsCloudbaseModalOpen(false)}
+      dishes={dishes}
+      orders={orders}
+      onDishesUpdated={setDishes}
+      isConnected={isCloudbaseConnected}
+      authUserId={cloudbaseAuthUserId}
+    />
+    <OrderHistoryMessagesModal
+      isOpen={isMessageFormModalOpen}
+      onClose={() => setIsMessageFormModalOpen(false)}
+      orders={orders}
+      dishes={dishes}
+      viewerRole={currentRole}
+      onAdvanceOrderStatus={handleAdvanceOrderStatus}
+      onRejectOrder={handleRejectOrder}
+      onAuditRefund={handleAuditRefund}
+      showToast={(t, d) => toast.success(t, d)}
+      onTrackOrder={() => {
+        setIsMessageFormModalOpen(false);
+        navigateTo('tracking');
+      }}
+    />
+  </>
+      </div>
+
+      {/* ★ 右栏 · 客食端预览壳容器列（三端共用；customer 本体不渲染） */}
+      {previewColumnOpen && previewRole && (
+        <CustomerPreviewColumn role={previewRole} onClose={() => togglePreviewPanel(false)} />
+      )}
+
+      {/* 收起后的重展开细把手（审计把手正上方，支持仅图标与常驻模式切换） */}
+      {previewFeatureOn && !previewColumnOpen && (
+        <button
+          type="button"
+          onClick={() => togglePreviewPanel(true)}
+          className={`fixed right-0 z-40 bg-[#185FA5] text-white border border-[#0C447C] border-r-0 rounded-l-[4px] shadow-lg cursor-pointer hover:bg-[#0C447C] transition-all duration-200 group flex items-center justify-center ${
+            wsPrefsLive.buttonDisplayMode === 'icon_only'
+              ? 'p-2'
+              : 'px-1 py-2.5'
+          }`}
+          style={{
+            top: 'calc(50% - 150px)',
+            ...(wsPrefsLive.buttonDisplayMode === 'always'
+              ? { writingMode: 'vertical-rl', letterSpacing: '3px', fontSize: '11px', fontWeight: 700 }
+              : {})
+          }}
+          title="展开客食端实时预览列"
+        >
+          {wsPrefsLive.buttonDisplayMode === 'icon_only' ? (
+            <div className="flex items-center gap-1.5 overflow-hidden">
+              <Smartphone className="w-3.5 h-3.5 shrink-0 text-white" />
+              <span className="max-w-0 opacity-0 group-hover:max-w-[85px] group-hover:opacity-100 transition-all duration-200 overflow-hidden whitespace-nowrap text-[11px] font-bold">
+                客食端预览
+              </span>
+            </div>
+          ) : (
+            '客食端预览'
+          )}
+        </button>
+      )}
+    </div>
+      )}
+    </MotionConfig>
   );
 }
 

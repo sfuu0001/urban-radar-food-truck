@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Scissors,
   AlertTriangle,
@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { ProcessingLossRecord, LossTrackingRecord } from '../../types';
 import { INITIAL_PROCESSING_RECORDS, INITIAL_LOSS_RECORDS } from '../../data/mockEnhancedData';
+import { DateRangeFilter } from '../common/DateRangeFilter';
+import { DateFilterState, resolveDateRange, isWithinRange } from '../../utils/dateFilter';
 
 interface MerchantLossHubProps {
   showToast: (msg: string) => void;
@@ -26,6 +28,9 @@ interface MerchantLossHubProps {
 
 export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) => {
   const [subTab, setSubTab] = useState<'processing' | 'tracking'>('processing');
+  // 时间区间筛选（记录 date: 'YYYY-MM-DD HH:mm'）
+  const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'all' });
+  const dateRange = useMemo(() => resolveDateRange(dateFilter), [dateFilter]);
 
   // Processing state
   const [processingRecords, setProcessingRecords] = useState<ProcessingLossRecord[]>(INITIAL_PROCESSING_RECORDS);
@@ -49,6 +54,16 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
   const [lossPerson, setLossPerson] = useState<string>('刘烤师');
   const [lossStation, setLossStation] = useState<'grill' | 'cold' | 'bar' | 'all'>('grill');
   const [lossReasonText, setLossReasonText] = useState<string>('炭火过旺表面微焦，主动报损重烤');
+
+  // 时间区间筛选结果（需在两个 records state 声明之后定义）
+  const filteredProcessingRecords = useMemo(
+    () => processingRecords.filter((r) => isWithinRange(new Date(String(r.date || '')).getTime(), dateRange)),
+    [processingRecords, dateRange]
+  );
+  const filteredLossRecords = useMemo(
+    () => lossRecords.filter((r) => isWithinRange(new Date(String(r.date || '')).getTime(), dateRange)),
+    [lossRecords, dateRange]
+  );
 
   // Summary Metrics
   const totalProcessingKg = processingRecords.reduce((acc, r) => acc + r.grossWeight, 0);
@@ -142,55 +157,55 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
   };
 
   return (
-    <div className="space-y-4 text-xs">
+    <div className="space-y-3.5 text-xs">
       {/* 1. Top Metrics Banner */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         <div className="bg-white p-3 rounded-[3px] border border-[#e6e6e4] space-y-1 shadow-2xs">
           <div className="flex items-center justify-between text-[#787774]">
-            <span className="text-[10.5px]">今日初加工出成率</span>
-            <Scale className="w-3.5 h-3.5 text-[#2b593f]" />
+            <span className="text-[10.5px] font-normal">今日初加工出成率</span>
+            <Scale className="w-3.5 h-3.5 text-emerald-700" />
           </div>
-          <p className="font-mono font-bold text-lg text-[#2b593f]">
+          <p className="font-mono font-medium text-lg text-emerald-800">
             {avgYieldRate.toFixed(1)}%
           </p>
-          <span className="text-[10px] text-[#787774]">
+          <span className="text-[10px] text-[#787774] font-normal block">
             毛料 {totalProcessingKg.toFixed(1)}kg / 净料 {totalNetKg.toFixed(1)}kg
           </span>
         </div>
 
         <div className="bg-white p-3 rounded-[3px] border border-[#e6e6e4] space-y-1 shadow-2xs">
           <div className="flex items-center justify-between text-[#787774]">
-            <span className="text-[10.5px]">初加工损耗金额</span>
-            <Scissors className="w-3.5 h-3.5 text-[#d9730d]" />
+            <span className="text-[10.5px] font-normal">初加工损耗金额</span>
+            <Scissors className="w-3.5 h-3.5 text-amber-700" />
           </div>
-          <p className="font-mono font-bold text-lg text-[#d9730d]">
+          <p className="font-mono font-medium text-lg text-amber-800">
             ¥{totalProcessingLossAmount.toFixed(1)}
           </p>
-          <span className="text-[10px] text-[#787774]">
+          <span className="text-[10px] text-[#787774] font-normal block">
             累计损耗 {(totalProcessingKg - totalNetKg).toFixed(1)}kg
           </span>
         </div>
 
         <div className="bg-white p-3 rounded-[3px] border border-[#e6e6e4] space-y-1 shadow-2xs">
           <div className="flex items-center justify-between text-[#787774]">
-            <span className="text-[10.5px]">高危超损预警</span>
-            <AlertTriangle className="w-3.5 h-3.5 text-[#d44333]" />
+            <span className="text-[10.5px] font-normal">高危超损预警</span>
+            <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
           </div>
-          <p className="font-mono font-bold text-lg text-[#d44333]">
-            {criticalCount} <span className="text-xs font-normal">项超标</span>
+          <p className="font-mono font-medium text-lg text-rose-700">
+            {criticalCount} <span className="text-xs font-normal text-[#787774]">项超标</span>
           </p>
-          <span className="text-[10px] text-[#d44333]">低于标准阈值 5pp 以上</span>
+          <span className="text-[10px] text-rose-600 font-normal block">低于标准阈值 5pp 以上</span>
         </div>
 
         <div className="bg-white p-3 rounded-[3px] border border-[#e6e6e4] space-y-1 shadow-2xs">
           <div className="flex items-center justify-between text-[#787774]">
-            <span className="text-[10.5px]">全维度报损总成本</span>
-            <Flame className="w-3.5 h-3.5 text-[#37352f]" />
+            <span className="text-[10.5px] font-normal">全维度报损总成本</span>
+            <Flame className="w-3.5 h-3.5 text-[#0f172a]" />
           </div>
-          <p className="font-mono font-bold text-lg text-[#37352f]">
+          <p className="font-mono font-medium text-lg text-[#0f172a]">
             ¥{totalTrackingLossAmount.toFixed(1)}
           </p>
-          <span className="text-[10px] text-[#787774]">已记录 {lossRecords.length} 笔报损单</span>
+          <span className="text-[10px] text-[#787774] font-normal block">已记录 {lossRecords.length} 笔报损单</span>
         </div>
       </div>
 
@@ -200,10 +215,10 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
           <button
             type="button"
             onClick={() => setSubTab('processing')}
-            className={`px-2.5 sm:px-3 py-1.5 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-[2px] font-normal text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
               subTab === 'processing'
-                ? 'bg-[#37352f] text-white shadow-xs'
-                : 'bg-[#f1f1ef] text-[#5a5854] hover:bg-[#e8e8e6]'
+                ? 'bg-[#0f172a] text-white shadow-2xs'
+                : 'bg-[#fbfbfa] text-[#787774] border border-[#e6e6e4] hover:bg-[#f1f1ef] hover:text-[#0f172a]'
             }`}
           >
             <Scissors className="w-3.5 h-3.5" />
@@ -211,7 +226,7 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
               <span className="sm:hidden">初加工核算</span>
               <span className="hidden sm:inline">初加工出成率核算 (Processing)</span>
             </span>
-            <span className="font-mono text-[10px] bg-black/20 px-1 rounded">
+            <span className="font-mono text-[10px] bg-black/10 px-1 rounded-[2px]">
               {processingRecords.length}
             </span>
           </button>
@@ -219,18 +234,18 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
           <button
             type="button"
             onClick={() => setSubTab('tracking')}
-            className={`px-2.5 sm:px-3 py-1.5 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-[2px] font-normal text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
               subTab === 'tracking'
-                ? 'bg-[#37352f] text-white shadow-xs'
-                : 'bg-[#f1f1ef] text-[#5a5854] hover:bg-[#e8e8e6]'
+                ? 'bg-[#0f172a] text-white shadow-2xs'
+                : 'bg-[#fbfbfa] text-[#787774] border border-[#e6e6e4] hover:bg-[#f1f1ef] hover:text-[#0f172a]'
             }`}
           >
-            <Flame className="w-3.5 h-3.5 text-[#d9730d]" />
+            <Flame className="w-3.5 h-3.5 text-amber-600" />
             <span>
               <span className="sm:hidden">报损登记</span>
               <span className="hidden sm:inline">全维度报损登记 (Tracking)</span>
             </span>
-            <span className="font-mono text-[10px] bg-black/20 px-1 rounded">
+            <span className="font-mono text-[10px] bg-black/10 px-1 rounded-[2px]">
               {lossRecords.length}
             </span>
           </button>
@@ -241,7 +256,7 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
             <button
               type="button"
               onClick={() => setIsAddingProcessing(!isAddingProcessing)}
-              className="px-3 py-1.5 bg-[#2b593f] hover:bg-[#204430] text-white rounded-[3px] font-semibold text-xs flex items-center gap-1 cursor-pointer shadow-2xs"
+              className="px-2.5 py-1 bg-[#0f172a] hover:bg-[#1e293b] text-white rounded-[2px] font-normal text-xs flex items-center gap-1 cursor-pointer shadow-2xs"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>录入记录</span>
@@ -250,7 +265,7 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
             <button
               type="button"
               onClick={() => setIsAddingLoss(!isAddingLoss)}
-              className="px-3 py-1.5 bg-[#d9730d] hover:bg-[#b55f0a] text-white rounded-[3px] font-semibold text-xs flex items-center gap-1 cursor-pointer shadow-2xs"
+              className="px-2.5 py-1 bg-[#0f172a] hover:bg-[#1e293b] text-white rounded-[2px] font-normal text-xs flex items-center gap-1 cursor-pointer shadow-2xs"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>登记报损</span>
@@ -263,30 +278,30 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
       {isAddingProcessing && subTab === 'processing' && (
         <form
           onSubmit={handleCreateProcessing}
-          className="bg-[#fbfbfa] p-4 rounded-[3px] border border-[#37352f] space-y-3 shadow-sm animate-in fade-in duration-150"
+          className="bg-[#fbfbfa] p-3 rounded-[3px] border border-[#e6e6e4] space-y-2.5 shadow-2xs animate-in fade-in duration-150"
         >
           <div className="flex items-center justify-between border-b border-[#e6e6e4] pb-2">
-            <h4 className="font-bold text-xs text-[#37352f] flex items-center gap-1.5">
-              <Scissors className="w-3.5 h-3.5 text-[#2b593f]" />
+            <h4 className="font-medium text-xs text-[#0f172a] flex items-center gap-1.5">
+              <Scissors className="w-3.5 h-3.5 text-emerald-700" />
               <span>录入食材初加工出成率核算单</span>
             </h4>
-            <span className="text-[10px] text-[#787774]">系统将根据净重/毛重自动计算出肉率与预警</span>
+            <span className="text-[10px] text-[#787774] font-normal">系统将根据净重/毛重自动计算出肉率与预警</span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <div>
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">原料名称</label>
+              <label className="text-[10.5px] font-normal text-[#787774] block mb-1">原料名称</label>
               <input
                 type="text"
                 value={newMaterial}
                 onChange={(e) => setNewMaterial(e.target.value)}
-                className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f]"
+                className="w-full bg-white border border-[#e6e6e4] rounded-[2px] px-2 py-1 text-xs text-[#0f172a] focus:outline-none focus:border-[#0f172a]"
                 required
               />
             </div>
 
             <div>
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">
+              <label className="text-[10.5px] font-normal text-[#787774] block mb-1">
                 毛料重量 (kg)
               </label>
               <input
@@ -294,13 +309,13 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
                 step="0.1"
                 value={newGross}
                 onChange={(e) => setNewGross(e.target.value)}
-                className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f] font-mono"
+                className="w-full bg-white border border-[#e6e6e4] rounded-[2px] px-2 py-1 text-xs text-[#0f172a] font-mono focus:outline-none focus:border-[#0f172a]"
                 required
               />
             </div>
 
             <div>
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">
+              <label className="text-[10.5px] font-normal text-[#787774] block mb-1">
                 净料重量 (kg)
               </label>
               <input
@@ -308,13 +323,13 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
                 step="0.1"
                 value={newNet}
                 onChange={(e) => setNewNet(e.target.value)}
-                className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f] font-mono"
+                className="w-full bg-white border border-[#e6e6e4] rounded-[2px] px-2 py-1 text-xs text-[#0f172a] font-mono focus:outline-none focus:border-[#0f172a]"
                 required
               />
             </div>
 
             <div>
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">
+              <label className="text-[10.5px] font-normal text-[#787774] block mb-1">
                 原料单价 (¥/kg)
               </label>
               <input
@@ -322,13 +337,13 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
                 step="1"
                 value={newUnitPrice}
                 onChange={(e) => setNewUnitPrice(e.target.value)}
-                className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f] font-mono"
+                className="w-full bg-white border border-[#e6e6e4] rounded-[2px] px-2 py-1 text-xs text-[#0f172a] font-mono focus:outline-none focus:border-[#0f172a]"
                 required
               />
             </div>
 
             <div>
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">
+              <label className="text-[10.5px] font-normal text-[#787774] block mb-1">
                 标准出成率阈值 (例如 0.75 代表 75%)
               </label>
               <input
@@ -336,30 +351,30 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
                 step="0.01"
                 value={newStandardRate}
                 onChange={(e) => setNewStandardRate(e.target.value)}
-                className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f] font-mono"
+                className="w-full bg-white border border-[#e6e6e4] rounded-[2px] px-2 py-1 text-xs text-[#0f172a] font-mono focus:outline-none focus:border-[#0f172a]"
                 required
               />
             </div>
 
             <div>
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">责任加工师傅</label>
+              <label className="text-[10.5px] font-normal text-[#787774] block mb-1">责任加工师傅</label>
               <input
                 type="text"
                 value={newOperator}
                 onChange={(e) => setNewOperator(e.target.value)}
-                className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f]"
+                className="w-full bg-white border border-[#e6e6e4] rounded-[2px] px-2 py-1 text-xs text-[#0f172a] focus:outline-none focus:border-[#0f172a]"
                 required
               />
             </div>
           </div>
 
           <div>
-            <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">加工损耗原因与备注</label>
+            <label className="text-[10.5px] font-normal text-[#787774] block mb-1">加工损耗原因与备注</label>
             <input
               type="text"
               value={newReason}
               onChange={(e) => setNewReason(e.target.value)}
-              className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f]"
+              className="w-full bg-white border border-[#e6e6e4] rounded-[2px] px-2 py-1 text-xs text-[#0f172a] focus:outline-none focus:border-[#0f172a]"
               placeholder="例如：修除多余白色脂肪，去除筋膜损耗"
             />
           </div>
@@ -368,13 +383,13 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
             <button
               type="button"
               onClick={() => setIsAddingProcessing(false)}
-              className="px-3 py-1 bg-[#efefed] hover:bg-[#e6e6e4] text-[#5a5854] rounded-[3px] font-semibold text-xs cursor-pointer"
+              className="px-2.5 py-1 bg-white border border-[#e6e6e4] hover:bg-[#fbfbfa] text-[#787774] rounded-[2px] font-normal text-xs cursor-pointer"
             >
               取消
             </button>
             <button
               type="submit"
-              className="px-4 py-1 bg-[#2b593f] hover:bg-[#204430] text-white rounded-[3px] font-semibold text-xs cursor-pointer shadow-xs"
+              className="px-3 py-1 bg-[#0f172a] hover:bg-[#1e293b] text-white rounded-[2px] font-normal text-xs cursor-pointer shadow-2xs"
             >
               确认核算并入库
             </button>
@@ -386,34 +401,34 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
       {isAddingLoss && subTab === 'tracking' && (
         <form
           onSubmit={handleCreateLoss}
-          className="bg-[#fbfbfa] p-4 rounded-[3px] border border-[#d9730d] space-y-3 shadow-sm animate-in fade-in duration-150"
+          className="bg-[#fbfbfa] p-3 rounded-[3px] border border-[#e6e6e4] space-y-2.5 shadow-2xs animate-in fade-in duration-150"
         >
           <div className="flex items-center justify-between border-b border-[#e6e6e4] pb-2">
-            <h4 className="font-bold text-xs text-[#37352f] flex items-center gap-1.5">
-              <Flame className="w-3.5 h-3.5 text-[#d9730d]" />
+            <h4 className="font-medium text-xs text-[#0f172a] flex items-center gap-1.5">
+              <Flame className="w-3.5 h-3.5 text-amber-600" />
               <span>登记全维度报损记录 (Loss Write-off)</span>
             </h4>
-            <span className="text-[10px] text-[#787774]">已制作退菜将自动关联至此处汇总</span>
+            <span className="text-[10px] text-[#787774] font-normal">已制作退菜将自动关联至此处汇总</span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <div>
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">报损品项</label>
+              <label className="text-[10.5px] font-normal text-[#787774] block mb-1">报损品项</label>
               <input
                 type="text"
                 value={lossItemName}
                 onChange={(e) => setLossItemName(e.target.value)}
-                className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f]"
+                className="w-full bg-white border border-[#e6e6e4] rounded-[2px] px-2 py-1 text-xs text-[#0f172a] focus:outline-none focus:border-[#0f172a]"
                 required
               />
             </div>
 
             <div>
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">报损归属分类</label>
+              <label className="text-[10.5px] font-normal text-[#787774] block mb-1">报损归属分类</label>
               <select
                 value={lossCategory}
                 onChange={(e) => setLossCategory(e.target.value as any)}
-                className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f]"
+                className="w-full bg-white border border-[#e6e6e4] rounded-[2px] px-2 py-1 text-xs text-[#0f172a] focus:outline-none focus:border-[#0f172a]"
               >
                 <option value="grill">烧烤制作失误 (grill)</option>
                 <option value="expire">临期变质报损 (expire)</option>
@@ -424,11 +439,11 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
             </div>
 
             <div>
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">所属档口</label>
+              <label className="text-[10.5px] font-normal text-[#787774] block mb-1">所属档口</label>
               <select
                 value={lossStation}
                 onChange={(e) => setLossStation(e.target.value as any)}
-                className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f]"
+                className="w-full bg-white border border-[#e6e6e4] rounded-[2px] px-2 py-1 text-xs text-[#0f172a] focus:outline-none focus:border-[#0f172a]"
               >
                 <option value="grill">烧烤档 (Grill)</option>
                 <option value="cold">凉菜/生鲜档 (Cold)</option>
@@ -438,57 +453,57 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
             </div>
 
             <div>
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">报损数量与单位</label>
+              <label className="text-[10.5px] font-normal text-[#787774] block mb-1">报损数量与单位</label>
               <div className="flex gap-1.5">
                 <input
                   type="number"
                   step="0.5"
                   value={lossQty}
                   onChange={(e) => setLossQty(e.target.value)}
-                  className="w-2/3 bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f] font-mono"
+                  className="w-2/3 bg-white border border-[#e6e6e4] rounded-[2px] px-2 py-1 text-xs text-[#0f172a] font-mono focus:outline-none focus:border-[#0f172a]"
                   required
                 />
                 <input
                   type="text"
                   value={lossUnit}
                   onChange={(e) => setLossUnit(e.target.value)}
-                  className="w-1/3 bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f]"
+                  className="w-1/3 bg-white border border-[#e6e6e4] rounded-[2px] px-2 py-1 text-xs text-[#0f172a] focus:outline-none focus:border-[#0f172a]"
                   required
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">估算成本 (¥)</label>
+              <label className="text-[10.5px] font-normal text-[#787774] block mb-1">估算成本 (¥)</label>
               <input
                 type="number"
                 step="0.1"
                 value={lossCost}
                 onChange={(e) => setLossCost(e.target.value)}
-                className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f] font-mono"
+                className="w-full bg-white border border-[#e6e6e4] rounded-[2px] px-2 py-1 text-xs text-[#0f172a] font-mono focus:outline-none focus:border-[#0f172a]"
                 required
               />
             </div>
 
             <div>
-              <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">责任人</label>
+              <label className="text-[10.5px] font-normal text-[#787774] block mb-1">责任人</label>
               <input
                 type="text"
                 value={lossPerson}
                 onChange={(e) => setLossPerson(e.target.value)}
-                className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f]"
+                className="w-full bg-white border border-[#e6e6e4] rounded-[2px] px-2 py-1 text-xs text-[#0f172a] focus:outline-none focus:border-[#0f172a]"
                 required
               />
             </div>
           </div>
 
           <div>
-            <label className="text-[10.5px] font-semibold text-[#5a5854] block mb-1">报损详细原因</label>
+            <label className="text-[10.5px] font-normal text-[#787774] block mb-1">报损详细原因</label>
             <input
               type="text"
               value={lossReasonText}
               onChange={(e) => setLossReasonText(e.target.value)}
-              className="w-full bg-white border border-[#d3d1cb] rounded-[3px] px-2 py-1.5 text-xs text-[#37352f]"
+              className="w-full bg-white border border-[#e6e6e4] rounded-[2px] px-2 py-1 text-xs text-[#0f172a] focus:outline-none focus:border-[#0f172a]"
               required
             />
           </div>
@@ -497,13 +512,13 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
             <button
               type="button"
               onClick={() => setIsAddingLoss(false)}
-              className="px-3 py-1 bg-[#efefed] hover:bg-[#e6e6e4] text-[#5a5854] rounded-[3px] font-semibold text-xs cursor-pointer"
+              className="px-2.5 py-1 bg-white border border-[#e6e6e4] hover:bg-[#fbfbfa] text-[#787774] rounded-[2px] font-normal text-xs cursor-pointer"
             >
               取消
             </button>
             <button
               type="submit"
-              className="px-4 py-1 bg-[#d9730d] hover:bg-[#b55f0a] text-white rounded-[3px] font-semibold text-xs cursor-pointer shadow-xs"
+              className="px-3 py-1 bg-[#0f172a] hover:bg-[#1e293b] text-white rounded-[2px] font-normal text-xs cursor-pointer shadow-2xs"
             >
               确认登记报损
             </button>
@@ -513,29 +528,31 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
 
       {/* 5. Processing List View */}
       {subTab === 'processing' && (
+        <>
+        <div className="mb-2"><DateRangeFilter value={dateFilter} onChange={setDateFilter} compact /></div>
         <div className="bg-white rounded-[3px] border border-[#e6e6e4] overflow-hidden shadow-2xs">
-          <div className="p-3 bg-[#f7f7f5] border-b border-[#e6e6e4] flex items-center justify-between">
-            <h4 className="font-bold text-xs text-[#37352f] flex items-center gap-1.5">
-              <Scissors className="w-3.5 h-3.5 text-[#2b593f]" />
+          <div className="p-2.5 bg-[#fbfbfa] border-b border-[#e6e6e4] flex items-center justify-between">
+            <h4 className="font-medium text-xs text-[#0f172a] flex items-center gap-1.5">
+              <Scissors className="w-3.5 h-3.5 text-emerald-700" />
               <span>初加工损耗核算记录 (Processing Yield Ledger)</span>
             </h4>
-            <span className="text-[10px] text-[#787774]">
+            <span className="text-[10px] text-[#787774] font-normal">
               出成率预警机: Normal (合格) / Warning (关注) / Critical (超标严重)
             </span>
           </div>
 
           {/* Mobile Card List (< md) */}
-          <div className="md:hidden divide-y divide-[#efefed]">
-            {processingRecords.map((r) => {
+          <div className="md:hidden divide-y divide-[#f1f1ef]">
+            {filteredProcessingRecords.map((r) => {
               const yieldPct = (r.yieldRate * 100).toFixed(1);
               const stdPct = (r.standardRate * 100).toFixed(1);
               const diffPct = ((r.yieldRate - r.standardRate) * 100).toFixed(1);
 
               return (
-                <div key={r.id} className="p-3 space-y-2 hover:bg-[#fbfbfa]">
+                <div key={r.id} className="p-2.5 space-y-1.5 hover:bg-[#fbfbfa] transition-colors">
                   <div className="flex items-center justify-between gap-2">
                     <div>
-                      <span className="font-semibold text-xs text-[#37352f] block">{r.materialName}</span>
+                      <span className="font-medium text-xs text-[#0f172a] block">{r.materialName}</span>
                       <div className="flex items-center gap-1.5 text-[10px] text-[#787774]">
                         <span className="font-mono">{r.id}</span>
                         <span>·</span>
@@ -546,19 +563,19 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
                     </div>
                     <div className="text-right">
                       <span
-                        className={`font-mono font-bold text-sm block ${
+                        className={`font-mono font-medium text-sm block ${
                           r.status === 'critical'
-                            ? 'text-[#d44333]'
+                            ? 'text-rose-600'
                             : r.status === 'warning'
-                            ? 'text-[#d9730d]'
-                            : 'text-[#2b593f]'
+                            ? 'text-amber-600'
+                            : 'text-emerald-700'
                         }`}
                       >
                         {yieldPct}%
                       </span>
                       <span
                         className={`text-[9.5px] font-mono ${
-                          parseFloat(diffPct) < 0 ? 'text-[#d44333]' : 'text-[#2b593f]'
+                          parseFloat(diffPct) < 0 ? 'text-rose-600' : 'text-emerald-700'
                         }`}
                       >
                         {parseFloat(diffPct) > 0 ? `+${diffPct}` : diffPct}% (标:{stdPct}%)
@@ -566,36 +583,36 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
                     </div>
                   </div>
 
-                  <div className="bg-[#f7f7f5] rounded p-2 text-[11px] flex items-center justify-between font-mono">
+                  <div className="bg-[#fbfbfa] rounded-[2px] border border-[#e6e6e4] p-1.5 text-[11px] flex items-center justify-between font-mono">
                     <div>
                       <span className="text-[#787774]">毛料 {r.grossWeight}kg</span>
-                      <span className="text-[#37352f] font-bold mx-1">$\to$</span>
-                      <span className="text-[#2b593f] font-bold">净料 {r.netWeight}kg</span>
+                      <span className="text-[#0f172a] font-medium mx-1">→</span>
+                      <span className="text-emerald-800 font-medium">净料 {r.netWeight}kg</span>
                     </div>
                     <div className="text-right">
-                      <span className="text-[#37352f] font-bold">- {r.lossKg}kg</span>
-                      <span className="text-[#d9730d] ml-1">(-¥{r.lossAmount.toFixed(1)})</span>
+                      <span className="text-[#0f172a] font-medium">- {r.lossKg}kg</span>
+                      <span className="text-amber-700 ml-1">(-¥{r.lossAmount.toFixed(1)})</span>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between text-[10.5px]">
-                    <span className="text-[#5a5854] flex items-center gap-1">
+                    <span className="text-[#787774] flex items-center gap-1 font-normal">
                       <User className="w-3 h-3 text-[#787774]" />
                       <span>{r.operator}</span>
                     </span>
                     <div>
                       {r.status === 'normal' && (
-                        <span className="text-[10px] bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc] px-1.5 py-0.2 rounded font-bold">
+                        <span className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-1.5 py-0.2 rounded-[2px] font-normal">
                           合格
                         </span>
                       )}
                       {r.status === 'warning' && (
-                        <span className="text-[10px] bg-[#fbf3db] text-[#8f6412] border border-[#ecd9a8] px-1.5 py-0.2 rounded font-bold">
+                        <span className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.2 rounded-[2px] font-normal">
                           关注
                         </span>
                       )}
                       {r.status === 'critical' && (
-                        <span className="text-[10px] bg-[#fde8e8] text-[#d44333] border border-[#f8b4b4] px-1.5 py-0.2 rounded font-bold">
+                        <span className="text-[10px] bg-rose-50 text-rose-700 border border-rose-200 px-1.5 py-0.2 rounded-[2px] font-normal">
                           超标预警
                         </span>
                       )}
@@ -603,7 +620,7 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
                   </div>
 
                   {r.lossReason && (
-                    <p className="text-[10.5px] text-[#787774] bg-white border border-[#efefed] rounded p-1.5">
+                    <p className="text-[10.5px] text-[#787774] bg-[#fbfbfa] border border-[#e6e6e4] rounded-[2px] p-1.5 font-normal">
                       {r.lossReason}
                     </p>
                   )}
@@ -616,18 +633,18 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="border-b border-[#e6e6e4] bg-[#fbfbfa] text-[#787774] text-[10.5px]">
-                  <th className="p-2.5 font-bold">单号/时间</th>
-                  <th className="p-2.5 font-bold">原料名称</th>
-                  <th className="p-2.5 font-bold">毛重 $\to$ 净重</th>
-                  <th className="p-2.5 font-bold">实际出成率 vs 标准</th>
-                  <th className="p-2.5 font-bold">损耗量 &amp; 成本</th>
-                  <th className="p-2.5 font-bold">责任人</th>
-                  <th className="p-2.5 font-bold">损耗原因 &amp; 预警状态</th>
+                <tr className="border-b border-[#e6e6e4] bg-[#fbfbfa] text-[#787774] text-[10.5px] font-normal">
+                  <th className="p-2.5 font-normal">单号/时间</th>
+                  <th className="p-2.5 font-normal">原料名称</th>
+                  <th className="p-2.5 font-normal">毛重 → 净重</th>
+                  <th className="p-2.5 font-normal">实际出成率 vs 标准</th>
+                  <th className="p-2.5 font-normal">损耗量 &amp; 成本</th>
+                  <th className="p-2.5 font-normal">责任人</th>
+                  <th className="p-2.5 font-normal">损耗原因 &amp; 预警状态</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#efefed]">
-                {processingRecords.map((r) => {
+              <tbody className="divide-y divide-[#f1f1ef]">
+                {filteredProcessingRecords.map((r) => {
                   const yieldPct = (r.yieldRate * 100).toFixed(1);
                   const stdPct = (r.standardRate * 100).toFixed(1);
                   const diffPct = ((r.yieldRate - r.standardRate) * 100).toFixed(1);
@@ -635,30 +652,30 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
                   return (
                     <tr key={r.id} className="hover:bg-[#fbfbfa] transition-colors">
                       <td className="p-2.5">
-                        <span className="font-mono font-bold text-xs text-[#37352f] block">{r.id}</span>
-                        <span className="text-[10px] text-[#787774]">{r.date}</span>
+                        <span className="font-mono font-medium text-xs text-[#0f172a] block">{r.id}</span>
+                        <span className="text-[10px] text-[#787774] font-normal">{r.date}</span>
                       </td>
 
                       <td className="p-2.5">
-                        <span className="font-semibold text-[#37352f] block">{r.materialName}</span>
-                        <span className="text-[10px] text-[#787774]">{r.category}</span>
+                        <span className="font-medium text-xs text-[#0f172a] block">{r.materialName}</span>
+                        <span className="text-[10px] text-[#787774] font-normal">{r.category}</span>
                       </td>
 
                       <td className="p-2.5 font-mono text-xs">
                         <span className="text-[#787774]">{r.grossWeight}kg</span>
-                        <span className="text-[#37352f] font-bold mx-1">$\to$</span>
-                        <span className="text-[#2b593f] font-bold">{r.netWeight}kg</span>
+                        <span className="text-[#0f172a] font-medium mx-1">→</span>
+                        <span className="text-emerald-800 font-medium">{r.netWeight}kg</span>
                       </td>
 
                       <td className="p-2.5">
                         <div className="flex items-center gap-1.5">
                           <span
-                            className={`font-mono font-bold text-sm ${
+                            className={`font-mono font-medium text-sm ${
                               r.status === 'critical'
-                                ? 'text-[#d44333]'
+                                ? 'text-rose-600'
                                 : r.status === 'warning'
-                                ? 'text-[#d9730d]'
-                                : 'text-[#2b593f]'
+                                ? 'text-amber-600'
+                                : 'text-emerald-700'
                             }`}
                           >
                             {yieldPct}%
@@ -669,7 +686,7 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
                         </div>
                         <span
                           className={`text-[9.5px] font-mono ${
-                            parseFloat(diffPct) < 0 ? 'text-[#d44333]' : 'text-[#2b593f]'
+                            parseFloat(diffPct) < 0 ? 'text-rose-600' : 'text-emerald-700'
                           }`}
                         >
                           偏差: {parseFloat(diffPct) > 0 ? `+${diffPct}` : diffPct}%
@@ -677,16 +694,16 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
                       </td>
 
                       <td className="p-2.5">
-                        <span className="font-mono font-bold text-xs text-[#37352f] block">
+                        <span className="font-mono font-medium text-xs text-[#0f172a] block">
                           - {r.lossKg}kg
                         </span>
-                        <span className="font-mono text-[10px] text-[#d9730d]">
+                        <span className="font-mono text-[10px] text-amber-700">
                           ¥{r.lossAmount.toFixed(1)} (@¥{r.unitPrice}/kg)
                         </span>
                       </td>
 
                       <td className="p-2.5">
-                        <span className="text-xs text-[#37352f] flex items-center gap-1">
+                        <span className="text-xs text-[#787774] flex items-center gap-1 font-normal">
                           <User className="w-3 h-3 text-[#787774]" />
                           <span>{r.operator}</span>
                         </span>
@@ -696,22 +713,22 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
                         <div className="space-y-1">
                           <div className="flex items-center gap-1.5">
                             {r.status === 'normal' && (
-                              <span className="text-[10px] bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc] px-1.5 py-0.2 rounded font-bold">
+                              <span className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-1.5 py-0.2 rounded-[2px] font-normal">
                                 合格 Normal
                               </span>
                             )}
                             {r.status === 'warning' && (
-                              <span className="text-[10px] bg-[#fbf3db] text-[#8f6412] border border-[#ecd9a8] px-1.5 py-0.2 rounded font-bold">
+                              <span className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.2 rounded-[2px] font-normal">
                                 关注 Warning
                               </span>
                             )}
                             {r.status === 'critical' && (
-                              <span className="text-[10px] bg-[#fde8e8] text-[#d44333] border border-[#f8b4b4] px-1.5 py-0.2 rounded font-bold">
+                              <span className="text-[10px] bg-rose-50 text-rose-700 border border-rose-200 px-1.5 py-0.2 rounded-[2px] font-normal">
                                 超标 Critical
                               </span>
                             )}
                           </div>
-                          <p className="text-[10.5px] text-[#5a5854] max-w-xs">{r.lossReason}</p>
+                          <p className="text-[10.5px] text-[#787774] max-w-xs font-normal">{r.lossReason}</p>
                         </div>
                       </td>
                     </tr>
@@ -721,31 +738,34 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
             </table>
           </div>
         </div>
+      </>
       )}
 
       {/* 6. Loss Tracking View */}
       {subTab === 'tracking' && (
+        <>
+        <div className="mb-2"><DateRangeFilter value={dateFilter} onChange={setDateFilter} compact /></div>
         <div className="bg-white rounded-[3px] border border-[#e6e6e4] overflow-hidden shadow-2xs">
-          <div className="p-3 bg-[#f7f7f5] border-b border-[#e6e6e4] flex items-center justify-between">
-            <h4 className="font-bold text-xs text-[#37352f] flex items-center gap-1.5">
-              <Flame className="w-3.5 h-3.5 text-[#d9730d]" />
+          <div className="p-2.5 bg-[#fbfbfa] border-b border-[#e6e6e4] flex items-center justify-between">
+            <h4 className="font-medium text-xs text-[#0f172a] flex items-center gap-1.5">
+              <Flame className="w-3.5 h-3.5 text-amber-600" />
               <span>全维度报损登记流水 (Loss Tracking &amp; Write-offs)</span>
             </h4>
-            <span className="text-[10px] text-[#787774]">
+            <span className="text-[10px] text-[#787774] font-normal">
               已制作退菜自动联动 · 成本直通日报
             </span>
           </div>
 
           {/* Mobile Card List (< md) */}
-          <div className="md:hidden divide-y divide-[#efefed]">
-            {lossRecords.map((l) => (
-              <div key={l.id} className="p-3 space-y-2 hover:bg-[#fbfbfa]">
+          <div className="md:hidden divide-y divide-[#f1f1ef]">
+            {filteredLossRecords.map((l) => (
+              <div key={l.id} className="p-2.5 space-y-1.5 hover:bg-[#fbfbfa] transition-colors">
                 <div className="flex items-center justify-between gap-2">
                   <div>
                     <div className="flex items-center gap-1">
-                      <span className="font-semibold text-xs text-[#37352f]">{l.itemName}</span>
+                      <span className="font-medium text-xs text-[#0f172a]">{l.itemName}</span>
                       {l.isFromRefund && (
-                        <span className="text-[9px] bg-[#fde8e8] text-[#d44333] px-1 rounded">
+                        <span className="text-[9px] bg-rose-50 text-rose-700 border border-rose-200 px-1 rounded-[2px] font-normal">
                           退菜联动
                         </span>
                       )}
@@ -757,27 +777,27 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="font-mono font-bold text-sm text-[#d44333] block">
+                    <span className="font-mono font-medium text-sm text-rose-700 block">
                       ¥{l.estimatedCost.toFixed(2)}
                     </span>
-                    <span className="font-mono text-[10.5px] text-[#37352f]">
+                    <span className="font-mono text-[10.5px] text-[#787774]">
                       {l.quantity} {l.unit}
                     </span>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between text-[10.5px]">
-                  <span className="bg-[#f1f1ef] text-[#37352f] px-1.5 py-0.5 rounded border border-[#e6e6e4] font-medium">
+                  <span className="bg-[#fbfbfa] text-[#0f172a] px-1.5 py-0.2 rounded-[2px] border border-[#e6e6e4] font-normal">
                     {l.categoryLabel} ({l.station === 'grill' ? '烧烤档' : l.station === 'cold' ? '生鲜档' : '水吧小吃'})
                   </span>
-                  <span className="flex items-center gap-1 text-[#37352f]">
+                  <span className="flex items-center gap-1 text-[#787774] font-normal">
                     <User className="w-3 h-3 text-[#787774]" />
                     <span>{l.responsiblePerson}</span>
                   </span>
                 </div>
 
                 {l.reason && (
-                  <p className="text-[10.5px] text-[#5a5854] bg-[#f7f7f5] rounded p-2">
+                  <p className="text-[10.5px] text-[#787774] bg-[#fbfbfa] border border-[#e6e6e4] rounded-[2px] p-1.5 font-normal">
                     {l.reason}
                   </p>
                 )}
@@ -789,60 +809,60 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="border-b border-[#e6e6e4] bg-[#fbfbfa] text-[#787774] text-[10.5px]">
-                  <th className="p-2.5 font-bold">单号/时间</th>
-                  <th className="p-2.5 font-bold">报损品项</th>
-                  <th className="p-2.5 font-bold">报损分类 &amp; 档口</th>
-                  <th className="p-2.5 font-bold">报损数量</th>
-                  <th className="p-2.5 font-bold">估算成本</th>
-                  <th className="p-2.5 font-bold">责任人</th>
-                  <th className="p-2.5 font-bold">报损原因</th>
+                <tr className="border-b border-[#e6e6e4] bg-[#fbfbfa] text-[#787774] text-[10.5px] font-normal">
+                  <th className="p-2.5 font-normal">单号/时间</th>
+                  <th className="p-2.5 font-normal">报损品项</th>
+                  <th className="p-2.5 font-normal">报损分类 &amp; 档口</th>
+                  <th className="p-2.5 font-normal">报损数量</th>
+                  <th className="p-2.5 font-normal">估算成本</th>
+                  <th className="p-2.5 font-normal">责任人</th>
+                  <th className="p-2.5 font-normal">报损原因</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#efefed]">
-                {lossRecords.map((l) => (
+              <tbody className="divide-y divide-[#f1f1ef]">
+                {filteredLossRecords.map((l) => (
                   <tr key={l.id} className="hover:bg-[#fbfbfa] transition-colors">
                     <td className="p-2.5">
                       <div className="flex items-center gap-1">
-                        <span className="font-mono font-bold text-xs text-[#37352f]">{l.id}</span>
+                        <span className="font-mono font-medium text-xs text-[#0f172a]">{l.id}</span>
                         {l.isFromRefund && (
-                          <span className="text-[9px] bg-[#fde8e8] text-[#d44333] px-1 rounded">
+                          <span className="text-[9px] bg-rose-50 text-rose-700 border border-rose-200 px-1 rounded-[2px] font-normal">
                             退菜联动
                           </span>
                         )}
                       </div>
-                      <span className="text-[10px] text-[#787774] block">{l.date}</span>
+                      <span className="text-[10px] text-[#787774] font-normal block">{l.date}</span>
                     </td>
 
-                    <td className="p-2.5 font-semibold text-[#37352f]">{l.itemName}</td>
+                    <td className="p-2.5 font-medium text-xs text-[#0f172a]">{l.itemName}</td>
 
                     <td className="p-2.5">
-                      <span className="text-[10.5px] bg-[#f1f1ef] text-[#37352f] px-1.5 py-0.5 rounded border border-[#e6e6e4] font-medium">
+                      <span className="text-[10.5px] bg-[#fbfbfa] text-[#0f172a] px-1.5 py-0.2 rounded-[2px] border border-[#e6e6e4] font-normal">
                         {l.categoryLabel}
                       </span>
-                      <span className="text-[10px] text-[#787774] block mt-0.5">
+                      <span className="text-[10px] text-[#787774] font-normal block mt-0.5">
                         档口: {l.station === 'grill' ? '烧烤档' : l.station === 'cold' ? '生鲜档' : '水吧小吃'}
                       </span>
                     </td>
 
-                    <td className="p-2.5 font-mono text-xs text-[#37352f]">
+                    <td className="p-2.5 font-mono text-xs text-[#0f172a]">
                       {l.quantity} {l.unit}
                     </td>
 
                     <td className="p-2.5">
-                      <span className="font-mono font-bold text-sm text-[#d44333]">
+                      <span className="font-mono font-medium text-sm text-rose-700">
                         ¥{l.estimatedCost.toFixed(2)}
                       </span>
                     </td>
 
-                    <td className="p-2.5 text-xs text-[#37352f]">
-                      <span className="flex items-center gap-1">
+                    <td className="p-2.5 text-xs text-[#787774]">
+                      <span className="flex items-center gap-1 font-normal">
                         <User className="w-3 h-3 text-[#787774]" />
                         <span>{l.responsiblePerson}</span>
                       </span>
                     </td>
 
-                    <td className="p-2.5 text-xs text-[#5a5854] max-w-sm">
+                    <td className="p-2.5 text-xs text-[#787774] max-w-sm font-normal">
                       {l.reason}
                     </td>
                   </tr>
@@ -851,6 +871,7 @@ export const MerchantLossHub: React.FC<MerchantLossHubProps> = ({ showToast }) =
             </table>
           </div>
         </div>
+      </>
       )}
     </div>
   );

@@ -279,7 +279,7 @@ export const MerchantCloudSyncView: React.FC<MerchantCloudSyncViewProps> = ({ sh
   };
 
   return (
-    <div className="space-y-5 pb-16 font-sans text-[#37352f] max-w-7xl mx-auto">
+    <div className="space-y-5 pb-16 font-sans text-[#37352f] max-w-[2000px] mx-auto">
       {/* 1. Header Hero Card with Connection Badge & Actions */}
       <div className="bg-[#ffffff] border border-[#e6e6e4] rounded-[6px] p-4 shadow-2xs">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">

@@ -23,6 +23,7 @@ export interface CouponEligibility {
   usable: boolean;
   reason?: string;
   maxDiscount: number; // 该券在本次订单中最大可抵扣金额（未超门槛时为理论值）
+  isTruckIsolated?: boolean; // 是否因餐车隔离规则被拦截
 }
 
 export interface ResolvedCouponApply {
@@ -54,7 +55,31 @@ export function getAvailableUserCoupons(): UserCouponRecord[] {
 }
 
 /**
- * 判断一张券是否可用于当前订单（校验 有效期/时段/日期/范围 与 金额门槛）
+ * 校验指定优惠券是否适用于特定餐车
+ */
+export function validateCouponForTruck(coupon: CouponItem, truckId?: string): {
+  isApplicable: boolean;
+  isIsolated: boolean;
+  reason?: string;
+} {
+  if (!coupon.truckScopeType || coupon.truckScopeType === 'all_trucks') {
+    return { isApplicable: true, isIsolated: false };
+  }
+  const currentTruck = truckId || 'truck-01';
+  const isMatch = !!coupon.applicableTruckIds?.includes(currentTruck);
+  if (!isMatch) {
+    const truckDesc = coupon.applicableTruckNames?.join(' / ') || coupon.applicableTruckIds?.join(', ') || '指定餐车';
+    return {
+      isApplicable: false,
+      isIsolated: true,
+      reason: `该券仅限【${truckDesc}】专属核销，当前餐车已被风控隔离`
+    };
+  }
+  return { isApplicable: true, isIsolated: true };
+}
+
+/**
+ * 判断一张券是否可用于当前订单（校验 有效期/时段/日期/范围/餐车隔离 与 金额门槛）
  * scope 校验按全品类宽松处理——demo 数据大部分为 all_dishes；specific/category 券需要 items 时由调用方传 itemsCategories。
  */
 export function isCouponEligible(
@@ -64,12 +89,27 @@ export function isCouponEligible(
     deliveryFee?: number;
     diningMode?: 'delivery' | 'dine_in' | 'pickup';
     itemCategories?: string[];
+    truckId?: string;
     now?: Date;
   }
 ): CouponEligibility {
-  const { subtotal, diningMode = 'delivery', itemCategories = [] } = opts;
+  const { subtotal, diningMode = 'delivery', itemCategories = [], truckId } = opts;
   const now = opts.now || new Date();
   const coupon = record.coupon;
+
+  // 0. 多餐车隔离与适用风控校验 (Multi-Truck Coupon Isolation)
+  if (coupon.truckScopeType === 'specific_trucks' && coupon.applicableTruckIds && coupon.applicableTruckIds.length > 0) {
+    const currentTruck = truckId || 'truck-01';
+    if (!coupon.applicableTruckIds.includes(currentTruck)) {
+      const truckNames = coupon.applicableTruckNames?.join(' / ') || coupon.applicableTruckIds.join(', ');
+      return {
+        usable: false,
+        reason: `触发餐车隔离风控：该券仅限【${truckNames}】使用，当前餐车无法跨车核销`,
+        maxDiscount: 0,
+        isTruckIsolated: true
+      };
+    }
+  }
 
   // 1. 状态
   if (record.status !== 'available') {
@@ -166,7 +206,13 @@ export function isCouponEligible(
  */
 export function resolveCouponByCode(
   code: string | null | undefined,
-  opts: { subtotal: number; deliveryFee?: number; diningMode?: 'delivery' | 'dine_in' | 'pickup'; itemCategories?: string[] }
+  opts: {
+    subtotal: number;
+    deliveryFee?: number;
+    diningMode?: 'delivery' | 'dine_in' | 'pickup';
+    itemCategories?: string[];
+    truckId?: string;
+  }
 ): { record?: UserCouponRecord; eligibility: CouponEligibility } | null {
   if (!code) return null;
   const target = code.trim().toUpperCase();
@@ -179,7 +225,13 @@ export function resolveCouponByCode(
  * 在用户券包中自动挑选「当前订单可用且抵扣最大」的一张券（自动推荐最佳）。
  */
 export function pickBestAvailableCoupon(
-  opts: { subtotal: number; deliveryFee?: number; diningMode?: 'delivery' | 'dine_in' | 'pickup'; itemCategories?: string[] }
+  opts: {
+    subtotal: number;
+    deliveryFee?: number;
+    diningMode?: 'delivery' | 'dine_in' | 'pickup';
+    itemCategories?: string[];
+    truckId?: string;
+  }
 ): UserCouponRecord | null {
   let best: UserCouponRecord | null = null;
   let bestValue = -1;
@@ -191,6 +243,85 @@ export function pickBestAvailableCoupon(
     }
   }
   return best;
+}
+
+/**
+ * 顾客扫码/输入兑换码领取优惠券至个人卡券包
+ */
+export function claimCouponByCode(
+  code: string,
+  options?: { currentTruckId?: string }
+): {
+  success: boolean;
+  message: string;
+  userCoupon?: UserCouponRecord;
+  coupon?: CouponItem;
+  isTruckIsolated?: boolean;
+} {
+  if (!code) return { success: false, message: '优惠券码不能为空' };
+  const targetCode = code.trim().toUpperCase();
+  const merchants = getMerchantCoupons();
+  const matched = merchants.find((m) => m.code.toUpperCase() === targetCode);
+
+  if (!matched) {
+    return { success: false, message: `未找到券码为【${targetCode}】的优惠券` };
+  }
+  if (matched.status !== 'active') {
+    return { success: false, message: '该优惠券活动已暂停或已结束' };
+  }
+
+  // 检查是否已达到领取上限
+  const existingUserCoupons = getUserCouponRecords();
+  const alreadyClaimedCount = existingUserCoupons.filter(
+    (c) => c.coupon.code.toUpperCase() === targetCode && c.status === 'available'
+  ).length;
+
+  const perLimit = matched.perUserLimit || 3;
+  if (alreadyClaimedCount >= perLimit) {
+    return {
+      success: false,
+      message: `您已有 ${alreadyClaimedCount} 张可用【${matched.title}】，已达单人领取上限`,
+      coupon: matched
+    };
+  }
+
+  // 校验餐车适用范围
+  const truckValidation = validateCouponForTruck(matched, options?.currentTruckId);
+
+  const newRecord: UserCouponRecord = {
+    userCouponId: `uc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    couponId: matched.id,
+    coupon: matched,
+    status: 'available',
+    acquiredAt: new Date().toLocaleString('zh-CN', { hour12: false })
+  };
+
+  saveUserCouponRecords([newRecord, ...existingUserCoupons]);
+
+  // 更新商家券 issuedCount
+  const updatedMerchants = merchants.map((m) =>
+    m.id === matched.id ? { ...m, issuedCount: (m.issuedCount || 0) + 1 } : m
+  );
+  safeSetStorage(MERCHANT_COUPONS_KEY, updatedMerchants);
+
+  let msg = `成功领取【${matched.title}】！`;
+  if (matched.truckScopeType === 'specific_trucks') {
+    if (!truckValidation.isApplicable) {
+      msg += ` （提示：${truckValidation.reason}）`;
+    } else {
+      msg += ` （当前餐车专属可用）`;
+    }
+  } else {
+    msg += ' （全车队所有餐车通用）';
+  }
+
+  return {
+    success: true,
+    message: msg,
+    userCoupon: newRecord,
+    coupon: matched,
+    isTruckIsolated: !truckValidation.isApplicable
+  };
 }
 
 /**

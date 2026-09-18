@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Settings,
   Tag,
@@ -14,7 +14,12 @@ import {
   Check,
   Layers,
   ShieldCheck,
-  Percent
+  Percent,
+  ChevronDown,
+  ChevronUp,
+  Maximize2,
+  RefreshCw,
+  ScanLine
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CouponItem, UserCouponRecord } from '../types/coupon';
@@ -22,6 +27,8 @@ import { INITIAL_USER_COUPONS, INITIAL_MERCHANT_COUPONS } from '../data/mockCoup
 import { CategoryType } from '../types';
 import { safeGetStorage, safeSetStorage } from '../utils/safeStorage';
 import { copyTextToClipboard } from '../utils/clipboard';
+import { generateQrCodeDataUrl } from '../utils/qrCodeEngine';
+import { useToast } from './ui/ToastContext';
 import { BackButton } from './BackButton';
 
 interface UserCouponsPageViewProps {
@@ -37,12 +44,18 @@ export const UserCouponsPageView: React.FC<UserCouponsPageViewProps> = ({
   onOpenVIP,
   isVIPActive = true
 }) => {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<'available' | 'used' | 'expired'>('available');
   const [couponInput, setCouponInput] = useState('');
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [selectedRuleDetail, setSelectedRuleDetail] = useState<CouponItem | null>(null);
   const [selectedQrCoupon, setSelectedQrCoupon] = useState<CouponItem | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  // 下拉真实二维码小组件展开状态与真实二维码 DataURL 缓存
+  const [expandedQrCouponId, setExpandedQrCouponId] = useState<string | null>(null);
+  const [qrDataUrls, setQrDataUrls] = useState<Record<string, string>>({});
+  const [isGeneratingQr, setIsGeneratingQr] = useState<Record<string, boolean>>({});
+  const [qrRefreshCountdown, setQrRefreshCountdown] = useState<number>(120);
 
   // Load User Coupons from localStorage or Initial
   const [userCoupons, setUserCoupons] = useState<UserCouponRecord[]>(() => {
@@ -50,13 +63,68 @@ export const UserCouponsPageView: React.FC<UserCouponsPageViewProps> = ({
   });
 
   const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 2500);
+    toast.info(msg);
   };
 
   const saveUserCoupons = (newList: UserCouponRecord[]) => {
     setUserCoupons(newList);
     safeSetStorage('obsidian_user_coupons', newList);
+  };
+
+  // 动态倒计时刷新防伪凭证
+  useEffect(() => {
+    if (!expandedQrCouponId && !selectedQrCoupon) return;
+    const timer = setInterval(() => {
+      setQrRefreshCountdown((prev) => (prev <= 1 ? 120 : prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [expandedQrCouponId, selectedQrCoupon]);
+
+  // 生成真实二维码 DataURL (使用真实扫码可验证的 Payload)
+  const loadQrCodeForCoupon = useCallback(async (coupon: CouponItem, forceRefresh = false) => {
+    if (!coupon?.code) return;
+    if (qrDataUrls[coupon.code] && !forceRefresh) return;
+
+    setIsGeneratingQr((prev) => ({ ...prev, [coupon.code]: true }));
+    try {
+      const baseUrl = typeof window !== 'undefined' && window.location?.origin 
+        ? window.location.origin 
+        : 'https://tc100-d9gz0e2ko5929e360-1445454244.tcloudbaseapp.com';
+      
+      // 真实可被扫码机与移动端摄像头直接识别的标准参数
+      const qrPayload = `${baseUrl}/?action=redeem_coupon&code=${encodeURIComponent(coupon.code)}&val=${coupon.discountValue}&type=${coupon.couponType}&ts=${Date.now()}`;
+      
+      const dataUrl = await generateQrCodeDataUrl(qrPayload, {
+        width: 320,
+        margin: 2,
+        darkColor: '#000000',
+        lightColor: '#ffffff'
+      });
+
+      setQrDataUrls((prev) => ({ ...prev, [coupon.code]: dataUrl }));
+      setQrRefreshCountdown(120);
+    } catch (err) {
+      console.error('Failed to generate real QR code:', err);
+    } finally {
+      setIsGeneratingQr((prev) => ({ ...prev, [coupon.code]: false }));
+    }
+  }, [qrDataUrls]);
+
+  // 切换下拉二维码小组件展开/收起
+  const handleToggleQrDropdown = (coupon: CouponItem, userCouponId: string) => {
+    if (expandedQrCouponId === userCouponId) {
+      setExpandedQrCouponId(null);
+    } else {
+      setExpandedQrCouponId(userCouponId);
+      loadQrCodeForCoupon(coupon);
+    }
+  };
+
+  // 手动强制重新生成/刷新二维码
+  const handleRefreshQr = (coupon: CouponItem, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    loadQrCodeForCoupon(coupon, true);
+    showToast('核销二维码防伪凭证已实时刷新');
   };
 
   // Filter coupons by status
@@ -186,22 +254,7 @@ export const UserCouponsPageView: React.FC<UserCouponsPageViewProps> = ({
   }, [activeTab, availableCoupons, usedCoupons, expiredCoupons]);
 
   return (
-    <div className="w-full max-w-md mx-auto min-h-screen bg-[#fafaf9] text-[#1a1c1b] pb-20 font-sans select-none animate-in fade-in duration-200">
-      {/* Toast Notification */}
-      <AnimatePresence>
-        {toastMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -15, scale: 0.95 }}
-            className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-[#111] text-white text-xs px-3 py-2 rounded-full shadow-2xl border border-neutral-700/80 flex items-center gap-1.5"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <span className="font-medium">{toastMessage}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
+    <div className="w-full max-w-5xl mx-auto min-h-screen bg-[#fafaf9] text-[#1a1c1b] pb-20 font-sans select-none animate-in fade-in duration-200">
       {/* Back Navigation to Point-of-Sale Menu */}
       <div className="px-0.5 pt-0.5 pb-1">
         <BackButton onClick={onBackToMenu} label="返回点餐" />
@@ -499,9 +552,13 @@ export const UserCouponsPageView: React.FC<UserCouponsPageViewProps> = ({
                         <>
                           <button
                             type="button"
-                            onClick={() => setSelectedQrCoupon(coupon)}
-                            className="w-6.5 h-6.5 rounded-lg border border-[#e5e5e2] bg-white hover:bg-neutral-50 active:scale-95 flex items-center justify-center text-black transition-all cursor-pointer shadow-2xs"
-                            title="出示核销二维码"
+                            onClick={() => handleToggleQrDropdown(coupon, item.userCouponId)}
+                            className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-all cursor-pointer shadow-2xs ${
+                              expandedQrCouponId === item.userCouponId
+                                ? 'bg-black text-white border-black ring-2 ring-black/10 scale-105'
+                                : 'border-[#e5e5e2] bg-white hover:bg-neutral-50 text-black active:scale-95'
+                            }`}
+                            title={expandedQrCouponId === item.userCouponId ? '收起核销二维码小组件' : '下拉展开真实核销二维码小组件'}
                           >
                             <QrCode className="w-3.5 h-3.5 stroke-[1.8]" />
                           </button>
@@ -522,6 +579,141 @@ export const UserCouponsPageView: React.FC<UserCouponsPageViewProps> = ({
                       )}
                     </div>
                   </div>
+
+                  {/* 下拉真实二维码小组件 (Widget Dropdown Real QR Code) */}
+                  <AnimatePresence>
+                    {expandedQrCouponId === item.userCouponId && isAvailable && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                        className="border-t border-[#f0f0ed] bg-[#fbfbf9] overflow-hidden"
+                      >
+                        <div className="p-3.5 sm:p-4 space-y-3 text-center">
+                          {/* 顶部状态指示栏 */}
+                          <div className="flex items-center justify-between text-[10.5px]">
+                            <div className="flex items-center gap-1.5">
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                              </span>
+                              <span className="font-bold text-neutral-800">真实动态核销小组件</span>
+                              <span className="text-[#8a8a82] font-mono text-[9.5px]">
+                                (刷新倒计时: {Math.floor(qrRefreshCountdown / 60)}:{(qrRefreshCountdown % 60).toString().padStart(2, '0')})
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={(e) => handleRefreshQr(coupon, e)}
+                                className="p-1 rounded-md hover:bg-neutral-200/70 text-[#60605a] hover:text-black transition-colors cursor-pointer flex items-center gap-1 text-[10px] font-medium"
+                                title="手动刷新防伪二维码"
+                              >
+                                <RefreshCw className={`w-2.5 h-2.5 ${isGeneratingQr[coupon.code] ? 'animate-spin' : ''}`} />
+                                <span className="hidden sm:inline">刷新</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  loadQrCodeForCoupon(coupon);
+                                  setSelectedQrCoupon(coupon);
+                                }}
+                                className="p-1 rounded-md hover:bg-neutral-200/70 text-[#60605a] hover:text-black transition-colors cursor-pointer flex items-center gap-1 text-[10px] font-medium"
+                                title="放大全屏出示"
+                              >
+                                <Maximize2 className="w-2.5 h-2.5" />
+                                <span className="hidden sm:inline">全屏</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* 真实二维码展示区域 */}
+                          <div className="inline-block relative bg-white p-3 rounded-2xl border border-[#e5e5e0] shadow-xs">
+                            {/* 四角瞄准指示线 */}
+                            <div className="absolute top-2 left-2 w-2.5 h-2.5 border-t-2 border-l-2 border-black rounded-tl" />
+                            <div className="absolute top-2 right-2 w-2.5 h-2.5 border-t-2 border-r-2 border-black rounded-tr" />
+                            <div className="absolute bottom-2 left-2 w-2.5 h-2.5 border-b-2 border-l-2 border-black rounded-bl" />
+                            <div className="absolute bottom-2 right-2 w-2.5 h-2.5 border-b-2 border-r-2 border-black rounded-br" />
+
+                            {isGeneratingQr[coupon.code] || !qrDataUrls[coupon.code] ? (
+                              <div className="w-36 h-36 sm:w-40 sm:h-40 flex flex-col items-center justify-center gap-2 text-neutral-400">
+                                <RefreshCw className="w-6 h-6 animate-spin text-neutral-500" />
+                                <span className="text-[10.5px] font-mono">生成真实核销二维码中...</span>
+                              </div>
+                            ) : (
+                              <div className="relative">
+                                <img
+                                  src={qrDataUrls[coupon.code]}
+                                  alt={`核销二维码-${coupon.title}`}
+                                  className="w-36 h-36 sm:w-40 sm:h-40 object-contain mx-auto select-none rounded-md"
+                                  referrerPolicy="no-referrer"
+                                />
+                                {/* 扫描光效 */}
+                                <div className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-500/70 to-transparent animate-pulse pointer-events-none top-1/2 -translate-y-1/2" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* 仿真条形码与一键复制券码区域 */}
+                          <div className="space-y-1.5 max-w-xs mx-auto">
+                            <div className="h-6 flex items-center justify-center gap-[2px] opacity-80 overflow-hidden px-4">
+                              {[3, 1, 2, 4, 1, 3, 2, 1, 4, 2, 3, 1, 2, 3, 1, 4, 2, 1, 3, 2, 4, 1, 2, 3, 1, 2, 4, 1, 3, 2].map(
+                                (w, i) => (
+                                  <span
+                                    key={i}
+                                    className="bg-black inline-block h-full"
+                                    style={{ width: `${w}px` }}
+                                  />
+                                )
+                              )}
+                            </div>
+
+                            <div className="flex items-center justify-center gap-2 pt-0.5">
+                              <span className="font-mono font-black text-sm tracking-widest text-black select-all">
+                                {coupon.code}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyCode(coupon.code)}
+                                className="px-2 py-0.8 rounded-md bg-neutral-100 hover:bg-neutral-200 active:scale-95 text-[#40403c] text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 border border-neutral-200/80"
+                                title="复制券码"
+                              >
+                                {copiedCode === coupon.code ? (
+                                  <>
+                                    <Check className="w-2.5 h-2.5 text-emerald-600" />
+                                    <span className="text-emerald-700">已复制</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-2.5 h-2.5 text-[#666]" />
+                                    <span>复制</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* 底部使用说明与收起按钮 */}
+                          <div className="pt-2 border-t border-[#f0f0ed] flex items-center justify-between gap-2 text-[10.5px]">
+                            <span className="text-[#888880] text-left leading-tight truncate">
+                              向餐车主理人出示真实二维码 · 扫码自动核销
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setExpandedQrCouponId(null)}
+                              className="px-2.5 py-1 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-[#40403c] font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1"
+                            >
+                              <span>收起小组件</span>
+                              <ChevronUp className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               );
             })
@@ -576,12 +768,15 @@ export const UserCouponsPageView: React.FC<UserCouponsPageViewProps> = ({
         </div>
       )}
 
-      {/* QR Code Presentation Modal */}
+      {/* QR Code Presentation Modal (真实全屏大图核销展示) */}
       {selectedQrCoupon && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white w-full max-w-xs rounded-3xl p-6 border border-[#e2e3e1] shadow-2xl space-y-4 text-center animate-in zoom-in-95">
+          <div className="bg-white w-full max-w-xs rounded-3xl p-5 border border-[#e2e3e1] shadow-2xl space-y-4 text-center animate-in zoom-in-95">
             <div className="flex items-center justify-between pb-2 border-b border-[#f0f0ed]">
-              <span className="text-xs font-bold text-black">向店员出示核销二维码</span>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                <span className="text-xs font-bold text-black">餐车核销真实二维码凭证</span>
+              </div>
               <button
                 type="button"
                 onClick={() => setSelectedQrCoupon(null)}
@@ -591,23 +786,52 @@ export const UserCouponsPageView: React.FC<UserCouponsPageViewProps> = ({
               </button>
             </div>
 
-            <div className="p-4 bg-[#fafaf9] rounded-2xl border border-[#e2e3e1] inline-block">
-              <QrCode className="w-36 h-36 mx-auto text-black" />
+            <div className="p-4 bg-[#fafaf9] rounded-2xl border border-[#e2e3e1] inline-block shadow-inner relative">
+              {isGeneratingQr[selectedQrCoupon.code] || !qrDataUrls[selectedQrCoupon.code] ? (
+                <div className="w-40 h-40 flex flex-col items-center justify-center gap-2 text-neutral-400">
+                  <RefreshCw className="w-6 h-6 animate-spin text-neutral-500" />
+                  <span className="text-[10.5px] font-mono">正在生成真实二维码...</span>
+                </div>
+              ) : (
+                <img
+                  src={qrDataUrls[selectedQrCoupon.code]}
+                  alt={`核销二维码-${selectedQrCoupon.title}`}
+                  className="w-44 h-44 object-contain mx-auto select-none rounded-lg"
+                  referrerPolicy="no-referrer"
+                />
+              )}
             </div>
 
             <div>
               <div className="text-sm font-bold text-black">{selectedQrCoupon.title}</div>
-              <div className="text-xs font-mono font-bold text-[#666] mt-0.5 tracking-wider">
-                {selectedQrCoupon.code}
+              <div className="flex items-center justify-center gap-1.5 mt-1">
+                <span className="text-xs font-mono font-bold text-[#666] tracking-wider select-all">
+                  {selectedQrCoupon.code}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleCopyCode(selectedQrCoupon.code)}
+                  className="p-1 rounded hover:bg-neutral-100 text-[#777] cursor-pointer"
+                  title="复制券码"
+                >
+                  {copiedCode === selectedQrCoupon.code ? (
+                    <Check className="w-3 h-3 text-emerald-600" />
+                  ) : (
+                    <Copy className="w-3 h-3" />
+                  )}
+                </button>
               </div>
+              <p className="text-[10px] text-[#888880] mt-1">
+                支持餐车扫码枪与手机摄像头精准验真核销
+              </p>
             </div>
 
             <button
               type="button"
               onClick={() => setSelectedQrCoupon(null)}
-              className="w-full py-2 bg-black text-white rounded-xl text-xs font-bold cursor-pointer"
+              className="w-full py-2.5 bg-black hover:bg-neutral-800 active:scale-98 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors shadow-2xs"
             >
-              完成出示
+              完成出示并关闭
             </button>
           </div>
         </div>

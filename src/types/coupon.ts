@@ -1,5 +1,6 @@
 export type CouponType = 'amount_cut' | 'no_threshold' | 'discount_percent' | 'delivery_free';
 export type CouponScopeType = 'all_dishes' | 'category' | 'specific_dishes';
+export type CouponTruckScopeType = 'all_trucks' | 'specific_trucks';
 export type CouponDayRestriction = 'all_week' | 'workdays_only' | 'weekends_only';
 export type CouponDesignStyle = 'black_gold' | 'emerald_fresh' | 'ember_orange' | 'minimal_silver' | 'custom_image' | 'custom_html';
 export type CouponDispatchChannel = 'all_members' | 'new_customers' | 'vip_black' | 'dormant_customers' | 'order_share' | 'wheel_reward' | 'scan_qr';
@@ -13,6 +14,14 @@ export interface CouponItem {
   discountValue: number; // 减免金额 (如 5, 10, 20) 或 折扣 (如 0.88 表示8.8折)
   minSpend: number; // 最低消费门槛，0为无门槛
   maxDiscountCap?: number; // 折扣券封顶金额 (如 15)
+
+  // 多餐车隔离与车队通用设置
+  truckScopeType?: CouponTruckScopeType; // 'all_trucks' (全部餐车通用) | 'specific_trucks' (多餐车隔离/限定适用)
+  applicableTruckIds?: string[]; // 适用餐车 ID 列表，如 ['truck-01', 'truck-02']
+  applicableTruckNames?: string[]; // 适用餐车名称列表
+  truckIsolationStrict?: boolean; // 严格餐车隔离：非指定餐车核销即时风控阻断
+  antiBrushEnabled?: boolean; // 是否开启营销防刷与套券风控
+  maxUniversalBurnLimit?: number; // 通用券单车每日核销限额（元）
 
   // 适用范围与分类
   scopeType: CouponScopeType;

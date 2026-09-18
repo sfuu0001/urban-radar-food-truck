@@ -297,7 +297,14 @@ export const RiderSystemView: React.FC<RiderSystemViewProps> = ({
   onOpenPhoneAuth,
   onLogoutRider
 }) => {
-  const [activeTab, setActiveTab] = useState<RiderTab>('active');
+  const [activeTab, setActiveTabInternal] = useState<RiderTab>(() => {
+    return safeGetStorage<RiderTab>('obsidian_rider_active_tab', 'active');
+  });
+
+  const setActiveTab = (tab: RiderTab) => {
+    setActiveTabInternal(tab);
+    safeSetStorage('obsidian_rider_active_tab', tab);
+  };
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() =>
     safeGetStorage<boolean>('obsidian_rider_sidebar_collapsed', false)
   );
@@ -832,12 +839,12 @@ export const RiderSystemView: React.FC<RiderSystemViewProps> = ({
           <button
             type="button"
             onClick={() => onSwitchRole('customer')}
-            className="p-1.5 bg-[#f1f1ef] hover:bg-[#e8e8e6] rounded-[3px] text-[#787774] hover:text-[#37352f] transition-all cursor-pointer flex items-center gap-1 font-semibold text-xs border border-[#d3d1cb] shrink-0"
+            className="px-2 py-1 bg-[#201f1d] hover:bg-black text-white rounded-[4px] transition-all cursor-pointer flex items-center gap-1 font-bold text-xs shadow-2xs shrink-0"
             title="返回前台顾客点餐"
             aria-label="返回前台顾客点餐"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">前台</span>
+            <ArrowLeft className="w-3.5 h-3.5 text-white" />
+            <span>切回前台</span>
           </button>
 
           <div className="h-4 w-[1px] bg-[#e6e6e4] shrink-0" />
@@ -886,7 +893,7 @@ export const RiderSystemView: React.FC<RiderSystemViewProps> = ({
               <button
                 type="button"
                 onClick={onLogoutRider}
-                className="text-[10px] text-red-600 hover:text-red-800 underline ml-0.5 font-medium cursor-pointer hidden sm:inline"
+                className="text-[10px] text-red-600 hover:text-red-800 underline ml-0.5 font-medium cursor-pointer"
                 title="退出骑手端登录"
               >
                 退出

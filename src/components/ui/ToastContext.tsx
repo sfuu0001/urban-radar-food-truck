@@ -1,8 +1,11 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import { CheckCircle2, AlertTriangle, XCircle, Info, X } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
+
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
 
 export interface ToastMessage {
   id: string;
@@ -10,14 +13,21 @@ export interface ToastMessage {
   description?: string;
   type: ToastType;
   duration?: number;
+  action?: ToastAction;
+  timestamp: number;
 }
 
+export type ToastInput = 
+  | string 
+  | (Omit<ToastMessage, 'id' | 'timestamp'> & { timestamp?: number });
+
 interface ToastContextType {
-  showToast: (toast: Omit<ToastMessage, 'id'>) => void;
-  success: (title: string, description?: string) => void;
-  error: (title: string, description?: string) => void;
-  warning: (title: string, description?: string) => void;
-  info: (title: string, description?: string) => void;
+  showToast: (toast: ToastInput) => void;
+  success: (title: string, description?: string, action?: ToastAction) => void;
+  error: (title: string, description?: string, action?: ToastAction) => void;
+  warning: (title: string, description?: string, action?: ToastAction) => void;
+  info: (title: string, description?: string, action?: ToastAction) => void;
+  dismissAll: () => void;
 }
 
 const ToastContext = createContext<ToastContextType | null>(null);
@@ -32,107 +42,121 @@ export const useToast = () => {
 
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const timerMapRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const lastToastRef = useRef<{ title: string; type: ToastType; timestamp: number } | null>(null);
 
-  const removeToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+  const clearTimer = useCallback((id: string) => {
+    const timer = timerMapRef.current.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      timerMapRef.current.delete(id);
+    }
   }, []);
 
+  const removeToast = useCallback((id: string) => {
+    clearTimer(id);
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, [clearTimer]);
+
+  const scheduleDismiss = useCallback((id: string, duration: number = 3200) => {
+    clearTimer(id);
+    if (duration > 0) {
+      const timer = setTimeout(() => {
+        removeToast(id);
+      }, duration);
+      timerMapRef.current.set(id, timer);
+    }
+  }, [clearTimer, removeToast]);
+
   const showToast = useCallback(
-    ({ title, description, type = 'info', duration = 3000 }: Omit<ToastMessage, 'id'>) => {
-      const id = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-      const newToast: ToastMessage = { id, title, description, type, duration };
+    (input: ToastInput) => {
+      const normalized: Omit<ToastMessage, 'id' | 'timestamp'> = 
+        typeof input === 'string'
+          ? { title: input, type: 'info', duration: 3200 }
+          : { ...input, type: input.type || 'info', duration: input.duration ?? 3200 };
 
-      // Defer state update so calling toast inside or during any render lifecycle never clashes
-      setTimeout(() => {
-        setToasts((prev) => [...prev.slice(-3), newToast]);
-      }, 0);
+      const now = Date.now();
 
-      if (duration > 0) {
-        setTimeout(() => {
-          removeToast(id);
-        }, duration);
+      // 防抖去重：如果 1.2 秒内重复触发完全相同的 title 和 type，则刷新计时器，不重复叠加卡片
+      if (
+        lastToastRef.current &&
+        lastToastRef.current.title === normalized.title &&
+        lastToastRef.current.type === normalized.type &&
+        now - lastToastRef.current.timestamp < 1200
+      ) {
+        lastToastRef.current.timestamp = now;
+        // 找到当前匹配的最新 toast 刷新计时器
+        setToasts((prev) => {
+          const match = prev.find((t) => t.title === normalized.title && t.type === normalized.type);
+          if (match) {
+            scheduleDismiss(match.id, normalized.duration);
+          }
+          return prev;
+        });
+        return;
       }
+
+      lastToastRef.current = { title: normalized.title, type: normalized.type, timestamp: now };
+
+      const id = `toast-${now}-${Math.random().toString(36).substring(2, 7)}`;
+      const newToast: ToastMessage = {
+        id,
+        title: normalized.title,
+        description: normalized.description,
+        type: normalized.type,
+        duration: normalized.duration,
+        action: normalized.action,
+        timestamp: now,
+      };
+
+      // 最多保留最新 3 条，避免刷屏
+      setToasts((prev) => [...prev.slice(-2), newToast]);
+      scheduleDismiss(id, newToast.duration);
     },
-    [removeToast]
+    [scheduleDismiss]
   );
 
+  const pauseToast = useCallback((id: string) => {
+    clearTimer(id);
+  }, [clearTimer]);
+
+  const resumeToast = useCallback((id: string, duration: number = 2000) => {
+    scheduleDismiss(id, duration);
+  }, [scheduleDismiss]);
+
+  const dismissAll = useCallback(() => {
+    timerMapRef.current.forEach((t) => clearTimeout(t));
+    timerMapRef.current.clear();
+    setToasts([]);
+  }, []);
+
   const success = useCallback(
-    (title: string, description?: string) => showToast({ title, description, type: 'success' }),
+    (title: string, description?: string, action?: ToastAction) => 
+      showToast({ title, description, type: 'success', action }),
     [showToast]
   );
 
   const error = useCallback(
-    (title: string, description?: string) => showToast({ title, description, type: 'error' }),
+    (title: string, description?: string, action?: ToastAction) => 
+      showToast({ title, description, type: 'error', action, duration: 4200 }),
     [showToast]
   );
 
   const warning = useCallback(
-    (title: string, description?: string) => showToast({ title, description, type: 'warning' }),
+    (title: string, description?: string, action?: ToastAction) => 
+      showToast({ title, description, type: 'warning', action, duration: 3800 }),
     [showToast]
   );
 
   const info = useCallback(
-    (title: string, description?: string) => showToast({ title, description, type: 'info' }),
+    (title: string, description?: string, action?: ToastAction) => 
+      showToast({ title, description, type: 'info', action }),
     [showToast]
   );
 
   return (
-    <ToastContext.Provider value={{ showToast, success, error, warning, info }}>
+    <ToastContext.Provider value={{ showToast, success, error, warning, info, dismissAll }}>
       {children}
-
-      {/* Floating Toast Notification Container */}
-      <div
-        id="global-toast-container"
-        className="fixed top-3 sm:top-5 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-none w-full max-w-sm px-4 select-none"
-      >
-        <AnimatePresence>
-          {toasts.map((t) => (
-            <motion.div
-              key={t.id}
-              initial={{ opacity: 0, y: -16, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -10, scale: 0.95 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
-              className={`pointer-events-auto w-full rounded-xl p-3 shadow-lg border backdrop-blur-md flex items-start gap-2.5 transition-all ${
-                t.type === 'success'
-                  ? 'bg-neutral-900/95 text-white border-neutral-700/80'
-                  : t.type === 'error'
-                  ? 'bg-rose-950/95 text-rose-100 border-rose-800/80'
-                  : t.type === 'warning'
-                  ? 'bg-amber-950/95 text-amber-100 border-amber-800/80'
-                  : 'bg-neutral-900/95 text-white border-neutral-700/80'
-              }`}
-            >
-              {/* Icon */}
-              <div className="shrink-0 mt-0.5">
-                {t.type === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
-                {t.type === 'error' && <XCircle className="w-4 h-4 text-rose-400" />}
-                {t.type === 'warning' && <AlertTriangle className="w-4 h-4 text-amber-400" />}
-                {t.type === 'info' && <Info className="w-4 h-4 text-sky-400" />}
-              </div>
-
-              {/* Body */}
-              <div className="flex-1 min-w-0 pr-1">
-                <h4 className="text-xs font-bold leading-tight">{t.title}</h4>
-                {t.description && (
-                  <p className="text-[11px] text-white/75 mt-0.5 leading-snug">
-                    {t.description}
-                  </p>
-                )}
-              </div>
-
-              {/* Dismiss */}
-              <button
-                type="button"
-                onClick={() => removeToast(t.id)}
-                className="shrink-0 text-white/50 hover:text-white transition-colors p-0.5 rounded cursor-pointer"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
     </ToastContext.Provider>
   );
 };

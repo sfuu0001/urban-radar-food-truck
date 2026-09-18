@@ -25,7 +25,8 @@ import {
   Zap,
   Shuffle,
   Users,
-  Award
+  Award,
+  Scan
 } from 'lucide-react';
 import {
   PaymentDiscountRule,
@@ -51,7 +52,9 @@ import {
   DELIVERY_SETTINGS_EVENT
 } from '../../utils/deliverySettings';
 import { safeGetStorage, safeSetStorage } from '../../utils/safeStorage';
+import { mergeLocalPrefs, fetchPrefsFromCloud } from '../../utils/workspacePreferences';
 import { MerchantCouponsView } from './MerchantCouponsView';
+import { QrAndScannerDiagnosticView } from './QrAndScannerDiagnosticView';
 
 interface MerchantMarketingHubProps {
   showToast: (msg: string) => void;
@@ -59,8 +62,30 @@ interface MerchantMarketingHubProps {
 
 export const MerchantMarketingHub: React.FC<MerchantMarketingHubProps> = ({ showToast }) => {
   const [activeSubTab, setActiveSubTab] = useState<
-    'coupons' | 'activity' | 'stacking_matrix' | 'payment' | 'delivery_threshold' | 'anti_abuse'
-  >('coupons');
+    'coupons' | 'activity' | 'stacking_matrix' | 'payment' | 'delivery_threshold' | 'anti_abuse' | 'qr_diagnostics'
+  >(() => {
+    return safeGetStorage('obsidian_merchant_marketing_subtab', 'coupons');
+  });
+
+  const handleSelectSubTab = (tab: typeof activeSubTab) => {
+    setActiveSubTab(tab);
+    safeSetStorage('obsidian_merchant_marketing_subtab', tab);
+    // v3 偏好云端绑定：子页签记忆双写
+    try { mergeLocalPrefs({ marketingSubTab: tab }); } catch { /* 云同步失败不影响本地 */ }
+  };
+
+  // v3 自愈：本地子页签键缺失而云端有值时回写
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('obsidian_merchant_marketing_subtab')) return;
+      fetchPrefsFromCloud().then((cloud) => {
+        if (cloud?.marketingSubTab) {
+          safeSetStorage('obsidian_merchant_marketing_subtab', cloud.marketingSubTab);
+          setActiveSubTab(cloud.marketingSubTab as typeof activeSubTab);
+        }
+      });
+    } catch { /* 自愈失败静默降级 */ }
+  }, []);
 
   // 1. Payment Rules State
   const [paymentRules, setPaymentRules] = useState<PaymentDiscountRule[]>(() => {
@@ -255,26 +280,26 @@ export const MerchantMarketingHub: React.FC<MerchantMarketingHubProps> = ({ show
         </div>
 
         {/* Subtabs */}
-        <div className="flex bg-[#f8fafc] p-1 rounded-[3px] border border-[#cbd5e1] overflow-x-auto gap-1 hide-scrollbar">
+        <div className="flex bg-[#f8fafc] p-1 rounded-full border border-[#e2e8f0] overflow-x-auto gap-1.5 hide-scrollbar">
           <button
             type="button"
-            onClick={() => setActiveSubTab('coupons')}
-            className={`px-2.5 py-1 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+            onClick={() => handleSelectSubTab('coupons')}
+            className={`px-3 py-1 rounded-full text-xs transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap bg-white border ${
               activeSubTab === 'coupons'
-                ? 'bg-[#0f172a] text-white shadow-xs font-bold'
-                : 'text-[#64748b] hover:text-[#0f172a] hover:bg-[#f1f5f9]'
+                ? 'border-zinc-900 text-zinc-900 font-semibold shadow-2xs'
+                : 'border-[#e2e8f0] text-[#64748b] hover:text-zinc-900 hover:border-zinc-300 hover:bg-slate-50 font-normal'
             }`}
           >
-            <Ticket className="w-3.5 h-3.5 text-emerald-400" />
+            <Ticket className="w-3.5 h-3.5 text-emerald-500" />
             <span>优惠券发放与设计</span>
           </button>
           <button
             type="button"
-            onClick={() => setActiveSubTab('activity')}
-            className={`px-2.5 py-1 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+            onClick={() => handleSelectSubTab('activity')}
+            className={`px-3 py-1 rounded-full text-xs transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap bg-white border ${
               activeSubTab === 'activity'
-                ? 'bg-[#0f172a] text-white shadow-xs font-bold'
-                : 'text-[#64748b] hover:text-[#0f172a] hover:bg-[#f1f5f9]'
+                ? 'border-zinc-900 text-zinc-900 font-semibold shadow-2xs'
+                : 'border-[#e2e8f0] text-[#64748b] hover:text-zinc-900 hover:border-zinc-300 hover:bg-slate-50 font-normal'
             }`}
           >
             <Flame className="w-3.5 h-3.5 text-amber-500" />
@@ -282,35 +307,35 @@ export const MerchantMarketingHub: React.FC<MerchantMarketingHubProps> = ({ show
           </button>
           <button
             type="button"
-            onClick={() => setActiveSubTab('stacking_matrix')}
-            className={`px-2.5 py-1 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+            onClick={() => handleSelectSubTab('stacking_matrix')}
+            className={`px-3 py-1 rounded-full text-xs transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap bg-white border ${
               activeSubTab === 'stacking_matrix'
-                ? 'bg-[#0f172a] text-white shadow-xs font-bold'
-                : 'text-[#64748b] hover:text-[#0f172a] hover:bg-[#f1f5f9]'
+                ? 'border-zinc-900 text-zinc-900 font-semibold shadow-2xs'
+                : 'border-[#e2e8f0] text-[#64748b] hover:text-zinc-900 hover:border-zinc-300 hover:bg-slate-50 font-normal'
             }`}
           >
-            <Shuffle className="w-3.5 h-3.5 text-blue-400" />
+            <Shuffle className="w-3.5 h-3.5 text-blue-500" />
             <span>优惠叠加与互斥矩阵</span>
           </button>
           <button
             type="button"
-            onClick={() => setActiveSubTab('payment')}
-            className={`px-2.5 py-1 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+            onClick={() => handleSelectSubTab('payment')}
+            className={`px-3 py-1 rounded-full text-xs transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap bg-white border ${
               activeSubTab === 'payment'
-                ? 'bg-[#0f172a] text-white shadow-xs font-bold'
-                : 'text-[#64748b] hover:text-[#0f172a] hover:bg-[#f1f5f9]'
+                ? 'border-zinc-900 text-zinc-900 font-semibold shadow-2xs'
+                : 'border-[#e2e8f0] text-[#64748b] hover:text-zinc-900 hover:border-zinc-300 hover:bg-slate-50 font-normal'
             }`}
           >
-            <CreditCard className="w-3.5 h-3.5" />
+            <CreditCard className="w-3.5 h-3.5 text-slate-600" />
             <span>支付渠道立减</span>
           </button>
           <button
             type="button"
-            onClick={() => setActiveSubTab('delivery_threshold')}
-            className={`px-2.5 py-1 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+            onClick={() => handleSelectSubTab('delivery_threshold')}
+            className={`px-3 py-1 rounded-full text-xs transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap bg-white border ${
               activeSubTab === 'delivery_threshold'
-                ? 'bg-[#0f172a] text-white shadow-xs font-bold'
-                : 'text-[#64748b] hover:text-[#0f172a] hover:bg-[#f1f5f9]'
+                ? 'border-zinc-900 text-zinc-900 font-semibold shadow-2xs'
+                : 'border-[#e2e8f0] text-[#64748b] hover:text-zinc-900 hover:border-zinc-300 hover:bg-slate-50 font-normal'
             }`}
           >
             <Bike className="w-3.5 h-3.5 text-sky-500" />
@@ -318,15 +343,27 @@ export const MerchantMarketingHub: React.FC<MerchantMarketingHubProps> = ({ show
           </button>
           <button
             type="button"
-            onClick={() => setActiveSubTab('anti_abuse')}
-            className={`px-2.5 py-1 rounded-[3px] font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+            onClick={() => handleSelectSubTab('anti_abuse')}
+            className={`px-3 py-1 rounded-full text-xs transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap bg-white border ${
               activeSubTab === 'anti_abuse'
-                ? 'bg-[#0f172a] text-white shadow-xs font-bold'
-                : 'text-[#64748b] hover:text-[#0f172a] hover:bg-[#f1f5f9]'
+                ? 'border-zinc-900 text-zinc-900 font-semibold shadow-2xs'
+                : 'border-[#e2e8f0] text-[#64748b] hover:text-zinc-900 hover:border-zinc-300 hover:bg-slate-50 font-normal'
             }`}
           >
             <ShieldAlert className="w-3.5 h-3.5 text-red-500" />
             <span>防叠加风控</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSelectSubTab('qr_diagnostics')}
+            className={`px-3 py-1 rounded-full text-xs transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap bg-white border ${
+              activeSubTab === 'qr_diagnostics'
+                ? 'border-blue-600 text-blue-700 font-semibold shadow-2xs'
+                : 'border-blue-200 text-blue-600 hover:border-blue-400 hover:text-blue-700 hover:bg-blue-50/50 font-normal'
+            }`}
+          >
+            <Scan className="w-3.5 h-3.5 text-blue-500" />
+            <span>二维码/桌号/扫码枪检测</span>
           </button>
         </div>
       </div>
@@ -1067,6 +1104,13 @@ export const MerchantMarketingHub: React.FC<MerchantMarketingHubProps> = ({ show
               </p>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* SUBTAB 7: 全系统二维码与扫码枪完整性检测中心 */}
+      {activeSubTab === 'qr_diagnostics' && (
+        <div className="bg-white rounded-[4px] border border-[#e2e8f0] p-3 sm:p-4 shadow-xs">
+          <QrAndScannerDiagnosticView showToast={showToast} />
         </div>
       )}
 

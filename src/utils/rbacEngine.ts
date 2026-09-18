@@ -58,6 +58,8 @@ export type PermissionCode =
   | 'finance:view_basic'          // 查看基础营收流水
   | 'finance:view_profit'         // 查看纯利润、物料成本与毛利率 (极度敏感)
   | 'finance:export'              // 导出财务与销售 CSV 报表 (敏感)
+  | 'finance:data_correct'        // 收款台账/流水数据删除与更正 (敏感)
+  | 'marketing:data_correct'      // 优惠券与营销统计数据删改/废弃 (敏感)
   | 'finance:settle'              // 结算打款确认
 
   // 团队与组织权限
@@ -93,6 +95,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<StaffRole, PermissionCode[]> = {
     'kds:grill_view', 'kds:barista_view', 'kds:finish_dish',
     'menu:view', 'menu:status_toggle', 'menu:price_edit', 'sop:view', 'supply:order', 'loss:record', 'inventory:close',
     'finance:view_basic', 'finance:view_profit', 'finance:export', 'finance:settle',
+    'finance:data_correct', 'marketing:data_correct',
     'staff:view_roster', 'staff:clockin', 'staff:manage_members', 'staff:edit_rbac',
     'contingency:view', 'contingency:rollback', 'contingency:wipe_db',
     'franchise:view', 'franchise:order_supply'
@@ -247,15 +250,6 @@ export const MERCHANT_TAB_PERMISSIONS: Record<string, TabPermissionRequirement> 
     category: '菜品供应链',
     isSensitive: false,
     helpTip: '收银与店长均可执行临时售罄与重新上架。'
-  },
-  menu_design: {
-    tabId: 'menu_design',
-    tabLabel: '菜单界面与活动轮播设计系统',
-    requiredPermission: 'menu:price_edit',
-    minimumRole: 'manager',
-    category: '菜品供应链',
-    isSensitive: true,
-    helpTip: '修改线上客户端海报布局与展示策略仅由店长审批。'
   },
   craft_standards: {
     tabId: 'craft_standards',

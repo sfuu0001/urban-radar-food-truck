@@ -33,6 +33,7 @@
 
 import { DishItem, Order, UserProfile, TruckInfo } from '../types';
 import { safeGetStorage, safeSetStorage } from './safeStorage';
+import { IS_EMBED_CUSTOMER } from './embedMode';
 import { 
   getCloudbaseApp, 
   TCB_COLLECTIONS, 
@@ -75,7 +76,7 @@ export interface SyncTelemetry {
 }
 
 export interface SyncEventPayload {
-  type: 'ORDERS_CHANGED' | 'DISHES_CHANGED' | 'PROFILE_CHANGED' | 'OUTBOX_DRAINED' | 'PING';
+  type: 'ORDERS_CHANGED' | 'DISHES_CHANGED' | 'PROFILE_CHANGED' | 'OUTBOX_DRAINED' | 'PING' | 'RECYCLE_BIN_CHANGED';
   sourceId: string;
   timestamp: number;
   data?: any;
@@ -106,9 +107,13 @@ class DataSyncEngine {
 
   private constructor() {
     this.initOutbox();
-    this.initBroadcastBus();
-    this.initNetworkListeners();
-    this.startHeartbeat();
+    // embed 预览实例：不加入跨文档广播总线 / storage 事件兜底 / 心跳探测，
+    // 否则会与宿主互相触发 ORDERS/DISHES_CHANGED 形成回声循环
+    if (!IS_EMBED_CUSTOMER) {
+      this.initBroadcastBus();
+      this.initNetworkListeners();
+      this.startHeartbeat();
+    }
   }
 
   public static getInstance(): DataSyncEngine {

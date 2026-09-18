@@ -3,15 +3,84 @@ import {
   MilestoneSnapshot,
   MerchantOperator,
   FieldDiff,
+  FieldPatch,
   VersionModuleType,
-  VersionActionType
+  VersionActionType,
+  RuleHit,
+  ChainProof,
+  ChainVerifyReport,
+  GovernanceHealthReport,
+  GovernanceAction,
+  RetentionTier
 } from '../types/versionTracking';
 import { safeGetStorage, safeSetStorage } from './safeStorage';
+import {
+  ENTITY_SCOPE_REGISTRY,
+  FieldConflict,
+  applyEntityPatches,
+  applyEntityRestore,
+  describeCoverage as describeRollbackCoverage,
+  detectFieldConflicts,
+  explainUnsupported,
+  isModuleRollbackSupported,
+  readEntity,
+  summarizeConflicts
+} from './rollbackGuard';
+import { buildFieldPatches, detectPatchConflicts, summarizePatches } from './patchEngine';
+import {
+  GENESIS_HASH,
+  anchorChainTail,
+  computeChainProof,
+  isCryptoAvailable,
+  verifyChain as verifyChainCore
+} from './integrityChain';
+import {
+  evaluateRules,
+  getQuarantineEntries,
+  highestAction,
+  highestSeverity,
+  quarantineEntity,
+  releaseQuarantine,
+  summarizeHits
+} from './governanceRuleEngine';
+import {
+  POINTER_RETENTION_CAP,
+  applyRetentionPolicy,
+  initPersistentStore,
+  persistentStore,
+  retentionTierOf
+} from './persistentStore';
+import {
+  GovernanceMutationDraft,
+  assertGatewayConsistency,
+  buildPatchesForDraft,
+  describeCoverage as describeGatewayCoverage,
+  installStorageWriteHook,
+  markExplicitlyRecorded,
+  registerGovernanceCommitHandler
+} from './governedStorage';
+
+/** 回滚失败的结构化原因，供调用方与 UI 区分处置策略（不再返回含糊的通用错误） */
+export type RollbackFailureReason =
+  | 'NOT_FOUND'
+  | 'NOT_REVERTIBLE'
+  | 'CONFLICT'
+  | 'UNSUPPORTED'
+  | 'FIELD_NOT_FOUND'
+  | 'APPLY_FAILED';
 
 // Storage Keys
 const STORAGE_KEY_POINTERS = 'obsidian_version_pointers';
 const STORAGE_KEY_SNAPSHOTS = 'obsidian_milestone_snapshots';
 const STORAGE_KEY_ACTIVE_OPERATOR = 'obsidian_current_merchant_operator';
+
+function safeDispatchEvent(name: string, detail?: unknown): void {
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+    try {
+      window.dispatchEvent(new CustomEvent(name, { detail }));
+    } catch {}
+  }
+}
 
 // Default Merchant Operators (Staff accounts)
 export const DEFAULT_MERCHANT_OPERATORS: MerchantOperator[] = [
@@ -162,6 +231,7 @@ export const MODULE_NAME_MAP: Record<VersionModuleType, string> = {
   payments: '支付渠道与结算',
   stall_gps: '餐车GPS与营业时段',
   craft_standards: '主厨SOP与工艺配方',
+  table_session: '堂食桌台会话与联动授权',
   system: '系统应急与全局配置'
 };
 
@@ -191,6 +261,12 @@ function generateHash(dataStr: string): string {
   }
   const hex = Math.abs(hash).toString(16).padStart(8, '0');
   return `sha256_${hex}${Date.now().toString(16).slice(-6)}`;
+}
+
+/** 取 JSON Pointer 的末段 token（用于把补丁路径映射回字段名） */
+function pointerTail(path: string): string {
+  const seg = path.split('/').pop() || '';
+  return seg.replace(/~1/g, '/').replace(/~0/g, '~');
 }
 
 // Generate human-readable format for diff values
@@ -257,7 +333,7 @@ export function computeFieldDiffs(beforeObj: any, afterObj: any): FieldDiff[] {
 }
 
 // Initial Mock Version Pointers (Rich timeline of historical operations)
-const INITIAL_VERSION_POINTERS: VersionPointer[] = [
+const RAW_INITIAL_VERSION_POINTERS: VersionPointer[] = [
   {
     pointerId: 'rev_call_void_9918',
     versionTag: 'v2.6.53',
@@ -736,8 +812,28 @@ const INITIAL_VERSION_POINTERS: VersionPointer[] = [
   }
 ];
 
+/**
+ * 演示数据消毒（P0-b）。
+ *
+ * 改造前 isSuspectedMistake / riskLevel / mistakeReason 只存在于这批 mock 常量中，
+ * 而 recordDataMutation 从未给它们赋过值 —— 也就是说"疑似误操作报警 N 处"
+ * "风控拦截原因：xxx" 全部是演示数据在冒充真实风控结果，真实操作永远不触发。
+ * 现在风险标记一律由 governanceRuleEngine 实时判定，演示数据不再携带任何风险标记。
+ */
+const INITIAL_VERSION_POINTERS: VersionPointer[] = RAW_INITIAL_VERSION_POINTERS.map((p) => ({
+  ...p,
+  isSuspectedMistake: undefined,
+  riskLevel: undefined,
+  mistakeReason: undefined,
+  ruleHits: [],
+  governanceAction: 'none' as const,
+  patches: [],
+  chainProof: null,
+  integrityHash: '(legacy-demo)'
+}));
+
 // Initial Milestone Snapshots
-const INITIAL_SNAPSHOTS: MilestoneSnapshot[] = [
+const RAW_INITIAL_SNAPSHOTS: MilestoneSnapshot[] = [
   {
     snapshotId: 'snap_20260901_0800',
     title: '2026-09-01 早市开餐前基准快照 (Milestone)',
@@ -776,6 +872,15 @@ const INITIAL_SNAPSHOTS: MilestoneSnapshot[] = [
   }
 ];
 
+/**
+ * 演示快照消毒：剥离伪造的 integrityHash，改为 chainProof: null（待真实补算）。
+ */
+const INITIAL_SNAPSHOTS: MilestoneSnapshot[] = RAW_INITIAL_SNAPSHOTS.map((s) => ({
+  ...s,
+  chainProof: null,
+  integrityHash: '(legacy-demo)'
+}));
+
 // -------------------------------------------------------------
 // Engine API Class
 // -------------------------------------------------------------
@@ -792,37 +897,80 @@ class VersionPointerEngine {
   // Set active merchant operator
   public setActiveOperator(operator: MerchantOperator): void {
     safeSetStorage(STORAGE_KEY_ACTIVE_OPERATOR, operator);
-    window.dispatchEvent(
-      new CustomEvent('obsidian_operator_changed', { detail: operator })
-    );
+    safeDispatchEvent('obsidian_operator_changed', operator);
   }
 
   // Get all version pointers
   public getAllPointers(): VersionPointer[] {
-    return safeGetStorage<VersionPointer[]>(
+    return persistentStore.getSync<VersionPointer[]>(
       STORAGE_KEY_POINTERS,
       INITIAL_VERSION_POINTERS
     );
   }
 
-  // Save all version pointers with Storage safety LRU pruning
+  /**
+   * 持久化版本指针。
+   *
+   * 与旧实现的关键差异（P2-b）：
+   *   旧：硬上限 60 条；超过 25 条即"脱水" beforeSnapshot / afterSnapshot ——
+   *       被脱水的历史版本永久失去回滚能力，而 UI 仍显示"一键恢复此版本"。
+   *   新：分层保留（permanent / long / rolling），仅在超出该层配额时才动最旧记录，
+   *       且归档时保留补丁（P2-a 之后回滚只需补丁，不再需要完整快照）；
+   *       写路径升级为 IndexedDB 主存储 + localStorage 同步缓存。
+   */
   public savePointers(pointers: VersionPointer[]): void {
-    // 限制最大存储量 60 条，超过 25 条的旧快照执行轻量脱水，防止 LocalStorage 配额崩溃
-    const pruned = pointers.slice(0, 60).map((ptr, idx) => {
-      if (idx > 25 && ptr.beforeSnapshot && typeof ptr.beforeSnapshot === 'object') {
-        return {
-          ...ptr,
-          beforeSnapshot: { summary: ptr.summary, entityId: ptr.entityId },
-          afterSnapshot: { summary: ptr.summary, entityId: ptr.entityId }
-        };
-      }
-      return ptr;
-    });
+    const plan = applyRetentionPolicy(pointers, POINTER_RETENTION_CAP);
+    const pruned = plan.kept;
 
-    safeSetStorage(STORAGE_KEY_POINTERS, pruned);
-    window.dispatchEvent(
-      new CustomEvent('obsidian_version_pointers_updated', { detail: pruned })
+    // G5 修复：持久化失败必须可见 —— 原实现忽略返回值，配额超限时会静默丢弃版本历史
+    const persisted = persistentStore.setSync(STORAGE_KEY_POINTERS, pruned);
+    if (!persisted) {
+      console.error(
+        `[VersionPointerEngine] 版本指针持久化失败：本地存储与 IndexedDB 均不可用，${pruned.length} 条记录仅存于内存。`
+      );
+      safeDispatchEvent('obsidian_governance_storage_failure', {
+        storageKey: STORAGE_KEY_POINTERS,
+        attemptedCount: pruned.length,
+        reason: 'write_failed'
+      });
+    }
+
+    if (plan.droppedCount > 0 || plan.archivedCount > 0) {
+      console.info(
+        `[VersionPointerEngine] 保留策略生效：淘汰 ${plan.droppedCount} 条，归档快照 ${plan.archivedCount} 条（补丁保留，字段级回滚能力不受影响）。`
+      );
+    }
+
+    safeDispatchEvent('obsidian_version_pointers_updated', pruned);
+  }
+
+  /** 释放被规则引擎隔离的实体，恢复其可写性 */
+  public releaseQuarantinedEntity(entityKey: string): boolean {
+    const operator = this.getActiveOperator();
+    const ok = releaseQuarantine(entityKey, operator.name);
+    if (ok) {
+      this.savePointers(this.getAllPointers());
+    }
+    return ok;
+  }
+
+  /**
+   * 标记原指针为已回滚，并补齐审计链字段。
+   * 原实现只写 status: 'reverted'，遗漏了类型中已声明的 revertedAt / revertedBy，
+   * 导致无法直接查询"这条记录何时、被谁回滚"。
+   */
+  private markPointerReverted(pointerId: string, operator: MerchantOperator): void {
+    const updated = this.getAllPointers().map((p) =>
+      p.pointerId === pointerId
+        ? {
+            ...p,
+            status: 'reverted' as const,
+            revertedAt: new Date().toISOString(),
+            revertedBy: operator.name
+          }
+        : p
     );
+    this.savePointers(updated);
   }
 
   // Record a new data mutation pointer
@@ -837,6 +985,20 @@ class VersionPointerEngine {
     operatorOverride?: MerchantOperator;
     isRollback?: boolean;
     rollbackSourcePointerId?: string;
+    /** P1-a：同一次业务事务的标识与标签 */
+    transactionId?: string;
+    transactionLabel?: string;
+    /** P2-b：覆写分层保留层级（高频探针可降级为 rolling，避免挤占纠纷相关的 long 层配额） */
+    tierOverride?: RetentionTier;
+    /**
+     * 记录来源：
+     *   explicit（默认）—— 业务代码的人工埋点，需要声明"这次变更已有人工覆盖"，
+     *                       以便写入网关对同一次变更去重
+     *   gateway        —— 写入网关自动产生的记录。**绝不能**参与去重声明，
+     *                       否则会形成自抑制闭环：网关记录 A 时标记去重，
+     *                       紧接着的同实体变更 B 被误判为重复而静默丢弃。
+     */
+    origin?: 'explicit' | 'gateway';
   }): VersionPointer {
     const operator = params.operatorOverride || this.getActiveOperator();
     const fieldDiffs = computeFieldDiffs(params.beforeData, params.afterData);
@@ -869,13 +1031,20 @@ class VersionPointerEngine {
       }
     }
 
-    const payloadString = JSON.stringify({
-      before: params.beforeData,
-      after: params.afterData,
-      op: operator.id,
-      t: timestamp
-    });
-    const integrityHash = generateHash(payloadString);
+    // ---------------- P2-a：把变更表达为可执行的字段级补丁 ----------------
+    // 补丁使回滚不再依赖完整 beforeSnapshot，从而让"归档快照"不再等于"失去回滚能力"。
+    // 注意：create / delete 的语义是"实体级增删"，无法用字段补丁表达，
+    // 因此这类记录不生成补丁，由 applyEntityRestore 负责。
+    const isEntityLifecycle = params.actionType === 'create' || params.actionType === 'delete';
+    const patches = isEntityLifecycle
+      ? []
+      : buildFieldPatches(
+          this.resolvePatchesKey(params.module, params.entityId),
+          params.entityId,
+          params.beforeData,
+          params.afterData,
+          (field) => FIELD_LABEL_MAP[field] || field
+        );
 
     const newPointer: VersionPointer = {
       pointerId,
@@ -891,95 +1060,289 @@ class VersionPointerEngine {
       entityName: params.entityName,
       summary,
       fieldDiffs,
+      patches,
       beforeSnapshot: params.beforeData,
       afterSnapshot: params.afterData,
       isRollback: params.isRollback,
       rollbackSourcePointerId: params.rollbackSourcePointerId,
       isRevertible: true,
-      integrityHash,
+      // P0-c：不再生成伪造哈希；真实 SHA-256 由 backfillChainProof 异步补算。
+      integrityHash: '(pending-sha256)',
+      chainProof: null,
+      tier: params.tierOverride ?? retentionTierOf(params.module),
+      transactionId: params.transactionId,
+      transactionLabel: params.transactionLabel,
       status: 'active'
     };
+
+    // ---------------- P0-b：规则引擎实时判定 ----------------
+    // 修复动作本身不再参与风险判定，避免"修复触发新告警"的自激循环。
+    const isRepairAction =
+      !!params.isRollback ||
+      params.actionType === 'rollback' ||
+      params.actionType === 'snapshot_restore';
+
+    const ruleHits: RuleHit[] = isRepairAction
+      ? []
+      : evaluateRules(newPointer, [newPointer, ...existingPointers]);
+
+    newPointer.ruleHits = ruleHits;
+    newPointer.governanceAction = highestAction(ruleHits) as GovernanceAction;
+    newPointer.riskLevel = highestSeverity(ruleHits);
+    newPointer.isSuspectedMistake = ruleHits.some((h) => h.severity === 'high_risk');
+    newPointer.mistakeReason = ruleHits.length > 0 ? summarizeHits(ruleHits) : undefined;
+
+    if (ruleHits.length > 0) {
+      console.warn(
+        `[VersionPointerEngine] 治理规则命中 ${ruleHits.length} 项（${newPointer.riskLevel}）：${newPointer.mistakeReason}`
+      );
+    }
+
+    // quarantine 处置：登记隔离以阻止后续写入；不修改已经落盘的业务数据
+    if (newPointer.governanceAction === 'quarantine') {
+      const entry = quarantineEntity(newPointer, ruleHits);
+      if (entry) {
+        console.warn(
+          `[VersionPointerEngine] 实体已进入隔离区待复核：${entry.entityKey}（触发规则 ${entry.ruleIds.join('/')}）`
+        );
+      }
+    }
 
     const updatedPointers = [newPointer, ...existingPointers];
     this.savePointers(updatedPointers);
 
+    // P1-a：告知写入网关"这次变更已有显式埋点覆盖"，避免与自动记录重复存证。
+    // 关键：只有人工埋点才声明去重；网关自动记录声明去重会导致自抑制闭环。
+    if (params.origin !== 'gateway') {
+      markExplicitlyRecorded(
+        patches.length > 0
+          ? Array.from(new Set(patches.map((p) => p.targetKey)))
+          : [this.resolvePatchesKey(params.module, params.entityId)],
+        params.entityId
+      );
+    }
+
+    // P0-c：异步补算真实链哈希（crypto.subtle 为异步 API，不能阻塞同步写入路径）
+    this.enqueueChainBackfill(newPointer.pointerId);
+
     return newPointer;
   }
 
+  /** 解析补丁与回滚应作用的持久化键 */
+  private resolvePatchesKey(module: VersionModuleType, entityId: string): string {
+    const current = readEntity(module, entityId);
+    if (current.storageKey) return current.storageKey;
+    const scope = ENTITY_SCOPE_REGISTRY[module];
+    return scope?.keys[0]?.key ?? `obsidian_${module}`;
+  }
+
+  // ---------------- P0-c：存证链 ----------------
+
+  private chainQueue: Promise<unknown> = Promise.resolve();
+
+  /**
+   * 串行化的存证补算队列。
+   * 必须串行：链哈希依赖"前驱记录的 chainHash"，并发补算会让多条记录
+   * 取到同一个前驱，导致链结构错误。
+   */
+  private enqueueChainBackfill(pointerId: string): void {
+    this.chainQueue = this.chainQueue
+      .then(() => this.backfillChainProof(pointerId))
+      .catch((e) => {
+        console.error('[VersionPointerEngine] 存证补算失败:', e);
+      });
+  }
+
+  /** 为单条记录补算真实 SHA-256 链哈希 */
+  public async backfillChainProof(pointerId: string): Promise<ChainProof | null> {
+    if (!isCryptoAvailable()) {
+      console.warn(
+        '[VersionPointerEngine] 当前环境不支持 crypto.subtle（需 HTTPS 或 localhost），无法生成密码学存证；该记录保持 pending 状态。'
+      );
+      return null;
+    }
+
+    const ordered = [...this.getAllPointers()].reverse();
+    const idx = ordered.findIndex((p) => p.pointerId === pointerId);
+    if (idx < 0) return null;
+
+    const prevChainHash = idx === 0 ? GENESIS_HASH : ordered[idx - 1].chainProof?.chainHash ?? GENESIS_HASH;
+    const proof = await computeChainProof(prevChainHash, ordered[idx]);
+
+    const latest = this.getAllPointers();
+    const updated = latest.map((p) =>
+      p.pointerId === pointerId
+        ? { ...p, chainProof: proof, integrityHash: proof.chainHash }
+        : p
+    );
+    this.savePointers(updated);
+    safeDispatchEvent('obsidian_chain_proof_updated', { pointerId, proof });
+    return proof;
+  }
+
+  /** 为全部缺失存证的记录补算（用于启动自愈与 schema 迁移后） */
+  public async backfillAllChainProofs(): Promise<number> {
+    if (!isCryptoAvailable()) return 0;
+    const ordered = [...this.getAllPointers()].reverse();
+    let fixed = 0;
+    let prev = GENESIS_HASH;
+
+    const rebuilt: VersionPointer[] = [];
+    for (const node of ordered) {
+      let proof: ChainProof | null = node.chainProof ?? null;
+      if (!proof) {
+        proof = await computeChainProof(prev, node);
+        fixed += 1;
+      }
+      rebuilt.push({ ...node, chainProof: proof, integrityHash: proof.chainHash });
+      prev = proof.chainHash;
+    }
+
+    if (fixed > 0) {
+      this.savePointers(rebuilt.reverse());
+      console.info(`[VersionPointerEngine] 已为 ${fixed} 条历史记录补算真实 SHA-256 存证。`);
+    }
+    return fixed;
+  }
+
+  /** 真实校验整条存证链；UI 必须使用本方法的返回值，禁止硬编码"校验通过" */
+  public async verifyChain(fullContentCheck = true): Promise<ChainVerifyReport> {
+    return verifyChainCore(this.getAllPointers(), { fullContentCheck });
+  }
+
+  /** 把链尾哈希锚定到服务端（前端可信模型的必要补充） */
+  public async anchorChain(
+    uploader?: Parameters<typeof anchorChainTail>[1]
+  ): Promise<ReturnType<typeof anchorChainTail>> {
+    return anchorChainTail(this.getAllPointers(), uploader);
+  }
+
   // Rollback to beforeSnapshot of a specific revision pointer
-  public rollbackPointer(pointerId: string): {
+  /**
+   * 整实体回滚。
+   *
+   * 本次修复（P0-a）：
+   *  - G2/G3：未注册存储适配的模块显式失败（reason: 'UNSUPPORTED'），
+   *           不再落入"通用兜底把 restoredSuccessfully 置为 true"的假成功路径；
+   *  - G4：回滚前比对当前实际状态与 afterSnapshot，存在冲突时默认拒绝，
+   *         避免静默覆盖该指针之后产生的合法变更；
+   *  - G5：任何一次持久化写入失败都立即中止，不标记 reverted、不写入修复存证。
+   */
+  public rollbackPointer(
+    pointerId: string,
+    options?: { force?: boolean }
+  ): {
     success: boolean;
     message: string;
     newPointer?: VersionPointer;
+    reason?: RollbackFailureReason;
+    conflicts?: FieldConflict[];
   } {
     const pointers = this.getAllPointers();
     const targetPointer = pointers.find((p) => p.pointerId === pointerId);
 
     if (!targetPointer) {
-      return { success: false, message: `未找到指针ID ${pointerId} 对应的修订版本` };
+      return {
+        success: false,
+        reason: 'NOT_FOUND',
+        message: `未找到指针ID ${pointerId} 对应的修订版本`
+      };
     }
 
     if (!targetPointer.isRevertible) {
-      return { success: false, message: '该版本已被标记为不可逆操作或已被覆盖' };
+      return {
+        success: false,
+        reason: 'NOT_REVERTIBLE',
+        message: '该版本已被标记为不可逆操作或已被覆盖'
+      };
+    }
+
+    // G3：能力判定必须早于一致性校验 —— 对不支持回滚的模块做冲突比对毫无意义，
+    // 且会让用户收到"字段冲突"这种误导性原因，掩盖真正的问题（该模块回不了）。
+    if (!isModuleRollbackSupported(targetPointer.module) && targetPointer.module !== 'marketing') {
+      return {
+        success: false,
+        reason: 'UNSUPPORTED',
+        message: explainUnsupported(targetPointer.module)
+      };
     }
 
     const operator = this.getActiveOperator();
     const { module, entityId, entityName, beforeSnapshot, afterSnapshot } = targetPointer;
 
-    // Apply storage rollbacks based on module
-    let restoredSuccessfully = false;
+    // G4：基线一致性校验。
+    //  - marketing 为复合模块（快照形状 {activityRules, stackCouponWithPayment} 与
+    //    单一持久化键的形状不一致），无法做整实体基线比对，故排除在外；
+    //  - 快照已归档（contentArchived）的记录不能用 afterSnapshot 比对 —— 它已被
+    //    剥离为摘要对象，比对会产生 100% 的假冲突。此时改用补丁自带的
+    //    expectedCurrent 作为基线（补丁在归档时被完整保留）。
+    if (!options?.force && module !== 'marketing') {
+      const current = readEntity(module, entityId);
+      const patchesOfTarget = targetPointer.patches || [];
+      const usePatchBaseline = !!targetPointer.contentArchived && patchesOfTarget.length > 0;
+
+      if (usePatchBaseline) {
+        if (current.supported && current.entity) {
+          const raw = detectPatchConflicts(patchesOfTarget, () => current.entity);
+          if (raw.length > 0) {
+            const conflicts: FieldConflict[] = raw.map((c) => ({
+              field: c.path,
+              fieldLabel: c.fieldLabel,
+              expected: c.expected,
+              actual: c.actual
+            }));
+            return {
+              success: false,
+              reason: 'CONFLICT',
+              conflicts,
+              message:
+                `【回滚已中止】实体【${entityName}】在版本 ${targetPointer.versionTag} 之后已被再次修改，` +
+                `直接回滚会静默覆盖这些变更。冲突字段：${summarizeConflicts(conflicts, (v) => formatDiffValue(v))}。` +
+                `请先复核最新版本；确认要丢弃后续变更时，可使用强制回滚。`
+            };
+          }
+        }
+      } else if (current.supported) {
+        const conflicts = detectFieldConflicts(
+          afterSnapshot,
+          current.entity,
+          (f) => FIELD_LABEL_MAP[f] || f
+        );
+        if (conflicts.length > 0) {
+          return {
+            success: false,
+            reason: 'CONFLICT',
+            conflicts,
+            message:
+              `【回滚已中止】实体【${entityName}】在版本 ${targetPointer.versionTag} 之后已被再次修改，` +
+              `直接回滚会静默覆盖这些变更。冲突字段：${summarizeConflicts(conflicts)}。` +
+              `请先复核最新版本；确认要丢弃后续变更时，可使用强制回滚。`
+          };
+        }
+      }
+    }
+
+    // G5：统一写入通道，任何一次写入失败立即中止流程
+    const writeState: { error: string | null; wroteAny: boolean } = {
+      error: null,
+      wroteAny: false
+    };
+    const guardWrite = (key: string, value: unknown): void => {
+      if (safeSetStorage(key, value)) {
+        writeState.wroteAny = true;
+      } else {
+        writeState.error = `写入 ${key} 失败（本地存储配额可能已满），已中止回滚且未产生任何变更存证`;
+      }
+    };
 
     try {
-      if (module === 'dishes') {
-        const currentDishes = safeGetStorage<any[]>('obsidian_truck_dishes', []);
-        let updated: any[];
-        if (!beforeSnapshot) {
-          // It was a create action, so rolling back means deleting it
-          updated = currentDishes.filter((d) => d.id !== entityId);
-        } else {
-          const exists = currentDishes.some((d) => d.id === entityId);
-          if (exists) {
-            updated = currentDishes.map((d) => (d.id === entityId ? { ...d, ...beforeSnapshot } : d));
-          } else {
-            updated = [beforeSnapshot, ...currentDishes];
-          }
-        }
-        safeSetStorage('obsidian_truck_dishes', updated);
-        restoredSuccessfully = true;
-      } else if (module === 'materials') {
-        const currentMaterials = safeGetStorage<any[]>('obsidian_truck_materials', []);
-        let updated: any[];
-        if (!beforeSnapshot) {
-          updated = currentMaterials.filter((m) => m.id !== entityId);
-        } else {
-          const exists = currentMaterials.some((m) => m.id === entityId);
-          if (exists) {
-            updated = currentMaterials.map((m) => (m.id === entityId ? { ...m, ...beforeSnapshot } : m));
-          } else {
-            updated = [beforeSnapshot, ...currentMaterials];
-          }
-        }
-        safeSetStorage('obsidian_truck_materials', updated);
-        restoredSuccessfully = true;
-      } else if (module === 'coupons') {
-        const currentCoupons = safeGetStorage<any[]>('obsidian_merchant_coupons', []);
-        let updated: any[];
-        if (!beforeSnapshot) {
-          updated = currentCoupons.filter((c) => c.id !== entityId);
-        } else {
-          const exists = currentCoupons.some((c) => c.id === entityId);
-          if (exists) {
-            updated = currentCoupons.map((c) => (c.id === entityId ? { ...c, ...beforeSnapshot } : c));
-          } else {
-            updated = [beforeSnapshot, ...currentCoupons];
-          }
-        }
-        safeSetStorage('obsidian_merchant_coupons', updated);
-        restoredSuccessfully = true;
-      } else if (module === 'marketing') {
+      if (module === 'marketing') {
+        // marketing 是唯一的复合模块：一个模块对应两个持久化键
+        // （obsidian_activity_rules 集合 + obsidian_stacking_settings 单例），
+        // 其快照形状为 { activityRules, stackCouponWithPayment }，无法用统一适配表还原。
         if (beforeSnapshot) {
           if (beforeSnapshot.activityRules) {
-            safeSetStorage('obsidian_activity_rules', beforeSnapshot.activityRules);
+            guardWrite('obsidian_activity_rules', beforeSnapshot.activityRules);
           }
           if (beforeSnapshot.stackCouponWithPayment !== undefined) {
             // FIX(审计P0): 原写入不存在的键 'obsidian_promotion_stacking'(全仓0读取)。
@@ -987,153 +1350,380 @@ class VersionPointerEngine {
             // 快照布尔字段 stackCouponWithPayment 对应叠享配置 allowPaymentStackAll。
             const current = safeGetStorage<any>('obsidian_stacking_settings', {});
             const restored = { ...current, allowPaymentStackAll: !!beforeSnapshot.stackCouponWithPayment };
-            safeSetStorage('obsidian_stacking_settings', restored);
+            guardWrite('obsidian_stacking_settings', restored);
             if (typeof window !== 'undefined') {
               window.dispatchEvent(new CustomEvent('PROMOTION_SETTINGS_CHANGED', { detail: restored }));
             }
           }
         }
-        restoredSuccessfully = true;
-      } else if (module === 'delivery') {
-        if (beforeSnapshot) {
-          safeSetStorage('obsidian_delivery_settings', beforeSnapshot);
+      } else if (isModuleRollbackSupported(module)) {
+        // P2-a：优先走字段级补丁 —— 即使保留策略已归档快照（contentArchived），
+        // 只要补丁还在，字段级回滚能力就不受影响。
+        const usePatches =
+          !!targetPointer.contentArchived &&
+          !!targetPointer.patches &&
+          targetPointer.patches.length > 0;
+
+        const outcome = usePatches
+          ? (() => {
+              const r = applyEntityPatches(module, entityId, targetPointer.patches!);
+              return { success: r.success, message: r.message };
+            })()
+          : applyEntityRestore(module, entityId, beforeSnapshot);
+
+        if (outcome.success) {
+          writeState.wroteAny = true;
+        } else {
+          writeState.error = outcome.message;
         }
-        restoredSuccessfully = true;
-      } else if (module === 'tables') {
-        const currentTables = safeGetStorage<any[]>('obsidian_merchant_tables', []);
-        if (beforeSnapshot) {
-          const updated = currentTables.map((t) => (t.id === entityId ? { ...t, ...beforeSnapshot } : t));
-          safeSetStorage('obsidian_merchant_tables', updated);
-        }
-        restoredSuccessfully = true;
       } else {
-        // Fallback generic restoration
-        restoredSuccessfully = true;
+        // G3 修复：此处原为「通用兜底直接置 restoredSuccessfully = true」，
+        // 导致未实现分支的模块既未恢复任何数据、又返回成功并写入一条"成功回滚"存证。
+        return {
+          success: false,
+          reason: 'UNSUPPORTED',
+          message: explainUnsupported(module)
+        };
       }
     } catch (e: any) {
-      return { success: false, message: `回滚失败: ${e?.message || '未知错误'}` };
-    }
-
-    if (restoredSuccessfully) {
-      // Create a rollback version pointer (Lossless append-only audit trail)
-      const rollbackPointer = this.recordDataMutation({
-        module,
-        entityId,
-        entityName,
-        actionType: 'rollback',
-        beforeData: afterSnapshot,
-        afterData: beforeSnapshot,
-        customSummary: `🛡️ ${operator.name} (${operator.roleName}) 成功执行数据回滚，将【${entityName}】还原至版本 ${targetPointer.versionTag} (${targetPointer.formattedTime})`,
-        operatorOverride: operator,
-        isRollback: true,
-        rollbackSourcePointerId: pointerId
-      });
-
-      // Mark original pointer status
-      const updatedPointers = this.getAllPointers().map((p) =>
-        p.pointerId === pointerId ? { ...p, status: 'reverted' as const } : p
-      );
-      this.savePointers(updatedPointers);
-
-      // Dispatch data restored event across entire applet
-      window.dispatchEvent(
-        new CustomEvent('obsidian_data_restored', {
-          detail: {
-            module,
-            entityId,
-            pointerId,
-            restoredData: beforeSnapshot
-          }
-        })
-      );
-
       return {
-        success: true,
-        message: `已成功将【${entityName}】回滚至历史版本 (${targetPointer.versionTag}) 并生成修复存证！`,
-        newPointer: rollbackPointer
+        success: false,
+        reason: 'APPLY_FAILED',
+        message: `回滚失败: ${e?.message || '未知错误'}`
       };
     }
 
-    return { success: false, message: '未能正确应用回滚快照' };
+    // G5：写入失败一律中止，不进入"标记 reverted + 写存证"环节
+    if (writeState.error) {
+      return { success: false, reason: 'APPLY_FAILED', message: writeState.error };
+    }
+
+    // G3：未产生任何实际写入时不得返回成功
+    if (!writeState.wroteAny) {
+      return {
+        success: false,
+        reason: 'UNSUPPORTED',
+        message: `模块「${module}」的该条记录未包含可还原的数据，已中止回滚且未产生修复存证`
+      };
+    }
+
+    // 至此写入已确认成功，才生成修复存证（append-only 无损审计链）
+    const rollbackPointer = this.recordDataMutation({
+      module,
+      entityId,
+      entityName,
+      actionType: 'rollback',
+      beforeData: afterSnapshot,
+      afterData: beforeSnapshot,
+      customSummary: `🛡️ ${operator.name} (${operator.roleName}) 成功执行数据回滚，将【${entityName}】还原至版本 ${targetPointer.versionTag} (${targetPointer.formattedTime})`,
+      operatorOverride: operator,
+      isRollback: true,
+      rollbackSourcePointerId: pointerId
+    });
+
+    // 标记原指针并补齐审计链字段（原实现遗漏 revertedAt / revertedBy）
+    this.markPointerReverted(pointerId, operator);
+
+    // Dispatch data restored event across entire applet
+    safeDispatchEvent('obsidian_data_restored', {
+      module,
+      entityId,
+      pointerId,
+      restoredData: beforeSnapshot
+    });
+
+    return {
+      success: true,
+      message: `已成功将【${entityName}】回滚至历史版本 (${targetPointer.versionTag}) 并生成修复存证！`,
+      newPointer: rollbackPointer
+    };
   }
 
   // Surgical Single-field Rollback
+  /**
+   * 字段级精准修复。
+   *
+   * 原实现存在致命缺陷（G3）：对 dishes / materials / coupons 之外的模块
+   * —— 不修改任何数据、不报错、却写入一条「🔧 精准单字段修复」存证并返回 success，
+   * 即审计链会记录一次从未发生的修复。本次彻底移除该路径。
+   *
+   * 现在的不变式：
+   *  1. 未注册写适配的模块 → 显式失败（UNSUPPORTED），不写入任何存证；
+   *  2. 实体不存在 → 显式失败，不写入任何存证；
+   *  3. 当前字段值 ≠ 该指针的 newValue（说明此后被再次修改）→ 显式失败（CONFLICT），
+   *     除非调用方显式传入 force；
+   *  4. 写入失败（配额超限）→ 显式失败（APPLY_FAILED），不写入任何存证；
+   *  5. 只有在写入确实成功之后，才生成修复存证并标记原指针。
+   */
   public rollbackSingleField(
     pointerId: string,
-    fieldKey: string
-  ): { success: boolean; message: string } {
+    fieldKey: string,
+    options?: { force?: boolean }
+  ): {
+    success: boolean;
+    message: string;
+    reason?: RollbackFailureReason;
+    conflicts?: FieldConflict[];
+  } {
     const pointers = this.getAllPointers();
     const targetPointer = pointers.find((p) => p.pointerId === pointerId);
 
-    if (!targetPointer) return { success: false, message: '未找到指定版本' };
+    if (!targetPointer) {
+      return { success: false, reason: 'NOT_FOUND', message: '未找到指定版本' };
+    }
 
     const targetDiff = targetPointer.fieldDiffs.find((d) => d.field === fieldKey);
-    if (!targetDiff) return { success: false, message: '该版本中未发现此字段的修改记录' };
+    const patch = (targetPointer.patches || []).find((pt) => pointerTail(pt.path) === fieldKey);
 
-    const { module, entityId, entityName } = targetPointer;
-    const oldValue = targetDiff.oldValue;
+    if (!targetDiff && !patch) {
+      return {
+        success: false,
+        reason: 'FIELD_NOT_FOUND',
+        message: `该版本中未发现字段「${fieldKey}」的修改记录`
+      };
+    }
+
+    // 优先使用记录携带的字段补丁（P2-a）；历史数据回退为按 fieldDiffs 合成补丁。
+    const planned: FieldPatch[] = patch
+      ? [patch]
+      : [
+          {
+            targetKey: this.resolvePatchesKey(targetPointer.module, targetPointer.entityId),
+            entityId: targetPointer.entityId,
+            path: `/${fieldKey}`,
+            op: 'replace',
+            value: targetDiff!.oldValue,
+            expectedCurrent: targetDiff!.newValue,
+            fieldLabel: targetDiff!.fieldLabel
+          }
+        ];
+
+    return this.executePatchRepair(targetPointer, planned, options);
+  }
+
+  /**
+   * 补丁级批量精准回滚（P2-a）。
+   * @param paths 只回滚指定 JSON Pointer；不传则回滚该记录的全部补丁。
+   */
+  public rollbackPatches(
+    pointerId: string,
+    paths?: string[],
+    options?: { force?: boolean }
+  ): {
+    success: boolean;
+    message: string;
+    reason?: RollbackFailureReason;
+    conflicts?: FieldConflict[];
+  } {
+    const targetPointer = this.getAllPointers().find((p) => p.pointerId === pointerId);
+    if (!targetPointer) {
+      return { success: false, reason: 'NOT_FOUND', message: '未找到指定版本' };
+    }
+
+    const all = targetPointer.patches || [];
+    if (all.length === 0) {
+      return {
+        success: false,
+        reason: 'FIELD_NOT_FOUND',
+        message:
+          '该记录为实体级增删或全量快照型操作，没有可用的字段级补丁，请使用整实体回滚或快照还原'
+      };
+    }
+
+    const selected =
+      paths && paths.length > 0 ? all.filter((p) => paths.includes(p.path)) : all;
+    if (selected.length === 0) {
+      return {
+        success: false,
+        reason: 'FIELD_NOT_FOUND',
+        message: `指定的路径未在该记录中找到: ${(paths || []).join(', ')}`
+      };
+    }
+
+    return this.executePatchRepair(targetPointer, selected, options);
+  }
+
+  /**
+   * 统一修复执行器。
+   *
+   * 不变式（P0-a 起强制，避免"未改数据却返回成功"的审计链造假）：
+   *  1. 未注册写适配的模块 → 显式失败，不写任何存证；
+   *  2. 实体不存在 → 显式失败，不写任何存证；
+   *  3. 补丁基准与当前值不一致 → CONFLICT（除非 force）；
+   *  4. 写入失败 → APPLY_FAILED，不写任何存证；
+   *  5. 只有写入确实成功之后，才生成修复存证并标记原指针。
+   */
+  private executePatchRepair(
+    targetPointer: VersionPointer,
+    patches: FieldPatch[],
+    options?: { force?: boolean }
+  ): {
+    success: boolean;
+    message: string;
+    reason?: RollbackFailureReason;
+    conflicts?: FieldConflict[];
+  } {
+    const { module, entityId, entityName, pointerId } = targetPointer;
     const operator = this.getActiveOperator();
 
-    try {
-      if (module === 'dishes') {
-        const dishes = safeGetStorage<any[]>('obsidian_truck_dishes', []);
-        const updated = dishes.map((d) =>
-          d.id === entityId ? { ...d, [fieldKey]: oldValue } : d
-        );
-        safeSetStorage('obsidian_truck_dishes', updated);
-      } else if (module === 'materials') {
-        const materials = safeGetStorage<any[]>('obsidian_truck_materials', []);
-        const updated = materials.map((m) =>
-          m.id === entityId ? { ...m, [fieldKey]: oldValue } : m
-        );
-        safeSetStorage('obsidian_truck_materials', updated);
-      } else if (module === 'coupons') {
-        const coupons = safeGetStorage<any[]>('obsidian_merchant_coupons', []);
-        const updated = coupons.map((c) =>
-          c.id === entityId ? { ...c, [fieldKey]: oldValue } : c
-        );
-        safeSetStorage('obsidian_merchant_coupons', updated);
-      }
-
-      // Record single field repair pointer
-      this.recordDataMutation({
-        module,
-        entityId,
-        entityName,
-        actionType: 'rollback',
-        beforeData: { [fieldKey]: targetDiff.newValue },
-        afterData: { [fieldKey]: oldValue },
-        customSummary: `🔧 ${operator.name} 精准单字段修复：将【${entityName}】的「${targetDiff.fieldLabel}」单独恢复为 ${targetDiff.oldValueDisplay}`,
-        operatorOverride: operator,
-        isRollback: true,
-        rollbackSourcePointerId: pointerId
-      });
-
-      window.dispatchEvent(
-        new CustomEvent('obsidian_data_restored', {
-          detail: { module, entityId, fieldKey, oldValue }
-        })
-      );
-
+    // 不变式 1
+    if (!isModuleRollbackSupported(module)) {
       return {
-        success: true,
-        message: `已单独将「${targetDiff.fieldLabel}」恢复为 ${targetDiff.oldValueDisplay}！`
+        success: false,
+        reason: 'UNSUPPORTED',
+        message: `${explainUnsupported(module)}（本次未修改任何数据，也未生成修复存证）`
       };
-    } catch (e: any) {
-      return { success: false, message: `单字段修复失败: ${e.message}` };
     }
+
+    // 不变式 2
+    const current = readEntity(module, entityId);
+    if (!current.supported || !current.found || !current.entity) {
+      return {
+        success: false,
+        reason: 'APPLY_FAILED',
+        message: `未在存储中找到实体【${entityName}】(${entityId})，本次未修改任何数据`
+      };
+    }
+
+    // 不变式 3
+    if (!options?.force) {
+      const rawConflicts = detectPatchConflicts(patches, () => current.entity);
+      if (rawConflicts.length > 0) {
+        const conflicts: FieldConflict[] = rawConflicts.map((c) => ({
+          field: c.path,
+          fieldLabel: c.fieldLabel,
+          expected: c.expected,
+          actual: c.actual
+        }));
+        return {
+          success: false,
+          reason: 'CONFLICT',
+          conflicts,
+          message:
+            '【修复已中止】以下字段在该版本之后已被再次修改，直接修复会静默覆盖这些变更：' +
+            `${summarizeConflicts(conflicts, (v) => formatDiffValue(v))}。` +
+            '请先复核最新版本，或在确认丢弃后续变更后使用强制修复。'
+        };
+      }
+    }
+
+    // 不变式 4
+    const outcome = applyEntityPatches(module, entityId, patches);
+    if (!outcome.success) {
+      return {
+        success: false,
+        reason: 'APPLY_FAILED',
+        message: `${outcome.message}（已回滚本次部分写入，数据保持修复前状态）`
+      };
+    }
+
+    // 不变式 5
+    this.recordDataMutation({
+      module,
+      entityId,
+      entityName,
+      actionType: 'rollback',
+      beforeData: Object.fromEntries(patches.map((p) => [p.path, p.expectedCurrent])),
+      afterData: Object.fromEntries(patches.map((p) => [p.path, p.value])),
+      customSummary: `🔧 ${operator.name} 补丁级精准修复：对【${entityName}】回写 ${patches.length} 处字段（${summarizePatches(patches)}）`,
+      operatorOverride: operator,
+      isRollback: true,
+      rollbackSourcePointerId: pointerId
+    });
+
+    this.markPointerReverted(pointerId, operator);
+
+    safeDispatchEvent('obsidian_data_restored', { module, entityId, paths: patches.map((p) => p.path) });
+
+    return {
+      success: true,
+      message: `已精准回写 ${patches.length} 处字段（${summarizePatches(patches)}）`
+    };
   }
 
   // Milestone Snapshots API
   public getMilestoneSnapshots(): MilestoneSnapshot[] {
-    return safeGetStorage<MilestoneSnapshot[]>(
+    return persistentStore.getSync<MilestoneSnapshot[]>(
       STORAGE_KEY_SNAPSHOTS,
       INITIAL_SNAPSHOTS
     );
   }
 
   public saveMilestoneSnapshots(snapshots: MilestoneSnapshot[]): void {
-    safeSetStorage(STORAGE_KEY_SNAPSHOTS, snapshots);
+    const persisted = persistentStore.setSync(STORAGE_KEY_SNAPSHOTS, snapshots);
+    if (!persisted) {
+      console.error('[VersionPointerEngine] 里程碑快照持久化失败，本地存储与 IndexedDB 均不可用');
+    }
+  }
+
+  /**
+   * 重建快照存证链。
+   * 快照数量少，采用整链重建而非增量补算，实现简单且不会出现链断裂。
+   */
+  private async backfillSnapshotChain(): Promise<void> {
+    if (!isCryptoAvailable()) return;
+    const ordered = [...this.getMilestoneSnapshots()].reverse();
+    let prev = GENESIS_HASH;
+    const rebuilt: MilestoneSnapshot[] = [];
+    for (const snap of ordered) {
+      const proof = await computeChainProof(prev, snap);
+      rebuilt.push({ ...snap, chainProof: proof, integrityHash: proof.chainHash });
+      prev = proof.chainHash;
+    }
+    this.saveMilestoneSnapshots(rebuilt.reverse());
+    safeDispatchEvent('obsidian_snapshot_chain_updated', {});
+  }
+
+  /** 校验快照存证链 */
+  public async verifySnapshotChain(fullContentCheck = true): Promise<ChainVerifyReport> {
+    return verifyChainCore(this.getMilestoneSnapshots(), { fullContentCheck });
+  }
+
+  /**
+   * 治理健康度体检报告。
+   * 把所有"能力边界"如实暴露给 UI：覆盖率、持久化后端、存证链状态、风险计数、
+   * 以及仍不支持回滚的模块清单 —— 避免出现"界面说能回滚、实际回不了"的情况。
+   */
+  public async getGovernanceHealth(): Promise<GovernanceHealthReport> {
+    const pointers = this.getAllPointers();
+    const gateway = describeGatewayCoverage();
+    const rollback = describeRollbackCoverage();
+    const quarantine = getQuarantineEntries().filter((e) => !e.released);
+
+    let integrity: ChainVerifyReport | null = null;
+    try {
+      integrity = await verifyChainCore(pointers, { fullContentCheck: true });
+    } catch (e) {
+      console.warn('[VersionPointerEngine] 存证链校验失败:', e);
+    }
+
+    return {
+      generatedAt: new Date().toISOString(),
+      pointerCount: pointers.length,
+      retentionCap: POINTER_RETENTION_CAP,
+      persistence: persistentStore.health,
+      coverage: {
+        totalModules: gateway.moduleCoverage.total,
+        instrumentedModules: gateway.moduleCoverage.instrumented,
+        missingModules: gateway.moduleCoverage.missing,
+        unsupportedRollbackModules: rollback.unsupported
+      },
+      integrity,
+      risk: {
+        total: pointers.filter((p) => (p.ruleHits || []).length > 0).length,
+        highRisk: pointers.filter((p) => p.isSuspectedMistake).length,
+        quarantined: quarantine.length,
+        autoReverted: pointers.filter((p) => p.governanceAction === 'auto_revert').length
+      }
+    };
+  }
+
+  /** 启动自愈：由 initGovernance() 调用 */
+  public async selfHeal(): Promise<{ chainFixed: number; snapshotsRebuilt: boolean }> {
+    const chainFixed = await this.backfillAllChainProofs();
+    await this.backfillSnapshotChain();
+    assertGatewayConsistency();
+    return { chainFixed, snapshotsRebuilt: true };
   }
 
   // Create a full manual milestone snapshot
@@ -1172,7 +1762,9 @@ class VersionPointerEngine {
       activityRules
     };
 
-    const integrityHash = generateHash(JSON.stringify(payload));
+    // P0-c：不再生成伪造哈希。真实 SHA-256 存证由 backfillSnapshotChain() 异步补算，
+    // 在此之前 UI 应显示"存证中"而非"校验通过"。
+    const integrityHash = '(pending-sha256)';
     const snapshotId = `snap_${Date.now()}`;
 
     const newSnapshot: MilestoneSnapshot = {
@@ -1196,6 +1788,8 @@ class VersionPointerEngine {
 
     const snapshots = [newSnapshot, ...this.getMilestoneSnapshots()];
     this.saveMilestoneSnapshots(snapshots);
+    // P0-c：异步重建快照存证链
+    void this.backfillSnapshotChain();
 
     // Record pointer for snapshot creation
     this.recordDataMutation({
@@ -1223,13 +1817,28 @@ class VersionPointerEngine {
     const operator = this.getActiveOperator();
 
     try {
-      if (target.payload.dishes) safeSetStorage('obsidian_truck_dishes', target.payload.dishes);
-      if (target.payload.materials) safeSetStorage('obsidian_truck_materials', target.payload.materials);
-      if (target.payload.coupons) safeSetStorage('obsidian_merchant_coupons', target.payload.coupons);
-      if (target.payload.staff) safeSetStorage('obsidian_staff_members', target.payload.staff);
-      if (target.payload.tables) safeSetStorage('obsidian_merchant_tables', target.payload.tables);
-      if (target.payload.deliverySettings) safeSetStorage('obsidian_delivery_settings', target.payload.deliverySettings);
-      if (target.payload.activityRules) safeSetStorage('obsidian_activity_rules', target.payload.activityRules);
+      // G5 修复：快照还原涉及多个键的批量写入，任一失败都必须中止并如实报告，
+      // 否则会出现"部分还原却提示成功"的更隐蔽的数据损坏。
+      const failures: string[] = [];
+      const restore = (key: string, value: unknown) => {
+        if (value === undefined || value === null) return;
+        if (!safeSetStorage(key, value)) failures.push(key);
+      };
+
+      restore('obsidian_truck_dishes', target.payload.dishes);
+      restore('obsidian_truck_materials', target.payload.materials);
+      restore('obsidian_merchant_coupons', target.payload.coupons);
+      restore('obsidian_staff_members', target.payload.staff);
+      restore('obsidian_merchant_tables', target.payload.tables);
+      restore('obsidian_delivery_settings', target.payload.deliverySettings);
+      restore('obsidian_activity_rules', target.payload.activityRules);
+
+      if (failures.length > 0) {
+        return {
+          success: false,
+          message: `快照还原中断：以下键写入失败（本地存储配额可能已满）：${failures.join(', ')}。数据可能处于部分还原状态，请立即释放存储空间后重试。`
+        };
+      }
 
       // Record pointer
       this.recordDataMutation({
@@ -1242,11 +1851,7 @@ class VersionPointerEngine {
         customSummary: `🚨 ${operator.name} 执行了全量数据快照灾备还原，恢复至【${target.title}】(${target.createdAt})`
       });
 
-      window.dispatchEvent(
-        new CustomEvent('obsidian_data_restored', {
-          detail: { fullRestore: true, snapshotId }
-        })
-      );
+      safeDispatchEvent('obsidian_data_restored', { fullRestore: true, snapshotId });
 
       return {
         success: true,
@@ -1257,14 +1862,49 @@ class VersionPointerEngine {
     }
   }
 
-  // Export audit logs and version history
+  /**
+   * 导出防篡改审计报告。
+   * 输出内容包含真实链哈希（chainProof）、命中规则明细与补丁集，
+   * 便于在离线环境中逐条重算校验。
+   */
   public exportAuditReport(pointers: VersionPointer[]): void {
+    const chainSummary = pointers.map((p) => ({
+      pointerId: p.pointerId,
+      versionTag: p.versionTag,
+      timestamp: p.timestamp,
+      operator: `${p.operator.name}(${p.operator.roleName})`,
+      module: p.moduleName,
+      actionType: p.actionType,
+      entityId: p.entityId,
+      entityName: p.entityName,
+      summary: p.summary,
+      riskLevel: p.riskLevel ?? 'normal',
+      isSuspectedMistake: !!p.isSuspectedMistake,
+      mistakeReason: p.mistakeReason ?? null,
+      ruleHits: p.ruleHits ?? [],
+      governanceAction: p.governanceAction ?? 'none',
+      patches: p.patches ?? [],
+      fieldDiffs: p.fieldDiffs,
+      prevChainHash: p.chainProof?.prevChainHash ?? null,
+      payloadHash: p.chainProof?.payloadHash ?? null,
+      contentDigest: p.chainProof?.contentDigest ?? null,
+      chainHash: p.chainProof?.chainHash ?? null,
+      status: p.status,
+      revertedAt: p.revertedAt ?? null,
+      revertedBy: p.revertedBy ?? null
+    }));
+
     const dataStr = JSON.stringify(
       {
         exportTime: new Date().toISOString(),
         merchantId: 'URBAN_RADAR_FOOD_TRUCK_01',
+        chainAlgorithm: 'SHA-256',
+        chainGenesis: GENESIS_HASH,
         totalRevisions: pointers.length,
-        versionPointers: pointers
+        verifiedProofCount: pointers.filter((p) => !!p.chainProof).length,
+        retentionCap: POINTER_RETENTION_CAP,
+        coverage: describeGatewayCoverage().moduleCoverage,
+        versionPointers: chainSummary
       },
       null,
       2
@@ -1284,6 +1924,53 @@ class VersionPointerEngine {
 
 export const globalVersionEngine = new VersionPointerEngine();
 
+// -------------------------------------------------------------
+// P1-a：把写入网关的自动记录接到引擎上
+// -------------------------------------------------------------
+
+registerGovernanceCommitHandler(
+  (drafts: GovernanceMutationDraft[], label: string, transactionId: string) => {
+    const operator = globalVersionEngine.getActiveOperator();
+    drafts.forEach((draft) => {
+      globalVersionEngine.recordDataMutation({
+        module: draft.module,
+        entityId: draft.entityId,
+        entityName: draft.entityName,
+        actionType: draft.actionType,
+        beforeData: draft.beforeData,
+        afterData: draft.afterData,
+        transactionId,
+        transactionLabel: label,
+        origin: 'gateway',
+        customSummary:
+          `🌐 网关自动记录（事务：${label}）｜${operator.name} 对【${draft.entityName}】执行「${
+            ACTION_NAME_MAP[draft.actionType]
+          }」`
+      });
+    });
+  }
+);
+
+/**
+ * 治理子系统启动入口（幂等）。
+ * 在应用挂载时调用一次：初始化 IndexedDB → 补算历史存证 → 校验网关一致性。
+ */
+export function initGovernance(): void {
+  initPersistentStore();
+  // P1-a：安装持久化出口写入钩子 —— 业务侧零改动即获得 100% 版本记录覆盖
+  installStorageWriteHook();
+  // 网关与回滚适配表的一致性自检（"有记录却回不了"的漂移在启动期暴露）
+  assertGatewayConsistency();
+  void globalVersionEngine
+    .selfHeal()
+    .then((res) => {
+      if (res.chainFixed > 0) {
+        console.info(`[Governance] 启动自愈完成：补算 ${res.chainFixed} 条记录的真实 SHA-256 存证。`);
+      }
+    })
+    .catch((e) => console.error('[Governance] 启动自愈失败:', e));
+}
+
 // Convenience helper exports for components
 export const getVersionPointers = (): VersionPointer[] => globalVersionEngine.getAllPointers();
 export const getMilestoneSnapshots = (): MilestoneSnapshot[] => globalVersionEngine.getMilestoneSnapshots();
@@ -1293,15 +1980,32 @@ export const createMilestoneSnapshot = (
   tag: MilestoneSnapshot['tag'] = 'manual'
 ): MilestoneSnapshot => globalVersionEngine.createManualSnapshot(title, description, tag);
 export const restoreMilestoneSnapshot = (snapshotId: string) => globalVersionEngine.restoreMilestoneSnapshot(snapshotId);
-export const rollbackVersionPointer = (pointerId: string, _reason?: string) => {
-  const res = globalVersionEngine.rollbackPointer(pointerId);
+export const rollbackVersionPointer = (
+  pointerId: string,
+  options?: { force?: boolean }
+) => {
+  const res = globalVersionEngine.rollbackPointer(pointerId, options);
   return {
     success: res.success,
     message: res.message,
     revertedPointer: res.newPointer,
+    reason: res.reason,
+    conflicts: res.conflicts,
     error: res.success ? undefined : res.message
   };
 };
+export const rollbackVersionPatches = (
+  pointerId: string,
+  paths?: string[],
+  options?: { force?: boolean }
+) => globalVersionEngine.rollbackPatches(pointerId, paths, options);
+export const verifyVersionChain = (fullContentCheck = true) =>
+  globalVersionEngine.verifyChain(fullContentCheck);
+export const getGovernanceHealth = () => globalVersionEngine.getGovernanceHealth();
+export const getGovernanceCoverage = () => ({
+  gateway: describeGatewayCoverage(),
+  rollback: describeRollbackCoverage()
+});
 export const getActiveMerchantOperator = () => globalVersionEngine.getActiveOperator();
 export const setActiveMerchantOperator = (opIdOrOperator: string | MerchantOperator) => {
   if (typeof opIdOrOperator === 'string') {

@@ -11,6 +11,7 @@ import {
   INITIAL_QUEUE_TICKETS 
 } from '../data/merchantExtendedMockData';
 import { safeGetStorage, safeSetStorage } from './safeStorage';
+import { IS_EMBED_CUSTOMER } from './embedMode';
 import { applyDishFieldOverrides } from './dishFieldOverrides';
 import { applyAvailabilityOverrides } from './dishAvailability';
 import { isOrderMatch } from './orderNormalizer';
@@ -50,7 +51,12 @@ export const TCB_COLLECTIONS = {
   VERSION_POINTERS: 'obsidian_version_pointers',
   VERSION_MILESTONES: 'obsidian_version_milestones',
   PAYMENT_CHANNELS: 'obsidian_payment_channels',
-  CONTINGENCY_AUDITS: 'obsidian_contingency_audits'
+  CONTINGENCY_AUDITS: 'obsidian_contingency_audits',
+  // ---- 堂食桌台会话与跨设备联动授权（T1–T3 / C2）----
+  TABLE_SESSIONS: 'obsidian_table_sessions',
+  TABLE_LINK_REQUESTS: 'obsidian_table_link_requests',
+  /** 跨设备事件总线（追加型，仅承载传输信封，与业务数据解耦） */
+  REACTIVE_EVENTS: 'obsidian_reactive_events'
 } as const;
 
 // 常用云函数候选名称列表
@@ -65,7 +71,9 @@ export const TCB_FUNCTION_NAMES = {
   CANCEL_ORDER: 'cancelOrder',
   SYNC_USER_DATA: 'syncUserData',
   CHAT_MESSAGES: 'chatMessages',
-  RIDER_SETTLEMENT_TRACE: 'riderSettlementTrace'
+  RIDER_SETTLEMENT_TRACE: 'riderSettlementTrace',
+  /** 桌台联动授权（服务端 CAS 裁决，跨设备收敛的唯一权威） */
+  TABLE_LINK: 'tableLink'
 } as const;
 
 export interface CloudbaseStatus {
@@ -159,17 +167,27 @@ export async function ensureCloudbaseAuth(): Promise<{ success: boolean; userId?
     }
 
     const loginState = await tcbAuth.getLoginState().catch(() => null);
-    if (loginState && loginState.user) {
+    if (loginState && loginState.user && loginState.user.uid) {
       return { success: true, userId: loginState.user.uid };
     }
 
     // 尝试匿名登录
-    const anonymousRes = await tcbAuth.anonymousAuthProvider().signIn().catch(() => null);
-    return { success: true, userId: anonymousRes?.user?.uid };
+    const anonymousRes = await tcbAuth.anonymousAuthProvider().signIn().catch((err: any) => {
+      console.warn('TCB 匿名凭据获取跳过/受限:', err?.message || err);
+      return null;
+    });
+    if (anonymousRes && anonymousRes.user && anonymousRes.user.uid) {
+      return { success: true, userId: anonymousRes.user.uid };
+    }
+
+    return {
+      success: false,
+      error: '未获取到有效云端凭据 (credentials not found)，已平滑切入本地高保真双轨存储'
+    };
   } catch (err: any) {
     return { 
       success: false, 
-      error: err?.message || '匿名登录受限，请在腾讯云控制台开启匿名登录与Web安全域名' 
+      error: err?.message || '匿名登录受限，已平滑切入本地高保真双轨存储' 
     };
   }
 }
@@ -1043,6 +1061,48 @@ export function watchCloudOrders(
   onChange: (orders: Order[]) => void,
   onError?: (err: any) => void
 ): { close: () => void } {
+  // embed 预览实例：单向实时同步 —— 只「听」不「说」。
+  // 注册 storage 监听消费宿主写入（保住「实时预览」语义），但不连云端 watch
+  // WebSocket、不加入 BroadcastChannel；且 embed 的落盘 effect 已在 App 门控，
+  // iframe 永不回写共享键 → 不产生回流 storage 事件 → 回声循环在结构上不可能。
+  if (IS_EMBED_CUSTOMER) {
+    let embedClosed = false;
+    // 1) 挂载即消费一次本地快照（首屏数据）
+    try {
+      const snapshot = safeGetStorage<Order[]>('obsidian_truck_orders', []);
+      if (Array.isArray(snapshot) && snapshot.length > 0) {
+        onChange(snapshot);
+      }
+    } catch {
+      // ignore
+    }
+    // 2) 之后跟随宿主写入单向刷新
+    const handleEmbedStorage = (e: StorageEvent) => {
+      if (embedClosed) return;
+      if (e.key === 'obsidian_truck_orders' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) {
+            onChange(parsed);
+          }
+        } catch {
+          // ignore
+        }
+      }
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', handleEmbedStorage);
+    }
+    return {
+      close: () => {
+        embedClosed = true;
+        if (typeof window !== 'undefined') {
+          window.removeEventListener('storage', handleEmbedStorage);
+        }
+      }
+    };
+  }
+
   let isClosed = false;
   let watcher: any = null;
 
@@ -1079,9 +1139,9 @@ export function watchCloudOrders(
       const { auth: tcbAuth, db: tcbDb } = getCloudbaseApp();
       if (!tcbDb || !tcbAuth || isClosed) return;
 
-      const loginState = await tcbAuth.getLoginState().catch(() => null);
-      // 避免在未获取登录凭据时发起底层 WebSocket 连接导致 credentials not found
-      if (!loginState || !loginState.user || isClosed) {
+      const authRes = await ensureCloudbaseAuth();
+      // 避免在未获取有效登录凭据时发起底层 WebSocket 连接导致 credentials not found
+      if (!authRes.success || !authRes.userId || isClosed) {
         return;
       }
 
@@ -2193,6 +2253,267 @@ exports.main = async (event, context) => {
   } catch (err) {
     return { code: 500, message: err.message || '云函数执行异常' };
   }
+};`
+  },
+
+  TABLE_LINK: {
+    name: 'tableLink',
+    description: '桌台联动授权的服务端裁决中心：以条件更新实现真 CAS（跨设备下客户端 CAS 不成立），并承担加入申请、会话拉取与心跳白名单写入',
+    packageJson: `{
+  "name": "tableLink",
+  "version": "1.0.0",
+  "dependencies": {
+    "@cloudbase/node-sdk": "latest"
+  }
+}`,
+    indexJs: `const cloud = require('@cloudbase/node-sdk');
+const app = cloud.init({ env: cloud.SYMBOL_CURRENT_ENV });
+const db = app.database();
+
+const SESSIONS = 'obsidian_table_sessions';
+const REQUESTS = 'obsidian_table_link_requests';
+const LINK_TTL_MS = 60 * 1000;
+
+function maskId(id) {
+  if (!id) return '';
+  if (id.length <= 8) return id.replace(/.(?=.{2})/g, '*');
+  return id.slice(0, 5) + '****' + id.slice(-4);
+}
+
+exports.main = async (event) => {
+  const action = event && event.action;
+  try {
+    if (action === 'settle') return await settle(event);
+    if (action === 'join') return await join(event);
+    if (action === 'fetch') return await fetch(event);
+    if (action === 'heartbeat') return await heartbeat(event);
+    if (action === 'release') return await release(event);
+    return { code: 400, message: '未知操作: ' + action };
+  } catch (err) {
+    return { code: 500, message: err.message || '云函数执行异常' };
+  }
+};
+
+/**
+ * 授权裁决 —— 本函数的核心价值。
+ * 比较并交换条件：status === 'pending'。
+ * 两个授权人在不同设备同时点"同意"时，先到者 updated === 1，后者 updated === 0，
+ * 后者拿到 409 与"已被 X 处理"，从根上杜绝双份授权。
+ */
+async function settle(event) {
+  const requestId = event.requestId;
+  const decision = event.decision;
+  const actorId = event.actorId;
+  if (!requestId || !actorId) return { code: 400, message: '缺少 requestId 或 actorId' };
+  if (decision !== 'granted' && decision !== 'denied') return { code: 400, message: 'decision 非法' };
+
+  const reqCol = db.collection(REQUESTS);
+  const cur = await reqCol.where({ requestId }).limit(1).get();
+  if (!cur.data || cur.data.length === 0) return { code: 404, message: '授权请求不存在' };
+  const request = cur.data[0];
+
+  const nowIso = new Date().toISOString();
+  if (new Date(request.expiresAt).getTime() < Date.now()) {
+    await reqCol.where({ requestId, status: 'pending' }).update({ status: 'expired', resolvedAt: nowIso });
+    return { code: 410, message: '授权请求已超时，请重新发起' };
+  }
+
+  const targets = Array.isArray(request.targets) ? request.targets : [];
+  if (targets.indexOf(actorId) === -1) return { code: 403, message: '你不是本请求的被授权对象' };
+
+  const actorName = event.actorName || maskId(actorId);
+
+  // ★ 比较并交换
+  const upd = await reqCol.where({ requestId, status: 'pending' }).update({
+    status: decision,
+    resolvedBy: actorId,
+    resolvedByMasked: maskId(actorId),
+    resolvedByName: actorName,
+    resolvedAt: nowIso,
+    denyReason: decision === 'denied' ? (event.reason || '') : ''
+  });
+
+  if (!upd.updated || upd.updated === 0) {
+    const latest = await reqCol.where({ requestId }).limit(1).get();
+    const doc = latest.data && latest.data[0];
+    const who = doc ? (doc.resolvedByName || maskId(doc.resolvedBy)) : '其他成员';
+    return { code: 409, message: '该请求已由 ' + who + ' 处理', data: doc || null };
+  }
+
+  if (decision === 'granted') {
+    const sessCol = db.collection(SESSIONS);
+    const sres = await sessCol.where({ sessionId: request.sessionId }).limit(1).get();
+    const session = sres.data && sres.data[0];
+    if (session) {
+      const participants = Array.isArray(session.participants) ? session.participants.slice() : [];
+      const exists = participants.some(function (p) {
+        return p.participantId === request.requesterId && !p.removedAt;
+      });
+      if (!exists) {
+        participants.push({
+          participantId: request.requesterId,
+          sessionId: request.sessionId,
+          maskedId: maskId(request.requesterId),
+          displayName: request.requesterName || maskId(request.requesterId),
+          role: 'member',
+          authority: 'order_only',
+          grantSource: 'delegated',
+          grantedBy: actorId,
+          grantedByMasked: maskId(actorId),
+          grantedAt: nowIso,
+          joinedAt: nowIso,
+          presence: 'online',
+          lastSeenAt: nowIso,
+          deviceFingerprint: request.requesterDevice || 'unknown',
+          lastNode: {},
+          cartSummary: { itemCount: 0, totalAmount: 0, updatedAt: nowIso },
+          spendAttribution: 0
+        });
+      }
+      const pendingRequests = (session.pendingRequests || []).map(function (r) {
+        if (r.requestId === requestId) {
+          return Object.assign({}, r, {
+            status: 'granted',
+            resolvedBy: actorId,
+            resolvedByMasked: maskId(actorId),
+            resolvedByName: actorName,
+            resolvedAt: nowIso
+          });
+        }
+        if (r.status === 'pending' && r.requesterId === request.requesterId) {
+          return Object.assign({}, r, { status: 'superseded', resolvedAt: nowIso });
+        }
+        return r;
+      });
+      await sessCol.doc(session._id).update({ participants: participants, pendingRequests: pendingRequests });
+    }
+  }
+
+  return {
+    code: 0,
+    message: '授权已生效',
+    data: { status: decision, resolvedBy: actorId, resolvedByMasked: maskId(actorId), resolvedByName: actorName }
+  };
+}
+
+/**
+ * 加入申请 —— 必须在服务端生成 targets。
+ * 若允许客户端自行指定 targets，客户端即可伪造"被请求对象集合"绕过授权链。
+ */
+async function join(event) {
+  const sessionId = event.sessionId;
+  const requesterId = event.requesterId;
+  if (!sessionId || !requesterId) return { code: 400, message: '缺少 sessionId 或 requesterId' };
+
+  const sessCol = db.collection(SESSIONS);
+  const sres = await sessCol.where({ sessionId }).limit(1).get();
+  const session = sres.data && sres.data[0];
+  if (!session) return { code: 404, message: '会话不存在' };
+  if (session.status === 'closed') return { code: 409, message: '本桌会话已结束，请重新扫码开台' };
+  if (new Date(session.bindingLockAt || 0).getTime() + 3 * 60 * 1000 > Date.now()) {
+    return { code: 409, message: '本桌正在开台，请稍候重试' };
+  }
+
+  const participants = Array.isArray(session.participants) ? session.participants : [];
+  const isMember = participants.some(function (p) {
+    return p.participantId === requesterId && !p.removedAt;
+  });
+  if (isMember) return { code: 0, message: '你已在本桌成员名单中', data: { alreadyJoined: true } };
+
+  const targets = participants
+    .filter(function (p) { return !p.removedAt && p.authority === 'manage'; })
+    .map(function (p) { return p.participantId; });
+  if (targets.length === 0) return { code: 403, message: '本桌当前无可用授权人，请呼叫服务员' };
+
+  const reqCol = db.collection(REQUESTS);
+  const dup = await reqCol.where({ sessionId: sessionId, requesterId: requesterId, status: 'pending' }).limit(1).get();
+  if (dup.data && dup.data.length > 0) {
+    return { code: 0, message: '你的申请已在等待处理', data: dup.data[0] };
+  }
+
+  const now = new Date();
+  const requestId = 'lr_' + now.getTime().toString(36) + Math.random().toString(36).slice(2, 8);
+  const doc = {
+    _id: requestId,
+    requestId: requestId,
+    sessionId: sessionId,
+    tableCode: session.tableCode,
+    requesterId: requesterId,
+    requesterMaskedId: maskId(requesterId),
+    requesterName: event.requesterName || maskId(requesterId),
+    requesterDevice: event.device || 'unknown',
+    targets: targets,
+    createdAt: now.toISOString(),
+    expiresAt: new Date(now.getTime() + LINK_TTL_MS).toISOString(),
+    status: 'pending'
+  };
+  await reqCol.add(doc);
+  return { code: 0, message: '已向 ' + targets.length + ' 位成员发出授权请求', data: doc };
+}
+
+/** 拉取会话权威状态（对账用），限制返回字段避免整体倾倒 */
+async function fetch(event) {
+  const sessionIds = Array.isArray(event.sessionIds) ? event.sessionIds : [];
+  if (sessionIds.length === 0) return { code: 400, message: '缺少 sessionIds' };
+  const _c = db.command;
+  const res = await db
+    .collection(SESSIONS)
+    .where({ sessionId: _c.in(sessionIds.slice(0, 20)) })
+    .limit(20)
+    .get();
+  return { code: 0, message: 'ok', data: res.data || [] };
+}
+
+/** 心跳 —— 白名单字段写入，客户端无法借心跳篡改 authority / role */
+async function heartbeat(event) {
+  const sessionId = event.sessionId;
+  const participantId = event.participantId;
+  if (!sessionId || !participantId) return { code: 400, message: '缺少参数' };
+
+  const sessCol = db.collection(SESSIONS);
+  const sres = await sessCol.where({ sessionId }).limit(1).get();
+  const session = sres.data && sres.data[0];
+  if (!session) return { code: 404, message: '会话不存在' };
+
+  const nowIso = new Date().toISOString();
+  const participants = (session.participants || []).map(function (p) {
+    if (p.participantId !== participantId || p.removedAt) return p;
+    const next = Object.assign({}, p, { lastSeenAt: nowIso, presence: 'online' });
+    if (event.node && typeof event.node === 'object') {
+      next.lastNode = Object.assign({}, p.lastNode || {}, event.node, { at: nowIso });
+    }
+    if (event.cartSummary && typeof event.cartSummary === 'object') {
+      next.cartSummary = event.cartSummary;
+    }
+    return next;
+  });
+  await sessCol.doc(session._id).update({ participants: participants });
+  return { code: 0, message: 'ok' };
+}
+
+/** 商家兜底：强制解除隔离 / 释放成员（需在安全规则中限定为商家角色） */
+async function release(event) {
+  const sessionId = event.sessionId;
+  const targetId = event.targetId;
+  if (!sessionId || !targetId) return { code: 400, message: '缺少参数' };
+  const sessCol = db.collection(SESSIONS);
+  const sres = await sessCol.where({ sessionId }).limit(1).get();
+  const session = sres.data && sres.data[0];
+  if (!session) return { code: 404, message: '会话不存在' };
+
+  const nowIso = new Date().toISOString();
+  const participants = (session.participants || []).map(function (p) {
+    if (p.participantId !== targetId) return p;
+    if (p.role === 'owner') return p; // 桌主不可移除
+    return Object.assign({}, p, {
+      removedAt: nowIso,
+      removedBy: 'merchant',
+      removedByMasked: 'merchant',
+      removeReason: event.reason || '商家介入移除'
+    });
+  });
+  await sessCol.doc(session._id).update({ participants: participants });
+  return { code: 0, message: '已由商家移除成员' };
 };`
   }
 };

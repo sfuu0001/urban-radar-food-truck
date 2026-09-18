@@ -23,12 +23,12 @@ export const CartBottomCheckoutBar: React.FC<CartBottomCheckoutBarProps> = ({
       className="fixed bottom-0 left-0 right-0 z-40 flex justify-center bg-white/95 backdrop-blur-md border-t border-neutral-200/80 shadow-bar pb-safe"
       data-purpose="checkout-bar"
     >
-      <div className="w-full max-w-[430px] px-4 py-3 flex items-center justify-between gap-3">
+      <div className="w-full max-w-5xl px-4 py-3 flex items-center justify-between gap-3">
         {/* Price Summary on the Left */}
         <div className="flex flex-col">
           <div className="flex items-baseline gap-1">
             <span className="text-xs font-bold text-neutral-900">实付总额</span>
-            <span className="text-xl font-extrabold tracking-tight text-neutral-900 font-mono">
+            <span className="text-xl font-extrabold tracking-tight text-neutral-900 font-amount">
               ¥<span id="bottomTotalAmount">{grandTotal.toFixed(2)}</span>
             </span>
           </div>
@@ -64,7 +64,7 @@ export const CartBottomCheckoutBar: React.FC<CartBottomCheckoutBarProps> = ({
             id="checkoutBtn"
           >
             <span className="truncate">前往结算</span>
-            <span className="font-bold font-mono">
+            <span className="font-bold font-amount">
               ¥<span id="btnPriceAmount">{grandTotal.toFixed(2)}</span>
             </span>
             <ArrowRight className="w-3.5 h-3.5 text-neutral-400" />

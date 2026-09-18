@@ -10,6 +10,7 @@
  */
 
 import { reactiveSyncBus } from './reactiveSyncBus';
+import { IS_EMBED_CUSTOMER } from './embedMode';
 
 export type SentinelThreatLevel = 'SECURE' | 'GUARDED' | 'ELEVATED' | 'CRITICAL';
 
@@ -135,7 +136,9 @@ class AutomatedSentinelEngine {
   }
 
   private notify(): void {
-    if (typeof window !== 'undefined') {
+    // embed 预览实例：保留内存态与监听器，但不落盘 —— 每次写入都会向宿主
+    // 派发 storage 事件，参与跨文档回声循环
+    if (typeof window !== 'undefined' && !IS_EMBED_CUSTOMER) {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
       } catch (e) {

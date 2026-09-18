@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DeliveryRangeEvaluation } from '../utils/truckLocationEngine';
+import { getTruckBusinessStatus, BusinessStatusConfig } from '../utils/businessStatusEngine';
+import { safeGetStorage } from '../utils/safeStorage';
 
 export type DiningMode = 'delivery' | 'dine_in' | 'pickup';
 
@@ -37,6 +39,25 @@ export const DiningModeSelector: React.FC<DiningModeSelectorProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // 实时响应业务营业状态总线
+  const [businessStatus, setBusinessStatus] = useState<BusinessStatusConfig>(() => {
+    const activeTid = safeGetStorage('obsidian_active_truck_id', 'truck-01');
+    return getTruckBusinessStatus(activeTid);
+  });
+
+  useEffect(() => {
+    const handleStatusChanged = (e: Event) => {
+      const activeTid = safeGetStorage('obsidian_active_truck_id', 'truck-01');
+      setBusinessStatus(getTruckBusinessStatus(activeTid));
+    };
+    window.addEventListener('obsidian_business_status_changed', handleStatusChanged);
+    window.addEventListener('obsidian_truck_config_changed', handleStatusChanged);
+    return () => {
+      window.removeEventListener('obsidian_business_status_changed', handleStatusChanged);
+      window.removeEventListener('obsidian_truck_config_changed', handleStatusChanged);
+    };
+  }, []);
+
   // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -48,15 +69,21 @@ export const DiningModeSelector: React.FC<DiningModeSelectorProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const isDineHalted = !businessStatus.isOpen || businessStatus.dineInOpen === false;
+  const isDeliveryHalted = !businessStatus.isOpen || businessStatus.deliveryOpen === false;
+  const isPickupHalted = !businessStatus.isOpen || businessStatus.pickupOpen === false;
+
   const modesConfig = [
     {
       key: 'delivery' as DiningMode,
       label: '外卖',
+      isHalted: isDeliveryHalted,
+      haltText: '外卖暂停',
       enLabel: 'Delivery',
-      etaText: '约20-25分送达',
+      etaText: isDeliveryHalted ? '暂停接单' : '约20-25分送达',
       detailTitle: '专线极速外送',
       detailSub: deliveryAddress,
-      badge: '起送¥35·满80包邮',
+      badge: isDeliveryHalted ? '暂停接单中' : '起送¥35·满80包邮',
       colorClass: 'text-[#0092D6]',
       activeText: 'text-[#0092D6] font-bold',
       activeBorder: 'border-[#0092D6]',
@@ -79,11 +106,13 @@ export const DiningModeSelector: React.FC<DiningModeSelectorProps> = ({
     {
       key: 'dine_in' as DiningMode,
       label: '堂食',
+      isHalted: isDineHalted,
+      haltText: '堂食暂停',
       enLabel: 'Dine-in',
-      etaText: '现场即点即烤',
+      etaText: isDineHalted ? '暂停接单' : '现场即点即烤',
       detailTitle: '餐车吧台就餐',
       detailSub: '黑曜石01号现场 · 03号吧台桌',
-      badge: '免包装费·热气现食',
+      badge: isDineHalted ? '暂停接单中' : '免包装费·热气现食',
       colorClass: 'text-amber-600',
       activeText: 'text-amber-600 font-black',
       activeBorder: 'border-amber-500',
@@ -106,11 +135,13 @@ export const DiningModeSelector: React.FC<DiningModeSelectorProps> = ({
     {
       key: 'pickup' as DiningMode,
       label: '自提',
+      isHalted: isPickupHalted,
+      haltText: '自提暂停',
       enLabel: 'Pickup',
-      etaText: '约10分出餐',
+      etaText: isPickupHalted ? '暂停接单' : '约10分出餐',
       detailTitle: '到车极速自提',
       detailSub: '大悦城北座中庭黑曜石01号车',
-      badge: '免运费·即拿即走',
+      badge: isPickupHalted ? '暂停接单中' : '免运费·即拿即走',
       colorClass: 'text-emerald-600',
       activeText: 'text-emerald-600 font-black',
       activeBorder: 'border-emerald-500',
@@ -166,6 +197,11 @@ export const DiningModeSelector: React.FC<DiningModeSelectorProps> = ({
               <span className="relative z-10 flex items-center gap-1 sm:gap-1.5">
                 {item.icon(isSelected)}
                 <span>{item.label}</span>
+                {item.isHalted && (
+                  <span className="text-[9px] px-1 py-0.2 bg-stone-200/90 text-stone-600 rounded font-normal leading-none">
+                    暂停
+                  </span>
+                )}
               </span>
             </motion.button>
           );

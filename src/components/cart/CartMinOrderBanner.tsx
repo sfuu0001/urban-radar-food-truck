@@ -61,7 +61,7 @@ export const CartMinOrderBanner: React.FC<CartMinOrderBannerProps> = ({
             </p>
             <p className="text-[11px] text-amber-800 leading-normal" id="minBannerDesc">
               外卖起送门槛实付满 ¥{minDeliveryAmount.toFixed(2)}，还差{' '}
-              <span className="font-bold text-amber-900 font-mono">
+              <span className="font-bold text-amber-900 font-amount">
                 ¥{amountNeeded.toFixed(2)}
               </span>
               ，快去加购吧！

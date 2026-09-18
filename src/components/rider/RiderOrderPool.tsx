@@ -16,6 +16,7 @@ import {
 import { PoolDeliveryOrder } from '../../types';
 import { RiderRejectionModal } from './RiderRejectionModal';
 import { UnifiedOmniChatModal } from '../chat/UnifiedOmniChatModal';
+import { useCascadeAuth } from '../../context/CascadeAuthContext';
 
 interface RiderOrderPoolProps {
   orders: PoolDeliveryOrder[];
@@ -34,6 +35,8 @@ export const RiderOrderPool: React.FC<RiderOrderPoolProps> = ({
   const [truckFilter, setTruckFilter] = useState<string>('all');
   const [rejectingOrder, setRejectingOrder] = useState<PoolDeliveryOrder | null>(null);
   const [activeChatOrder, setActiveChatOrder] = useState<PoolDeliveryOrder | null>(null);
+
+  const { canExecute, promptPermissionBlocked } = useCascadeAuth();
 
   // Group orders by origin to detect same-truck batches
   const truckOrderCountMap = useMemo(() => {
@@ -256,6 +259,14 @@ export const RiderOrderPool: React.FC<RiderOrderPoolProps> = ({
                   <button
                     type="button"
                     onClick={() => {
+                      // 跨车溢出单分层授权校验 (4-Level Mesh Authorization)
+                      if (order.isTruckSpecial || order.estimatedEarnings >= 12.0) {
+                        const evalResult = canExecute('PERM_OVERFLOW_GRAB');
+                        if (!evalResult.allowed) {
+                          promptPermissionBlocked('PERM_OVERFLOW_GRAB', '跨车超载溢出抢单分层授权拦截');
+                          return;
+                        }
+                      }
                       onGrabOrder(order);
                       showToast(`抢单成功！已为您锁定工单 ${order.orderNo}`);
                     }}

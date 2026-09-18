@@ -42,6 +42,7 @@ import { UnifiedOmniChatModal } from '../chat/UnifiedOmniChatModal';
 import { getOrGeneratePickupCode, getPickupShelfCode } from '../../utils/pickupCodeEngine';
 import { resolveOrderChannelType } from '../../utils/orderNormalizer';
 import { safeGetStorage } from '../../utils/safeStorage';
+import { getUnifiedTruckName } from '../../utils/truckNaming';
 
 interface MerchantContingencyHubProps {
   orders: Order[];
@@ -309,40 +310,33 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
   };
 
   return (
-    <div className="w-full flex flex-col font-sans text-xs antialiased selection:bg-slate-900 selection:text-white pb-6 rounded-none">
-      {/* 强制直角工业内嵌样式 */}
-      <style>{`
-        .kds-sharp *, .kds-sharp *::before, .kds-sharp *::after {
-          border-radius: 0px !important;
-        }
-      `}</style>
-
+    <div className="w-full flex flex-col font-sans text-xs antialiased selection:bg-[#37352f] selection:text-white pb-6">
       {/* ========================================================================= */}
       {/* BEGIN: GlobalHeader (全链路突发情况与审核中枢专用顶栏)                     */}
       {/* ========================================================================= */}
-      <header className="bg-white border-b border-slate-300 sticky top-0 z-20 px-3 sm:px-6 py-3 rounded-none shadow-xs">
-        <div className="max-w-[1780px] mx-auto flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
+      <header className="bg-white border-b border-[#e6e6e4] sticky top-0 z-20 px-3 sm:px-6 py-3 shadow-2xs">
+        <div className="max-w-[2000px] mx-auto flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
           {/* System Identity & Security Status */}
           <div className="flex items-start sm:items-center space-x-3">
-            <div className="bg-red-50 border border-red-200 p-2 text-red-600 shrink-0 rounded-none">
-              <ShieldAlert className="w-6 h-6" />
+            <div className="bg-[#fde8e8] border border-[#f8b4b4] p-2 text-[#d44333] shrink-0 rounded-[2px]">
+              <ShieldAlert className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center space-x-2.5 flex-wrap">
-                <h1 className="text-base font-bold text-slate-900 tracking-tight">
+              <div className="flex items-center space-x-2 flex-wrap">
+                <h1 className="text-sm sm:text-base font-semibold text-[#37352f] tracking-tight">
                   全链路突发情况兜底与审核中枢
                 </h1>
-                <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 border border-red-300 rounded-none">
-                  <span className="w-1.5 h-1.5 bg-red-600 mr-1.5 animate-pulse rounded-none"></span>
+                <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-[#fde8e8] text-[#d44333] border border-[#f8b4b4] rounded-[2px]">
+                  <span className="w-1.5 h-1.5 bg-[#d44333] mr-1.5 animate-pulse rounded-full"></span>
                   异常监控中 ({allAnomalyCount} 项待把控)
                 </span>
                 {fuseActive && (
-                  <span className="inline-flex items-center px-2 py-0.5 text-xs font-bold bg-amber-500 text-white rounded-none">
+                  <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-[#d9730d] text-white rounded-[2px]">
                     ⚡ 紧急熔断生效中
                   </span>
                 )}
               </div>
-              <p className="text-slate-500 text-xs mt-0.5">
+              <p className="text-[#787774] text-xs mt-0.5">
                 覆盖下单、后厨制作、骑手拒单、在途受阻、退单仲裁全节点，杜绝死锁与卡单，确保状态机安全流转
               </p>
             </div>
@@ -351,7 +345,7 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
           {/* Quick Operations & Global Search */}
           <div className="flex items-center space-x-2 sm:space-x-2.5 shrink-0 flex-wrap">
             <div className="relative w-full sm:w-64">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none text-slate-400">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none text-[#787774]">
                 <Search className="w-3.5 h-3.5" />
               </span>
               <input
@@ -359,13 +353,13 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="搜索单号 / 地址 / 骑手..."
-                className="w-full bg-slate-50 border border-slate-300 pl-8 pr-3 py-1.5 text-xs text-slate-900 focus:bg-white focus:border-slate-900 focus:ring-0 placeholder-slate-400 rounded-none outline-none"
+                className="w-full bg-[#f7f7f5] border border-[#e6e6e4] pl-8 pr-3 py-1.5 text-xs text-[#37352f] focus:bg-white focus:border-[#37352f] placeholder-[#787774] rounded-[2px] outline-none transition-colors"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute inset-y-0 right-0 pr-2 flex items-center text-slate-400 hover:text-slate-700 cursor-pointer"
+                  className="absolute inset-y-0 right-0 pr-2 flex items-center text-[#787774] hover:text-[#37352f] cursor-pointer"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -375,7 +369,6 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
             <button
               type="button"
               onClick={() => {
-                // FIX(审计P1): "全屏刷新"真实化——从本地权威存储重读并派发订单更新事件，驱动全域工单状态机视图一致
                 try {
                   const fresh = safeGetStorage<Order[]>('obsidian_truck_orders', orders);
                   if (typeof window !== 'undefined' && fresh.length > 0) {
@@ -387,30 +380,30 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
                   showToast('全屏刷新失败，请稍后重试');
                 }
               }}
-              className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-3 py-1.5 text-xs font-medium inline-flex items-center space-x-1.5 rounded-none cursor-pointer"
+              className="bg-white border border-[#e6e6e4] hover:bg-[#f7f7f5] text-[#37352f] px-3 py-1.5 text-xs font-medium inline-flex items-center space-x-1.5 rounded-[2px] cursor-pointer shadow-2xs"
               title="强制同步流转状态"
             >
-              <RefreshCw className="w-3.5 h-3.5 text-slate-600" />
+              <RefreshCw className="w-3.5 h-3.5 text-[#5a5854]" />
               <span className="hidden sm:inline">全屏刷新</span>
             </button>
 
             <button
               type="button"
               onClick={() => setIsEmergencyFuseOpen(true)}
-              className={`border px-3 py-1.5 text-xs font-semibold flex items-center space-x-1 rounded-none cursor-pointer transition-colors ${
+              className={`border px-3 py-1.5 text-xs font-semibold flex items-center space-x-1 rounded-[2px] cursor-pointer transition-colors shadow-2xs ${
                 fuseActive
-                  ? 'bg-amber-600 hover:bg-amber-700 text-white border-amber-600'
-                  : 'bg-slate-900 border-slate-900 hover:bg-black text-white'
+                  ? 'bg-[#d9730d] hover:bg-[#b06000] text-white border-[#d9730d]'
+                  : 'bg-[#37352f] border-[#37352f] hover:bg-[#201f1d] text-white'
               }`}
             >
-              <Zap className="w-3.5 h-3.5 text-amber-400" />
+              <Zap className="w-3.5 h-3.5 text-amber-300" />
               <span>{fuseActive ? '熔断管理' : '紧急熔断'}</span>
             </button>
           </div>
         </div>
 
         {/* Navigation Nodes Pipeline Filter */}
-        <nav className="max-w-[1780px] mx-auto mt-2.5 pt-2.5 border-t border-slate-200 flex items-center gap-1.5 overflow-x-auto text-xs whitespace-nowrap scrollbar-none">
+        <nav className="max-w-[2000px] mx-auto mt-2.5 pt-2.5 border-t border-[#e6e6e4] flex items-center gap-1.5 overflow-x-auto text-xs whitespace-nowrap scrollbar-none">
           {[
             { id: 'all', label: '全链路监控', count: orders.length, icon: ShieldAlert },
             { id: 'unaccepted', label: '1. 接单超时兜底', count: unacceptedOrders.length, icon: Clock },
@@ -426,17 +419,17 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveNodeTab(tab.id as any)}
-                className={`px-3 py-1.5 font-bold border inline-flex items-center space-x-1.5 transition-colors cursor-pointer rounded-none ${
+                className={`px-3 py-1.5 font-semibold border inline-flex items-center space-x-1.5 transition-colors cursor-pointer rounded-full bg-white ${
                   isActive
-                    ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                    : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-300'
+                    ? 'border-zinc-900 text-zinc-900 shadow-2xs'
+                    : 'hover:bg-slate-50 text-[#5a5854] hover:text-zinc-900 border-[#e6e6e4] hover:border-zinc-300'
                 }`}
               >
-                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-slate-500'}`} />
+                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-zinc-900' : 'text-[#787774]'}`} />
                 <span>{tab.label}</span>
                 <span
-                  className={`px-1.5 py-0.2 text-[11px] font-mono font-bold ml-1 rounded-none ${
-                    isActive ? 'bg-white text-slate-900 font-black' : 'bg-slate-200 text-slate-700'
+                  className={`px-1.5 py-0.2 text-[10.5px] font-mono font-semibold ml-1 rounded-full ${
+                    isActive ? 'bg-zinc-900 text-white' : 'bg-[#f0f0ee] text-[#5a5854] border border-[#e6e6e4]'
                   }`}
                 >
                   {tab.count}
@@ -453,87 +446,87 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
       {/* ========================================================================= */}
       <main className="flex-1 max-w-[1780px] w-full mx-auto p-3 sm:p-5 lg:p-6 space-y-4">
         {/* BEGIN: QuickMetricsDashboard (中枢监控量化指标条) */}
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white p-3 sm:p-4 border border-slate-300 rounded-none shadow-xs">
-          <div className="border-r border-slate-200 pr-3">
-            <div className="text-slate-400 text-[11px] uppercase tracking-wider font-mono">
+        <section className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white p-3 sm:p-4 border border-[#e6e6e4] rounded-[4px] shadow-2xs">
+          <div className="border-r border-[#efefed] pr-3">
+            <div className="text-[#787774] text-[10.5px] uppercase tracking-wider font-mono">
               ACTIVE PIPELINE ORDERS
             </div>
             <div className="flex items-baseline space-x-2 mt-1">
-              <span className="text-xl sm:text-2xl font-black font-mono text-slate-900">
+              <span className="text-xl sm:text-2xl font-semibold font-mono text-[#37352f]">
                 {orders.length}
               </span>
-              <span className="text-emerald-700 font-medium text-xs">
+              <span className="text-[#2b593f] font-medium text-xs">
                 {allAnomalyCount === 0 ? '全节点无阻滞' : `${allAnomalyCount} 项待介入`}
               </span>
             </div>
           </div>
-          <div className="border-r border-slate-200 pr-3 pl-1 sm:pl-3">
-            <div className="text-slate-400 text-[11px] uppercase tracking-wider font-mono">
+          <div className="border-r border-[#efefed] pr-3 pl-1 sm:pl-3">
+            <div className="text-[#787774] text-[10.5px] uppercase tracking-wider font-mono">
               DISPATCH EXCEPTION RATE
             </div>
             <div className="flex items-baseline space-x-2 mt-1">
-              <span className="text-xl sm:text-2xl font-black font-mono text-emerald-700">
+              <span className="text-xl sm:text-2xl font-semibold font-mono text-[#2b593f]">
                 {orders.length > 0 ? ((riderRejectedOrders.length / orders.length) * 100).toFixed(2) : '0.00'}%
               </span>
-              <span className="text-slate-500 text-xs">基准线良好</span>
+              <span className="text-[#787774] text-xs">基准线良好</span>
             </div>
           </div>
-          <div className="border-r border-slate-200 pr-3 pl-1 sm:pl-3">
-            <div className="text-slate-400 text-[11px] uppercase tracking-wider font-mono">
+          <div className="border-r border-[#efefed] pr-3 pl-1 sm:pl-3">
+            <div className="text-[#787774] text-[10.5px] uppercase tracking-wider font-mono">
               AVG INTERVENTION SLA
             </div>
             <div className="flex items-baseline space-x-2 mt-1">
-              <span className="text-xl sm:text-2xl font-black font-mono text-slate-900">
+              <span className="text-xl sm:text-2xl font-semibold font-mono text-[#37352f]">
                 1.8 <span className="text-xs font-normal">min</span>
               </span>
-              <span className="text-amber-700 font-medium text-xs">兜底高灵敏</span>
+              <span className="text-[#d9730d] font-medium text-xs">兜底高灵敏</span>
             </div>
           </div>
           <div className="pl-1 sm:pl-3">
-            <div className="text-slate-400 text-[11px] uppercase tracking-wider font-mono">
+            <div className="text-[#787774] text-[10.5px] uppercase tracking-wider font-mono">
               KITCHEN WORKLOAD INDEX
             </div>
             <div className="flex items-baseline space-x-2 mt-1">
-              <span className="text-xl sm:text-2xl font-black font-mono text-blue-700">
+              <span className="text-xl sm:text-2xl font-semibold font-mono text-[#1c5598]">
                 {Math.min(98, 45 + cookingDelayOrders.length * 12)}%
               </span>
-              <span className="text-slate-500 text-xs">产能均衡</span>
+              <span className="text-[#787774] text-xs">产能均衡</span>
             </div>
           </div>
         </section>
         {/* END: QuickMetricsDashboard */}
 
         {/* BEGIN: ViewSwitcherBar (卡片样式切换开关：大卡片 / 紧凑行 / 折叠抽屉) */}
-        <section className="bg-white border border-slate-300 px-3 sm:px-4 py-2 flex flex-col md:flex-row md:items-center justify-between gap-2.5 rounded-none shadow-xs">
+        <section className="bg-white border border-[#e6e6e4] px-3 sm:px-4 py-2 flex flex-col md:flex-row md:items-center justify-between gap-2.5 rounded-[4px] shadow-2xs">
           <div className="flex items-center space-x-2 flex-wrap">
-            <span className="text-slate-500 font-bold text-xs uppercase tracking-wider font-mono flex items-center mr-1">
-              <LayoutGrid className="w-3.5 h-3.5 mr-1 text-slate-600" />
+            <span className="text-[#787774] font-semibold text-xs uppercase tracking-wider font-mono flex items-center mr-1">
+              <LayoutGrid className="w-3.5 h-3.5 mr-1 text-[#5a5854]" />
               卡片样式切换:
             </span>
-            <div className="inline-flex border border-slate-300 p-0.5 bg-slate-50 rounded-none">
+            <div className="inline-flex border border-[#e6e6e4] p-0.5 bg-[#f7f7f5] rounded-[2px]">
               {/* 大卡片 */}
               <button
                 type="button"
                 onClick={() => setViewMode('detailed')}
-                className={`px-2.5 py-1 text-xs border border-transparent transition-colors flex items-center gap-1.5 cursor-pointer rounded-none ${
+                className={`px-2.5 py-1 text-xs border border-transparent transition-colors flex items-center gap-1.5 cursor-pointer rounded-[2px] ${
                   viewMode === 'detailed'
-                    ? 'bg-slate-900 text-white font-bold'
-                    : 'text-slate-700 hover:text-black hover:bg-slate-200'
+                    ? 'bg-[#37352f] text-white font-semibold shadow-2xs'
+                    : 'text-[#5a5854] hover:text-[#37352f] hover:bg-[#e8e8e6]'
                 }`}
                 title="完整大卡片视图"
               >
                 <LayoutGrid className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline font-bold">大卡片</span>
+                <span className="hidden sm:inline font-semibold">大卡片</span>
               </button>
 
               {/* 紧凑行 */}
               <button
                 type="button"
                 onClick={() => setViewMode('compact')}
-                className={`px-2.5 py-1 text-xs border border-transparent transition-colors flex items-center gap-1.5 cursor-pointer rounded-none ${
+                className={`px-2.5 py-1 text-xs border border-transparent transition-colors flex items-center gap-1.5 cursor-pointer rounded-[2px] ${
                   viewMode === 'compact'
-                    ? 'bg-slate-900 text-white font-bold'
-                    : 'text-slate-700 hover:text-black hover:bg-slate-200'
+                    ? 'bg-[#37352f] text-white font-semibold shadow-2xs'
+                    : 'text-[#5a5854] hover:text-[#37352f] hover:bg-[#e8e8e6]'
                 }`}
                 title="紧凑行列表视图"
               >
@@ -545,10 +538,10 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
               <button
                 type="button"
                 onClick={() => setViewMode('drawer')}
-                className={`px-2.5 py-1 text-xs border border-transparent transition-colors flex items-center gap-1.5 cursor-pointer rounded-none ${
+                className={`px-2.5 py-1 text-xs border border-transparent transition-colors flex items-center gap-1.5 cursor-pointer rounded-[2px] ${
                   viewMode === 'drawer'
-                    ? 'bg-slate-900 text-white font-bold'
-                    : 'text-slate-700 hover:text-black hover:bg-slate-200'
+                    ? 'bg-[#37352f] text-white font-semibold shadow-2xs'
+                    : 'text-[#5a5854] hover:text-[#37352f] hover:bg-[#e8e8e6]'
                 }`}
                 title="折叠抽屉视图"
               >
@@ -563,19 +556,19 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
             <button
               type="button"
               onClick={handleToggleAllMeals}
-              className="bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-700 px-2.5 py-1 text-xs font-medium inline-flex items-center space-x-1 rounded-none cursor-pointer"
+              className="bg-[#f7f7f5] hover:bg-[#efefed] border border-[#e6e6e4] text-[#37352f] px-2.5 py-1 text-xs font-medium inline-flex items-center space-x-1 rounded-[2px] cursor-pointer shadow-2xs"
             >
               {allMealsExpanded ? (
-                <ChevronUp className="w-3.5 h-3.5 text-slate-500" />
+                <ChevronUp className="w-3.5 h-3.5 text-[#787774]" />
               ) : (
-                <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+                <ChevronDown className="w-3.5 h-3.5 text-[#787774]" />
               )}
               <span>{allMealsExpanded ? '一键折叠餐品明细' : '一键展开全部餐品'}</span>
             </button>
-            <span className="text-slate-300">|</span>
-            <div className="text-[11px] text-slate-500 font-mono hidden sm:inline-flex items-center">
+            <span className="text-[#e6e6e4]">|</span>
+            <div className="text-[11px] text-[#787774] font-mono hidden sm:inline-flex items-center">
               <span>展示状态: </span>
-              <span className="font-bold text-slate-900 ml-1">
+              <span className="font-semibold text-[#37352f] ml-1">
                 {viewMode === 'detailed'
                   ? '大卡片 (默认)'
                   : viewMode === 'compact'
@@ -597,10 +590,10 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
           data-purpose="order-cards-container"
         >
           {filteredOrders.length === 0 ? (
-            <div className="col-span-full bg-white border border-slate-300 p-12 text-center space-y-2 rounded-none shadow-xs">
-              <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
-              <h4 className="font-bold text-sm text-slate-800">当前节点运行平稳</h4>
-              <p className="text-xs text-slate-500">所有工单均在规范状态机内正常推进，未发生卡单或异常阻塞</p>
+            <div className="col-span-full bg-white border border-[#e6e6e4] p-12 text-center space-y-2 rounded-[4px] shadow-2xs">
+              <CheckCircle2 className="w-10 h-10 text-[#2b593f] mx-auto" />
+              <h4 className="font-semibold text-sm text-[#37352f]">当前节点运行平稳</h4>
+              <p className="text-xs text-[#787774]">所有工单均在规范状态机内正常推进，未发生卡单或异常阻塞</p>
             </div>
           ) : (
             filteredOrders.map((order, idx) => {
@@ -644,56 +637,56 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
               return (
                 <article
                   key={`ord-contingency-${cardKey}`}
-                  className="bg-white border border-slate-300 hover:border-slate-400 transition-all flex flex-col justify-between shadow-xs rounded-none"
+                  className="bg-white border border-[#e6e6e4] hover:border-[#37352f] transition-all flex flex-col justify-between shadow-2xs rounded-[4px] overflow-hidden"
                   data-purpose="order-card"
                 >
                   <div>
                     {/* 1. 卡片顶栏：左侧黑色实底单号徽标与餐车标签，右侧场景标签 */}
                     <div
                       onClick={() => viewMode === 'drawer' && toggleCardDrawer(cardKey)}
-                      className={`px-3.5 sm:px-4 py-2.5 bg-slate-50 border-b border-slate-300 flex items-center justify-between gap-2 flex-wrap rounded-none ${
-                        viewMode === 'drawer' ? 'cursor-pointer select-none hover:bg-slate-100' : ''
+                      className={`px-3.5 sm:px-4 py-2 bg-[#f7f7f5] border-b border-[#e6e6e4] flex items-center justify-between gap-2 flex-wrap ${
+                        viewMode === 'drawer' ? 'cursor-pointer select-none hover:bg-[#efefed]' : ''
                       }`}
                     >
                       <div className="flex items-center space-x-2">
-                        <span className="bg-slate-900 text-white font-mono font-bold px-2 py-0.5 text-xs tracking-wider rounded-none">
+                        <span className="bg-[#37352f] text-white font-mono font-semibold px-2 py-0.5 text-xs tracking-wider rounded-[2px]">
                           #{order.orderNo.replace(/^#/, '')}
                         </span>
-                        <span className="text-xs font-semibold text-slate-800 bg-white border border-slate-300 px-2 py-0.5 rounded-none flex items-center gap-1">
-                          <Store className="w-3 h-3 text-emerald-600" />
+                        <span className="text-xs font-medium text-[#37352f] bg-white border border-[#e6e6e4] px-2 py-0.5 rounded-[2px] flex items-center gap-1">
+                          <Store className="w-3 h-3 text-[#2b593f]" />
                           <span>{order.truckName || '黑曜石 01号流动餐车'}</span>
                         </span>
                       </div>
 
                       <div className="flex items-center space-x-1.5 flex-wrap">
                         {isDineIn ? (
-                          <span className="bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 text-xs font-semibold rounded-none">
+                          <span className="bg-[#ebf3fc] text-[#1c5598] border border-[#d2e4f8] px-2 py-0.5 text-xs font-medium rounded-[2px]">
                             🍽️ 堂食就餐 · {order.tableCode ? `${order.tableCode}号桌` : 'A2号桌'}
                           </span>
                         ) : isPickup ? (
-                          <span className="bg-emerald-50 text-emerald-800 border border-emerald-300 px-2 py-0.5 text-xs font-semibold rounded-none">
+                          <span className="bg-[#edf6f1] text-[#2b593f] border border-[#cbe4d7] px-2 py-0.5 text-xs font-medium rounded-[2px]">
                             🛍️ 到店自提 · 智能恒温柜
                           </span>
                         ) : (
-                          <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 text-xs font-semibold rounded-none">
+                          <span className="bg-[#f0eef8] text-[#553c9a] border border-[#ded8f4] px-2 py-0.5 text-xs font-medium rounded-[2px]">
                             🛵 专送外卖 · 智能调度
                           </span>
                         )}
 
                         {/* Status Phase Badge */}
                         <span
-                          className={`px-2 py-0.5 text-xs font-medium rounded-none border ${
+                          className={`px-2 py-0.5 text-xs font-medium rounded-[2px] border ${
                             isRefundPending
-                              ? 'bg-rose-50 text-rose-800 border-rose-200 animate-pulse'
+                              ? 'bg-[#fde8e8] text-[#d44333] border-[#f8b4b4] animate-pulse'
                               : isPendingAccept
-                              ? 'bg-amber-50 text-amber-800 border-amber-200'
+                              ? 'bg-[#fef3d6] text-[#d9730d] border-[#fae2a0]'
                               : isCooking
-                              ? 'bg-amber-50 text-amber-800 border-amber-200'
+                              ? 'bg-[#fef3d6] text-[#d9730d] border-[#fae2a0]'
                               : isReady
-                              ? 'bg-sky-50 text-sky-800 border-sky-200'
+                              ? 'bg-[#ebf3fc] text-[#1c5598] border-[#d2e4f8]'
                               : isDelivering
-                              ? 'bg-blue-50 text-blue-800 border-blue-200'
-                              : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              ? 'bg-[#ebf3fc] text-[#1c5598] border-[#d2e4f8]'
+                              : 'bg-[#edf6f1] text-[#2b593f] border-[#cbe4d7]'
                           }`}
                         >
                           {order.statusText ||
@@ -709,7 +702,7 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
                         </span>
 
                         {viewMode === 'drawer' && (
-                          <span className="font-mono text-xs font-bold text-slate-500 pl-1">
+                          <span className="font-mono text-xs font-semibold text-[#787774] pl-1">
                             {isDrawerOpen ? '▲' : '▼'}
                           </span>
                         )}
@@ -717,16 +710,16 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
                     </div>
 
                     {/* 2. 卡片次级元信息栏 */}
-                    <div className="px-3.5 sm:px-4 py-2 bg-white border-b border-slate-100 flex items-center justify-between text-xs text-slate-500 font-mono flex-wrap gap-1.5 rounded-none">
+                    <div className="px-3.5 sm:px-4 py-1.5 bg-white border-b border-[#efefed] flex items-center justify-between text-xs text-[#787774] font-mono flex-wrap gap-1.5">
                       <div className="flex items-center space-x-2.5 flex-wrap">
                         <span>
                           UID: {order.userId ? (order.userId.length > 14 ? `${order.userId.slice(0, 12)}...` : order.userId) : '139-7078-8821'}{' '}
                           ({order.customerName ? order.customerName.replace(/^先锋食客\s*[·•]?\s*/, '') : '先锋食客'})
                         </span>
-                        <span className="text-slate-300">|</span>
+                        <span className="text-[#e6e6e4]">|</span>
                         <span>下单: {order.createdTime || '12:24:18'}</span>
-                        <span className="text-slate-300">|</span>
-                        <span className="text-slate-800 font-sans font-medium">
+                        <span className="text-[#e6e6e4]">|</span>
+                        <span className="text-[#37352f] font-sans font-medium">
                           {isDineIn
                             ? `排单: #${order.orderNo.slice(-2)} (现场叫号)`
                             : isPickup
@@ -737,7 +730,7 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
 
                       <div className="flex items-center gap-2">
                         {isRefundPending ? (
-                          <span className="text-rose-600 font-bold font-sans text-[11px] animate-pulse">
+                          <span className="text-[#d44333] font-semibold font-sans text-[11px] animate-pulse">
                             ⚠️ 退单待仲裁
                           </span>
                         ) : (
@@ -752,7 +745,7 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
                               });
                               showToast(`已为工单 #${order.orderNo} 开启退单仲裁流程`);
                             }}
-                            className="text-amber-700 cursor-pointer hover:underline font-sans text-[11px]"
+                            className="text-[#d9730d] cursor-pointer hover:underline font-sans text-[11px] font-medium"
                           >
                             申请退单仲裁
                           </button>
@@ -765,17 +758,17 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
                       <>
                         {/* 异常风控预警横幅：骑手拒单 */}
                         {hasRejections && (
-                          <div className="p-2.5 bg-rose-50 border-b border-rose-200 text-xs space-y-1.5 rounded-none">
-                            <div className="flex items-center justify-between text-rose-800">
-                              <span className="font-bold flex items-center gap-1.5">
-                                <AlertTriangle className="w-4 h-4 text-rose-600" />
+                          <div className="p-2.5 bg-[#fde8e8] border-b border-[#f8b4b4] text-xs space-y-1.5">
+                            <div className="flex items-center justify-between text-[#d44333]">
+                              <span className="font-semibold flex items-center gap-1.5">
+                                <AlertTriangle className="w-4 h-4 text-[#d44333]" />
                                 <span>触发骑手拒单风控预警（已拒单 {order.rejectionCount || 1} 次）</span>
                               </span>
-                              <span className="text-[10.5px] font-mono bg-rose-200/60 px-1.5 py-0.2 rounded-none font-bold">
+                              <span className="text-[10.5px] font-mono bg-red-100 px-1.5 py-0.2 rounded-[2px] font-medium">
                                 系统已启动二次加权转派
                               </span>
                             </div>
-                            <p className="text-[11px] text-slate-600">
+                            <p className="text-[11px] text-[#5a5854]">
                               <strong>最后拒接事由：</strong>
                               {order.lastRejectionReason ||
                                 '超出配送极限半径 (>5km)，已自动追加 +¥2.00 调度加急赏金重新广播周边骑手'}
@@ -785,27 +778,27 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
 
                         {/* 异常风控预警横幅：售后退款待仲裁 */}
                         {isRefundPending && (
-                          <div className="p-3 bg-amber-50 border-b border-amber-200 text-xs space-y-2 rounded-none">
-                            <div className="flex items-center justify-between text-amber-900 font-bold">
+                          <div className="p-3 bg-[#fef3d6] border-b border-[#fae2a0] text-xs space-y-2">
+                            <div className="flex items-center justify-between text-[#37352f] font-semibold">
                               <span className="flex items-center gap-1.5">
-                                <Clock className="w-4 h-4 text-amber-600" />
+                                <Clock className="w-4 h-4 text-[#d9730d]" />
                                 <span>顾客发起售后退款申请（审核中）</span>
                               </span>
-                              <span className="text-[10px] font-mono text-amber-700">
+                              <span className="text-[10px] font-mono text-[#787774]">
                                 申请时间: {order.refundAppliedAt || '刚刚'}
                               </span>
                             </div>
-                            <div className="bg-white p-2 border border-amber-200 text-[11px] space-y-1">
+                            <div className="bg-white p-2 border border-[#fae2a0] rounded-[2px] text-[11px] space-y-1">
                               <div>
-                                <span className="text-slate-500">退单原因: </span>
-                                <strong className="text-slate-900">
+                                <span className="text-[#787774]">退单原因: </span>
+                                <strong className="text-[#37352f]">
                                   {order.refundReason || '临时有事 / 行程变更'}
                                 </strong>
                               </div>
                               {order.refundFeedback && (
                                 <div>
-                                  <span className="text-slate-500">顾客说明: </span>
-                                  <span className="italic text-slate-700">"{order.refundFeedback}"</span>
+                                  <span className="text-[#787774]">顾客说明: </span>
+                                  <span className="italic text-[#5a5854]">"{order.refundFeedback}"</span>
                                 </div>
                               )}
                             </div>
@@ -822,7 +815,7 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
                                   }))
                                 }
                                 placeholder="驳回原因（如：餐品已入炉高温炙烤）"
-                                className="flex-1 px-2 py-1 bg-white border border-amber-300 text-xs rounded-none outline-none"
+                                className="flex-1 px-2.5 py-1 bg-white border border-[#fae2a0] text-xs rounded-[2px] outline-none text-[#37352f]"
                               />
                               <div className="flex items-center gap-1.5 shrink-0">
                                 <button
@@ -843,7 +836,7 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
                                     }
                                     showToast(`工单 #${order.orderNo} 退款申请已驳回：${reason}`);
                                   }}
-                                  className="px-2.5 py-1 bg-white hover:bg-rose-50 text-rose-700 border border-rose-300 text-xs font-semibold rounded-none cursor-pointer"
+                                  className="px-2.5 py-1 bg-white hover:bg-[#fde8e8] text-[#d44333] border border-[#f8b4b4] text-xs font-semibold rounded-[2px] cursor-pointer shadow-2xs"
                                 >
                                   驳回退单
                                 </button>
@@ -861,7 +854,7 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
                                     }
                                     showToast(`工单 #${order.orderNo} 退款审核已通过，款项原路退回！`);
                                   }}
-                                  className="px-3 py-1 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-none cursor-pointer flex items-center gap-1"
+                                  className="px-3 py-1 bg-[#2b593f] hover:bg-[#204430] text-white text-xs font-semibold rounded-[2px] cursor-pointer flex items-center gap-1 shadow-2xs"
                                 >
                                   <Check className="w-3 h-3" />
                                   <span>同意退单并原路退款</span>
@@ -873,30 +866,30 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
 
                         {/* 3. 餐品明细区域结构化升级 */}
                         <div className="p-3 sm:p-4">
-                          <div className="border border-slate-300 bg-slate-50 rounded-none">
+                          <div className="border border-[#e6e6e4] bg-[#f7f7f5] rounded-[2px] overflow-hidden">
                             <div
                               onClick={() => toggleMealDetail(cardKey)}
-                              className="px-3 py-2 bg-slate-100/70 border-b border-slate-300 flex items-center justify-between cursor-pointer select-none rounded-none"
+                              className="px-3 py-2 bg-[#f7f7f5] border-b border-[#e6e6e4] flex items-center justify-between cursor-pointer select-none"
                             >
                               <div className="flex items-center space-x-2">
-                                <span className="font-bold text-slate-900 text-xs">
+                                <span className="font-semibold text-[#37352f] text-xs">
                                   菜品清单 (共{itemCount}品{totalQty}件)
                                 </span>
                                 {isDineIn ? (
-                                  <span className="bg-emerald-50 text-emerald-800 border border-emerald-300 text-[10px] px-1.5 py-0.2 font-medium rounded-none">
+                                  <span className="bg-[#edf6f1] text-[#2b593f] border border-[#cbe4d7] text-[10px] px-1.5 py-0.2 font-medium rounded-[2px]">
                                     现制热食
                                   </span>
                                 ) : isPickup ? (
-                                  <span className="bg-emerald-50 text-emerald-800 border border-emerald-300 text-[10px] px-1.5 py-0.2 font-medium rounded-none">
+                                  <span className="bg-[#edf6f1] text-[#2b593f] border border-[#cbe4d7] text-[10px] px-1.5 py-0.2 font-medium rounded-[2px]">
                                     已封装保温袋
                                   </span>
                                 ) : (
-                                  <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] px-1.5 py-0.2 font-medium rounded-none">
+                                  <span className="bg-[#f0eef8] text-[#553c9a] border border-[#ded8f4] text-[10px] px-1.5 py-0.2 font-medium rounded-[2px]">
                                     专送铝箔温控箱
                                   </span>
                                 )}
                               </div>
-                              <div className="flex items-center space-x-2 text-slate-500 text-[11px] font-mono">
+                              <div className="flex items-center space-x-2 text-[#787774] text-[11px] font-mono">
                                 <span>
                                   {isDineIn
                                     ? '上桌进度 0/3'
@@ -904,7 +897,7 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
                                     ? `入柜 ${order.pickupShelfCode || '8'} 分钟`
                                     : `预计 ${order.etaMinutes || 6} 分钟送达`}
                                 </span>
-                                <span className="text-slate-400">
+                                <span className="text-[#787774]">
                                   {isMealOpen ? '▲ 收起' : '▼ 展开'}
                                 </span>
                               </div>
@@ -913,21 +906,21 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
                             {/* Expandable items table */}
                             {isMealOpen && (
                               <div className="p-3 bg-white">
-                                <ul className="space-y-1.5 text-xs text-slate-700 divide-y divide-dashed divide-slate-100">
+                                <ul className="space-y-1.5 text-xs text-[#37352f] divide-y divide-dashed divide-[#efefed]">
                                   {order.items.map((it, itemIdx) => (
                                     <li
                                       key={itemIdx}
                                       className="flex justify-between items-center py-1 first:pt-0"
                                     >
                                       <div className="flex items-center space-x-2">
-                                        <span className="font-semibold text-slate-900">{it.name}</span>
+                                        <span className="font-medium text-[#37352f]">{it.name}</span>
                                         {it.options && (
-                                          <span className="text-slate-400 text-[11px]">
+                                          <span className="text-[#787774] text-[11px]">
                                             [{it.options}]
                                           </span>
                                         )}
                                       </div>
-                                      <span className="font-mono font-bold text-slate-900 text-sm">
+                                      <span className="font-mono font-semibold text-[#37352f] text-xs">
                                         x{it.quantity}
                                       </span>
                                     </li>
@@ -938,35 +931,35 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
                           </div>
 
                           {/* 4. 履约与地址信息 */}
-                          <div className="mt-2.5 p-2.5 bg-slate-50 border border-slate-300 text-xs flex justify-between items-center rounded-none flex-wrap gap-2">
+                          <div className="mt-2.5 p-2.5 bg-[#f7f7f5] border border-[#e6e6e4] text-xs flex justify-between items-center rounded-[2px] flex-wrap gap-2">
                             <div>
-                              <div className="text-slate-500 text-[11px]">
+                              <div className="text-[#787774] text-[11px]">
                                 {isDineIn
                                   ? '就餐位置与人数:'
                                   : isPickup
                                   ? '自提柜机位置:'
                                   : '配送目的地:'}
                               </div>
-                              <div className="font-bold text-slate-900 mt-0.5 flex items-center gap-1">
-                                <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                              <div className="font-semibold text-[#37352f] mt-0.5 flex items-center gap-1">
+                                <MapPin className="w-3.5 h-3.5 text-[#d44333] shrink-0" />
                                 <span>
                                   {isDineIn
                                     ? `餐车外摆区 · ${order.tableCode ? `${order.tableCode}号桌` : 'A2号桌'} (${order.dinerCount || 3}人入座)`
                                     : isPickup
-                                    ? `黑曜石 01 号餐车自提点 (${order.truckLocation || '大悦城北广场侧面'})`
+                                    ? `${getUnifiedTruckName(order.truckId || 'truck-01', 'short')}自提点 (${order.truckLocation || '大悦城北广场侧面'})`
                                     : (order.deliveryAddress || '西藏北路 166 号大悦城商务座 1204 室')}
                                 </span>
                               </div>
                             </div>
                             <div className="text-right">
-                              <span className="text-slate-500 text-[11px] block">
+                              <span className="text-[#787774] text-[11px] block">
                                 {isDineIn
                                   ? '后厨传菜状态'
                                   : isPickup
                                   ? '保温温控'
                                   : '承运专线骑手'}
                               </span>
-                              <span className="font-mono font-bold text-xs text-slate-800">
+                              <span className="font-mono font-medium text-xs text-[#37352f]">
                                 {isDineIn
                                   ? (order.status === 'cooking' ? '等待首道菜品制作完成' : '出餐传菜陆续上桌')
                                   : isPickup
@@ -978,17 +971,17 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
 
                           {/* 权威防篡改流转存证 (Audit Trail Logs) */}
                           {order.auditLogs && order.auditLogs.length > 0 && (
-                            <div className="mt-2.5 bg-slate-50 p-2 border border-slate-300 text-[11px] space-y-1 rounded-none">
-                              <span className="font-bold text-slate-600 block">
+                            <div className="mt-2.5 bg-[#f7f7f5] p-2 border border-[#e6e6e4] text-[11px] space-y-1 rounded-[2px]">
+                              <span className="font-semibold text-[#5a5854] block">
                                 🛡️ 权威防篡改流转存证:
                               </span>
                               <div className="space-y-0.5 max-h-20 overflow-y-auto font-mono text-[10.5px]">
                                 {order.auditLogs.map((log, lIdx) => (
-                                  <div key={lIdx} className="text-slate-600 flex items-center gap-2">
-                                    <span className="text-slate-400">{log.time}</span>
-                                    <span className="font-bold text-slate-900">[{log.operator}]</span>
+                                  <div key={lIdx} className="text-[#5a5854] flex items-center gap-2">
+                                    <span className="text-[#787774]">{log.time}</span>
+                                    <span className="font-semibold text-[#37352f]">[{log.operator}]</span>
                                     <span>{log.action}</span>
-                                    {log.note && <span className="text-slate-500">({log.note})</span>}
+                                    {log.note && <span className="text-[#787774]">({log.note})</span>}
                                   </div>
                                 ))}
                               </div>
@@ -1001,8 +994,8 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
 
                   <div>
                     {/* 5. 结算与净额模块 */}
-                    <div className="px-3.5 sm:px-4 py-2 bg-slate-50 border-t border-b border-slate-300 flex items-center justify-between text-xs rounded-none">
-                      <div className="text-slate-500 font-mono text-[11px]">
+                    <div className="px-3.5 sm:px-4 py-2 bg-[#f7f7f5] border-t border-b border-[#e6e6e4] flex items-center justify-between text-xs">
+                      <div className="text-[#787774] font-mono text-[11px]">
                         {isDineIn ? (
                           <span>堂食在线微信付 · 平台免佣 · 无配送费</span>
                         ) : isPickup ? (
@@ -1014,24 +1007,24 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
                         )}
                       </div>
                       <div className="flex items-baseline space-x-1.5">
-                        <span className="text-slate-500 text-[11px]">
+                        <span className="text-[#787774] text-[11px]">
                           {isDineIn ? '应收净额:' : '结算金额:'}
                         </span>
-                        <span className="font-mono text-lg font-black text-slate-900">
+                        <span className="font-mono text-base sm:text-lg font-semibold text-[#37352f]">
                           ¥{order.totalAmount.toFixed(2)}
                         </span>
                       </div>
                     </div>
 
                     {/* 6. 工具箱与行动推进操作栏整合 */}
-                    <div className="p-2.5 sm:p-3 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-none">
+                    <div className="p-2.5 sm:p-3 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       {/* 突发情况兜底工具箱按钮组 */}
                       <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none whitespace-nowrap">
                         {/* 气泡联络室 */}
                         <button
                           type="button"
                           onClick={() => setChatOrder(order)}
-                          className="bg-slate-900 hover:bg-black text-white p-1.5 border border-slate-900 shrink-0 cursor-pointer rounded-none"
+                          className="bg-[#37352f] hover:bg-[#201f1d] text-white p-1.5 border border-[#37352f] shrink-0 cursor-pointer rounded-[2px] shadow-2xs"
                           title="开启三端即时气泡联络室"
                         >
                           <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
@@ -1041,7 +1034,7 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
                         <button
                           type="button"
                           onClick={() => setActiveActionModal({ type: 're_dispatch_bonus', order })}
-                          className="bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100 px-2 py-1 text-xs font-medium shrink-0 cursor-pointer rounded-none"
+                          className="bg-[#fef3d6] text-[#d9730d] border border-[#fae2a0] hover:bg-[#fde8a8] px-2 py-1 text-xs font-medium shrink-0 cursor-pointer rounded-[2px] shadow-2xs"
                           title="追加调度赏金重新广播给周边骑手"
                         >
                           ⚡ 加码转派 (+¥3.0)
@@ -1051,7 +1044,7 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
                         <button
                           type="button"
                           onClick={() => setActiveActionModal({ type: 'self_delivery', order })}
-                          className="bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 px-2 py-1 text-xs font-medium shrink-0 cursor-pointer rounded-none"
+                          className="bg-[#edf6f1] text-[#2b593f] border border-[#cbe4d7] hover:bg-[#ddf0e5] px-2 py-1 text-xs font-medium shrink-0 cursor-pointer rounded-[2px] shadow-2xs"
                           title="餐车主理人亲自接管配送"
                         >
                           🏠 主理人直送
@@ -1061,7 +1054,7 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
                         <button
                           type="button"
                           onClick={() => setActiveActionModal({ type: 'turn_pickup', order })}
-                          className="bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100 px-2 py-1 text-xs font-medium shrink-0 cursor-pointer rounded-none"
+                          className="bg-[#ebf3fc] text-[#1c5598] border border-[#d2e4f8] hover:bg-[#d8ebff] px-2 py-1 text-xs font-medium shrink-0 cursor-pointer rounded-[2px] shadow-2xs"
                           title="与顾客协商转为现场自提并退配送费"
                         >
                           💧 转自提退运费
@@ -1071,7 +1064,7 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
                         <button
                           type="button"
                           onClick={() => setActiveActionModal({ type: 'remake_delay', order })}
-                          className="bg-purple-50 text-purple-800 border border-purple-200 hover:bg-purple-100 px-2 py-1 text-xs font-medium shrink-0 cursor-pointer rounded-none"
+                          className="bg-[#f4effa] text-[#6b46c1] border border-[#e2d5f8] hover:bg-[#ebe1f8] px-2 py-1 text-xs font-medium shrink-0 cursor-pointer rounded-[2px] shadow-2xs"
                           title="后厨烤焦重做或延误报备"
                         >
                           🔄 烤焦重做/延误
@@ -1081,7 +1074,7 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
                         <button
                           type="button"
                           onClick={() => setActiveActionModal({ type: 'force_deliver_photo', order })}
-                          className="bg-slate-50 text-slate-700 border border-slate-300 hover:bg-slate-100 px-2 py-1 text-xs font-medium shrink-0 cursor-pointer rounded-none"
+                          className="bg-[#f7f7f5] text-[#5a5854] border border-[#e6e6e4] hover:bg-[#efefed] px-2 py-1 text-xs font-medium shrink-0 cursor-pointer rounded-[2px] shadow-2xs"
                           title="核验证照拍照妥投存证归档"
                         >
                           🛡️ 存证妥投归档
@@ -1103,7 +1096,7 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
                               });
                               showToast(`已接单 #${order.orderNo}，工单已流转至制作环节！`);
                             }}
-                            className="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 text-xs transition-colors flex items-center justify-center space-x-1.5 rounded-none cursor-pointer"
+                            className="w-full sm:w-auto bg-[#d9730d] hover:bg-[#b06000] text-white font-semibold px-4 py-1.5 text-xs transition-colors flex items-center justify-center space-x-1.5 rounded-[2px] cursor-pointer shadow-2xs"
                           >
                             <span>权威接单 (进入制作)</span>
                           </button>
@@ -1131,7 +1124,7 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
                                 showToast(`工单 #${order.orderNo} 已出餐，待骑手/顾客取餐！`);
                               }
                             }}
-                            className="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 text-xs transition-colors flex items-center justify-center space-x-1.5 rounded-none cursor-pointer"
+                            className="w-full sm:w-auto bg-[#d9730d] hover:bg-[#b06000] text-white font-semibold px-4 py-1.5 text-xs transition-colors flex items-center justify-center space-x-1.5 rounded-[2px] cursor-pointer shadow-2xs whitespace-nowrap shrink-0"
                           >
                             <span>
                               {isDineIn ? '制作完成 · 传菜上桌' : '出餐完毕 (推进至待取)'}
@@ -1161,7 +1154,7 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
                                 showToast(`工单 #${order.orderNo} 推进至【专送配送中】！`);
                               }
                             }}
-                            className="w-full sm:w-auto bg-slate-900 hover:bg-black text-white font-bold px-4 py-2 text-xs transition-colors flex items-center justify-center space-x-1.5 rounded-none cursor-pointer"
+                            className="w-full sm:w-auto bg-[#37352f] hover:bg-[#201f1d] text-white font-semibold px-4 py-1.5 text-xs transition-colors flex items-center justify-center space-x-1.5 rounded-[2px] cursor-pointer shadow-2xs whitespace-nowrap shrink-0"
                           >
                             <span>
                               {isPickup ? '确认已取 (流转终态)' : '确认已取餐 (推进至配送)'}
@@ -1181,7 +1174,7 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
                               });
                               showToast(`工单 #${order.orderNo} 推进至【已完成】终态！`);
                             }}
-                            className="w-full sm:w-auto bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-4 py-2 text-xs transition-colors flex items-center justify-center space-x-1.5 rounded-none cursor-pointer"
+                            className="w-full sm:w-auto bg-[#2b593f] hover:bg-[#204430] text-white font-semibold px-4 py-1.5 text-xs transition-colors flex items-center justify-center space-x-1.5 rounded-[2px] cursor-pointer shadow-2xs"
                           >
                             <span>
                               {isDineIn ? '结账翻台 (推进至终态)' : '完成妥投 (推进至终态)'}
@@ -1190,14 +1183,14 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
                         )}
 
                         {isCompleted && (
-                          <span className="inline-flex items-center gap-1 text-emerald-800 font-bold px-3 py-1.5 text-xs bg-emerald-50 border border-emerald-300 rounded-none">
+                          <span className="inline-flex items-center gap-1 text-[#2b593f] font-semibold px-3 py-1.5 text-xs bg-[#edf6f1] border border-[#cbe4d7] rounded-[2px]">
                             <CheckCircle2 className="w-3.5 h-3.5" />
                             <span>已妥投交付完成</span>
                           </span>
                         )}
 
                         {isRefunded && (
-                          <span className="inline-flex items-center gap-1 text-slate-500 font-bold px-3 py-1.5 text-xs bg-slate-100 border border-slate-300 rounded-none">
+                          <span className="inline-flex items-center gap-1 text-[#787774] font-medium px-3 py-1.5 text-xs bg-[#f7f7f5] border border-[#e6e6e4] rounded-[2px]">
                             <span>已退款关闭</span>
                           </span>
                         )}
@@ -1216,14 +1209,14 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
       {/* ========================================================================= */}
       {/* BEGIN: MainFooter                                                         */}
       {/* ========================================================================= */}
-      <footer className="bg-white border-t border-slate-300 px-4 py-3 text-xs text-slate-500 mt-8 rounded-none">
-        <div className="max-w-[1780px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+      <footer className="bg-white border-t border-[#e6e6e4] px-4 py-3 text-xs text-[#787774] mt-8">
+        <div className="max-w-[2000px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center space-x-2">
-            <span className="w-2 h-2 bg-emerald-500 inline-block rounded-none"></span>
-            <span className="font-medium text-slate-900">状态机实时双向握手正常</span>
+            <span className="w-2 h-2 bg-[#2b593f] inline-block rounded-full"></span>
+            <span className="font-medium text-[#37352f]">状态机实时双向握手正常</span>
             <span>· 全链路风控守护中</span>
           </div>
-          <div className="font-mono text-[11px] text-slate-400">
+          <div className="font-mono text-[11px] text-[#787774]">
             SECURITY LEVEL: HIGH | CLUSTER-ID: SHA-CORE-09 | LATENCY: 14ms
           </div>
         </div>
@@ -1235,16 +1228,16 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
       {/* ========================================================================= */}
       {activeActionModal && (
         <div className="fixed inset-0 z-50 overflow-hidden flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-white text-slate-900 w-full max-w-md border border-slate-300 shadow-2xl p-4 space-y-3.5 rounded-none">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-              <span className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
-                <ShieldAlert className="w-4 h-4 text-rose-600" />
+          <div className="bg-white text-[#37352f] w-full max-w-md border border-[#e6e6e4] shadow-xl p-4 space-y-3.5 rounded-[4px]">
+            <div className="flex items-center justify-between border-b border-[#e6e6e4] pb-2">
+              <span className="font-semibold text-sm text-[#37352f] flex items-center gap-1.5">
+                <ShieldAlert className="w-4 h-4 text-[#d44333]" />
                 <span>突发异常兜底措施审批</span>
               </span>
               <button
                 type="button"
                 onClick={() => setActiveActionModal(null)}
-                className="text-slate-400 hover:text-slate-800 cursor-pointer"
+                className="text-[#787774] hover:text-[#37352f] cursor-pointer p-1 rounded-[2px]"
               >
                 ✕
               </button>
@@ -1253,21 +1246,21 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
             {/* Type Specific Form Inputs */}
             {activeActionModal.type === 're_dispatch_bonus' && (
               <div className="space-y-2.5 text-xs">
-                <p className="text-slate-600">
+                <p className="text-[#5a5854]">
                   当前工单 <strong>#{activeActionModal.order.orderNo}</strong> 遭遇骑手拒单或暂无接单。追加调度补贴可极速激活周边高意愿骑手。
                 </p>
                 <div className="space-y-1">
-                  <span className="font-bold text-slate-700">加码平台调度赏金:</span>
+                  <span className="font-medium text-[#37352f]">加码平台调度赏金:</span>
                   <div className="flex items-center gap-2">
                     {[2.0, 3.0, 5.0, 8.0].map((amt) => (
                       <button
                         key={amt}
                         type="button"
                         onClick={() => setBonusAmount(amt)}
-                        className={`px-3 py-1 border font-bold rounded-none cursor-pointer transition-colors ${
+                        className={`px-3 py-1 border font-semibold rounded-[2px] cursor-pointer transition-colors shadow-2xs ${
                           bonusAmount === amt
-                            ? 'bg-slate-900 text-white border-slate-900'
-                            : 'bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-100'
+                            ? 'bg-[#37352f] text-white border-[#37352f]'
+                            : 'bg-[#f7f7f5] text-[#37352f] border-[#e6e6e4] hover:bg-[#efefed]'
                         }`}
                       >
                         +¥{amt.toFixed(1)}
@@ -1275,7 +1268,7 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
                     ))}
                   </div>
                 </div>
-                <div className="p-2 bg-sky-50 border border-sky-200 text-[11px] text-sky-800 rounded-none">
+                <div className="p-2 bg-[#ebf3fc] border border-[#d2e4f8] text-[11px] text-[#1c5598] rounded-[2px]">
                   💡 审批确认后，工单将带加权标签重新推送到骑手抢单池第一顺位。
                 </div>
               </div>
@@ -1283,10 +1276,10 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
 
             {activeActionModal.type === 'self_delivery' && (
               <div className="space-y-2 text-xs">
-                <p className="text-slate-600">
+                <p className="text-[#5a5854]">
                   确认启动 <strong>【餐车主理人专属自送】</strong> 模式？系统将把承运骑手变更为餐车车长，直接将状态推进至配送中。
                 </p>
-                <div className="p-2 bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-800 rounded-none">
+                <div className="p-2 bg-[#edf6f1] border border-[#cbe4d7] text-[11px] text-[#2b593f] rounded-[2px]">
                   ⚡ 适用场景：周边 1km 内高端大单、或运力极端紧张时保障客户体验。
                 </div>
               </div>
@@ -1294,10 +1287,10 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
 
             {activeActionModal.type === 'turn_pickup' && (
               <div className="space-y-2 text-xs">
-                <p className="text-slate-600">
+                <p className="text-[#5a5854]">
                   确认将外卖订单 <strong>#{activeActionModal.order.orderNo}</strong> 协商转为 <strong>【到车自提】</strong>？
                 </p>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] text-[#787774]">
                   系统将自动退还配送费与包装费（¥6.00），餐品移入餐车恒温取餐格，并向顾客发送取餐码。
                 </p>
               </div>
@@ -1305,14 +1298,14 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
 
             {activeActionModal.type === 'remake_delay' && (
               <div className="space-y-2 text-xs">
-                <span className="font-bold text-slate-700">重做与延误说明 (将同步后厨与顾客):</span>
+                <span className="font-medium text-[#37352f]">重做与延误说明 (将同步后厨与顾客):</span>
                 <input
                   type="text"
                   value={remakeReason}
                   onChange={(e) => setRemakeReason(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 text-xs focus:bg-white focus:border-slate-900 outline-none rounded-none"
+                  className="w-full px-3 py-1.5 bg-[#f7f7f5] border border-[#e6e6e4] text-xs focus:bg-white focus:border-[#37352f] outline-none rounded-[2px]"
                 />
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] text-[#787774]">
                   将自动为预计送达时间顺延 8 分钟，并向顾客赠送 500 积分以提升满意度。
                 </p>
               </div>
@@ -1320,18 +1313,18 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
 
             {activeActionModal.type === 'force_deliver_photo' && (
               <div className="space-y-2 text-xs">
-                <p className="text-slate-600">
+                <p className="text-[#5a5854]">
                   已核验骑手送达照片/写字楼前台存证。确认执行安全妥投，结束配送并将订单推进至【已送达完成】终态？
                 </p>
               </div>
             )}
 
             {/* Modal Actions */}
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#e6e6e4]">
               <button
                 type="button"
                 onClick={() => setActiveActionModal(null)}
-                className="px-3 py-1.5 border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-none cursor-pointer"
+                className="px-3 py-1.5 border border-[#e6e6e4] text-xs font-medium text-[#37352f] hover:bg-[#f7f7f5] rounded-[2px] cursor-pointer shadow-2xs"
               >
                 取消
               </button>
@@ -1349,7 +1342,7 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
                   if (activeActionModal.type === 'force_deliver_photo')
                     handleExecuteForceDeliverPhoto(activeActionModal.order);
                 }}
-                className="px-4 py-1.5 bg-slate-900 hover:bg-black text-white text-xs font-bold shadow-xs cursor-pointer rounded-none"
+                className="px-4 py-1.5 bg-[#37352f] hover:bg-[#201f1d] text-white text-xs font-semibold shadow-2xs cursor-pointer rounded-[2px]"
               >
                 确认执行兜底
               </button>
@@ -1361,47 +1354,47 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
       {/* Emergency Fuse Modal (紧急熔断控制中枢) */}
       {isEmergencyFuseOpen && (
         <div className="fixed inset-0 z-50 overflow-hidden flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-white text-slate-900 w-full max-w-md border border-slate-300 shadow-2xl p-4 space-y-3.5 rounded-none">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-              <span className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
-                <Zap className="w-4 h-4 text-amber-500" />
+          <div className="bg-white text-[#37352f] w-full max-w-md border border-[#e6e6e4] shadow-xl p-4 space-y-3.5 rounded-[4px]">
+            <div className="flex items-center justify-between border-b border-[#e6e6e4] pb-2">
+              <span className="font-semibold text-sm text-[#37352f] flex items-center gap-1.5">
+                <Zap className="w-4 h-4 text-[#d9730d]" />
                 <span>全链路紧急熔断中枢</span>
               </span>
               <button
                 type="button"
                 onClick={() => setIsEmergencyFuseOpen(false)}
-                className="text-slate-400 hover:text-slate-800 cursor-pointer"
+                className="text-[#787774] hover:text-[#37352f] cursor-pointer p-1 rounded-[2px]"
               >
                 ✕
               </button>
             </div>
 
             <div className="space-y-2.5 text-xs">
-              <p className="text-slate-600 leading-relaxed">
+              <p className="text-[#5a5854] leading-relaxed">
                 紧急熔断用于应对突发暴雨恶劣天气、周边运力极度短缺或后厨设备检修等极端突发状况。触发后将暂停外部自动派单流转并开启兜底排队防护。
               </p>
 
               <div className="space-y-1">
-                <span className="font-bold text-slate-700">熔断触发事由说明:</span>
+                <span className="font-medium text-[#37352f]">熔断触发事由说明:</span>
                 <input
                   type="text"
                   value={fuseReason}
                   onChange={(e) => setFuseReason(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 text-xs focus:bg-white focus:border-slate-900 outline-none rounded-none"
+                  className="w-full px-3 py-1.5 bg-[#f7f7f5] border border-[#e6e6e4] text-xs focus:bg-white focus:border-[#37352f] outline-none rounded-[2px]"
                 />
               </div>
 
               <div
-                className={`p-2.5 border text-xs rounded-none ${
+                className={`p-2.5 border text-xs rounded-[2px] ${
                   fuseActive
-                    ? 'bg-amber-50 border-amber-300 text-amber-900'
-                    : 'bg-slate-50 border-slate-200 text-slate-700'
+                    ? 'bg-[#fef3d6] border-[#fae2a0] text-[#d9730d]'
+                    : 'bg-[#f7f7f5] border-[#e6e6e4] text-[#37352f]'
                 }`}
               >
-                <div className="font-bold">
+                <div className="font-semibold">
                   当前熔断状态: {fuseActive ? '⚡ 正在生效中 (限流保护)' : '🟢 常态就绪 (未熔断)'}
                 </div>
-                <p className="text-[11px] mt-1 text-slate-600">
+                <p className="text-[11px] mt-1 text-[#5a5854]">
                   {fuseActive
                     ? '全链路已启动降级防护，点击下方按钮可随时解除熔断并恢复正常吞吐。'
                     : '点击下方按钮将立即启动熔断，通知在途骑手与食客并阻断卡单风险。'}
@@ -1409,19 +1402,19 @@ export const MerchantContingencyHub: React.FC<MerchantContingencyHubProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#e6e6e4]">
               <button
                 type="button"
                 onClick={() => setIsEmergencyFuseOpen(false)}
-                className="px-3 py-1.5 border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-none cursor-pointer"
+                className="px-3 py-1.5 border border-[#e6e6e4] text-xs font-medium text-[#37352f] hover:bg-[#f7f7f5] rounded-[2px] cursor-pointer shadow-2xs"
               >
                 关闭
               </button>
               <button
                 type="button"
                 onClick={handleToggleEmergencyFuse}
-                className={`px-4 py-1.5 text-xs font-bold text-white shadow-xs cursor-pointer rounded-none ${
-                  fuseActive ? 'bg-emerald-700 hover:bg-emerald-800' : 'bg-red-600 hover:bg-red-700'
+                className={`px-4 py-1.5 text-xs font-semibold text-white shadow-2xs cursor-pointer rounded-[2px] ${
+                  fuseActive ? 'bg-[#2b593f] hover:bg-[#204430]' : 'bg-[#d44333] hover:bg-[#b03024]'
                 }`}
               >
                 {fuseActive ? '解除紧急熔断' : '确认触发紧急熔断'}

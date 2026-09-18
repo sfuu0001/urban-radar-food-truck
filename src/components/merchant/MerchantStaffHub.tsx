@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   UserCheck, 
   Shield, 
@@ -15,12 +15,14 @@ import {
   Sliders,
   ChevronRight,
   ShieldAlert,
-  RefreshCw
+  RefreshCw,
+  UserMinus
 } from 'lucide-react';
 import { StaffMember, StaffRole } from '../../types';
 import { INITIAL_STAFF_MEMBERS } from '../../data/merchantExtendedMockData';
 import { playChimeSound } from '../../utils/voiceAlertEngine';
 import { getSecurityAuditLogs, SecurityAuditEvent } from '../../utils/rbacEngine';
+import { softDeleteToRecycleBin } from '../../utils/recycleBinEngine';
 
 interface MerchantStaffHubProps {
   showToast: (msg: string) => void;
@@ -46,6 +48,21 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
     setStaffList(updated);
     localStorage.setItem('obsidian_staff_members', JSON.stringify(updated));
   };
+
+  // 统一回收站恢复联动：storage 写回（含恢复派发的 StorageEvent）后自动重读刷新花名册
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== 'obsidian_staff_members') return;
+      try {
+        const raw = localStorage.getItem('obsidian_staff_members');
+        if (raw) setStaffList(JSON.parse(raw));
+      } catch {
+        // 解析失败保持现状，避免脏数据进 UI
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
 
   const handleToggleClockIn = (staffId: string) => {
     const updated = staffList.map(s => {
@@ -102,19 +119,43 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
     showToast(`员工【${newName}】已录入花名册并分配初始权限！`);
   };
 
+  // 移除员工（统一回收站：软删除入站，30 天内可恢复到花名册）
+  const handleRemoveStaff = (staff: StaffMember) => {
+    if (
+      window.confirm(
+        `确认移除员工【${staff.name}】吗？\n\n· 员工档案将进入统一回收站（30 天内可恢复）\n· 其历史考勤与业绩记录不受影响`
+      )
+    ) {
+      softDeleteToRecycleBin({
+        type: 'staff',
+        typeLabel: '员工花名册',
+        refId: staff.id,
+        label: `${staff.name}（${staff.roleTitle}）`,
+        snapshot: staff,
+        storageKey: 'obsidian_staff_members',
+        container: 'array',
+        idField: 'id'
+      });
+      const updated = staffList.filter((s) => s.id !== staff.id);
+      saveStaffList(updated);
+      if (selectedStaff?.id === staff.id) setSelectedStaff(updated[0] || null);
+      showToast(`员工【${staff.name}】已移除，30 天内可在统一回收站恢复`);
+    }
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header Banner */}
-      <div className="bg-white rounded-lg border border-[#e3e2e0] p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+      <div className="bg-white rounded-[3px] border border-[#e6e6e4] p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
-            <UserCheck className="w-5 h-5 text-amber-600 shrink-0" />
-            <h2 className="text-base sm:text-lg font-bold text-[#37352f]">员工花名册与岗位权限矩阵 (RBAC)</h2>
-            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold rounded shrink-0">
+            <UserCheck className="w-4 h-4 text-amber-600 shrink-0" />
+            <h2 className="text-sm sm:text-base font-semibold text-[#37352f]">员工花名册与岗位权限矩阵 (RBAC)</h2>
+            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-medium rounded-[2px] shrink-0">
               在职员工 {staffList.length} 人 ({staffList.filter(s => s.status === 'active').length} 人在岗)
             </span>
           </div>
-          <p className="text-xs text-[#787774] mt-1">
+          <p className="text-xs text-[#787774] mt-0.5 font-normal">
             支持店长/收银员/烤师/调饮师/骑手多角色权限隔离，上下班打卡工时统计与月度业绩提成。
           </p>
         </div>
@@ -123,7 +164,7 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
           <button
             type="button"
             onClick={() => setIsAddModalOpen(true)}
-            className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
+            className="px-3 py-1.5 bg-[#37352f] hover:bg-black text-white rounded-[3px] text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>录入新员工</span>
@@ -132,53 +173,53 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
       </div>
 
       {/* Quick Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg border border-[#e3e2e0]">
-          <span className="text-xs text-[#787774] block">当前在岗考勤</span>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="bg-white p-3 rounded-[3px] border border-[#e6e6e4] shadow-2xs">
+          <span className="text-[11px] text-[#787774] block font-normal">当前在岗考勤</span>
           <div className="flex items-baseline gap-2 mt-1">
-            <span className="text-2xl font-bold text-emerald-700">
+            <span className="text-xl font-bold font-mono text-emerald-700">
               {staffList.filter(s => s.status === 'active').length}
             </span>
-            <span className="text-xs text-[#787774]">/ {staffList.length} 人在班</span>
+            <span className="text-xs text-[#787774] font-normal">/ {staffList.length} 人在班</span>
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-lg border border-[#e3e2e0]">
-          <span className="text-xs text-[#787774] block">今日累计出勤工时</span>
+        <div className="bg-white p-3 rounded-[3px] border border-[#e6e6e4] shadow-2xs">
+          <span className="text-[11px] text-[#787774] block font-normal">今日累计出勤工时</span>
           <div className="flex items-baseline gap-2 mt-1">
-            <span className="text-2xl font-bold text-[#37352f]">
+            <span className="text-xl font-bold font-mono text-[#37352f]">
               {staffList.reduce((sum, s) => sum + s.workHoursToday, 0).toFixed(1)}
             </span>
-            <span className="text-xs text-[#787774]">工时</span>
+            <span className="text-xs text-[#787774] font-normal">工时</span>
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-lg border border-[#e3e2e0]">
-          <span className="text-xs text-[#787774] block">本月全店提成激励</span>
+        <div className="bg-white p-3 rounded-[3px] border border-[#e6e6e4] shadow-2xs">
+          <span className="text-[11px] text-[#787774] block font-normal">本月全店提成激励</span>
           <div className="flex items-baseline gap-1 mt-1">
-            <span className="text-xs text-amber-700 font-bold">¥</span>
-            <span className="text-2xl font-bold text-amber-700">
+            <span className="text-xs text-amber-700 font-medium">¥</span>
+            <span className="text-xl font-bold font-mono text-amber-700">
               {staffList.reduce((sum, s) => sum + s.monthlyCommission, 0).toLocaleString()}
             </span>
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-lg border border-[#e3e2e0]">
-          <span className="text-xs text-[#787774] block">权限安全级别</span>
+        <div className="bg-white p-3 rounded-[3px] border border-[#e6e6e4] shadow-2xs">
+          <span className="text-[11px] text-[#787774] block font-normal">权限安全级别</span>
           <div className="flex items-baseline gap-2 mt-1">
-            <span className="text-2xl font-bold text-[#37352f]">高</span>
-            <span className="text-xs text-emerald-600 font-medium">角色分级已开启</span>
+            <span className="text-xl font-semibold text-[#37352f]">高</span>
+            <span className="text-xs text-emerald-600 font-normal">角色分级已开启</span>
           </div>
         </div>
       </div>
 
       {/* Sub Tabs */}
-      <div className="bg-white rounded-lg border border-[#e3e2e0] p-3.5 sm:p-4 space-y-4">
-        <div className="flex items-center gap-1 pb-3 border-b border-[#e3e2e0] overflow-x-auto no-scrollbar flex-wrap">
+      <div className="bg-white rounded-[3px] border border-[#e6e6e4] p-3 sm:p-3.5 space-y-3 shadow-2xs">
+        <div className="flex items-center gap-1 pb-2.5 border-b border-[#e6e6e4] overflow-x-auto no-scrollbar flex-wrap">
           <button
             type="button"
             onClick={() => setActiveTab('roster')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded cursor-pointer whitespace-nowrap shrink-0 ${
+            className={`px-3 py-1.5 text-xs font-medium rounded-[3px] cursor-pointer whitespace-nowrap shrink-0 transition-colors ${
               activeTab === 'roster' ? 'bg-[#37352f] text-white' : 'text-[#787774] hover:bg-[#f7f7f5]'
             }`}
           >
@@ -188,7 +229,7 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
           <button
             type="button"
             onClick={() => setActiveTab('rbac')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded cursor-pointer whitespace-nowrap shrink-0 ${
+            className={`px-3 py-1.5 text-xs font-medium rounded-[3px] cursor-pointer whitespace-nowrap shrink-0 transition-colors ${
               activeTab === 'rbac' ? 'bg-[#37352f] text-white' : 'text-[#787774] hover:bg-[#f7f7f5]'
             }`}
           >
@@ -201,7 +242,7 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
               setAuditLogs(getSecurityAuditLogs());
               setActiveTab('audit');
             }}
-            className={`px-3 py-1.5 text-xs font-semibold rounded cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 text-xs font-medium rounded-[3px] cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5 transition-colors ${
               activeTab === 'audit' ? 'bg-[#37352f] text-white' : 'text-[#787774] hover:bg-[#f7f7f5]'
             }`}
           >
@@ -215,17 +256,17 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
         {activeTab === 'roster' && (
           <div>
             {/* Mobile / Tablet Cards (< md) */}
-            <div className="md:hidden space-y-2.5">
+            <div className="md:hidden space-y-2">
               {staffList.map(staff => (
                 <div
                   key={staff.id}
-                  className="p-3 bg-white border border-[#e3e2e0] rounded-lg space-y-2.5 shadow-2xs"
+                  className="p-3 bg-white border border-[#e6e6e4] rounded-[3px] space-y-2 shadow-2xs"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-sm text-[#37352f]">{staff.name}</span>
-                        <span className={`px-1.5 py-0.2 rounded text-[10px] font-semibold border ${
+                        <span className="font-medium text-xs text-[#37352f]">{staff.name}</span>
+                        <span className={`px-1.5 py-0.2 rounded text-[10px] font-medium border ${
                           staff.role === 'manager'
                             ? 'bg-purple-50 text-purple-900 border-purple-200'
                             : staff.role === 'cashier'
@@ -239,46 +280,57 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
                           {staff.roleTitle}
                         </span>
                       </div>
-                      <div className="text-[11px] font-mono text-[#787774] mt-0.5">
+                      <div className="text-[11px] font-mono text-[#787774] mt-0.5 font-normal">
                         工号: {staff.staffNo} · 手机: {staff.phone}
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleToggleClockIn(staff.id)}
-                      className={`px-2.5 py-1 rounded text-xs font-semibold cursor-pointer border transition-colors shrink-0 ${
-                        staff.status === 'active'
-                          ? 'bg-[#f7f7f5] hover:bg-[#e3e2e0] text-[#787774] border-[#d3d1cb]'
-                          : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
-                      }`}
-                    >
-                      {staff.status === 'active' ? '签退下班' : '打卡上班'}
-                    </button>
+                    <div className="flex flex-col gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleClockIn(staff.id)}
+                        className={`px-2.5 py-1 rounded-[2px] text-xs font-medium cursor-pointer border transition-colors ${
+                          staff.status === 'active'
+                            ? 'bg-[#f7f7f5] hover:bg-[#e3e2e0] text-[#787774] border-[#d3d1cb]'
+                            : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
+                        }`}
+                      >
+                        {staff.status === 'active' ? '签退下班' : '打卡上班'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveStaff(staff)}
+                        className="px-2.5 py-1 rounded-[2px] text-xs font-medium cursor-pointer border border-rose-200 text-rose-600 hover:bg-rose-50 transition-colors flex items-center justify-center gap-1"
+                        title="移除员工（进入统一回收站，30 天可恢复）"
+                      >
+                        <UserMinus className="w-3 h-3" />
+                        移除
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-4 gap-1.5 p-2 bg-[#fafaf8] rounded border border-neutral-100 text-center">
+                  <div className="grid grid-cols-4 gap-1.5 p-2 bg-[#fafaf8] rounded-[2px] border border-[#f1f1ef] text-center">
                     <div>
-                      <div className="text-[10px] text-[#787774]">考勤状态</div>
-                      <div className="text-xs font-bold text-neutral-800 mt-0.5">
+                      <div className="text-[10px] text-[#787774] font-normal">考勤状态</div>
+                      <div className="text-xs font-medium text-neutral-800 mt-0.5">
                         {staff.status === 'active' ? '在岗' : '已打烊'}
                       </div>
                     </div>
                     <div>
-                      <div className="text-[10px] text-[#787774]">今日工时</div>
-                      <div className="font-mono text-xs text-[#37352f] font-semibold mt-0.5">
+                      <div className="text-[10px] text-[#787774] font-normal">今日工时</div>
+                      <div className="font-mono text-xs text-[#37352f] font-medium mt-0.5">
                         {staff.workHoursToday}h
                       </div>
                     </div>
                     <div>
-                      <div className="text-[10px] text-[#787774]">本月业绩</div>
-                      <div className="font-mono text-xs text-[#787774] mt-0.5">
+                      <div className="text-[10px] text-[#787774] font-normal">本月业绩</div>
+                      <div className="font-mono text-xs text-[#787774] mt-0.5 font-normal">
                         {staff.monthlySales > 0 ? `¥${(staff.monthlySales / 1000).toFixed(1)}k` : '-'}
                       </div>
                     </div>
                     <div>
-                      <div className="text-[10px] text-[#787774]">本月提成</div>
-                      <div className="font-mono text-xs font-bold text-amber-700 mt-0.5">
+                      <div className="text-[10px] text-[#787774] font-normal">本月提成</div>
+                      <div className="font-mono text-xs font-semibold text-amber-700 mt-0.5">
                         ¥{staff.monthlyCommission}
                       </div>
                     </div>
@@ -288,9 +340,9 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
             </div>
 
             {/* Desktop Table (>= md) */}
-            <div className="hidden md:block overflow-x-auto -mx-3.5 px-3.5 sm:mx-0 sm:px-0">
+            <div className="hidden md:block overflow-x-auto border border-[#e6e6e4] rounded-[3px]">
               <table className="w-full text-xs text-left min-w-[640px]">
-                <thead className="bg-[#f7f7f5] text-[#787774] font-medium border-y border-[#e3e2e0]">
+                <thead className="bg-[#f7f7f5] text-[#787774] font-medium border-b border-[#e6e6e4]">
                   <tr>
                     <th className="py-2.5 px-3">工号 / 姓名</th>
                     <th className="py-2.5 px-3">岗位角色</th>
@@ -305,12 +357,12 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
                 <tbody className="divide-y divide-[#f1f1ef]">
                   {staffList.map(staff => (
                     <tr key={staff.id} className="hover:bg-[#fbfbfa]">
-                      <td className="py-3 px-3">
-                        <div className="font-bold text-[#37352f]">{staff.name}</div>
-                        <span className="text-[11px] font-mono text-[#787774]">{staff.staffNo}</span>
+                      <td className="py-2.5 px-3">
+                        <div className="font-medium text-[#37352f]">{staff.name}</div>
+                        <span className="text-[11px] font-mono text-[#787774] font-normal">{staff.staffNo}</span>
                       </td>
-                      <td className="py-3 px-3">
-                        <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${
+                      <td className="py-2.5 px-3">
+                        <span className={`px-2 py-0.5 rounded-[2px] text-[11px] font-medium border ${
                           staff.role === 'manager'
                             ? 'bg-purple-50 text-purple-900 border-purple-200'
                             : staff.role === 'cashier'
@@ -324,36 +376,47 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
                           {staff.roleTitle}
                         </span>
                       </td>
-                      <td className="py-3 px-3 font-mono text-[#37352f]">{staff.phone}</td>
-                      <td className="py-3 px-3">
-                        <span className={`px-2 py-0.5 rounded text-[11px] font-semibold inline-flex items-center gap-1 ${
+                      <td className="py-2.5 px-3 font-mono text-[#37352f] font-normal">{staff.phone}</td>
+                      <td className="py-2.5 px-3">
+                        <span className={`px-2 py-0.5 rounded-[2px] text-[11px] font-medium inline-flex items-center gap-1 ${
                           staff.status === 'active'
                             ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                             : 'bg-neutral-100 text-neutral-600 border border-neutral-300'
                         }`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${staff.status === 'active' ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-400'}`}></span>
-                          {staff.status === 'active' ? `在岗 (${staff.shiftStart} 上班)` : '已打烊/休假'}
+                          {staff.status === 'active' ? `在岗 (${staff.shiftStart})` : '已打烊/休假'}
                         </span>
                       </td>
-                      <td className="py-3 px-3 font-mono text-[#37352f]">{staff.workHoursToday} 小时</td>
-                      <td className="py-3 px-3 text-right font-mono text-[#37352f]">
+                      <td className="py-2.5 px-3 font-mono text-[#37352f] font-normal">{staff.workHoursToday} 小时</td>
+                      <td className="py-2.5 px-3 text-right font-mono text-[#37352f] font-normal">
                         {staff.monthlySales > 0 ? `¥${staff.monthlySales.toLocaleString()}` : '-'}
                       </td>
-                      <td className="py-3 px-3 text-right font-bold text-amber-700 font-mono">
+                      <td className="py-2.5 px-3 text-right font-semibold text-amber-700 font-mono">
                         ¥{staff.monthlyCommission.toLocaleString()}
                       </td>
-                      <td className="py-3 px-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleClockIn(staff.id)}
-                          className={`px-2.5 py-1 rounded text-xs font-semibold cursor-pointer border transition-colors ${
-                            staff.status === 'active'
-                              ? 'bg-[#f7f7f5] hover:bg-[#e3e2e0] text-[#787774] border-[#d3d1cb]'
-                              : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
-                          }`}
-                        >
-                          {staff.status === 'active' ? '签退下班' : '打卡上班'}
-                        </button>
+                      <td className="py-2.5 px-3 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleClockIn(staff.id)}
+                            className={`px-2.5 py-1 rounded-[2px] text-xs font-medium cursor-pointer border transition-colors ${
+                              staff.status === 'active'
+                                ? 'bg-[#f7f7f5] hover:bg-[#e3e2e0] text-[#787774] border-[#d3d1cb]'
+                                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
+                            }`}
+                          >
+                            {staff.status === 'active' ? '签退下班' : '打卡上班'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveStaff(staff)}
+                            className="px-2 py-1 rounded-[2px] text-xs font-medium cursor-pointer border border-rose-200 text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-1"
+                            title="移除员工（进入统一回收站，30 天可恢复）"
+                          >
+                            <UserMinus className="w-3 h-3" />
+                            移除
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -365,8 +428,8 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
 
         {/* 2. RBAC Permission Matrix */}
         {activeTab === 'rbac' && (
-          <div className="space-y-4">
-            <p className="text-xs text-[#787774]">
+          <div className="space-y-3">
+            <p className="text-xs text-[#787774] font-normal">
               精细化权限矩阵：不同角色仅可访问授权范围内的功能模块，敏感财务数据（如毛利成本、折扣审批、退款审核）仅店长可支配。
             </p>
 
@@ -383,22 +446,22 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
                 { name: '查看经营净利润与数据报表导出', mgr: true, pos: false, grill: false, bar: false, rider: false },
                 { name: '专送骑手接单与配送轨迹同步', mgr: true, pos: false, grill: false, bar: false, rider: true }
               ].map((row, idx) => (
-                <div key={idx} className="p-3 bg-white border border-[#e3e2e0] rounded-lg space-y-2 shadow-2xs">
-                  <div className="font-bold text-xs text-[#37352f]">{row.name}</div>
+                <div key={idx} className="p-3 bg-white border border-[#e6e6e4] rounded-[3px] space-y-2 shadow-2xs">
+                  <div className="font-medium text-xs text-[#37352f]">{row.name}</div>
                   <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-                    <span className={`px-1.5 py-0.5 rounded border font-medium ${row.mgr ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-neutral-50 text-neutral-400 border-neutral-200 line-through'}`}>
+                    <span className={`px-1.5 py-0.5 rounded-[2px] border font-medium ${row.mgr ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-neutral-50 text-neutral-400 border-neutral-200 line-through'}`}>
                       店长
                     </span>
-                    <span className={`px-1.5 py-0.5 rounded border font-medium ${row.pos ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-neutral-50 text-neutral-400 border-neutral-200 line-through'}`}>
+                    <span className={`px-1.5 py-0.5 rounded-[2px] border font-medium ${row.pos ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-neutral-50 text-neutral-400 border-neutral-200 line-through'}`}>
                       前台收银
                     </span>
-                    <span className={`px-1.5 py-0.5 rounded border font-medium ${row.grill ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-neutral-50 text-neutral-400 border-neutral-200 line-through'}`}>
+                    <span className={`px-1.5 py-0.5 rounded-[2px] border font-medium ${row.grill ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-neutral-50 text-neutral-400 border-neutral-200 line-through'}`}>
                       炭烤主厨
                     </span>
-                    <span className={`px-1.5 py-0.5 rounded border font-medium ${row.bar ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-neutral-50 text-neutral-400 border-neutral-200 line-through'}`}>
+                    <span className={`px-1.5 py-0.5 rounded-[2px] border font-medium ${row.bar ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-neutral-50 text-neutral-400 border-neutral-200 line-through'}`}>
                       水吧
                     </span>
-                    <span className={`px-1.5 py-0.5 rounded border font-medium ${row.rider ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-neutral-50 text-neutral-400 border-neutral-200 line-through'}`}>
+                    <span className={`px-1.5 py-0.5 rounded-[2px] border font-medium ${row.rider ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-neutral-50 text-neutral-400 border-neutral-200 line-through'}`}>
                       专送骑手
                     </span>
                   </div>
@@ -407,16 +470,16 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
             </div>
 
             {/* Desktop Table (>= md) */}
-            <div className="hidden md:block overflow-x-auto border border-[#e3e2e0] rounded-lg -mx-3.5 sm:mx-0">
+            <div className="hidden md:block overflow-x-auto border border-[#e6e6e4] rounded-[3px]">
               <table className="w-full text-xs text-left min-w-[580px]">
-                <thead className="bg-[#f7f7f5] text-[#37352f] font-bold border-b border-[#e3e2e0]">
+                <thead className="bg-[#f7f7f5] text-[#787774] font-medium border-b border-[#e6e6e4]">
                   <tr>
-                    <th className="py-3 px-3 sticky left-0 bg-[#f7f7f5] z-10">功能模块 / 权限项目</th>
-                    <th className="py-3 px-3 text-center">店长 / 运营主管</th>
-                    <th className="py-3 px-3 text-center">前台领班 / 收银</th>
-                    <th className="py-3 px-3 text-center">后厨炭烤主厨</th>
-                    <th className="py-3 px-3 text-center">水吧调饮师</th>
-                    <th className="py-3 px-3 text-center">专送配送员</th>
+                    <th className="py-2.5 px-3 sticky left-0 bg-[#f7f7f5] z-10">功能模块 / 权限项目</th>
+                    <th className="py-2.5 px-3 text-center">店长 / 运营主管</th>
+                    <th className="py-2.5 px-3 text-center">前台领班 / 收银</th>
+                    <th className="py-2.5 px-3 text-center">后厨炭烤主厨</th>
+                    <th className="py-2.5 px-3 text-center">水吧调饮师</th>
+                    <th className="py-2.5 px-3 text-center">专送配送员</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#f1f1ef]">
@@ -432,20 +495,20 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
                     { name: '专送骑手接单与配送轨迹同步', mgr: true, pos: false, grill: false, bar: false, rider: true }
                   ].map((row, idx) => (
                     <tr key={idx} className="hover:bg-[#fbfbfa]">
-                      <td className="py-2.5 px-3 font-medium text-[#37352f] sticky left-0 bg-white z-10 border-r border-[#f1f1ef]">{row.name}</td>
-                      <td className="py-2.5 px-3 text-center">
+                      <td className="py-2 px-3 font-normal text-slate-700 sticky left-0 bg-white z-10 border-r border-[#f1f1ef]">{row.name}</td>
+                      <td className="py-2 px-3 text-center">
                         <CheckCircle2 className="w-4 h-4 text-emerald-600 inline" />
                       </td>
-                      <td className="py-2.5 px-3 text-center">
+                      <td className="py-2 px-3 text-center">
                         {row.pos ? <CheckCircle2 className="w-4 h-4 text-emerald-600 inline" /> : <XCircle className="w-4 h-4 text-neutral-300 inline" />}
                       </td>
-                      <td className="py-2.5 px-3 text-center">
+                      <td className="py-2 px-3 text-center">
                         {row.grill ? <CheckCircle2 className="w-4 h-4 text-emerald-600 inline" /> : <XCircle className="w-4 h-4 text-neutral-300 inline" />}
                       </td>
-                      <td className="py-2.5 px-3 text-center">
+                      <td className="py-2 px-3 text-center">
                         {row.bar ? <CheckCircle2 className="w-4 h-4 text-emerald-600 inline" /> : <XCircle className="w-4 h-4 text-neutral-300 inline" />}
                       </td>
-                      <td className="py-2.5 px-3 text-center">
+                      <td className="py-2 px-3 text-center">
                         {row.rider ? <CheckCircle2 className="w-4 h-4 text-emerald-600 inline" /> : <XCircle className="w-4 h-4 text-neutral-300 inline" />}
                       </td>
                     </tr>
@@ -460,7 +523,7 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
         {activeTab === 'audit' && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <div className="text-xs text-[#787774]">
+              <div className="text-xs text-[#787774] font-normal">
                 记录餐车全生命周期关键安全事件：越权拦截、店长临时授权、岗位交接班及平台准入。
               </div>
               <button
@@ -469,16 +532,16 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
                   setAuditLogs(getSecurityAuditLogs());
                   showToast('安全审计日志已刷新');
                 }}
-                className="px-2.5 py-1 text-xs rounded border border-[#d3d1cb] hover:bg-[#f7f7f5] text-[#37352f] font-medium flex items-center gap-1 cursor-pointer"
+                className="px-2.5 py-1 text-xs rounded-[2px] border border-[#d3d1cb] hover:bg-[#f7f7f5] text-[#37352f] font-medium flex items-center gap-1 cursor-pointer"
               >
                 <RefreshCw className="w-3 h-3" />
                 <span>刷新日志</span>
               </button>
             </div>
 
-            <div className="border border-[#e3e2e0] rounded-lg overflow-x-auto">
+            <div className="border border-[#e6e6e4] rounded-[3px] overflow-x-auto shadow-2xs">
               <table className="w-full text-xs text-left min-w-[620px]">
-                <thead className="bg-[#f7f7f5] text-[#37352f] font-bold border-b border-[#e3e2e0]">
+                <thead className="bg-[#f7f7f5] text-[#787774] font-medium border-b border-[#e6e6e4]">
                   <tr>
                     <th className="py-2.5 px-3">时间</th>
                     <th className="py-2.5 px-3">事件类型</th>
@@ -496,61 +559,61 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
 
                     return (
                       <tr key={log.id} className="hover:bg-[#fbfbfa]">
-                        <td className="py-2.5 px-3 font-mono text-[11px] text-[#787774] whitespace-nowrap">
+                        <td className="py-2.5 px-3 font-mono text-[11px] text-[#787774] whitespace-nowrap font-normal">
                           {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                         </td>
                         <td className="py-2.5 px-3 font-medium whitespace-nowrap">
                           {log.action === 'tab_access_denied' && (
-                            <span className="text-red-700 font-bold">越权拦截阻断</span>
+                            <span className="text-red-700 font-medium">越权拦截阻断</span>
                           )}
                           {log.action === 'manager_override_granted' && (
-                            <span className="text-amber-700 font-bold">店长紧急放行</span>
+                            <span className="text-amber-700 font-medium">店长紧急放行</span>
                           )}
                           {log.action === 'manager_override_failed' && (
-                            <span className="text-red-600 font-bold">提权密码错误</span>
+                            <span className="text-red-600 font-medium">提权密码错误</span>
                           )}
                           {log.action === 'platform_access_granted' && (
-                            <span className="text-indigo-700 font-bold">平台门禁准入</span>
+                            <span className="text-indigo-700 font-medium">平台门禁准入</span>
                           )}
                           {log.action === 'platform_access_denied' && (
-                            <span className="text-red-600 font-bold">平台门禁拦截</span>
+                            <span className="text-red-600 font-medium">平台门禁拦截</span>
                           )}
                           {log.action === 'auth_login' && (
-                            <span className="text-emerald-700 font-bold">员工实名登入</span>
+                            <span className="text-emerald-700 font-medium">员工实名登入</span>
                           )}
                           {log.action === 'auth_logout' && (
-                            <span className="text-neutral-500 font-medium">安全注销退出</span>
+                            <span className="text-neutral-500 font-normal">安全注销退出</span>
                           )}
                         </td>
-                        <td className="py-2.5 px-3 font-semibold text-[#37352f] whitespace-nowrap">
+                        <td className="py-2.5 px-3 font-medium text-[#37352f] whitespace-nowrap">
                           {log.operator}
                         </td>
-                        <td className="py-2.5 px-3 font-mono text-[11px] text-[#787774]">
+                        <td className="py-2.5 px-3 font-mono text-[11px] text-[#787774] font-normal">
                           {log.target}
                         </td>
                         <td className="py-2.5 px-3 text-center whitespace-nowrap">
                           {isDenied && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-50 text-red-700 border border-red-200">
+                            <span className="px-1.5 py-0.5 rounded-[2px] text-[10px] font-medium bg-red-50 text-red-700 border border-red-200">
                               阻断
                             </span>
                           )}
                           {isGranted && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                            <span className="px-1.5 py-0.5 rounded-[2px] text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200">
                               授权
                             </span>
                           )}
                           {isAllowed && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            <span className="px-1.5 py-0.5 rounded-[2px] text-[10px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
                               通过
                             </span>
                           )}
                           {log.status === 'revoked' && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-neutral-100 text-neutral-600">
+                            <span className="px-1.5 py-0.5 rounded-[2px] text-[10px] font-normal bg-neutral-100 text-neutral-600">
                               注销
                             </span>
                           )}
                         </td>
-                        <td className="py-2.5 px-3 text-[11px] text-[#5a5854]">
+                        <td className="py-2.5 px-3 text-[11px] text-[#5a5854] font-normal">
                           {log.details}
                         </td>
                       </tr>
@@ -565,20 +628,20 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
 
       {/* Add Staff Modal */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-in fade-in duration-150">
-          <div className="bg-white rounded-lg border border-[#d3d1cb] shadow-2xl w-full max-w-md p-4 sm:p-5 text-[#37352f] max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-[#e3e2e0] mb-4">
-              <h3 className="font-bold text-base">录入新员工入职</h3>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-white rounded-[4px] border border-[#d3d1cb] shadow-xl w-full max-w-md p-4 text-[#37352f] max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-2.5 border-b border-[#e6e6e4] mb-3">
+              <h3 className="font-semibold text-sm">录入新员工入职</h3>
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
-                className="text-[#787774] hover:text-[#37352f] p-1 cursor-pointer"
+                className="text-[#787774] hover:text-[#37352f] p-1 cursor-pointer text-xs"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleCreateStaff} className="space-y-3.5 text-xs">
+            <form onSubmit={handleCreateStaff} className="space-y-3 text-xs">
               <div>
                 <label className="block text-[#787774] mb-1 font-medium">员工姓名</label>
                 <input
@@ -586,7 +649,7 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
                   placeholder="如: 赵小刚"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  className="w-full px-3 py-1.5 border border-[#d3d1cb] rounded focus:outline-none focus:border-amber-500"
+                  className="w-full px-2.5 py-1.5 border border-[#d3d1cb] rounded-[2px] focus:outline-none focus:border-neutral-500"
                   required
                 />
               </div>
@@ -598,7 +661,7 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
                   placeholder="如: 13800138008"
                   value={newPhone}
                   onChange={(e) => setNewPhone(e.target.value)}
-                  className="w-full px-3 py-1.5 border border-[#d3d1cb] rounded focus:outline-none focus:border-amber-500 font-mono"
+                  className="w-full px-2.5 py-1.5 border border-[#d3d1cb] rounded-[2px] focus:outline-none focus:border-neutral-500 font-mono"
                   required
                 />
               </div>
@@ -608,7 +671,7 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
                 <select
                   value={newRole}
                   onChange={(e) => setNewRole(e.target.value as StaffRole)}
-                  className="w-full px-3 py-1.5 border border-[#d3d1cb] rounded bg-white text-[#37352f]"
+                  className="w-full px-2.5 py-1.5 border border-[#d3d1cb] rounded-[2px] bg-white text-[#37352f]"
                 >
                   <option value="cashier">前台收银员 / 领班</option>
                   <option value="grill_chef">炭烤档口主厨</option>
@@ -618,17 +681,17 @@ export const MerchantStaffHub: React.FC<MerchantStaffHubProps> = ({ showToast })
                 </select>
               </div>
 
-              <div className="pt-3 border-t border-[#e3e2e0] flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-[#e6e6e4] flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-3 py-1.5 text-[#787774] hover:text-[#37352f] rounded cursor-pointer"
+                  className="px-3 py-1.5 text-[#787774] hover:text-[#37352f] rounded-[2px] cursor-pointer"
                 >
                   取消
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded font-semibold cursor-pointer shadow-xs"
+                  className="px-3.5 py-1.5 bg-[#37352f] hover:bg-black text-white rounded-[2px] font-medium cursor-pointer shadow-2xs transition-colors"
                 >
                   保存入册并开通权限
                 </button>

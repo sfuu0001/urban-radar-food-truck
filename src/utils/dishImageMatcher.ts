@@ -296,13 +296,16 @@ export function getSmartMatchedImageUrl(name: string, category?: string): string
 }
 
 /**
- * 获取单个菜品重匹配后的图片
+ * 获取单个菜品重匹配后的图片（支持传入菜品对象或菜品名称字符串）
  */
-export function matchDishImageUrl(dish: Partial<DishItem>): string {
-  if (dish.id && DISH_IMAGE_MAP[dish.id]) {
+export function matchDishImageUrl(dish: Partial<DishItem> | string): string {
+  if (typeof dish === 'string') {
+    return getSmartMatchedImageUrl(dish);
+  }
+  if (dish?.id && DISH_IMAGE_MAP[dish.id]) {
     return DISH_IMAGE_MAP[dish.id];
   }
-  return getSmartMatchedImageUrl(dish.name || '', dish.category);
+  return getSmartMatchedImageUrl(dish?.name || '', dish?.category);
 }
 
 /**

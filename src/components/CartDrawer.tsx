@@ -498,11 +498,19 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                             {item.dish.enName}
                           </p>
                         )}
+
+                        {/* 添加人信息 */}
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span className="inline-flex items-center gap-1 text-[9.5px] text-neutral-600 bg-neutral-100 px-1.5 py-0.2 rounded border border-neutral-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                            <span>由 {item.participantName || (item.participantId === 'p-lin' ? '同桌食客·小林' : item.participantId === 'p-qiang' ? '同桌食客·阿强' : '桌主(你)')} 添加</span>
+                          </span>
+                        </div>
                       </div>
 
                       {/* Price and Action Controls Row */}
                       <div className="flex justify-between items-center mt-1.5 pt-1.5 border-t border-[#f0f0ed]">
-                        <div className="flex items-baseline gap-1">
+                        <div className="flex items-baseline gap-1 font-amount">
                           <span className="text-xs sm:text-sm font-black text-black">
                             ¥{item.calculatedPrice.toFixed(2)}
                           </span>
@@ -705,7 +713,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             <div className="space-y-1 text-xs text-[#474741]">
               <div className="flex justify-between">
                 <span>商品原价小计 ({totalCount}件)</span>
-                <span className="font-bold text-black">¥{subtotal.toFixed(2)}</span>
+                <span className="font-bold text-black font-amount">¥{subtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span>
@@ -719,22 +727,22 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   {diningMode !== 'delivery' ? (
                     <span className="text-[#006d36] font-bold">免配送费</span>
                   ) : effectiveDeliveryFee === 0 ? (
-                    <span className="text-[#006d36] font-bold">免费配送 (满 ¥{freeDeliveryThreshold})</span>
+                    <span className="text-[#006d36] font-bold font-amount">免费配送 (满 ¥{freeDeliveryThreshold})</span>
                   ) : (
-                    `¥${effectiveDeliveryFee.toFixed(2)}`
+                    <span className="font-amount">¥{effectiveDeliveryFee.toFixed(2)}</span>
                   )}
                 </span>
               </div>
               {discount > 0 && (
                 <div className="flex justify-between text-[#006d36]">
                   <span>{appliedCoupon ? `专属优惠券 [${appliedCoupon}]` : 'VIP 专享减免'}</span>
-                  <span className="font-bold">-¥{discount.toFixed(2)}</span>
+                  <span className="font-bold font-amount">-¥{discount.toFixed(2)}</span>
                 </div>
               )}
               {diningMode === 'delivery' && (
                 <div className="flex justify-between text-[11px] text-[#787770]">
                   <span>剔除优惠后菜品实付</span>
-                  <span className="font-bold text-neutral-800">¥{actualAmount.toFixed(2)}</span>
+                  <span className="font-bold text-neutral-800 font-amount">¥{actualAmount.toFixed(2)}</span>
                 </div>
               )}
               <div className="flex justify-between items-baseline pt-1.5 border-t border-[#f0f0ed]">
@@ -745,7 +753,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   </span>
                 </div>
                 <div className="text-right">
-                  <span className="text-xl sm:text-2xl font-black text-black">
+                  <span className="text-xl sm:text-2xl font-black text-black font-amount">
                     ¥{grandTotal.toFixed(2)}
                   </span>
                 </div>
@@ -768,13 +776,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               ) : isEligible ? (
                 <>
                   <CreditCard className="w-4 h-4" />
-                  <span>立即支付下单 · ¥{grandTotal.toFixed(2)}</span>
+                  <span>立即支付下单 · <span className="font-amount font-bold">¥{grandTotal.toFixed(2)}</span></span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               ) : (
                 <>
                   <AlertCircle className="w-4 h-4 text-amber-700" />
-                  <span>还差 ¥{amountNeeded.toFixed(2)} 起送 (实付需满 ¥{minDeliveryAmount})</span>
+                  <span>还差 <span className="font-amount font-bold">¥{amountNeeded.toFixed(2)}</span> 起送 (实付需满 <span className="font-amount font-bold">¥{minDeliveryAmount}</span>)</span>
                 </>
               )}
             </button>

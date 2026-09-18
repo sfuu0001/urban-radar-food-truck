@@ -259,24 +259,24 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
         <div className="absolute -right-8 -bottom-8 w-40 h-40 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none" />
 
         {/* 顶部标题、防伪毫秒时钟与当前状态徽章 */}
-        <div className="flex items-start justify-between gap-2">
-          <div>
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
             <div className="flex items-center gap-1.5 text-[10.5px] uppercase font-bold text-emerald-400">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>官方防伪取餐凭据</span>
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span className="truncate">官方防伪取餐凭据</span>
               <span className="text-neutral-500">|</span>
-              <span className="font-mono text-neutral-300">
+              <span className="font-mono text-neutral-300 shrink-0">
                 {currentTime.timeStr}:{currentTime.msStr}
               </span>
             </div>
-            <h2 className="text-xs sm:text-sm font-bold text-neutral-200 mt-0.5">
+            <h2 className="text-xs sm:text-sm font-bold text-neutral-200 mt-0.5 truncate">
               到店自提 · 凭码核销取餐
             </h2>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="shrink-0">
             <span
-              className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1 ${
+              className={`text-[11px] font-bold px-2.5 py-1 rounded-full border flex items-center gap-1.5 whitespace-nowrap shadow-2xs ${
                 isCompleted
                   ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
                   : isReady
@@ -292,124 +292,155 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
           </div>
         </div>
 
-        {/* 大字取餐码展示区 (含真人语音叫号声波交互) */}
-        <div className="bg-black/50 border border-white/15 p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 backdrop-blur-md relative overflow-hidden">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-neutral-400 block font-medium">您的专属自提叫号码</span>
-              {isReady && (
-                <span className="text-[9.5px] px-1.5 py-0.2 bg-emerald-950 text-emerald-300 border border-emerald-500/40 font-mono">
-                  ● 柜位已通电恒温
+        {/* 大字取餐码展示区 (左右卡片式网格架构，坚决避免文字纵向被挤压变形) */}
+        <div className="bg-black/60 border border-white/15 p-3.5 sm:p-4 rounded-lg backdrop-blur-md relative overflow-hidden">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
+            {/* 左侧：专属叫号码与水平操作胶囊组 */}
+            <div className="space-y-2 min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[10.5px] text-neutral-400 font-medium">您的专属自提叫号码</span>
+                <span className="text-[9.5px] px-1.5 py-0.2 bg-emerald-950/80 text-emerald-300 border border-emerald-500/30 rounded-xs font-mono whitespace-nowrap">
+                  ● 65℃恒温锁鲜
                 </span>
-              )}
-            </div>
+              </div>
 
-            <div className="flex items-baseline gap-3 mt-1">
-              <span className="font-mono text-3xl sm:text-4xl font-black tracking-widest text-emerald-400 drop-shadow-sm">
+              {/* 大字取餐码 (单行大号突出) */}
+              <div className="font-mono text-3xl sm:text-4xl font-black tracking-widest text-emerald-400 drop-shadow-md select-all leading-none py-0.5">
                 #{pickupCode}
-              </span>
+              </div>
 
-              <div className="flex items-center gap-1.5">
+              {/* 独立操作按钮行：保证水平横排，绝对不换行不挤压 */}
+              <div className="flex items-center gap-2 pt-0.5 flex-wrap">
                 <button
                   type="button"
+                  id="pickup-copy-code-btn"
                   onClick={handleCopyCode}
-                  className="text-[11px] text-neutral-400 hover:text-white flex items-center gap-1 py-1 px-2 rounded-xs bg-white/10 hover:bg-white/15 transition-colors cursor-pointer border border-white/10"
+                  className="text-[11px] text-neutral-300 hover:text-white flex items-center gap-1.5 py-1.5 px-3 rounded-md bg-white/10 hover:bg-white/15 transition-all cursor-pointer border border-white/15 active:scale-95 whitespace-nowrap shadow-2xs"
                 >
-                  {copiedCode ? <CheckCircle2 className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                  <span>{copiedCode ? '已复制' : '复制号码'}</span>
+                  {copiedCode ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                  )}
+                  <span className="font-medium">{copiedCode ? '已复制' : '复制号码'}</span>
                 </button>
 
-                {/* 播报我的号码按钮 */}
                 <button
                   type="button"
+                  id="pickup-voice-broadcast-btn"
                   onClick={handleBroadcastMyCode}
-                  className="text-[11px] text-amber-300 hover:text-amber-200 flex items-center gap-1 py-1 px-2 rounded-xs bg-amber-500/20 hover:bg-amber-500/30 transition-colors cursor-pointer border border-amber-500/30"
+                  className="text-[11px] text-amber-300 hover:text-amber-200 flex items-center gap-1.5 py-1.5 px-3 rounded-md bg-amber-500/20 hover:bg-amber-500/30 transition-all cursor-pointer border border-amber-500/35 active:scale-95 whitespace-nowrap shadow-2xs font-bold"
                   title="模拟餐车广播叫号"
                 >
-                  <Volume2 className={`w-3 h-3 ${isBroadcastingVoice ? 'animate-bounce text-amber-400' : ''}`} />
+                  <Volume2
+                    className={`w-3.5 h-3.5 shrink-0 ${
+                      isBroadcastingVoice ? 'animate-bounce text-amber-400' : 'text-amber-300'
+                    }`}
+                  />
                   <span>{isBroadcastingVoice ? '广播呼叫中…' : '播报叫号'}</span>
                 </button>
               </div>
             </div>
-          </div>
 
-          {/* 条形码 / 二维码放大开柜按钮 */}
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => setIsQrModalOpen(true)}
-              className="flex items-center gap-2 px-3.5 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 text-xs font-bold text-white transition-all cursor-pointer group active:scale-95"
-            >
-              <QrCode className="w-5 h-5 text-emerald-400 group-hover:scale-110 transition-transform" />
-              <div className="text-left">
-                <span className="block leading-tight">出示核销条形码</span>
-                <span className="text-[9.5px] text-neutral-400 block font-normal">对准取餐柜扫码口</span>
-              </div>
-              <Maximize2 className="w-3.5 h-3.5 text-neutral-400 ml-1" />
-            </button>
+            {/* 右侧：核销条形码快捷触控卡片 (一体化按钮，防误触设计) */}
+            <div className="shrink-0 flex items-stretch">
+              <button
+                type="button"
+                id="pickup-show-barcode-btn"
+                onClick={() => setIsQrModalOpen(true)}
+                className="w-full sm:w-auto flex sm:flex-col items-center justify-center gap-2 px-4 py-3 bg-white/8 hover:bg-white/15 border border-white/20 hover:border-emerald-500/50 rounded-lg text-white transition-all cursor-pointer group active:scale-95 shadow-sm"
+              >
+                <div className="w-9 h-9 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition-transform shrink-0">
+                  <QrCode className="w-5 h-5" />
+                </div>
+                <div className="text-left sm:text-center min-w-0">
+                  <span className="block text-xs font-bold leading-tight group-hover:text-emerald-300 transition-colors whitespace-nowrap">
+                    出示核销码
+                  </span>
+                  <span className="text-[10px] text-neutral-400 block font-normal mt-0.5 whitespace-nowrap">
+                    对准柜机扫描口
+                  </span>
+                </div>
+                <Maximize2 className="w-3.5 h-3.5 text-neutral-400 ml-auto sm:ml-0 sm:mt-0.5 group-hover:text-white transition-colors" />
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* 智能保温格位与无接触远程开柜操作栏 */}
-        <div className="bg-white/5 border border-white/10 p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-6 h-6 bg-amber-400/20 rounded-xs flex items-center justify-center shrink-0">
-              <ThermometerSnowflake className="w-3.5 h-3.5 text-amber-400" />
+        {/* 智能保温格位与无接触开柜操作栏 (分层清晰，杜绝文字截断与空间逼仄) */}
+        <div className="bg-white/5 border border-white/10 p-3 rounded-lg space-y-2.5 text-xs">
+          {/* 第 1 层：完整展示格位名称与恒温状态，彻底防止省略号截断 */}
+          <div className="flex items-center justify-between gap-2 pb-1 border-b border-white/10">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <div className="w-6 h-6 bg-amber-400/20 rounded-md flex items-center justify-center shrink-0">
+                <ThermometerSnowflake className="w-3.5 h-3.5 text-amber-400" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-[10px] text-neutral-400 block leading-tight">取餐窗口 / 保温格位</span>
+                <span className="font-bold text-white text-xs truncate block mt-0.5">
+                  {lockerShelf}
+                </span>
+              </div>
             </div>
-            <div className="min-w-0">
-              <span className="text-[10px] text-neutral-400 block">取餐窗口 / 保温格位:</span>
-              <span className="font-bold text-white truncate block">{lockerShelf}</span>
-            </div>
+
+            <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-full shrink-0 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>恒温锁鲜中</span>
+            </span>
           </div>
 
-          {/* 无接触远程开柜按钮 */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* 第 2 层：开柜与好友代取按钮组 (触控热区高、防误触) */}
+          <div className="flex items-center gap-2">
             {lockerDoorState === 'open' ? (
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] text-emerald-400 font-mono font-bold flex items-center gap-1 animate-pulse">
-                  <Unlock className="w-3.5 h-3.5" />
+              <div className="flex items-center justify-between gap-2 w-full">
+                <span className="text-xs text-emerald-400 font-mono font-bold flex items-center gap-1.5 animate-pulse">
+                  <Unlock className="w-4 h-4" />
                   <span>柜门已弹开 ({doorCountDown}s)</span>
                 </span>
                 <button
                   type="button"
+                  id="pickup-confirm-collected-btn"
                   onClick={handleConfirmCollected}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold px-2.5 py-1 cursor-pointer transition-all active:scale-95 flex items-center gap-1"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3.5 py-2 rounded-md cursor-pointer transition-all active:scale-95 flex items-center gap-1.5 shadow-md"
                 >
-                  <CheckCheck className="w-3.5 h-3.5" />
+                  <CheckCheck className="w-4 h-4" />
                   <span>取出餐品完成</span>
                 </button>
               </div>
             ) : isCompleted ? (
-              <span className="text-[11px] text-neutral-400 font-medium flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                <span>该单已核销提货</span>
-              </span>
+              <div className="w-full py-1.5 text-center text-xs text-neutral-400 font-medium flex items-center justify-center gap-1.5 bg-white/5 rounded-md border border-white/10">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>该单已核销提货完成</span>
+              </div>
             ) : (
-              <button
-                type="button"
-                onClick={handleRemoteUnlockLocker}
-                disabled={lockerDoorState === 'unlocking'}
-                className="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-[11px] font-bold px-3 py-1.5 cursor-pointer transition-all flex items-center gap-1.5 shadow-sm"
-              >
-                {lockerDoorState === 'unlocking' ? (
-                  <RefreshCw className="w-3 h-3 animate-spin" />
-                ) : (
-                  <Lock className="w-3 h-3" />
-                )}
-                <span>{lockerDoorState === 'unlocking' ? '指令下发中…' : '一键无接触开柜'}</span>
-              </button>
-            )}
+              <>
+                <button
+                  type="button"
+                  id="pickup-remote-unlock-btn"
+                  onClick={handleRemoteUnlockLocker}
+                  disabled={lockerDoorState === 'unlocking'}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white text-xs font-bold py-2 px-3 rounded-md cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-md disabled:opacity-60"
+                >
+                  {lockerDoorState === 'unlocking' ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Lock className="w-3.5 h-3.5" />
+                  )}
+                  <span>{lockerDoorState === 'unlocking' ? '指令下发中…' : '一键无接触开柜'}</span>
+                </button>
 
-            {/* 好友代取卡片按钮 */}
-            <button
-              type="button"
-              onClick={() => setIsShareModalOpen(true)}
-              className="bg-white/10 hover:bg-white/20 text-neutral-200 text-[11px] font-semibold px-2 py-1.5 cursor-pointer transition-all flex items-center gap-1"
-              title="生成好友代取凭证"
-            >
-              <Share2 className="w-3 h-3" />
-              <span>好友代取</span>
-            </button>
+                <button
+                  type="button"
+                  id="pickup-share-voucher-btn"
+                  onClick={() => setIsShareModalOpen(true)}
+                  className="bg-white/10 hover:bg-white/20 text-neutral-200 text-xs font-semibold py-2 px-3 rounded-md cursor-pointer transition-all flex items-center justify-center gap-1.5 border border-white/15 active:scale-[0.98] shrink-0"
+                  title="生成好友代取凭证"
+                >
+                  <Share2 className="w-3.5 h-3.5 text-neutral-300" />
+                  <span>好友代取</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>

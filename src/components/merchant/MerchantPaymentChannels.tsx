@@ -33,7 +33,10 @@ import {
   Activity,
   Layers,
   Flame,
-  Check
+  Check,
+  Pencil,
+  Trash2,
+  ShieldAlert
 } from 'lucide-react';
 import {
   MerchantPaymentSettings,
@@ -48,6 +51,17 @@ import {
   PaymentSecurityLedgerItem
 } from '../../types/payment';
 import { safeGetStorage, safeSetStorage } from '../../utils/safeStorage';
+import { DateRangeFilter } from '../common/DateRangeFilter';
+import {
+  DateFilterState,
+  resolveDateRange,
+  isWithinRange
+} from '../../utils/dateFilter';
+import {
+  usePermissionGate,
+  executeSensitiveAction
+} from '../../utils/sensitiveAction';
+import { softDeleteToRecycleBin } from '../../utils/recycleBinEngine';
 import {
   DEFAULT_PAYMENT_RULES,
   PaymentDiscountRule
@@ -59,6 +73,7 @@ import {
 } from '../../utils/paymentSecurityEngine';
 import { ElectronicPaymentVoucherModal } from '../payment/ElectronicPaymentVoucherModal';
 import { verifyPaymentChannelCredentials } from '../../utils/realPaymentCloudEngine';
+import { getUnifiedTruckName } from '../../utils/truckNaming';
 
 interface MerchantPaymentChannelsProps {
   showToast: (msg: string) => void;
@@ -67,7 +82,7 @@ interface MerchantPaymentChannelsProps {
 
 export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = ({
   showToast,
-  truckName = '黑曜石 01 号流动餐车'
+  truckName = getUnifiedTruckName('truck-01', 'standard')
 }) => {
   // Settings State
   const [settings, setSettings] = useState<MerchantPaymentSettings>(() => {
@@ -82,6 +97,116 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
   const [inspectingVoucher, setInspectingVoucher] = useState<PaymentVoucher | null>(null);
   const [isVoucherModalOpen, setIsVoucherModalOpen] = useState<boolean>(false);
   const [isReconciling, setIsReconciling] = useState<boolean>(false);
+
+  // 时间区间筛选（收款概览 + 台账列表统一生效；台账条目 paidAt 为 ISO 入账时间）
+  const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'today' });
+  const dateRange = useMemo(() => resolveDateRange(dateFilter), [dateFilter]);
+  const rangedLedger = useMemo(
+    () => ledgerItems.filter((item) => isWithinRange(new Date(item.paidAt || 0).getTime(), dateRange)),
+    [ledgerItems, dateRange]
+  );
+  // 收款概览指标：从台账按所选区间真实聚合（替代原硬编码演示值）
+  // 数据治理（店长专属）：台账行级更正 / 软删除入回收站
+  const ledgerGate = usePermissionGate('finance:data_correct');
+  const [editingLedgerItem, setEditingLedgerItem] = useState<PaymentSecurityLedgerItem | null>(null);
+  const [editAmount, setEditAmount] = useState<string>('');
+  const [editNote, setEditNote] = useState<string>('');
+
+  const persistLedger = (updated: PaymentSecurityLedgerItem[]) => {
+    setLedgerItems(updated);
+    safeSetStorage('obsidian_payment_fallback_ledger', updated);
+  };
+
+  const handleCorrectLedgerItem = (item: PaymentSecurityLedgerItem) => {
+    const newAmount = parseFloat(editAmount);
+    if (Number.isNaN(newAmount) || newAmount < 0) {
+      showToast('请输入有效的实付金额（≥ 0）');
+      return;
+    }
+    const res = executeSensitiveAction('finance:data_correct', {
+      module: 'finance',
+      actionLabel: '收款台账更正',
+      entityName: `${item.voucherNo}（${item.orderNo}）`,
+      detail: `实付金额 ${item.paidAmount.toFixed(2)} → ${newAmount.toFixed(2)}${editNote ? `；备注：${editNote}` : ''}`
+    }, () => {
+      const updated = ledgerItems.map((i) =>
+        i.voucherNo === item.voucherNo
+          ? { ...i, paidAmount: Number(newAmount.toFixed(2)), syncErrorMessage: editNote || i.syncErrorMessage }
+          : i
+      );
+      persistLedger(updated);
+      return true;
+    });
+    showToast(res.message);
+    if (res.ok) {
+      setEditingLedgerItem(null);
+      setEditAmount('');
+      setEditNote('');
+    }
+  };
+
+  const handleDeleteLedgerItem = (item: PaymentSecurityLedgerItem) => {
+    if (!window.confirm(`确认删除台账记录【${item.voucherNo}】（¥${item.paidAmount.toFixed(2)}）吗？\n\n· 该记录将进入统一回收站，30 天内可恢复\n· 收款概览指标将随之自动更正\n· 此操作仅限店长执行并记录审计`)) return;
+    const res = executeSensitiveAction('finance:data_correct', {
+      module: 'finance',
+      actionLabel: '收款台账删除',
+      entityName: `${item.voucherNo}（${item.orderNo}）`,
+      detail: `删除入账 ¥${item.paidAmount.toFixed(2)}（${item.channelName}，${item.paidTimeFormatted || item.paidAt}），已转入统一回收站`
+    }, () => {
+      softDeleteToRecycleBin({
+        type: 'payment_ledger',
+        typeLabel: '收款台账',
+        refId: item.voucherNo,
+        label: `${item.voucherNo}（¥${item.paidAmount.toFixed(2)} · ${item.channelName}）`,
+        snapshot: item,
+        storageKey: 'obsidian_payment_fallback_ledger',
+        container: 'array',
+        idField: 'voucherNo'
+      });
+      persistLedger(ledgerItems.filter((i) => i.voucherNo !== item.voucherNo));
+      return true;
+    });
+    showToast(res.message);
+  };
+  const rangedMetrics = useMemo(() => {
+    const totalAmount = rangedLedger.reduce((sum, i) => sum + (i.paidAmount || 0), 0);
+    const byChannel = { wechat: 0, alipay: 0, others: 0 } as { wechat: number; alipay: number; others: number };
+    const byChannelCount = { wechat: 0, alipay: 0, others: 0 } as Record<string, number>;
+    let stuckCount = 0;
+    for (const item of rangedLedger) {
+      const cid = (item.channelId || '').toLowerCase();
+      if (cid.includes('wechat') || item.channelName?.includes('微信')) {
+        byChannel.wechat += item.paidAmount || 0;
+        byChannelCount.wechat += 1;
+      } else if (cid.includes('alipay') || item.channelName?.includes('支付宝')) {
+        byChannel.alipay += item.paidAmount || 0;
+        byChannelCount.alipay += 1;
+      } else {
+        byChannel.others += item.paidAmount || 0;
+        byChannelCount.others += 1;
+      }
+      if (item.escrowStatus && item.escrowStatus !== 'verified_synced' && item.escrowStatus !== 'reconciled') {
+        stuckCount += 1;
+      }
+    }
+    const total = totalAmount;
+    const pct = (v: number) => (total > 0 ? ((v / total) * 100).toFixed(1) : '0.0');
+    return {
+      totalAmount,
+      totalCount: rangedLedger.length,
+      stuckCount,
+      wechat: byChannel.wechat,
+      wechatCount: byChannelCount.wechat,
+      alipay: byChannel.alipay,
+      alipayCount: byChannelCount.alipay,
+      others: byChannel.others,
+      othersCount: byChannelCount.others,
+      wechatPct: pct(byChannel.wechat),
+      alipayPct: pct(byChannel.alipay),
+      othersPct: pct(byChannel.others),
+      rangeLabel: dateRange ? dateRange.label : '全部时间'
+    };
+  }, [rangedLedger, dateRange]);
 
   // Active Sub-tab in Payment Hub
   const [activeChannelTab, setActiveChannelTab] = useState<
@@ -220,22 +345,22 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
   return (
     <div className="space-y-4">
       {/* 1. Header Overview & Channel Health Summary Banner */}
-      <div className="bg-white rounded-[4px] border border-[#e6e6e4] p-4 sm:p-5 shadow-2xs space-y-3.5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#f1f1ef] pb-3.5">
-          <div className="space-y-1">
+      <div className="bg-white rounded-[3px] border border-[#e6e6e4] p-3.5 sm:p-4 shadow-2xs space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#f1f1ef] pb-3">
+          <div className="space-y-0.5">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-[4px] bg-[#37352f] text-white flex items-center justify-center font-bold shadow-2xs">
-                <CreditCard className="w-4 h-4" />
+              <div className="w-6 h-6 rounded-[3px] bg-[#37352f] text-white flex items-center justify-center font-medium shadow-2xs">
+                <CreditCard className="w-3.5 h-3.5" />
               </div>
-              <h2 className="text-base sm:text-lg font-bold text-[#37352f] tracking-tight">
+              <h2 className="text-sm sm:text-base font-semibold text-[#37352f] tracking-tight">
                 支付渠道与聚合收款对接中心
               </h2>
-              <span className="px-2 py-0.5 rounded-[3px] bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc] text-[10.5px] font-mono font-bold">
+              <span className="px-1.5 py-0.5 rounded-[2px] bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc] text-[10px] font-mono font-medium">
                 金融合规联机
               </span>
             </div>
-            <p className="text-xs text-[#787774]">
-              统一管理餐车微信支付、支付宝、银联POS、数字人民币、企业餐补协议及4G播报云音箱，确保资金原路安全清算。
+            <p className="text-xs text-[#787774] font-normal">
+              统一管理餐车微信支付、支付宝、银联POS、数字人民币、企业餐补协议及4G播报云音箱，资金直入对公基本户。
             </p>
           </div>
 
@@ -246,7 +371,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
               onClick={() => {
                 handleSaveSettings(DEFAULT_MERCHANT_PAYMENT_SETTINGS, '已恢复默认官方推荐支付配置');
               }}
-              className="px-2.5 py-1.5 rounded-[3px] border border-[#d3d1cb] hover:bg-[#f1f1ef] text-[#37352f] text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-2.5 py-1.5 rounded-[2px] border border-[#d3d1cb] hover:bg-[#f1f1ef] text-[#37352f] text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <RefreshCw className="w-3.5 h-3.5 text-[#787774]" />
               <span>重置默认参数</span>
@@ -254,7 +379,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
             <button
               type="button"
               onClick={() => handleSaveSettings(settings)}
-              className="px-3.5 py-1.5 rounded-[3px] bg-[#2b593f] hover:bg-[#234732] text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+              className="px-3 py-1.5 rounded-[2px] bg-[#2b593f] hover:bg-[#234732] text-white text-xs font-medium flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
               <span>保存全渠道设置</span>
@@ -262,75 +387,83 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
           </div>
         </div>
 
-        {/* Real-time Metric Badges */}
+        {/* 时间区间筛选 + 真实聚合指标（数据源：防伪凭证总账 paidAt 入账时间） */}
+        <div className="pt-0.5 pb-1 flex items-center justify-between gap-2 flex-wrap">
+          <DateRangeFilter value={dateFilter} onChange={setDateFilter} />
+          <span className="text-[10.5px] text-[#9b9a97] font-normal">
+            统计区间：{rangedMetrics.rangeLabel} · 台账 {rangedLedger.length}/{ledgerItems.length} 笔
+          </span>
+        </div>
+
+        {/* Real-time Metric Badges（台账真实聚合） */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-0.5">
           <div className="p-3 rounded-[3px] bg-[#fbfbfa] border border-[#e9e9e7] space-y-1">
-            <div className="flex items-center justify-between text-[11px] text-[#787774] font-medium">
-              <span>今日收款总计</span>
-              <span className="text-[#2b593f] font-mono font-bold">T+0到账</span>
+            <div className="flex items-center justify-between text-[11px] text-[#787774] font-normal">
+              <span>收款总计（{rangedMetrics.rangeLabel}）</span>
+              <span className="text-[#2b593f] font-mono font-medium text-[10px]">T+0到账</span>
             </div>
-            <div className="text-lg sm:text-xl font-mono font-black text-[#201f1d]">
-              ¥14,860.50
+            <div className="text-lg sm:text-xl font-mono font-semibold text-[#201f1d]">
+              ¥{rangedMetrics.totalAmount.toFixed(2)}
             </div>
-            <div className="text-[10.5px] text-[#9b9a97] flex items-center gap-1 truncate">
-              <span>累计 182 笔 · 无任何卡单</span>
+            <div className="text-[10.5px] text-[#9b9a96] flex items-center gap-1 truncate font-normal">
+              <span>共 {rangedMetrics.totalCount} 笔{rangedMetrics.stuckCount > 0 ? ` · ${rangedMetrics.stuckCount} 笔兜底托管中` : ' · 无卡单'}</span>
             </div>
           </div>
 
           <div className="p-3 rounded-[3px] bg-[#fbfbfa] border border-[#e9e9e7] space-y-1">
-            <div className="flex items-center justify-between text-[11px] text-[#787774] font-medium">
-              <span>微信支付 (58.2%)</span>
-              <span className="text-emerald-700 font-bold font-mono">0.38% 费率</span>
+            <div className="flex items-center justify-between text-[11px] text-[#787774] font-normal">
+              <span>微信支付 ({rangedMetrics.wechatPct}%)</span>
+              <span className="text-emerald-700 font-medium font-mono text-[10px]">0.38% 费率</span>
             </div>
-            <div className="text-lg sm:text-xl font-mono font-black text-[#201f1d]">
-              ¥8,648.80
+            <div className="text-lg sm:text-xl font-mono font-semibold text-[#201f1d]">
+              ¥{rangedMetrics.wechat.toFixed(2)}
             </div>
-            <div className="text-[10.5px] text-[#9b9a97] flex items-center gap-1 truncate">
+            <div className="text-[10.5px] text-[#9b9a97] flex items-center gap-1 truncate font-normal">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span>APIv3 直连正常 · 106 笔</span>
+              <span>APIv3 直连正常 · {rangedMetrics.wechatCount} 笔</span>
             </div>
           </div>
 
           <div className="p-3 rounded-[3px] bg-[#fbfbfa] border border-[#e9e9e7] space-y-1">
-            <div className="flex items-center justify-between text-[11px] text-[#787774] font-medium">
-              <span>支付宝 (30.4%)</span>
-              <span className="text-sky-700 font-bold font-mono">0.38% 费率</span>
+            <div className="flex items-center justify-between text-[11px] text-[#787774] font-normal">
+              <span>支付宝 ({rangedMetrics.alipayPct}%)</span>
+              <span className="text-sky-700 font-medium font-mono text-[10px]">0.38% 费率</span>
             </div>
-            <div className="text-lg sm:text-xl font-mono font-black text-[#201f1d]">
-              ¥4,518.20
+            <div className="text-lg sm:text-xl font-mono font-semibold text-[#201f1d]">
+              ¥{rangedMetrics.alipay.toFixed(2)}
             </div>
-            <div className="text-[10.5px] text-[#9b9a97] flex items-center gap-1 truncate">
+            <div className="text-[10.5px] text-[#9b9a97] flex items-center gap-1 truncate font-normal">
               <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
-              <span>花呗分期已开通 · 54 笔</span>
+              <span>花呗分期已开通 · {rangedMetrics.alipayCount} 笔</span>
             </div>
           </div>
 
           <div className="p-3 rounded-[3px] bg-[#fbfbfa] border border-[#e9e9e7] space-y-1">
-            <div className="flex items-center justify-between text-[11px] text-[#787774] font-medium">
-              <span>其他渠道 (11.4%)</span>
-              <span className="text-amber-700 font-bold font-mono">数币/企业</span>
+            <div className="flex items-center justify-between text-[11px] text-[#787774] font-normal">
+              <span>其他渠道 ({rangedMetrics.othersPct}%)</span>
+              <span className="text-amber-700 font-medium font-mono text-[10px]">数币/企业</span>
             </div>
-            <div className="text-lg sm:text-xl font-mono font-black text-[#201f1d]">
-              ¥1,693.50
+            <div className="text-lg sm:text-xl font-mono font-semibold text-[#201f1d]">
+              ¥{rangedMetrics.others.toFixed(2)}
             </div>
-            <div className="text-[10.5px] text-[#9b9a97] flex items-center gap-1 truncate">
+            <div className="text-[10.5px] text-[#9b9a97] flex items-center gap-1 truncate font-normal">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-              <span>企业餐补 18 笔 · 数币 4 笔</span>
+              <span>银联/数币/企业合计 · {rangedMetrics.othersCount} 笔</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* 2. Customer Checkout Enabled Gateways Quick Switch Panel */}
-      <div className="bg-white rounded-[4px] border border-[#e6e6e4] p-4 shadow-2xs space-y-3">
+      <div className="bg-white rounded-[3px] border border-[#e6e6e4] p-3.5 shadow-2xs space-y-2.5">
         <div className="flex items-center justify-between border-b border-[#f1f1ef] pb-2">
           <div className="flex items-center gap-2">
-            <SlidersHorizontal className="w-4 h-4 text-[#37352f]" />
-            <h3 className="text-xs font-bold text-[#37352f]">
+            <SlidersHorizontal className="w-3.5 h-3.5 text-[#37352f]" />
+            <h3 className="text-xs font-semibold text-[#37352f]">
               前台顾客结算页 · 支付渠道可见性与生效总控
             </h3>
           </div>
-          <span className="text-[11px] text-[#787774]">开关即刻实时影响顾客选购结算单</span>
+          <span className="text-[11px] text-[#787774] font-normal">开关即刻实时影响顾客选购结算单</span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
@@ -355,7 +488,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
             <div className="flex items-center justify-between">
               <span className="text-sm">🟢</span>
               <span
-                className={`text-[9.5px] px-1.5 py-0.2 rounded font-bold ${
+                className={`text-[9.5px] px-1.5 py-0.2 rounded-[2px] font-medium ${
                   settings.activeChannels.wechat ? 'bg-emerald-600 text-white' : 'bg-neutral-200 text-neutral-600'
                 }`}
               >
@@ -363,8 +496,8 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
               </span>
             </div>
             <div>
-              <div className="text-xs font-bold">微信支付</div>
-              <div className="text-[10px] text-[#787774]">小程序/扫码/刷脸</div>
+              <div className="text-xs font-medium">微信支付</div>
+              <div className="text-[10px] text-[#787774] font-normal">小程序/扫码/刷脸</div>
             </div>
           </div>
 
@@ -389,7 +522,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
             <div className="flex items-center justify-between">
               <span className="text-sm">🔵</span>
               <span
-                className={`text-[9.5px] px-1.5 py-0.2 rounded font-bold ${
+                className={`text-[9.5px] px-1.5 py-0.2 rounded-[2px] font-medium ${
                   settings.activeChannels.alipay ? 'bg-sky-600 text-white' : 'bg-neutral-200 text-neutral-600'
                 }`}
               >
@@ -397,8 +530,8 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
               </span>
             </div>
             <div>
-              <div className="text-xs font-bold">支付宝</div>
-              <div className="text-[10px] text-[#787774]">当面付/花呗分期</div>
+              <div className="text-xs font-medium">支付宝</div>
+              <div className="text-[10px] text-[#787774] font-normal">当面付/花呗分期</div>
             </div>
           </div>
 
@@ -423,7 +556,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
             <div className="flex items-center justify-between">
               <span className="text-sm">💳</span>
               <span
-                className={`text-[9.5px] px-1.5 py-0.2 rounded font-bold ${
+                className={`text-[9.5px] px-1.5 py-0.2 rounded-[2px] font-medium ${
                   settings.activeChannels.card ? 'bg-amber-600 text-white' : 'bg-neutral-200 text-neutral-600'
                 }`}
               >
@@ -431,8 +564,8 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
               </span>
             </div>
             <div>
-              <div className="text-xs font-bold">银联/信用卡</div>
-              <div className="text-[10px] text-[#787774]">云闪付/Apple Pay</div>
+              <div className="text-xs font-medium">银联/信用卡</div>
+              <div className="text-[10px] text-[#787774] font-normal">云闪付/Apple Pay</div>
             </div>
           </div>
 
@@ -457,7 +590,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
             <div className="flex items-center justify-between">
               <span className="text-sm">🇨🇳</span>
               <span
-                className={`text-[9.5px] px-1.5 py-0.2 rounded font-bold ${
+                className={`text-[9.5px] px-1.5 py-0.2 rounded-[2px] font-medium ${
                   settings.activeChannels.dcep ? 'bg-red-600 text-white' : 'bg-neutral-200 text-neutral-600'
                 }`}
               >
@@ -465,8 +598,8 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
               </span>
             </div>
             <div>
-              <div className="text-xs font-bold">数字人民币</div>
-              <div className="text-[10px] text-[#787774]">0手续费/双离线</div>
+              <div className="text-xs font-medium">数字人民币</div>
+              <div className="text-[10px] text-[#787774] font-normal">0手续费/双离线</div>
             </div>
           </div>
 
@@ -491,7 +624,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
             <div className="flex items-center justify-between">
               <span className="text-sm">🏢</span>
               <span
-                className={`text-[9.5px] px-1.5 py-0.2 rounded font-bold ${
+                className={`text-[9.5px] px-1.5 py-0.2 rounded-[2px] font-medium ${
                   settings.activeChannels.enterprise ? 'bg-indigo-600 text-white' : 'bg-neutral-200 text-neutral-600'
                 }`}
               >
@@ -499,8 +632,8 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
               </span>
             </div>
             <div>
-              <div className="text-xs font-bold">企业餐补签单</div>
-              <div className="text-[10px] text-[#787774]">签约企业月结</div>
+              <div className="text-xs font-medium">企业餐补签单</div>
+              <div className="text-[10px] text-[#787774] font-normal">签约企业月结</div>
             </div>
           </div>
 
@@ -525,7 +658,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
             <div className="flex items-center justify-between">
               <span className="text-sm">💵</span>
               <span
-                className={`text-[9.5px] px-1.5 py-0.2 rounded font-bold ${
+                className={`text-[9.5px] px-1.5 py-0.2 rounded-[2px] font-medium ${
                   settings.activeChannels.cash ? 'bg-neutral-800 text-white' : 'bg-neutral-200 text-neutral-600'
                 }`}
               >
@@ -533,15 +666,15 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
               </span>
             </div>
             <div>
-              <div className="text-xs font-bold">现金/应急离线</div>
-              <div className="text-[10px] text-[#787774]">找零备用金保障</div>
+              <div className="text-xs font-medium">现金/应急离线</div>
+              <div className="text-[10px] text-[#787774] font-normal">找零备用金保障</div>
             </div>
           </div>
         </div>
       </div>
 
       {/* 3. Main Channel Gateway Config Navigation Tabs */}
-      <div className="bg-white rounded-[4px] border border-[#e6e6e4] overflow-hidden shadow-2xs">
+      <div className="bg-white rounded-[3px] border border-[#e6e6e4] overflow-hidden shadow-2xs">
         {/* Navigation Tabs Bar */}
         <div className="flex items-center gap-1 p-1 bg-[#f7f7f5] border-b border-[#e6e6e4] overflow-x-auto hide-scrollbar">
           {[
@@ -560,16 +693,16 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveChannelTab(tab.id as any)}
-                className={`px-3 py-2 rounded-[3px] text-xs font-semibold flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
+                className={`px-3 py-1.5 rounded-[2px] text-xs font-medium flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
                   isSelected
-                    ? 'bg-white text-[#201f1d] shadow-2xs font-bold border border-[#d3d1cb]'
+                    ? 'bg-white text-[#201f1d] shadow-2xs border border-[#d3d1cb]'
                     : 'text-[#787774] hover:text-[#201f1d] hover:bg-[#efefed]'
                 }`}
               >
                 <span>{tab.icon}</span>
                 <span>{tab.label}</span>
                 <span
-                  className={`text-[9.5px] px-1 rounded font-mono ${
+                  className={`text-[9.5px] px-1 rounded-[2px] font-mono ${
                     isSelected ? 'bg-[#37352f] text-white' : 'bg-[#e6e6e4] text-[#787774]'
                   }`}
                 >
@@ -606,14 +739,14 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
                     <span className="text-base">🟢</span>
-                    <h3 className="text-sm font-bold text-[#201f1d]">
+                    <h3 className="text-sm font-semibold text-[#201f1d]">
                       微信支付商户直连对接 (WeChat Pay APIv3)
                     </h3>
-                    <span className="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold">
+                    <span className="px-1.5 py-0.2 rounded-[2px] bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-mono font-medium">
                       商户直连模式
                     </span>
                   </div>
-                  <p className="text-xs text-[#787774]">
+                  <p className="text-xs text-[#787774] font-normal">
                     配置微信支付商户平台 (pay.weixin.qq.com) 官方参数，资金直接进入餐车商户独立微信结算基本户。
                   </p>
                 </div>
@@ -623,7 +756,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                     type="button"
                     disabled={testingChannel === 'wechat'}
                     onClick={() => handleTestConnection('wechat')}
-                    className="px-3 py-1.5 rounded-[3px] border border-emerald-600 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                    className="px-3 py-1.5 rounded-[2px] border border-emerald-600 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
                   >
                     <Activity className={`w-3.5 h-3.5 ${testingChannel === 'wechat' ? 'animate-spin' : ''}`} />
                     <span>{testingChannel === 'wechat' ? '正在探测连通性...' : '探测网关连通性 (Ping)'}</span>
@@ -635,7 +768,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                 {/* WeChat MCH ID */}
                 <div className="space-y-1">
-                  <label className="block font-bold text-[#37352f] flex items-center justify-between">
+                  <label className="block font-medium text-[#37352f] flex items-center justify-between">
                     <span>微信支付商户号 (MCH_ID) *</span>
                     <span className="text-[10px] text-[#787774] font-normal">10位专属机构编号</span>
                   </label>
@@ -650,12 +783,12 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                         })
                       }
                       placeholder="如: 1688920199"
-                      className="flex-1 px-3 py-2 rounded-[3px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono focus:bg-white focus:border-[#37352f] outline-none"
+                      className="flex-1 px-3 py-1.5 rounded-[2px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono font-normal focus:bg-white focus:border-[#37352f] outline-none"
                     />
                     <button
                       type="button"
                       onClick={() => handleCopy(settings.wechat.mchId, '商户号')}
-                      className="px-2.5 py-1 bg-[#efefed] hover:bg-[#e6e6e4] rounded-[3px] text-[#37352f] border border-[#d3d1cb] cursor-pointer"
+                      className="px-2.5 py-1 bg-[#efefed] hover:bg-[#e6e6e4] rounded-[2px] text-[#37352f] border border-[#d3d1cb] cursor-pointer"
                     >
                       <Copy className="w-3.5 h-3.5" />
                     </button>
@@ -664,7 +797,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
 
                 {/* WeChat AppID */}
                 <div className="space-y-1">
-                  <label className="block font-bold text-[#37352f] flex items-center justify-between">
+                  <label className="block font-medium text-[#37352f] flex items-center justify-between">
                     <span>关联小程序/公众号 AppID *</span>
                     <span className="text-[10px] text-[#787774] font-normal">用于JSAPI支付与微信授权</span>
                   </label>
@@ -678,13 +811,13 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                       })
                     }
                     placeholder="如: wx88a7c20199f30b91"
-                    className="w-full px-3 py-2 rounded-[3px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono focus:bg-white focus:border-[#37352f] outline-none"
+                    className="w-full px-3 py-1.5 rounded-[2px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono font-normal focus:bg-white focus:border-[#37352f] outline-none"
                   />
                 </div>
 
                 {/* APIv3 Secret Key */}
                 <div className="space-y-1">
-                  <label className="block font-bold text-[#37352f] flex items-center justify-between">
+                  <label className="block font-medium text-[#37352f] flex items-center justify-between">
                     <span className="flex items-center gap-1">
                       <KeyRound className="w-3.5 h-3.5 text-emerald-700" />
                       <span>APIv3 密钥 (32位安全对称密钥) *</span>
@@ -708,13 +841,13 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                       })
                     }
                     placeholder="32位字符 APIv3 Secret"
-                    className="w-full px-3 py-2 rounded-[3px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono focus:bg-white focus:border-[#37352f] outline-none"
+                    className="w-full px-3 py-1.5 rounded-[2px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono font-normal focus:bg-white focus:border-[#37352f] outline-none"
                   />
                 </div>
 
                 {/* Serial No */}
                 <div className="space-y-1">
-                  <label className="block font-bold text-[#37352f] flex items-center justify-between">
+                  <label className="block font-medium text-[#37352f] flex items-center justify-between">
                     <span>商户 API 证书序列号 (Serial No)</span>
                     <span className="text-[10px] text-[#787774] font-normal">微信颁发商户证书标识</span>
                   </label>
@@ -728,23 +861,23 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                       })
                     }
                     placeholder="40位证书序列号"
-                    className="w-full px-3 py-2 rounded-[3px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono text-[11px] focus:bg-white focus:border-[#37352f] outline-none"
+                    className="w-full px-3 py-1.5 rounded-[2px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono font-normal text-[11px] focus:bg-white focus:border-[#37352f] outline-none"
                   />
                 </div>
               </div>
 
               {/* Capability Checkboxes & Fee Rate */}
               <div className="p-3 bg-[#fbfbfa] rounded-[3px] border border-[#e9e9e7] space-y-2.5">
-                <div className="text-xs font-bold text-[#201f1d] flex items-center justify-between">
+                <div className="text-xs font-semibold text-[#201f1d] flex items-center justify-between">
                   <span>微信支付功能矩阵与分账能力</span>
                   <div className="flex items-center gap-1.5 text-[11px]">
-                    <span className="text-[#787774]">结算扣率:</span>
-                    <span className="font-mono font-bold text-emerald-800">{settings.wechat.feeRate}%</span>
+                    <span className="text-[#787774] font-normal">结算扣率:</span>
+                    <span className="font-mono font-medium text-emerald-800">{settings.wechat.feeRate}%</span>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                  <label className="flex items-center gap-2 p-2 bg-white rounded border border-[#e6e6e4] cursor-pointer">
+                  <label className="flex items-center gap-2 p-2 bg-white rounded-[2px] border border-[#e6e6e4] cursor-pointer">
                     <input
                       type="checkbox"
                       checked={settings.wechat.jsapiPay}
@@ -757,12 +890,12 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                       className="accent-[#2b593f]"
                     />
                     <div>
-                      <div className="font-semibold text-[#201f1d]">JSAPI 小程序支付</div>
-                      <div className="text-[10px] text-[#787774]">顾客点单弹窗支付</div>
+                      <div className="font-medium text-[#201f1d]">JSAPI 小程序支付</div>
+                      <div className="text-[10px] text-[#787774] font-normal">顾客点单弹窗支付</div>
                     </div>
                   </label>
 
-                  <label className="flex items-center gap-2 p-2 bg-white rounded border border-[#e6e6e4] cursor-pointer">
+                  <label className="flex items-center gap-2 p-2 bg-white rounded-[2px] border border-[#e6e6e4] cursor-pointer">
                     <input
                       type="checkbox"
                       checked={settings.wechat.nativePay}
@@ -775,12 +908,12 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                       className="accent-[#2b593f]"
                     />
                     <div>
-                      <div className="font-semibold text-[#201f1d]">Native / 动态扫码</div>
-                      <div className="text-[10px] text-[#787774]">餐车客显屏动态二维码</div>
+                      <div className="font-medium text-[#201f1d]">Native / 动态扫码</div>
+                      <div className="text-[10px] text-[#787774] font-normal">餐车客显屏动态二维码</div>
                     </div>
                   </label>
 
-                  <label className="flex items-center gap-2 p-2 bg-white rounded border border-[#e6e6e4] cursor-pointer">
+                  <label className="flex items-center gap-2 p-2 bg-white rounded-[2px] border border-[#e6e6e4] cursor-pointer">
                     <input
                       type="checkbox"
                       checked={settings.wechat.facePay}
@@ -793,12 +926,12 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                       className="accent-[#2b593f]"
                     />
                     <div>
-                      <div className="font-semibold text-[#201f1d]">微信青蛙刷脸支付</div>
-                      <div className="text-[10px] text-[#787774]">支持台式刷脸收银设备</div>
+                      <div className="font-medium text-[#201f1d]">微信青蛙刷脸支付</div>
+                      <div className="text-[10px] text-[#787774] font-normal">支持台式刷脸收银设备</div>
                     </div>
                   </label>
 
-                  <label className="flex items-center gap-2 p-2 bg-white rounded border border-[#e6e6e4] cursor-pointer">
+                  <label className="flex items-center gap-2 p-2 bg-white rounded-[2px] border border-[#e6e6e4] cursor-pointer">
                     <input
                       type="checkbox"
                       checked={settings.wechat.profitSharingEnabled}
@@ -811,8 +944,8 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                       className="accent-[#2b593f]"
                     />
                     <div>
-                      <div className="font-semibold text-[#201f1d]">实时分账 (Profit Sharing)</div>
-                      <div className="text-[10px] text-[#787774]">自动划扣骑手运费与分舵</div>
+                      <div className="font-medium text-[#201f1d]">实时分账 (Profit Sharing)</div>
+                      <div className="text-[10px] text-[#787774] font-normal">自动划扣骑手运费与分舵</div>
                     </div>
                   </label>
                 </div>
@@ -821,16 +954,16 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
               {/* WeChat Promo Discount Config */}
               <div className="p-3 bg-white rounded-[3px] border border-[#e6e6e4] space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="text-xs font-bold text-[#37352f] flex items-center gap-1.5">
+                  <div className="text-xs font-semibold text-[#37352f] flex items-center gap-1.5">
                     <BadgePercent className="w-4 h-4 text-emerald-600" />
                     <span>微信支付专属立减补贴政策 (前台立减)</span>
                   </div>
-                  <span className="text-[10px] text-[#787774]">自动吸引顾客优先使用微信结算</span>
+                  <span className="text-[10px] text-[#787774] font-normal">自动吸引顾客优先使用微信结算</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
                   <div>
-                    <label className="block text-[11px] text-[#787774] mb-0.5">立减金额 (¥)</label>
+                    <label className="block text-[11px] text-[#787774] mb-0.5 font-normal">立减金额 (¥)</label>
                     <input
                       type="number"
                       step="0.5"
@@ -842,11 +975,11 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                         );
                         handleSavePaymentRules(updated);
                       }}
-                      className="w-full px-2.5 py-1.5 rounded-[3px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono font-bold"
+                      className="w-full px-2.5 py-1.5 rounded-[2px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono font-normal"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] text-[#787774] mb-0.5">满减最低门槛 (¥)</label>
+                    <label className="block text-[11px] text-[#787774] mb-0.5 font-normal">满减最低门槛 (¥)</label>
                     <input
                       type="number"
                       value={paymentRules.find((r) => r.id === 'wechat')?.minThreshold || 30.0}
@@ -857,11 +990,11 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                         );
                         handleSavePaymentRules(updated);
                       }}
-                      className="w-full px-2.5 py-1.5 rounded-[3px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono font-bold"
+                      className="w-full px-2.5 py-1.5 rounded-[2px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono font-normal"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] text-[#787774] mb-0.5">前台展示营销标签</label>
+                    <label className="block text-[11px] text-[#787774] mb-0.5 font-normal">前台展示营销标签</label>
                     <input
                       type="text"
                       value={paymentRules.find((r) => r.id === 'wechat')?.tag || '随机立减最高¥8'}
@@ -872,7 +1005,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                         );
                         handleSavePaymentRules(updated);
                       }}
-                      className="w-full px-2.5 py-1.5 rounded-[3px] bg-[#fbfbfa] border border-[#d3d1cb] font-bold"
+                      className="w-full px-2.5 py-1.5 rounded-[2px] bg-[#fbfbfa] border border-[#d3d1cb] font-normal"
                     />
                   </div>
                 </div>
@@ -887,14 +1020,14 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
                     <span className="text-base">🔵</span>
-                    <h3 className="text-sm font-bold text-[#201f1d]">
+                    <h3 className="text-sm font-semibold text-[#201f1d]">
                       支付宝开放平台对接 (Alipay OpenAPI)
                     </h3>
-                    <span className="px-1.5 py-0.2 rounded bg-sky-100 text-sky-800 text-[10px] font-mono font-bold">
+                    <span className="px-1.5 py-0.2 rounded-[2px] bg-sky-50 text-sky-800 border border-sky-200 text-[10px] font-mono font-medium">
                       RSA2公钥加密
                     </span>
                   </div>
-                  <p className="text-xs text-[#787774]">
+                  <p className="text-xs text-[#787774] font-normal">
                     配置支付宝开放平台 (open.alipay.com) 企业应用，支持当面付扫码、花呗分期以及芝麻信用免押。
                   </p>
                 </div>
@@ -904,7 +1037,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                     type="button"
                     disabled={testingChannel === 'alipay'}
                     onClick={() => handleTestConnection('alipay')}
-                    className="px-3 py-1.5 rounded-[3px] border border-sky-600 bg-sky-50 hover:bg-sky-100 text-sky-800 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                    className="px-3 py-1.5 rounded-[2px] border border-sky-600 bg-sky-50 hover:bg-sky-100 text-sky-800 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
                   >
                     <Activity className={`w-3.5 h-3.5 ${testingChannel === 'alipay' ? 'animate-spin' : ''}`} />
                     <span>{testingChannel === 'alipay' ? '正在探测网关...' : '探测支付宝网关 (Ping)'}</span>
@@ -916,7 +1049,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                 {/* Alipay AppID */}
                 <div className="space-y-1">
-                  <label className="block font-bold text-[#37352f] flex items-center justify-between">
+                  <label className="block font-medium text-[#37352f] flex items-center justify-between">
                     <span>支付宝应用 AppID (16位) *</span>
                     <span className="text-[10px] text-[#787774] font-normal">企业开发者应用ID</span>
                   </label>
@@ -931,12 +1064,12 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                         })
                       }
                       placeholder="如: 2021003189920112"
-                      className="flex-1 px-3 py-2 rounded-[3px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono focus:bg-white focus:border-[#37352f] outline-none"
+                      className="flex-1 px-3 py-1.5 rounded-[2px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono font-normal focus:bg-white focus:border-[#37352f] outline-none"
                     />
                     <button
                       type="button"
                       onClick={() => handleCopy(settings.alipay.appId, '支付宝AppID')}
-                      className="px-2.5 py-1 bg-[#efefed] hover:bg-[#e6e6e4] rounded-[3px] text-[#37352f] border border-[#d3d1cb] cursor-pointer"
+                      className="px-2.5 py-1 bg-[#efefed] hover:bg-[#e6e6e4] rounded-[2px] text-[#37352f] border border-[#d3d1cb] cursor-pointer"
                     >
                       <Copy className="w-3.5 h-3.5" />
                     </button>
@@ -945,7 +1078,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
 
                 {/* Sign Type & Mode */}
                 <div className="space-y-1">
-                  <label className="block font-bold text-[#37352f] flex items-center justify-between">
+                  <label className="block font-medium text-[#37352f] flex items-center justify-between">
                     <span>签名算法与模式</span>
                     <span className="text-[10px] text-[#787774] font-normal">金融推荐 RSA2 / 国密SM2</span>
                   </label>
@@ -958,12 +1091,12 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                           alipay: { ...settings.alipay, signType: e.target.value as any }
                         })
                       }
-                      className="px-3 py-2 rounded-[3px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono outline-none"
+                      className="px-3 py-1.5 rounded-[2px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono outline-none"
                     >
                       <option value="RSA2">RSA2 (SHA256withRSA)</option>
                       <option value="SM2">国密 SM2</option>
                     </select>
-                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-[3px] bg-[#efefed] border border-[#d3d1cb] text-xs font-semibold">
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-[2px] bg-[#efefed] border border-[#d3d1cb] text-xs font-medium">
                       <ShieldCheck className="w-4 h-4 text-sky-700" />
                       <span>公钥证书模式已启用</span>
                     </div>
@@ -972,7 +1105,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
 
                 {/* Merchant Private Key */}
                 <div className="space-y-1 md:col-span-2">
-                  <label className="block font-bold text-[#37352f] flex items-center justify-between">
+                  <label className="block font-medium text-[#37352f] flex items-center justify-between">
                     <span className="flex items-center gap-1">
                       <KeyRound className="w-3.5 h-3.5 text-sky-700" />
                       <span>应用私钥 (Merchant Private Key - 2048位非对称加密) *</span>
@@ -996,23 +1129,23 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                       })
                     }
                     placeholder="MIIEvgIBADANBgkqhkiG9w0BAQEFAASC..."
-                    className="w-full px-3 py-2 rounded-[3px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono text-[11px] focus:bg-white focus:border-[#37352f] outline-none"
+                    className="w-full px-3 py-1.5 rounded-[2px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono font-normal text-[11px] focus:bg-white focus:border-[#37352f] outline-none"
                   />
                 </div>
               </div>
 
               {/* Alipay Features & Huabei Toggle */}
               <div className="p-3 bg-[#fbfbfa] rounded-[3px] border border-[#e9e9e7] space-y-2.5">
-                <div className="text-xs font-bold text-[#201f1d] flex items-center justify-between">
+                <div className="text-xs font-semibold text-[#201f1d] flex items-center justify-between">
                   <span>支付宝场景功能矩阵</span>
                   <div className="flex items-center gap-1.5 text-[11px]">
-                    <span className="text-[#787774]">结算扣率:</span>
-                    <span className="font-mono font-bold text-sky-800">{settings.alipay.feeRate}%</span>
+                    <span className="text-[#787774] font-normal">结算扣率:</span>
+                    <span className="font-mono font-medium text-sky-800">{settings.alipay.feeRate}%</span>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                  <label className="flex items-center gap-2 p-2 bg-white rounded border border-[#e6e6e4] cursor-pointer">
+                  <label className="flex items-center gap-2 p-2 bg-white rounded-[2px] border border-[#e6e6e4] cursor-pointer">
                     <input
                       type="checkbox"
                       checked={settings.alipay.faceToFacePay}
@@ -1025,12 +1158,12 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                       className="accent-sky-600"
                     />
                     <div>
-                      <div className="font-semibold text-[#201f1d]">当面付 (扫码/付款码)</div>
-                      <div className="text-[10px] text-[#787774]">秒级扣款，支持离线聚合</div>
+                      <div className="font-medium text-[#201f1d]">当面付 (扫码/付款码)</div>
+                      <div className="text-[10px] text-[#787774] font-normal">秒级扣款，支持离线聚合</div>
                     </div>
                   </label>
 
-                  <label className="flex items-center gap-2 p-2 bg-white rounded border border-[#e6e6e4] cursor-pointer">
+                  <label className="flex items-center gap-2 p-2 bg-white rounded-[2px] border border-[#e6e6e4] cursor-pointer">
                     <input
                       type="checkbox"
                       checked={settings.alipay.huabeiPay}
@@ -1043,12 +1176,12 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                       className="accent-sky-600"
                     />
                     <div>
-                      <div className="font-semibold text-[#201f1d]">花呗分期 (3/6/12期)</div>
-                      <div className="text-[10px] text-[#787774]">大额聚会套餐花呗免息</div>
+                      <div className="font-medium text-[#201f1d]">花呗分期 (3/6/12期)</div>
+                      <div className="text-[10px] text-[#787774] font-normal">大额聚会套餐花呗免息</div>
                     </div>
                   </label>
 
-                  <label className="flex items-center gap-2 p-2 bg-white rounded border border-[#e6e6e4] cursor-pointer">
+                  <label className="flex items-center gap-2 p-2 bg-white rounded-[2px] border border-[#e6e6e4] cursor-pointer">
                     <input
                       type="checkbox"
                       checked={settings.alipay.creditFreeDeposit}
@@ -1061,8 +1194,8 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                       className="accent-sky-600"
                     />
                     <div>
-                      <div className="font-semibold text-[#201f1d]">芝麻信用免押金</div>
-                      <div className="text-[10px] text-[#787774]">餐具/野餐露营毯信用免押</div>
+                      <div className="font-medium text-[#201f1d]">芝麻信用免押金</div>
+                      <div className="text-[10px] text-[#787774] font-normal">餐具/野餐露营毯信用免押</div>
                     </div>
                   </label>
                 </div>
@@ -1071,16 +1204,16 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
               {/* Alipay Promo Discount Config */}
               <div className="p-3 bg-white rounded-[3px] border border-[#e6e6e4] space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="text-xs font-bold text-[#37352f] flex items-center gap-1.5">
+                  <div className="text-xs font-semibold text-[#37352f] flex items-center gap-1.5">
                     <BadgePercent className="w-4 h-4 text-sky-600" />
                     <span>支付宝专属立减政策</span>
                   </div>
-                  <span className="text-[10px] text-[#787774]">前台结算实时扣减</span>
+                  <span className="text-[10px] text-[#787774] font-normal">前台结算实时扣减</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
                   <div>
-                    <label className="block text-[11px] text-[#787774] mb-0.5">立减金额 (¥)</label>
+                    <label className="block text-[11px] text-[#787774] mb-0.5 font-normal">立减金额 (¥)</label>
                     <input
                       type="number"
                       step="0.5"
@@ -1092,11 +1225,11 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                         );
                         handleSavePaymentRules(updated);
                       }}
-                      className="w-full px-2.5 py-1.5 rounded-[3px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono font-bold"
+                      className="w-full px-2.5 py-1.5 rounded-[2px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono font-normal"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] text-[#787774] mb-0.5">满减最低门槛 (¥)</label>
+                    <label className="block text-[11px] text-[#787774] mb-0.5 font-normal">满减最低门槛 (¥)</label>
                     <input
                       type="number"
                       value={paymentRules.find((r) => r.id === 'alipay')?.minThreshold || 25.0}
@@ -1107,11 +1240,11 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                         );
                         handleSavePaymentRules(updated);
                       }}
-                      className="w-full px-2.5 py-1.5 rounded-[3px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono font-bold"
+                      className="w-full px-2.5 py-1.5 rounded-[2px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono font-normal"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] text-[#787774] mb-0.5">前台展示营销标签</label>
+                    <label className="block text-[11px] text-[#787774] mb-0.5 font-normal">前台展示营销标签</label>
                     <input
                       type="text"
                       value={paymentRules.find((r) => r.id === 'alipay')?.tag || '立减¥2.5 · 花呗分期'}
@@ -1122,7 +1255,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                         );
                         handleSavePaymentRules(updated);
                       }}
-                      className="w-full px-2.5 py-1.5 rounded-[3px] bg-[#fbfbfa] border border-[#d3d1cb] font-bold"
+                      className="w-full px-2.5 py-1.5 rounded-[2px] bg-[#fbfbfa] border border-[#d3d1cb] font-normal"
                     />
                   </div>
                 </div>
@@ -1137,11 +1270,11 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
                     <span className="text-base">💳</span>
-                    <h3 className="text-sm font-bold text-[#201f1d]">
+                    <h3 className="text-sm font-semibold text-[#201f1d]">
                       中国银联 / 云闪付 / POS机收单对接
                     </h3>
                   </div>
-                  <p className="text-xs text-[#787774]">
+                  <p className="text-xs text-[#787774] font-normal">
                     对接银联清算中心与收单银行，支持手机云闪付、信用卡/储蓄卡插卡刷卡、Apple Pay 碰一碰支付。
                   </p>
                 </div>
@@ -1151,7 +1284,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                     type="button"
                     disabled={testingChannel === 'unionpay'}
                     onClick={() => handleTestConnection('unionpay')}
-                    className="px-3 py-1.5 rounded-[3px] border border-amber-600 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    className="px-3 py-1.5 rounded-[2px] border border-amber-600 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <Activity className={`w-3.5 h-3.5 ${testingChannel === 'unionpay' ? 'animate-spin' : ''}`} />
                     <span>探测银联清算网关</span>
@@ -1161,7 +1294,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
                 <div className="space-y-1">
-                  <label className="block font-bold text-[#37352f]">银联商户 MID (15位) *</label>
+                  <label className="block font-medium text-[#37352f]">银联商户 MID (15位) *</label>
                   <input
                     type="text"
                     value={settings.unionpay.merchantId}
@@ -1171,12 +1304,12 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                         unionpay: { ...settings.unionpay, merchantId: e.target.value }
                       })
                     }
-                    className="w-full px-3 py-2 rounded-[3px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono"
+                    className="w-full px-3 py-1.5 rounded-[2px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono font-normal"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block font-bold text-[#37352f]">POS终端 TID (8位) *</label>
+                  <label className="block font-medium text-[#37352f]">POS终端 TID (8位) *</label>
                   <input
                     type="text"
                     value={settings.unionpay.terminalId}
@@ -1186,12 +1319,12 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                         unionpay: { ...settings.unionpay, terminalId: e.target.value }
                       })
                     }
-                    className="w-full px-3 py-2 rounded-[3px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono"
+                    className="w-full px-3 py-1.5 rounded-[2px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono font-normal"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block font-bold text-[#37352f]">收单清算机构</label>
+                  <label className="block font-medium text-[#37352f]">收单清算机构</label>
                   <input
                     type="text"
                     value={settings.unionpay.acquirerName}
@@ -1201,7 +1334,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                         unionpay: { ...settings.unionpay, acquirerName: e.target.value }
                       })
                     }
-                    className="w-full px-3 py-2 rounded-[3px] bg-[#fbfbfa] border border-[#d3d1cb]"
+                    className="w-full px-3 py-1.5 rounded-[2px] bg-[#fbfbfa] border border-[#d3d1cb] font-normal"
                   />
                 </div>
               </div>
@@ -1220,7 +1353,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                       }
                       className="accent-amber-600"
                     />
-                    <span className="font-semibold text-[#201f1d]">云闪付 APP 扫码</span>
+                    <span className="font-medium text-[#201f1d]">云闪付 APP 扫码</span>
                   </label>
                   <label className="flex items-center gap-1.5 cursor-pointer">
                     <input
@@ -1234,10 +1367,10 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                       }
                       className="accent-amber-600"
                     />
-                    <span className="font-semibold text-[#201f1d]">Apple Pay / 手机 NFC 闪付</span>
+                    <span className="font-medium text-[#201f1d]">Apple Pay / 手机 NFC 闪付</span>
                   </label>
                 </div>
-                <span className="font-mono text-amber-800 font-bold">综合费率: {settings.unionpay.feeRate}%</span>
+                <span className="font-mono text-amber-800 font-medium">综合费率: {settings.unionpay.feeRate}%</span>
               </div>
             </div>
           )}
@@ -1249,14 +1382,14 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
                     <span className="text-base">🇨🇳</span>
-                    <h3 className="text-sm font-bold text-[#201f1d]">
+                    <h3 className="text-sm font-semibold text-[#201f1d]">
                       数字人民币子钱包对接 (Digital RMB / DCEP)
                     </h3>
-                    <span className="px-1.5 py-0.2 rounded bg-red-100 text-red-800 text-[10px] font-mono font-bold">
+                    <span className="px-1.5 py-0.2 rounded-[2px] bg-red-50 text-red-800 border border-red-200 text-[10px] font-mono font-medium">
                       央行 0 费率政策
                     </span>
                   </div>
-                  <p className="text-xs text-[#787774]">
+                  <p className="text-xs text-[#787774] font-normal">
                     由中国人民银行发行数字法定货币，支持双离线无网支付与智能合约政府/园区消费券核销。
                   </p>
                 </div>
@@ -1264,7 +1397,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                 <button
                   type="button"
                   onClick={() => handleTestConnection('dcep')}
-                  className="px-3 py-1.5 rounded-[3px] border border-red-600 bg-red-50 hover:bg-red-100 text-red-800 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                  className="px-3 py-1.5 rounded-[2px] border border-red-600 bg-red-50 hover:bg-red-100 text-red-800 text-xs font-medium flex items-center gap-1.5 cursor-pointer"
                 >
                   <Activity className="w-3.5 h-3.5" />
                   <span>探测数币清算节点</span>
@@ -1273,7 +1406,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                 <div className="space-y-1">
-                  <label className="block font-bold text-[#37352f]">数币商户子钱包编号 (16位) *</label>
+                  <label className="block font-medium text-[#37352f]">数币商户子钱包编号 (16位) *</label>
                   <input
                     type="text"
                     value={settings.dcep.subWalletId}
@@ -1283,12 +1416,12 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                         dcep: { ...settings.dcep, subWalletId: e.target.value }
                       })
                     }
-                    className="w-full px-3 py-2 rounded-[3px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono"
+                    className="w-full px-3 py-1.5 rounded-[2px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono font-normal"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block font-bold text-[#37352f]">数币运营机构</label>
+                  <label className="block font-medium text-[#37352f]">数币运营机构</label>
                   <input
                     type="text"
                     value={settings.dcep.operatorOrg}
@@ -1298,12 +1431,12 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                         dcep: { ...settings.dcep, operatorOrg: e.target.value }
                       })
                     }
-                    className="w-full px-3 py-2 rounded-[3px] bg-[#fbfbfa] border border-[#d3d1cb]"
+                    className="w-full px-3 py-1.5 rounded-[2px] bg-[#fbfbfa] border border-[#d3d1cb] font-normal"
                   />
                 </div>
               </div>
 
-              <div className="p-3 bg-red-50/40 rounded-[3px] border border-red-200 text-xs flex items-center justify-between">
+              <div className="p-3 bg-red-50/30 rounded-[3px] border border-red-200 text-xs flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <label className="flex items-center gap-1.5 cursor-pointer">
                     <input
@@ -1317,7 +1450,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                       }
                       className="accent-red-600"
                     />
-                    <span className="font-semibold text-red-950">硬件冷钱包/双离线碰一碰</span>
+                    <span className="font-medium text-red-950">硬件冷钱包/双离线碰一碰</span>
                   </label>
                   <label className="flex items-center gap-1.5 cursor-pointer">
                     <input
@@ -1331,10 +1464,10 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                       }
                       className="accent-red-600"
                     />
-                    <span className="font-semibold text-red-950">智能合约消费券定向补贴</span>
+                    <span className="font-medium text-red-950">智能合约消费券定向补贴</span>
                   </label>
                 </div>
-                <span className="text-red-800 font-bold">结算手续费: 0.00% (央行免扣)</span>
+                <span className="text-red-800 font-medium">结算手续费: 0.00% (央行免扣)</span>
               </div>
             </div>
           )}
@@ -1346,11 +1479,11 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
                     <span className="text-base">🏢</span>
-                    <h3 className="text-sm font-bold text-[#201f1d]">
+                    <h3 className="text-sm font-semibold text-[#201f1d]">
                       签约企业餐补与商务签单管理
                     </h3>
                   </div>
-                  <p className="text-xs text-[#787774]">
+                  <p className="text-xs text-[#787774] font-normal">
                     静安大悦城/恒隆广场/腾讯大厦等签约企业，员工就餐凭工卡免密签单，月底统一对账开票。
                   </p>
                 </div>
@@ -1359,19 +1492,19 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                 <div className="p-3 bg-[#fbfbfa] rounded-[3px] border border-[#e9e9e7] space-y-1">
                   <div className="text-[11px] text-[#787774]">签约企业主体</div>
-                  <div className="font-bold text-[#201f1d] truncate">{settings.enterprise.enterpriseName}</div>
+                  <div className="font-semibold text-[#201f1d] truncate">{settings.enterprise.enterpriseName}</div>
                 </div>
                 <div className="p-3 bg-[#fbfbfa] rounded-[3px] border border-[#e9e9e7] space-y-1">
                   <div className="text-[11px] text-[#787774]">协议签署编号</div>
-                  <div className="font-mono font-bold text-[#201f1d]">{settings.enterprise.contractCode}</div>
+                  <div className="font-mono font-semibold text-[#201f1d]">{settings.enterprise.contractCode}</div>
                 </div>
                 <div className="p-3 bg-[#fbfbfa] rounded-[3px] border border-[#e9e9e7] space-y-1">
                   <div className="text-[11px] text-[#787774]">月度授信额度</div>
-                  <div className="font-bold text-indigo-700">¥{settings.enterprise.creditMonthlyLimit.toFixed(2)}</div>
+                  <div className="font-semibold text-indigo-700 font-mono">¥{settings.enterprise.creditMonthlyLimit.toFixed(2)}</div>
                 </div>
                 <div className="p-3 bg-[#fbfbfa] rounded-[3px] border border-[#e9e9e7] space-y-1">
                   <div className="text-[11px] text-[#787774]">已签单金额 (白名单: {settings.enterprise.employeeWhitelistCount}人)</div>
-                  <div className="font-bold text-neutral-800">¥{settings.enterprise.creditUsedThisMonth.toFixed(2)}</div>
+                  <div className="font-semibold text-neutral-800 font-mono">¥{settings.enterprise.creditUsedThisMonth.toFixed(2)}</div>
                 </div>
               </div>
             </div>
@@ -1384,14 +1517,14 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
                     <span className="text-base">🔊</span>
-                    <h3 className="text-sm font-bold text-[#201f1d]">
+                    <h3 className="text-sm font-semibold text-[#201f1d]">
                       智能 4G 极速收款播报云音箱
                     </h3>
-                    <span className="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold">
+                    <span className="px-1.5 py-0.2 rounded-[2px] bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-mono font-medium">
                       在线 · 4G满格
                     </span>
                   </div>
-                  <p className="text-xs text-[#787774]">
+                  <p className="text-xs text-[#787774] font-normal">
                     顾客微信/支付宝付款成功后，云音箱在 0.3 秒内大音量语音播报，防止漏单、逃单与金额作假。
                   </p>
                 </div>
@@ -1408,7 +1541,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Left Card: Hardware Params */}
                 <div className="p-4 bg-[#fbfbfa] rounded-[3px] border border-[#e9e9e7] space-y-3 text-xs">
-                  <div className="font-bold text-[#201f1d] flex items-center justify-between">
+                  <div className="font-semibold text-[#201f1d] flex items-center justify-between">
                     <span>音箱硬件绑定与参数</span>
                     <span className="font-mono text-[#787774]">SN: {settings.soundbox.deviceId}</span>
                   </div>
@@ -1417,7 +1550,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                     <div>
                       <div className="flex items-center justify-between text-[11px] text-[#787774] mb-1">
                         <span>播报音量: {settings.soundbox.volume}%</span>
-                        <span className="text-emerald-700 font-bold">防嘈杂户外高分贝</span>
+                        <span className="text-emerald-700 font-medium">防嘈杂户外高分贝</span>
                       </div>
                       <input
                         type="range"
@@ -1436,7 +1569,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
 
                     <div className="grid grid-cols-2 gap-2 pt-1">
                       <div>
-                        <label className="block text-[11px] text-[#787774] mb-0.5">播报语速</label>
+                        <label className="block text-[11px] text-[#787774] mb-0.5 font-normal">播报语速</label>
                         <select
                           value={settings.soundbox.voiceSpeed}
                           onChange={(e) =>
@@ -1445,7 +1578,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                               soundbox: { ...settings.soundbox, voiceSpeed: e.target.value as any }
                             })
                           }
-                          className="w-full px-2.5 py-1.5 rounded-[3px] bg-white border border-[#d3d1cb]"
+                          className="w-full px-2.5 py-1.5 rounded-[2px] bg-white border border-[#d3d1cb]"
                         >
                           <option value="normal">标准清晰 (推荐)</option>
                           <option value="fast">快速快节奏 (高峰期)</option>
@@ -1454,7 +1587,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                       </div>
 
                       <div>
-                        <label className="block text-[11px] text-[#787774] mb-0.5">绑定播报渠道</label>
+                        <label className="block text-[11px] text-[#787774] mb-0.5 font-normal">绑定播报渠道</label>
                         <select
                           value={settings.soundbox.bindChannel}
                           onChange={(e) =>
@@ -1463,7 +1596,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                               soundbox: { ...settings.soundbox, bindChannel: e.target.value as any }
                             })
                           }
-                          className="w-full px-2.5 py-1.5 rounded-[3px] bg-white border border-[#d3d1cb]"
+                          className="w-full px-2.5 py-1.5 rounded-[2px] bg-white border border-[#d3d1cb]"
                         >
                           <option value="all">全渠道播报 (微信+支付宝+数币)</option>
                           <option value="wechat">仅播报微信支付</option>
@@ -1476,29 +1609,29 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
 
                 {/* Right Card: Live Speech Test */}
                 <div className="p-4 bg-white rounded-[3px] border border-[#e6e6e4] space-y-3 text-xs">
-                  <div className="font-bold text-[#201f1d] flex items-center justify-between">
+                  <div className="font-semibold text-[#201f1d] flex items-center justify-between">
                     <span className="flex items-center gap-1.5">
                       <Volume2 className="w-4 h-4 text-[#2b593f]" />
                       <span>实时语音播报试听与调试</span>
                     </span>
-                    <span className="text-[10px] text-[#787774]">调用 Web Speech 音效</span>
+                    <span className="text-[10px] text-[#787774] font-normal">调用 Web Speech 音效</span>
                   </div>
 
                   <div className="space-y-2">
-                    <label className="block text-[11px] text-[#787774]">模拟收款金额 (¥)</label>
+                    <label className="block text-[11px] text-[#787774] font-normal">模拟收款金额 (¥)</label>
                     <div className="flex gap-2">
                       <input
                         type="text"
                         value={testAmountInput}
                         onChange={(e) => setTestAmountInput(e.target.value)}
                         placeholder="38.50"
-                        className="flex-1 px-3 py-1.5 rounded-[3px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono font-bold text-sm"
+                        className="flex-1 px-3 py-1.5 rounded-[2px] bg-[#fbfbfa] border border-[#d3d1cb] font-mono font-medium text-sm"
                       />
                       <button
                         type="button"
                         disabled={isPlayingTestAudio}
                         onClick={() => handlePlaySoundboxTest('微信支付', testAmountInput)}
-                        className="px-3 py-1.5 rounded-[3px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                        className="px-3 py-1.5 rounded-[2px] bg-emerald-600 hover:bg-emerald-700 text-white font-medium flex items-center gap-1 cursor-pointer disabled:opacity-50"
                       >
                         <Volume2 className="w-3.5 h-3.5" />
                         <span>微信试听</span>
@@ -1507,7 +1640,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                         type="button"
                         disabled={isPlayingTestAudio}
                         onClick={() => handlePlaySoundboxTest('支付宝', testAmountInput)}
-                        className="px-3 py-1.5 rounded-[3px] bg-sky-600 hover:bg-sky-700 text-white font-bold flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                        className="px-3 py-1.5 rounded-[2px] bg-sky-600 hover:bg-sky-700 text-white font-medium flex items-center gap-1 cursor-pointer disabled:opacity-50"
                       >
                         <Volume2 className="w-3.5 h-3.5" />
                         <span>支付宝试听</span>
@@ -1515,7 +1648,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                     </div>
 
                     {settings.soundbox.lastBroadcastText && (
-                      <div className="p-2 rounded bg-[#f7f7f5] border border-[#e6e6e4] text-[11px] text-[#787774] flex items-center justify-between">
+                      <div className="p-2 rounded-[2px] bg-[#f7f7f5] border border-[#e6e6e4] text-[11px] text-[#787774] flex items-center justify-between">
                         <span>最近一次播报: {settings.soundbox.lastBroadcastText}</span>
                         <span className="font-mono text-[10px]">{settings.soundbox.lastBroadcastTime}</span>
                       </div>
@@ -1533,11 +1666,11 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
                     <span className="text-base">📱</span>
-                    <h3 className="text-sm font-bold text-[#201f1d]">
+                    <h3 className="text-sm font-semibold text-[#201f1d]">
                       餐车聚合收款立牌 (一码多付台码)
                     </h3>
                   </div>
-                  <p className="text-xs text-[#787774]">
+                  <p className="text-xs text-[#787774] font-normal">
                     一码集成微信、支付宝、云闪付与数字人民币，顾客直接用任意 App 扫码均可快速买单。
                   </p>
                 </div>
@@ -1548,7 +1681,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                     onClick={() => {
                       window.print();
                     }}
-                    className="px-3 py-1.5 rounded-[3px] bg-[#37352f] hover:bg-black text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    className="px-3 py-1.5 rounded-[2px] bg-[#37352f] hover:bg-black text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-2xs"
                   >
                     <Printer className="w-3.5 h-3.5" />
                     <span>打印收款台卡 (A5/A6标准)</span>
@@ -1597,15 +1730,15 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
                     <span className="text-base">📋</span>
-                    <h3 className="text-sm font-bold text-[#201f1d]">
+                    <h3 className="text-sm font-semibold text-[#201f1d]">
                       全渠道流水明细与双轨兜底防伪对账
                     </h3>
-                    <span className="px-2 py-0.5 rounded-[3px] bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-mono font-bold flex items-center gap-1">
+                    <span className="px-2 py-0.5 rounded-[2px] bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-mono font-medium flex items-center gap-1">
                       <ShieldCheck className="w-3 h-3 text-emerald-600" />
                       双轨兜底生效中
                     </span>
                   </div>
-                  <p className="text-xs text-[#787774]">
+                  <p className="text-xs text-[#787774] font-normal">
                     前台支付成功即刻生成 256 位防伪凭据并在本地和云端双轨存证，离线网络下自动托管，网络恢复后无感自动补偿对账。
                   </p>
                 </div>
@@ -1627,7 +1760,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                         setIsReconciling(false);
                       }
                     }}
-                    className="px-3 py-1.5 rounded-[3px] bg-[#2b593f] hover:bg-[#234732] text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+                    className="px-3 py-1.5 rounded-[2px] bg-[#2b593f] hover:bg-[#234732] text-white text-xs font-medium flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer disabled:opacity-50"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${isReconciling ? 'animate-spin' : ''}`} />
                     <span>{isReconciling ? '正在核对云端流水...' : '立即执行补偿对账'}</span>
@@ -1638,18 +1771,18 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
               {/* Dual-Track Fallback Escrow Protection Live Ledger */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold text-[#201f1d] flex items-center gap-1.5">
+                  <h4 className="text-xs font-semibold text-[#201f1d] flex items-center gap-1.5">
                     <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>真实入账防伪电子凭证总账 ({ledgerItems.length} 笔)</span>
+                    <span>真实入账防伪电子凭证总账（筛选后 {rangedLedger.length} / 全部 {ledgerItems.length} 笔）</span>
                   </h4>
-                  <span className="text-[10.5px] text-[#787774]">
+                  <span className="text-[10.5px] text-[#787774] font-normal">
                     点击任意记录可查验电子凭据及防伪哈希
                   </span>
                 </div>
 
                 <div className="overflow-x-auto border border-[#e6e6e4] rounded-[3px] bg-white">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-[#f7f7f5] text-[#787774] font-semibold border-b border-[#e6e6e4]">
+                    <thead className="bg-[#f7f7f5] text-[#787774] font-medium text-[11px] border-b border-[#e6e6e4]">
                       <tr>
                         <th className="py-2.5 px-3">对账凭证号</th>
                         <th className="py-2.5 px-3">关联单号</th>
@@ -1661,27 +1794,27 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#f1f1ef]">
-                      {ledgerItems.length === 0 ? (
+                      {rangedLedger.length === 0 ? (
                         <tr>
                           <td colSpan={7} className="py-6 text-center text-[#787774] text-xs">
                             暂无兜底对账记录，当顾客提交订单支付后将在此自动双轨归集。
                           </td>
                         </tr>
                       ) : (
-                        ledgerItems.map((item) => (
+                        rangedLedger.map((item) => (
                           <tr key={item.voucherNo} className="hover:bg-[#fbfbfa] transition-colors">
                             <td className="py-2.5 px-3">
-                              <span className="font-mono font-bold text-[#201f1d]">{item.voucherNo}</span>
+                              <span className="font-mono font-medium text-[#201f1d]">{item.voucherNo}</span>
                               <div className="text-[10px] text-[#787774]">{item.paidTimeFormatted || item.paidAt?.slice(11, 19)}</div>
                             </td>
-                            <td className="py-2.5 px-3 font-mono font-semibold text-[#37352f]">
+                            <td className="py-2.5 px-3 font-mono font-normal text-[#37352f]">
                               {item.orderNo}
                             </td>
-                            <td className="py-2.5 px-3 font-medium text-[#37352f]">
+                            <td className="py-2.5 px-3 font-normal text-[#37352f]">
                               {item.channelName}
                             </td>
                             <td className="py-2.5 px-3">
-                              <div className="font-black text-black">¥{item.paidAmount.toFixed(2)}</div>
+                              <div className="font-semibold text-neutral-900 font-mono">¥{item.paidAmount.toFixed(2)}</div>
                               {item.discountAmount > 0 && (
                                 <div className="text-[10px] text-emerald-700 font-mono">
                                   省¥{item.discountAmount.toFixed(2)}
@@ -1693,7 +1826,7 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                             </td>
                             <td className="py-2.5 px-3">
                               <span
-                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${
+                                className={`px-1.5 py-0.5 rounded-[2px] text-[10px] font-medium border ${
                                   item.escrowStatus === 'verified_synced'
                                     ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                                     : item.escrowStatus === 'reconciled'
@@ -1709,16 +1842,50 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
                               </span>
                             </td>
                             <td className="py-2.5 px-3 text-right">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setInspectingVoucher(item);
-                                  setIsVoucherModalOpen(true);
-                                }}
-                                className="px-2 py-1 rounded bg-[#f1f1ef] hover:bg-[#e4e4e2] text-[#201f1d] text-[11px] font-semibold transition-colors cursor-pointer"
-                              >
-                                查验凭证
-                              </button>
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setInspectingVoucher(item);
+                                    setIsVoucherModalOpen(true);
+                                  }}
+                                  className="px-2 py-1 rounded-[2px] bg-[#f1f1ef] hover:bg-[#e4e4e2] text-[#201f1d] text-[11px] font-medium transition-colors cursor-pointer"
+                                >
+                                  查验凭证
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={!ledgerGate.allowed}
+                                  onClick={() => {
+                                    setEditingLedgerItem(item);
+                                    setEditAmount(item.paidAmount.toFixed(2));
+                                    setEditNote('');
+                                  }}
+                                  className={`px-2 py-1 rounded-[2px] text-[11px] font-medium transition-colors flex items-center gap-0.5 ${
+                                    ledgerGate.allowed
+                                      ? 'bg-white border border-[#d3d1cb] hover:border-[#201f1d] text-[#37352f] cursor-pointer'
+                                      : 'bg-[#f5f5f4] text-[#b0afa9] border border-[#e6e6e4] cursor-not-allowed'
+                                  }`}
+                                  title={ledgerGate.allowed ? '更正该笔入账金额（店长权限，留审计）' : ledgerGate.reason || '需店长权限'}
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                  更正
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={!ledgerGate.allowed}
+                                  onClick={() => handleDeleteLedgerItem(item)}
+                                  className={`px-2 py-1 rounded-[2px] text-[11px] font-medium transition-colors flex items-center gap-0.5 ${
+                                    ledgerGate.allowed
+                                      ? 'bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 cursor-pointer'
+                                      : 'bg-[#f5f5f4] text-[#b0afa9] border border-[#e6e6e4] cursor-not-allowed'
+                                  }`}
+                                  title={ledgerGate.allowed ? '删除该笔记录（入回收站 30 天可恢复，店长权限）' : ledgerGate.reason || '需店长权限'}
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  删除
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))
@@ -1741,6 +1908,65 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
           showToast('✅ 结账存证小票与防伪流水已推送到车载热敏打印机');
         }}
       />
+
+      {/* 台账更正弹层（店长专属） */}
+      {editingLedgerItem && (
+        <div className="fixed inset-0 z-[75] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setEditingLedgerItem(null)} />
+          <div className="relative w-full max-w-sm bg-white border border-[#e6e6e4] shadow-2xl rounded-[3px] p-4 space-y-3">
+            <div className="flex items-center gap-1.5 border-b border-[#f1f1ef] pb-2">
+              <ShieldAlert className="w-4 h-4 text-amber-600" />
+              <span className="text-sm font-semibold text-[#201f1d]">更正收款台账（店长权限）</span>
+            </div>
+            <div className="text-[11px] text-[#787774] space-y-0.5 font-mono">
+              <div>凭证号：{editingLedgerItem.voucherNo}</div>
+              <div>关联单号：{editingLedgerItem.orderNo} · {editingLedgerItem.channelName}</div>
+              <div>入账时间：{editingLedgerItem.paidTimeFormatted || editingLedgerItem.paidAt}</div>
+            </div>
+            <div>
+              <label className="block text-[11px] font-medium text-[#37352f] mb-1">实付金额（¥）</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={editAmount}
+                onChange={(e) => setEditAmount(e.target.value)}
+                className="w-full px-2.5 py-1.5 border border-[#d3d1cb] rounded-[2px] text-sm font-mono focus:outline-none focus:border-[#2b593f]"
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-medium text-[#37352f] mb-1">更正原因 / 备注</label>
+              <input
+                type="text"
+                value={editNote}
+                onChange={(e) => setEditNote(e.target.value)}
+                placeholder="如：测试数据更正 / 重复录入修正"
+                className="w-full px-2.5 py-1.5 border border-[#d3d1cb] rounded-[2px] text-xs focus:outline-none focus:border-[#2b593f]"
+              />
+            </div>
+            <p className="text-[10px] text-[#9b9a97]">
+              更正将立即反映到收款概览指标，并记录店长级安全审计（操作人 / 时间 / 前后值）。
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setEditingLedgerItem(null)}
+                className="px-3 py-1.5 text-xs text-[#787774] hover:text-[#37352f] rounded-[2px] cursor-pointer"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={() => handleCorrectLedgerItem(editingLedgerItem)}
+                className="px-3.5 py-1.5 rounded-[2px] bg-[#2b593f] hover:bg-[#234732] text-white text-xs font-medium cursor-pointer"
+              >
+                确认更正
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

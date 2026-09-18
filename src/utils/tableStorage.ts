@@ -89,7 +89,11 @@ export function getCurrentBoundTable(): BoundTableInfo | null {
  */
 export function setCurrentBoundTable(table: BoundTableInfo | null): void {
   safeSetStorage(STORAGE_KEY_BOUND_TABLE, table);
-  window.dispatchEvent(new CustomEvent('obsidian_bound_table_changed', { detail: table }));
+  if (typeof window !== 'undefined') {
+    queueMicrotask(() => {
+      window.dispatchEvent(new CustomEvent('obsidian_bound_table_changed', { detail: table }));
+    });
+  }
 }
 
 /**
@@ -104,7 +108,11 @@ export function getMerchantTables(): TableItem[] {
  */
 export function saveMerchantTables(tables: TableItem[]): void {
   safeSetStorage(STORAGE_KEY_MERCHANT_TABLES, tables);
-  window.dispatchEvent(new CustomEvent('obsidian_tables_updated', { detail: tables }));
+  if (typeof window !== 'undefined') {
+    queueMicrotask(() => {
+      window.dispatchEvent(new CustomEvent('obsidian_tables_updated', { detail: tables }));
+    });
+  }
 }
 
 /**
@@ -119,7 +127,11 @@ export function getAutoTransferConfig(): boolean {
  */
 export function setAutoTransferConfig(enabled: boolean): void {
   safeSetStorage(STORAGE_KEY_AUTO_TRANSFER, enabled);
-  window.dispatchEvent(new CustomEvent('obsidian_auto_transfer_config_changed', { detail: enabled }));
+  if (typeof window !== 'undefined') {
+    queueMicrotask(() => {
+      window.dispatchEvent(new CustomEvent('obsidian_auto_transfer_config_changed', { detail: enabled }));
+    });
+  }
 }
 
 /**
@@ -134,7 +146,11 @@ export function getWaitingQueue(): WaitingTableItem[] {
  */
 export function saveWaitingQueue(queue: WaitingTableItem[]): void {
   safeSetStorage(STORAGE_KEY_WAITING_QUEUE, queue);
-  window.dispatchEvent(new CustomEvent('obsidian_waiting_queue_updated', { detail: queue }));
+  if (typeof window !== 'undefined') {
+    queueMicrotask(() => {
+      window.dispatchEvent(new CustomEvent('obsidian_waiting_queue_updated', { detail: queue }));
+    });
+  }
 }
 
 /**

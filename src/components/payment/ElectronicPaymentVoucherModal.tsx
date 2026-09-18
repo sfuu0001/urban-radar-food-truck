@@ -60,12 +60,12 @@ export const ElectronicPaymentVoucherModal: React.FC<ElectronicPaymentVoucherMod
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 10 }}
         transition={{ duration: 0.2 }}
-        className="bg-white rounded-2xl border border-neutral-200 shadow-2xl max-w-md w-full overflow-hidden text-neutral-900 relative"
+        className="bg-white rounded-[5px] border border-[#e2e2dc] shadow-2xl max-w-md w-full overflow-hidden text-neutral-900 relative"
       >
         {/* Top Dark Header */}
-        <div className="bg-neutral-900 text-white px-5 py-3.5 flex items-center justify-between">
+        <div className="bg-[#1a1a17] text-white px-5 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400">
+            <div className="w-7 h-7 rounded-[5px] bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400">
               <ShieldCheck className="w-4 h-4" />
             </div>
             <div>
@@ -81,7 +81,7 @@ export const ElectronicPaymentVoucherModal: React.FC<ElectronicPaymentVoucherMod
           <button
             type="button"
             onClick={onClose}
-            className="w-7 h-7 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+            className="w-7 h-7 rounded-[5px] bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -239,7 +239,7 @@ export const ElectronicPaymentVoucherModal: React.FC<ElectronicPaymentVoucherMod
 
           {/* Ordered Dish Snapshot */}
           {voucher.itemsSnapshot && voucher.itemsSnapshot.length > 0 && (
-            <div className="p-3 bg-white rounded-xl border border-neutral-200 text-xs space-y-1.5">
+            <div className="p-3 bg-white rounded-[5px] border border-[#e2e2dc] text-xs space-y-1.5">
               <span className="text-[10px] font-bold text-neutral-500 uppercase">
                 餐品明细快照 ({voucher.itemsSnapshot.length} 款)
               </span>
@@ -263,11 +263,11 @@ export const ElectronicPaymentVoucherModal: React.FC<ElectronicPaymentVoucherMod
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 bg-white border-t border-neutral-200 flex items-center justify-between gap-2">
+        <div className="p-4 bg-white border-t border-[#e2e2dc] flex items-center justify-between gap-2">
           <button
             type="button"
             onClick={handlePrint}
-            className="px-3 py-2 rounded-xl border border-neutral-200 hover:bg-neutral-50 text-neutral-700 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+            className="px-3 py-2 rounded-[5px] border border-[#e2e2dc] hover:bg-[#f4f4f2] text-neutral-700 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
           >
             <Printer className="w-3.5 h-3.5" />
             <span>打印小票</span>
@@ -280,7 +280,7 @@ export const ElectronicPaymentVoucherModal: React.FC<ElectronicPaymentVoucherMod
                 onClose();
                 onGoToOrderTracking(voucher.orderNo);
               }}
-              className="flex-1 py-2.5 rounded-xl bg-neutral-900 hover:bg-black text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+              className="flex-1 py-2.5 rounded-[5px] bg-[#1a1a17] hover:bg-black text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
             >
               <span>实时雷达配送追踪</span>
               <ChevronRight className="w-3.5 h-3.5" />

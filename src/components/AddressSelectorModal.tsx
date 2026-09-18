@@ -453,15 +453,9 @@ export const AddressSelectorModal: React.FC<AddressSelectorModalProps> = ({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4">
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
-        onClick={onClose}
-      />
-
-      {/* Modal Container */}
-      <div className="relative bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-[#e2e3e1] flex flex-col overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-200 max-h-[92vh]">
+    <div className="fixed inset-0 z-50 bg-[#f9f9f7] w-full h-full flex flex-col overflow-hidden animate-in fade-in duration-150">
+      {/* 全屏平铺页面容器 - 取消弹窗设计与黑色遮罩 */}
+      <div className="relative bg-[#f9f9f7] w-full h-full flex-1 flex flex-col overflow-hidden rounded-none border-0 shadow-none">
         {/* Toast */}
         <AnimatePresence>
           {toastMessage && (
@@ -476,31 +470,26 @@ export const AddressSelectorModal: React.FC<AddressSelectorModalProps> = ({
           )}
         </AnimatePresence>
 
-        {/* Header */}
-        <div className="p-3.5 sm:p-4 border-b border-[#e2e3e1] bg-[#f9f9f7] flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2 min-w-0">
-            {isFormOpen ? (
-              <button
-                type="button"
-                onClick={() => setIsFormOpen(false)}
-                className="w-7 h-7 rounded-lg bg-white border border-[#e2e3e1] hover:bg-neutral-100 flex items-center justify-center text-black cursor-pointer transition-colors shrink-0"
-              >
-                <ArrowLeft className="w-4 h-4" />
-              </button>
-            ) : (
-              <div className="w-7 h-7 rounded-lg bg-black text-white flex items-center justify-center shrink-0">
-                <Building2 className="w-3.5 h-3.5 text-emerald-400" />
-              </div>
-            )}
+        {/* Header - 全屏通栏导航栏 */}
+        <div className="p-3.5 sm:p-4 border-b border-[#e2e3e1] bg-white flex items-center justify-between shrink-0 shadow-xs sticky top-0 z-20">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <button
+              type="button"
+              onClick={isFormOpen ? () => setIsFormOpen(false) : onClose}
+              className="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center text-black cursor-pointer transition-colors shrink-0"
+              title="返回"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
             <div className="min-w-0">
-              <h3 className="text-sm font-extrabold text-black truncate">
+              <h3 className="text-sm sm:text-base font-extrabold text-black truncate">
                 {isFormOpen
                   ? formState.id
                     ? '编辑送达地址与门牌号'
                     : '补充收货门牌与联系方式'
                   : '送达地址选择与管理'}
               </h3>
-              <p className="text-[10.5px] text-[#787770] truncate">
+              <p className="text-[11px] text-[#787770] truncate">
                 【{truckConfig.name}】专送半径{' '}
                 <span className="font-bold text-emerald-700 font-mono">
                   {truckConfig.deliveryRadiusKm.toFixed(1)} km
@@ -510,36 +499,37 @@ export const AddressSelectorModal: React.FC<AddressSelectorModalProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             {!isFormOpen && (
               <>
                 <button
                   type="button"
                   onClick={handleOpenAddForm}
-                  className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                  className="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
                 >
-                  <Plus className="w-3 h-3" />
-                  <span>新增</span>
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>新增地址</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsManageMode((v) => !v)}
-                  className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors border ${
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors border ${
                     isManageMode
                       ? 'bg-black text-white border-black'
                       : 'bg-white text-neutral-700 border-neutral-200 hover:bg-neutral-50'
                   }`}
                 >
-                  <Settings className="w-3 h-3" />
+                  <Settings className="w-3.5 h-3.5" />
                   <span>{isManageMode ? '完成' : '管理'}</span>
                 </button>
               </>
             )}
             <button
               onClick={onClose}
-              className="w-7 h-7 rounded-full bg-white border border-[#e2e3e1] hover:bg-neutral-100 text-black flex items-center justify-center transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+              title="关闭平铺页"
             >
-              <X className="w-3.5 h-3.5" />
+              <span>退出</span>
             </button>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   UtensilsCrossed,
   ShoppingBag,
@@ -36,7 +36,6 @@ import {
   CreditCard,
   Bike,
   GitBranch,
-  Palette,
   Bluetooth,
   Crown,
   Smartphone,
@@ -47,8 +46,15 @@ import {
   Activity,
   ShieldCheck,
   ArrowRightLeft,
-  Zap
+  Zap,
+  QrCode,
+  Settings2,
+  Trash2,
+  LogOut,
+  LayoutDashboard
 } from 'lucide-react';
+import { MerchantPrecisionConsole } from './MerchantPrecisionConsole';
+import { MerchantOperationsDeck } from './MerchantOperationsDeck';
 import { MerchantSession, maskPhoneNumber } from '../../utils/staffAndRiderAuthEngine';
 import { canAccessMerchantTab, getActiveManagerOverride, ROLE_LEVEL_META } from '../../utils/rbacEngine';
 import { PermissionDeniedGuard } from '../auth/PermissionDeniedGuard';
@@ -57,6 +63,7 @@ import { DishItem, Order, TruckInfo, TableItem, KdsTicket, HeldOrder, TableDishI
 import { INITIAL_TABLES, INITIAL_KDS_TICKETS, INITIAL_HELD_ORDERS } from '../../data/posMockData';
 import { resolveOrderChannelType, normalizeOrderKey, isOrderMatch } from '../../utils/orderNormalizer';
 import { merchantBackupEngine } from '../../utils/merchantBackupEngine';
+import { DynamicTableMorphWidget } from '../table/DynamicTableMorphWidget';
 import { syncSingleModuleToCloud, pullSingleModuleFromCloud } from '../../utils/cloudbase';
 import { CloudbaseStatusModal } from '../CloudbaseStatusModal';
 import { OrderHistoryMessagesModal } from '../chat/OrderHistoryMessagesModal';
@@ -65,10 +72,12 @@ import { globalScannerEngine } from '../../utils/barcodeScannerEngine';
 import { rematchAllDishImages } from '../../utils/dishImageMatcher';
 import { getMerchantCommissionConfigs, MerchantCommissionConfig } from '../../utils/commissionEngine';
 import { globalVersionEngine } from '../../utils/versionPointerEngine';
-import { voiceAlerts } from '../../utils/voiceAlertEngine';
+import { voiceAlerts, hydrateVoiceFromCloudSubset } from '../../utils/voiceAlertEngine';
 import { onTableCleanedRelease } from '../../utils/tableStorage';
 
 import { MerchantTables } from './MerchantTables';
+import { MerchantTableSessionMonitor } from './table/MerchantTableSessionMonitor';
+import { MerchantQrManageModal } from './table/MerchantQrManageModal';
 import { MerchantOrders } from './MerchantOrders';
 import { MerchantKDS } from './MerchantKDS';
 import { MerchantHeldOrders } from './MerchantHeldOrders';
@@ -81,7 +90,7 @@ import { MerchantCraftSOP } from './MerchantCraftSOP';
 import { MerchantShiftRefund } from './MerchantShiftRefund';
 import { MerchantAuditLog } from './MerchantAuditLog';
 import { MerchantVersionTrackingView } from './MerchantVersionTrackingView';
-import { setAvailabilityOverride } from '../../utils/dishAvailability';
+import { setAvailabilityOverride, setChannelOverride } from '../../utils/dishAvailability';
 import { setDishFieldOverride } from '../../utils/dishFieldOverrides';
 import { MerchantCloudSyncView } from './MerchantCloudSyncView';
 import { CraftStandardView } from './CraftStandardView';
@@ -94,7 +103,6 @@ import { MerchantVoiceControls } from './MerchantVoiceControls';
 import { MerchantPrintingHub } from './MerchantPrintingHub';
 import { MerchantCallingHub } from './MerchantCallingHub';
 import { MerchantContingencyHub } from './MerchantContingencyHub';
-import { FranchiseTenantBar } from './FranchiseTenantBar';
 import { FranchiseHQModal } from './FranchiseHQModal';
 import {
   globalFranchiseEngine,
@@ -108,30 +116,39 @@ import { MerchantStaffHub } from './MerchantStaffHub';
 import { MerchantTruckExpandSettings } from './MerchantTruckExpandSettings';
 import { MerchantCategoryBrandSettings } from './MerchantCategoryBrandSettings';
 import { MerchantPaymentChannels } from './MerchantPaymentChannels';
-import { MerchantMenuDesignSystem } from './MerchantMenuDesignSystem';
 import { MerchantMasterControlCenter } from './MerchantMasterControlCenter';
 import { MerchantDataFallbackCenter } from './MerchantDataFallbackCenter';
 import { AutomatedSentinelDashboard } from '../common/AutomatedSentinelDashboard';
 import { automatedSentinel, SentinelSystemState } from '../../utils/automatedSentinelEngine';
 import { reactiveSyncBus } from '../../utils/reactiveSyncBus';
 import { MerchantSidebar, TabItemConfig } from './MerchantSidebar';
+import { WorkspaceDisplaySettingsPanel } from './WorkspaceDisplaySettingsPanel';
+import { RecycleBinModal } from './RecycleBinModal';
+import { getRecycleBinCount, subscribeRecycleBin } from '../../utils/recycleBinEngine';
+import { WorkspacePrefs, DEFAULT_WORKSPACE_PREFS, loadLocalPrefs, saveLocalPrefs, fetchPrefsFromCloud, mergeLocalPrefs, contentWidthClass, getWorkspacePrefsSnapshot, subscribeWorkspacePrefs } from '../../utils/workspacePreferences';
 import { OmniAggregatedChatHub } from '../chat/OmniAggregatedChatHub';
 import { BluetoothSpeakerModal } from './BluetoothSpeakerModal';
 import { globalBluetoothAudio } from '../../utils/bluetoothAudioEngine';
 import { BusinessStatusModal } from './BusinessStatusModal';
+import { TruckBusinessScopeDropdown } from './TruckBusinessScopeDropdown';
 import { MerchantHardwareHubModal } from './MerchantHardwareHubModal';
 import { GlobalQuickCallModal } from './GlobalQuickCallModal';
 import {
   BusinessStatusConfig,
   getBusinessStatus,
+  getTruckBusinessStatus,
   toggleBusinessOperating
 } from '../../utils/businessStatusEngine';
+import { getUnifiedTruckName } from '../../utils/truckNaming';
 
 interface MerchantSystemViewProps {
   dishes: DishItem[];
   orders: Order[];
   truck: TruckInfo;
   initialTab?: MerchantTab;
+  activeTabControlled?: MerchantTab;
+  onTabChange?: (tab: MerchantTab) => void;
+  isRoleActive?: boolean;
   onUpdateDishes?: React.Dispatch<React.SetStateAction<DishItem[]>>;
   onAdvanceOrderStatus: (orderId: string, targetStatus?: Order['status'], extraDetails?: Partial<Order>) => void;
   onSyncOrderItems?: (orderNo: string, items: TableDishItem[]) => void;
@@ -147,6 +164,8 @@ interface MerchantSystemViewProps {
 }
 
 export type MerchantTab =
+  | 'operations_deck'
+  | 'precision_console'
   | 'master_control'
   | 'data_fallback'
   | 'tables'
@@ -158,7 +177,6 @@ export type MerchantTab =
   | 'held'
   | 'scanner'
   | 'payment_channels'
-  | 'menu_design'
   | 'marketing'
   | 'category_brands'
   | 'truck_expand'
@@ -205,6 +223,9 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
   orders,
   truck,
   initialTab,
+  activeTabControlled,
+  onTabChange,
+  isRoleActive = true,
   onUpdateDishes,
   onAdvanceOrderStatus,
   onSyncOrderItems,
@@ -218,13 +239,82 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
   onOpenPhoneAuth,
   onLogoutMerchant
 }) => {
-  const [activeTab, setActiveTab] = useState<MerchantTab>(initialTab || 'tables');
+  const mainScrollRef = useRef<HTMLElement | null>(null);
+  const tabsContainerRef = useRef<HTMLDivElement | null>(null);
+  const tabScrollPositionsRef = useRef<Record<string, number>>({});
 
+  const [activeTab, setActiveTabInternal] = useState<MerchantTab>(() => {
+    const cached = safeGetStorage<MerchantTab | null>('obsidian_merchant_active_tab', null);
+    if (activeTabControlled) return activeTabControlled;
+    if (cached) return cached;
+    return initialTab || 'tables';
+  });
+
+  // 当外部受控 activeTab 变化时同步
   useEffect(() => {
-    if (initialTab) {
-      setActiveTab(initialTab);
+    if (activeTabControlled && activeTabControlled !== activeTab) {
+      setActiveTabInternal(activeTabControlled);
     }
-  }, [initialTab]);
+  }, [activeTabControlled]);
+
+  const scrollActiveTabIntoView = useCallback((tabId: string, smooth: boolean = true) => {
+    requestAnimationFrame(() => {
+      const container = tabsContainerRef.current || document.getElementById('merchant-quick-tabs-container');
+      const targetBtn = document.getElementById(`merchant-tab-btn-${tabId}`);
+      if (container && targetBtn) {
+        const containerRect = container.getBoundingClientRect();
+        const btnRect = targetBtn.getBoundingClientRect();
+        const offsetLeft = btnRect.left - containerRect.left;
+        const targetScrollLeft = container.scrollLeft + offsetLeft - (containerRect.width / 2) + (btnRect.width / 2);
+        container.scrollTo({
+          left: Math.max(0, targetScrollLeft),
+          behavior: smooth ? 'smooth' : 'auto'
+        });
+      }
+    });
+  }, []);
+
+  const setActiveTab = useCallback((nextTab: MerchantTab) => {
+    // 1. 记录切换前旧 Tab 的 scrollTop 滚动高度
+    if (mainScrollRef.current) {
+      tabScrollPositionsRef.current[activeTab] = mainScrollRef.current.scrollTop;
+    }
+
+    setActiveTabInternal(nextTab);
+    safeSetStorage('obsidian_merchant_active_tab', nextTab);
+    // v3 偏好云端绑定：tab 记忆双写（换设备/本地被清自动恢复）
+    try { mergeLocalPrefs({ activeTab: nextTab }); } catch { /* 云同步失败不影响本地 */ }
+    onTabChange?.(nextTab);
+
+    // 2. 自动平滑对齐并将新激活的视觉标签滚动至横向导航栏居中视线内
+    scrollActiveTabIntoView(nextTab, true);
+
+    // 3. 恢复新 Tab 之前的 scrollTop 滚动位置
+    requestAnimationFrame(() => {
+      if (mainScrollRef.current) {
+        const savedTop = tabScrollPositionsRef.current[nextTab] || 0;
+        mainScrollRef.current.scrollTop = savedTop;
+      }
+    });
+  }, [activeTab, onTabChange, scrollActiveTabIntoView]);
+
+  // 当角色切换切回商家端（isRoleActive 变为 true）时恢复滚动与视觉焦点
+  useEffect(() => {
+    if (isRoleActive) {
+      requestAnimationFrame(() => {
+        if (mainScrollRef.current) {
+          const savedTop = tabScrollPositionsRef.current[activeTab] || 0;
+          mainScrollRef.current.scrollTop = savedTop;
+        }
+        scrollActiveTabIntoView(activeTab, false);
+      });
+    }
+  }, [isRoleActive, activeTab, scrollActiveTabIntoView]);
+
+  // 挂载初始定位
+  useEffect(() => {
+    scrollActiveTabIntoView(activeTab, false);
+  }, []);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() =>
     safeGetStorage<boolean>('obsidian_merchant_sidebar_collapsed', false)
   );
@@ -239,6 +329,7 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
   const [forceRbacTick, setForceRbacTick] = useState<number>(0);
   const [btConfig, setBtConfig] = useState(() => globalBluetoothAudio.getConfig());
   const [activeBtDevice, setActiveBtDevice] = useState(() => globalBluetoothAudio.getActiveDevice());
+  const [isQrManageOpen, setIsQrManageOpen] = useState<boolean>(false);
 
   // 方案 C：全局快捷键 Alt+C 随时唤出即时叫号广播小窗
   useEffect(() => {
@@ -365,22 +456,35 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
   const [localOrders, setLocalOrders] = useState<Order[]>(orders);
   const [isOmniChatHubOpen, setIsOmniChatHubOpen] = useState(false);
 
-  // Business Status (Open / Closed) Master Switch State
-  const [businessStatus, setBusinessStatusState] = useState<BusinessStatusConfig>(() => getBusinessStatus());
+  // Business Status (Open / Closed) Master Switch State for selected truck
+  const [businessStatus, setBusinessStatusState] = useState<BusinessStatusConfig>(() =>
+    getTruckBusinessStatus(selectedTruckId)
+  );
   const [isBusinessStatusModalOpen, setIsBusinessStatusModalOpen] = useState<boolean>(false);
+
+  // Sync state whenever selectedTruckId changes
+  useEffect(() => {
+    setBusinessStatusState(getTruckBusinessStatus(selectedTruckId));
+  }, [selectedTruckId]);
 
   useEffect(() => {
     const handleStatusChanged = (e: Event) => {
-      const custom = e as CustomEvent<BusinessStatusConfig>;
-      if (custom.detail) {
-        setBusinessStatusState(custom.detail);
+      const custom = e as CustomEvent<{
+        truckId?: string;
+        status?: BusinessStatusConfig;
+        allStatuses?: Record<string, BusinessStatusConfig>;
+      }>;
+      if (custom.detail?.status && custom.detail.truckId === selectedTruckId) {
+        setBusinessStatusState(custom.detail.status);
+      } else if (custom.detail?.allStatuses && custom.detail.allStatuses[selectedTruckId]) {
+        setBusinessStatusState(custom.detail.allStatuses[selectedTruckId]);
       } else {
-        setBusinessStatusState(getBusinessStatus());
+        setBusinessStatusState(getTruckBusinessStatus(selectedTruckId));
       }
     };
     window.addEventListener('obsidian_business_status_changed', handleStatusChanged);
     return () => window.removeEventListener('obsidian_business_status_changed', handleStatusChanged);
-  }, []);
+  }, [selectedTruckId]);
   // 桌台首帧标记:挂载初期先以云端为准，避免本地初始快照直接覆盖云端更新
   const skipFirstTableSyncRef = useRef(true);
 
@@ -611,63 +715,64 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
   };
 
   const allTabsConfig: TabItemConfig[] = [
-    // 实时经营 — 营业高峰期的核心作业链路
-    { id: 'master_control', label: '商家端总控 (用户监听/流失漏斗/备份兜底)', category: '实时经营', icon: Activity },
-    { id: 'data_fallback', label: '实时经营多账号数据兜底与版本恢复', category: '实时经营', icon: ShieldCheck, badgeAlert: true },
-    { id: 'tables', label: '堂食台位矩阵', category: '实时经营', icon: UtensilsCrossed, badge: tables.filter(t => t.status === 'dining').length },
+    // 实时经营 — 营业核心高频作业链路
+    { id: 'operations_deck', label: '全渠道运营总控 (Deck)', category: '实时经营', icon: LayoutDashboard },
+    { id: 'precision_console', label: '全渠道供售打样主控', category: '实时经营', icon: Radio },
     { id: 'orders', label: '全渠道订单中心', category: '实时经营', icon: ShoppingBag, badge: scopedOrders.filter(o => o.status === 'cooking' || o.status === 'pending').length },
     { id: 'kds', label: 'KDS 后厨出餐看板', category: '实时经营', icon: ChefHat, badge: tickets.length },
+    { id: 'tables', label: '堂食台位矩阵', category: '实时经营', icon: UtensilsCrossed, badge: tables.filter(t => t.status === 'dining').length },
     { id: 'calling', label: '前台叫号取餐/等位', category: '实时经营', icon: Megaphone },
-    { id: 'printing', label: '多档口拆单打印/小票', category: '实时经营', icon: Printer },
-    { id: 'held', label: '未结账与挂账风控', category: '实时经营', icon: Clock, badge: heldOrders.length, badgeAlert: true },
-    { id: 'contingency', label: '全链路突发情况兜底与审核中枢', category: '实时经营', icon: ShieldAlert, badge: scopedOrders.filter(o => (o.rejectionCount && o.rejectionCount > 0) || o.refundStatus === 'pending' || o.status === 'refund_pending').length, badgeAlert: true },
-
-    // 支付财务与报表
-    { id: 'payment_channels', label: '支付渠道与收款对接 (微信/支付宝/云闪付/数币)', category: '支付财务与报表', icon: CreditCard },
-    { id: 'shifts', label: '收银交班/退款/预定', category: '支付财务与报表', icon: RotateCcw },
-    { id: 'audit', label: '操作审计与离线队列', category: '支付财务与报表', icon: Shield },
-    { id: 'analytics', label: '营收与客流大屏 (指定日期/榜单/修改删除)', category: '支付财务与报表', icon: TrendingUp },
+    { id: 'printing', label: '档口小票拆单打印', category: '实时经营', icon: Printer },
+    { id: 'master_control', label: '经营总控与实时漏斗', category: '实时经营', icon: Activity },
+    { id: 'held', label: '挂账风控与未结账', category: '实时经营', icon: Clock, badge: heldOrders.length, badgeAlert: true },
+    { id: 'contingency', label: '异常退款与兜底审核', category: '实时经营', icon: ShieldAlert, badge: scopedOrders.filter(o => (o.rejectionCount && o.rejectionCount > 0) || o.refundStatus === 'pending' || o.status === 'refund_pending').length, badgeAlert: true },
+    { id: 'data_fallback', label: '版本快照与数据容灾', category: '实时经营', icon: ShieldCheck, badgeAlert: true },
 
     // 菜品供应链 — 菜品、工艺、原料、库存与损耗
-    { id: 'menu', label: '菜品多渠道与沽清', category: '菜品供应链', icon: Tag },
-    { id: 'menu_design', label: '菜单界面与活动轮播设计系统', category: '菜品供应链', icon: Palette, badge: 1 },
+    { id: 'menu', label: '菜品管理与渠道沽清', category: '菜品供应链', icon: Tag },
+    { id: 'materials', label: '原物料与安全库存', category: '菜品供应链', icon: Package },
     { id: 'craft_standards', label: '制作工艺与配方标准', category: '菜品供应链', icon: BookOpen },
     { id: 'processing_loss', label: '初加工出肉率核算', category: '菜品供应链', icon: Scale },
-    { id: 'materials', label: '原物料与安全库存', category: '菜品供应链', icon: Package },
-    { id: 'sku_params', label: '数字参数与标准管理', category: '菜品供应链', icon: Layers },
+    { id: 'sku_params', label: '数字参数与标准规范', category: '菜品供应链', icon: Layers },
     { id: 'inventory_close', label: '每日打烊闭环盘点', category: '菜品供应链', icon: Shield },
     { id: 'loss', label: '全链路损耗监控', category: '菜品供应链', icon: TrendingDown },
 
+    // 支付财务与报表
+    { id: 'analytics', label: '营收与客流分析大屏', category: '支付财务与报表', icon: TrendingUp },
+    { id: 'payment_channels', label: '支付收款与渠道配置', category: '支付财务与报表', icon: CreditCard },
+    { id: 'shifts', label: '收银交班与对账清算', category: '支付财务与报表', icon: RotateCcw },
+    { id: 'audit', label: '操作审计与离线队列', category: '支付财务与报表', icon: Shield },
+
     // 营销会员
-    { id: 'marketing', label: '优惠券发布与营销风控中枢', category: '营销会员', icon: SlidersHorizontal },
-    { id: 'category_brands', label: '分类品牌弹窗与类目故事管理', category: '营销会员', icon: Sparkles },
-    { id: 'members', label: '会员储值卡与积分资产', category: '营销会员', icon: Users },
-    { id: 'user_data_mgmt', label: '用户数据中心 (统一档案)', category: '营销会员', icon: Fingerprint, badge: getUserDataRecords().length },
+    { id: 'marketing', label: '优惠券发布与营销活动', category: '营销会员', icon: SlidersHorizontal },
+    { id: 'members', label: '会员储值与积分资产', category: '营销会员', icon: Users },
+    { id: 'user_data_mgmt', label: '全域用户档案中心', category: '营销会员', icon: Fingerprint, badge: getUserDataRecords().length },
+    { id: 'category_brands', label: '分类品牌与类目故事', category: '营销会员', icon: Sparkles },
 
     // 门店与位置
-    { id: 'truck_expand', label: '餐车展开与底栏气泡控制', category: '门店与位置', icon: SlidersHorizontal },
     { id: 'gps', label: '餐车停靠与 GPS 广播', category: '门店与位置', icon: Radio },
+    { id: 'truck_expand', label: '餐车展开与底栏气泡', category: '门店与位置', icon: SlidersHorizontal },
 
     // 系统团队与硬件
+    { id: 'staff', label: '员工花名册与岗位权限', category: '系统团队与硬件', icon: UserCheck },
+    { id: 'scanner', label: '智能扫码枪硬件控制台', category: '系统团队与硬件', icon: Barcode },
+    { id: 'cloud_sync', label: '腾讯云数据同步中枢', category: '系统团队与硬件', icon: Cloud },
+    { id: 'version_tracking', label: '数据修改与版本追踪', category: '系统团队与硬件', icon: GitBranch },
     {
       id: 'sentinel',
-      label: '五维自动化安全与自闭环中枢 (Sensing-Safety)',
+      label: '五维自动化安全防护 (Sensing)',
       category: '系统团队与硬件',
       icon: Zap,
       badge: sentinelState.activeDecisions.length,
       badgeAlert: sentinelState.threatLevel !== 'SECURE'
-    },
-    { id: 'staff', label: '员工花名册与岗位权限', category: '系统团队与硬件', icon: UserCheck },
-    { id: 'cloud_sync', label: '腾讯云服务数据同步中枢 (CloudBase)', category: '系统团队与硬件', icon: Cloud },
-    { id: 'version_tracking', label: '数据修改指针与版本追踪修复', category: '系统团队与硬件', icon: GitBranch },
-    { id: 'scanner', label: '智能扫码枪硬件控制台', category: '系统团队与硬件', icon: Barcode }
+    }
   ];
 
   const currentTabConfig = allTabsConfig.find(t => t.id === activeTab) || allTabsConfig[0];
   const CurrentIcon = currentTabConfig.icon;
 
   // Categories for grouped menu (ordered by merchant daily workflow)
-  const categories = ['实时经营', '支付财务与报表', '菜品供应链', '营销会员', '门店与位置', '系统团队与硬件'];
+  const categories = ['实时经营', '菜品供应链', '支付财务与报表', '营销会员', '门店与位置', '系统团队与硬件'];
 
   // --- Handlers for Tables Matrix ---
   const handleOpenTable = (tableId: string, guests: number, server: string) => {
@@ -989,7 +1094,13 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
           afterData: { id: dishId, available: !oldDish.available },
           customSummary: `菜品【${oldDish.name}】状态切换为：${!oldDish.available ? '恢复上架供应' : '下架/沽清'}`
         });
-        setAvailabilityOverride(dishId, !oldDish.available);
+        const nextAvail = !oldDish.available;
+        setAvailabilityOverride(dishId, nextAvail);
+        setChannelOverride(dishId, {
+          delivery: nextAvail,
+          dineIn: nextAvail,
+          pickup: nextAvail
+        });
       }
       onUpdateDishes((prev) =>
         prev.map((d) => (d.id === dishId ? { ...d, available: !d.available } : d))
@@ -1028,7 +1139,7 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
           beforeData: oldDish,
           afterData: updatedDish
         });
-        if (typeof updatedDish.available === 'boolean' && updatedDish.available !== oldDish.available) {
+        if (typeof updatedDish.available === 'boolean') {
           setAvailabilityOverride(updatedDish.id, updatedDish.available);
         }
         // 种下「字段级」本地覆盖：名称/价格/描述/图片/分类/规格/排序等商家改动，
@@ -1135,20 +1246,30 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
   };
 
   // Desktop workspace full-width toggle
-  const [isFullWidthWorkspace, setIsFullWidthWorkspace] = useState<boolean>(() => {
+  // v3 迁移：废弃 obsidian_merchant_fullwidth 双轨（曾游离于 wsPrefs 之外、不上云、
+  // 且覆盖 contentWidth 三档），统一为 wsPrefs.contentWidth: 'wide' 单一真源。
+  // 旧键做一次性读取迁移后移除。
+  useEffect(() => {
     try {
-      return localStorage.getItem('obsidian_merchant_fullwidth') === 'true';
-    } catch {
-      return false;
-    }
-  });
+      if (localStorage.getItem('obsidian_merchant_fullwidth') === 'true') {
+        const cur = getWorkspacePrefsSnapshot();
+        if (cur.contentWidth !== 'wide') {
+          updateWsPrefs({ contentWidth: 'wide' });
+        }
+        localStorage.removeItem('obsidian_merchant_fullwidth');
+      }
+    } catch { /* 迁移失败静默降级 */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const toggleFullWidthWorkspace = () => {
-    setIsFullWidthWorkspace((prev) => {
-      const next = !prev;
-      safeSetStorage('obsidian_merchant_fullwidth', next);
-      return next;
+    const isWideNow = wsPrefs.contentWidth === 'wide' || (wsPrefs.contentWidthPercent ?? 88) >= 100;
+    const targetPercent = isWideNow ? 88 : 100;
+    updateWsPrefs({
+      contentWidth: isWideNow ? 'standard' : 'wide',
+      contentWidthPercent: targetPercent
     });
+    showToast(isWideNow ? '已切换为屏幕占比 88% 居中工作台' : '已切换为全宽铺满工作台 (100% 视口)');
   };
 
   // Real-time clock for desktop status bar
@@ -1165,17 +1286,90 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
 
   const isSidebarActive = isMobileSidebarOpen;
 
+  // ============ 方向三: 工作台显示偏好（本地 + 云端双向同步）============
+  const [wsPrefs, setWsPrefs] = useState<WorkspacePrefs>(() => loadLocalPrefs() ?? DEFAULT_WORKSPACE_PREFS);
+  const [wsSyncState, setWsSyncState] = useState<'idle' | 'saving' | 'synced' | 'local_only'>('idle');
+  const [wsPanelOpen, setWsPanelOpen] = useState(false);
+
+  // 响应式监听工作台偏好变更（包含按钮显示模式、内容宽度等全局广播）
+  useEffect(() => {
+    const unsub = subscribeWorkspacePrefs(() => {
+      setWsPrefs(getWorkspacePrefsSnapshot());
+    });
+    return unsub;
+  }, []);
+  const [isRecycleBinOpen, setIsRecycleBinOpen] = useState(false);
+  const [recycleBinCount, setRecycleBinCount] = useState<number>(() => getRecycleBinCount());
+  useEffect(() => {
+    const unsub = subscribeRecycleBin(() => setRecycleBinCount(getRecycleBinCount()));
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchPrefsFromCloud().then((cloud) => {
+      if (cancelled || !cloud) return;
+      setWsPrefs((prev) => {
+        const cloudNewer = !prev.updatedAt || (cloud.updatedAt ?? '') >= (prev.updatedAt ?? '');
+        if (cloudNewer) {
+          saveLocalPrefs(cloud);
+          return cloud;
+        }
+        return prev;
+      });
+      // v3 偏好自愈：本地键缺失而云端有值时回写本地（本地文件被清场景）
+      try {
+        if (typeof cloud.activeTab === 'string' && !safeGetStorage<MerchantTab | null>('obsidian_merchant_active_tab', null)) {
+          safeSetStorage('obsidian_merchant_active_tab', cloud.activeTab as MerchantTab);
+          setActiveTabInternal(cloud.activeTab as MerchantTab);
+        }
+        if (typeof cloud.sidebarCollapsed === 'boolean' && localStorage.getItem('obsidian_merchant_sidebar_collapsed') === null) {
+          safeSetStorage('obsidian_merchant_sidebar_collapsed', cloud.sidebarCollapsed);
+          setIsSidebarCollapsed(cloud.sidebarCollapsed);
+        }
+        // v3 批次3：语音播报配置云端自愈（本地键缺失时静默水合，selectedVoiceName 设备级除外）
+        if (cloud.voice) {
+          hydrateVoiceFromCloudSubset(cloud.voice as Partial<import('../../utils/voiceAlertEngine').VoiceConfig>);
+        }
+      } catch { /* 自愈失败静默降级 */ }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const updateWsPrefs = (patch: Partial<WorkspacePrefs>) => {
+    // 深合并（基于最新本地快照，避免嵌套字段互相覆盖）→ 本地即时 + 云端异步跟随
+    const { merged, cloudSync } = mergeLocalPrefs(patch);
+    setWsPrefs(merged);
+    setWsSyncState('saving');
+    cloudSync
+      .then((r) => setWsSyncState(r ? 'synced' : 'local_only'))
+      .catch(() => setWsSyncState('local_only'));
+  };
+
+  // 顶部员工账号菜单下拉控制
+  const [isStaffMenuOpen, setIsStaffMenuOpen] = useState(false);
+
   return (
     <div className="h-screen w-full bg-[#f7f7f5] text-[#37352f] flex flex-col font-sans overflow-hidden select-none selection:bg-[#37352f] selection:text-white">
       {/* 1. Global Navigation Top Bar */}
-      <header className="h-12 sm:h-13 shrink-0 bg-[#ffffff] border-b border-[#e6e6e4] px-2 sm:px-4 py-1.5 flex items-center justify-between shadow-2xs gap-1.5 sm:gap-3 z-30">
+      <header
+        style={{
+          paddingLeft: (wsPrefs.windowSafeMargin ?? 0) > 0 ? `${Math.max(8, wsPrefs.windowSafeMargin)}px` : undefined,
+          paddingRight: (wsPrefs.windowSafeMargin ?? 0) > 0 ? `${Math.max(8, wsPrefs.windowSafeMargin)}px` : undefined
+        }}
+        className={`h-12 sm:h-13 shrink-0 bg-[#ffffff] border-b border-[#e6e6e4] py-1.5 flex items-center justify-between shadow-2xs gap-1.5 sm:gap-3 z-30 transition-all duration-150 ${
+          (wsPrefs.windowSafeMargin ?? 0) > 0 ? '' : 'px-2 sm:px-3'
+        }`}
+      >
         {/* Left: Mobile Sidebar Toggle + Back + Store Brand + Truck Selector */}
         <div className="flex items-center gap-1 sm:gap-2.5 min-w-0 shrink">
           {/* Mobile Sidebar Toggle Button */}
           <button
             type="button"
             onClick={() => setIsMobileSidebarOpen(true)}
-            className="md:hidden p-1.5 bg-[#f1f1ef] hover:bg-[#e8e8e6] text-[#37352f] rounded-[3px] transition-all cursor-pointer border border-[#d3d1cb] flex items-center justify-center shrink-0"
+            className="md:hidden p-1.5 bg-white hover:bg-[#f7f7f5] text-[#37352f] rounded-[2px] transition-all cursor-pointer border border-[#e6e6e4] flex items-center justify-center shrink-0 shadow-2xs"
             title="展开28个功能模块侧边栏"
             aria-label="展开功能模块侧边栏"
           >
@@ -1186,12 +1380,12 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
           <button
             type="button"
             onClick={() => onSwitchRole('customer')}
-            className="p-1.5 bg-[#f1f1ef] hover:bg-[#e8e8e6] rounded-[3px] text-[#787774] hover:text-[#37352f] transition-all cursor-pointer flex items-center gap-1 font-semibold text-xs border border-[#d3d1cb] shrink-0"
+            className="px-2.5 py-1 bg-white hover:bg-[#f7f7f5] text-[#1a1918] border border-[#1a1918] rounded-full transition-all cursor-pointer flex items-center gap-1 font-normal text-xs shadow-2xs shrink-0"
             title="返回前台顾客点餐"
             aria-label="返回前台顾客点餐"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden md:inline">前台</span>
+            <ArrowLeft className="w-3.5 h-3.5 text-[#1a1918]" />
+            <span className="font-normal">切回前台</span>
           </button>
 
           {/* Vertical Separator */}
@@ -1199,14 +1393,14 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
 
           {/* Store Brand Badge */}
           <div className="hidden sm:flex items-center gap-2 shrink-0">
-            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-[3px] bg-[#37352f] text-white flex items-center justify-center font-bold text-xs shrink-0">
-              <Store className="w-3.5 h-3.5" />
+            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white border border-[#1a1918] text-[#1a1918] flex items-center justify-center font-normal text-xs shrink-0 shadow-2xs">
+              <Store className="w-3.5 h-3.5 text-[#1a1918]" />
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="font-bold text-xs sm:text-sm text-[#37352f] whitespace-nowrap">
+              <span className="font-normal text-xs sm:text-sm text-[#201f1d] whitespace-nowrap tracking-tight">
                 商家总控
               </span>
-              <span className="text-[10px] font-mono bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc] px-1 py-0.2 rounded-[2px] shrink-0 hidden lg:inline-block">
+              <span className="text-[10px] font-mono bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc] px-1.5 py-0.2 rounded-full shrink-0 hidden lg:inline-block font-normal">
                 在线
               </span>
             </div>
@@ -1214,91 +1408,136 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
 
           <div className="h-4 w-[1px] bg-[#e6e6e4] shrink-0 hidden sm:block" />
 
-          {/* Truck Scope Selector */}
-          <div className="flex items-center gap-1 bg-[#f1f1ef] border border-[#d3d1cb] rounded-[4px] px-1.5 py-0.5 shrink-0 max-w-[125px] xs:max-w-[155px] sm:max-w-xs">
-            <Truck className="w-3.5 h-3.5 text-[#2b593f] shrink-0" />
-            <select
-              value={selectedTruckId}
-              onChange={(e) => handleSelectTruck(e.target.value)}
-              className="bg-transparent text-[11px] sm:text-xs font-bold text-[#37352f] outline-none cursor-pointer truncate max-w-[95px] xs:max-w-[120px] sm:max-w-[170px]"
-              title="切换餐车"
-            >
-              {merchantTruckConfigs.map((t) => (
-                <option key={t.truckId} value={t.truckId}>
-                  {t.truckId === 'truck-01' ? '01号·旗舰车' : t.truckId === 'truck-02' ? '02号·科技园' : t.truckId === 'truck-03' ? '03号·潮玩站' : t.truckName} ({t.status === 'active' ? '营业' : '审核'})
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Truck Scope & Business Switches Dropdown Popover (含租户沙箱与渠道调度一体化复合胶囊) */}
+          <TruckBusinessScopeDropdown
+            selectedTruckId={selectedTruckId}
+            onSelectTruck={handleSelectTruck}
+            merchantTruckConfigs={merchantTruckConfigs}
+            businessStatus={businessStatus}
+            onOpenDetailedModal={() => setIsBusinessStatusModalOpen(true)}
+            showToast={showToast}
+            onOpenHQModal={() => setIsFranchiseHQModalOpen(true)}
+          />
 
-          <div className="h-4 w-[1px] bg-[#e6e6e4] shrink-0 hidden lg:block" />
+          <div className="h-4 w-[1px] bg-[#e6e6e4] shrink-0 hidden md:block" />
 
-          {/* Verified Phone Staff Badge */}
-          <div className="hidden lg:flex items-center gap-1 bg-[#f1f1ef] border border-[#d3d1cb] rounded-[4px] px-1.5 py-0.5 shrink-0 text-xs">
-            <Smartphone className="w-3.5 h-3.5 text-[#2b593f] shrink-0" />
-            <span className="font-bold text-[#37352f] truncate max-w-[110px] sm:max-w-none">
-              {merchantSession?.name || '张伟 (店长)'}
-            </span>
-            <span className="font-mono text-[10.5px] text-[#787774] hidden sm:inline">
-              {merchantSession?.phone ? maskPhoneNumber(merchantSession.phone) : '138****8000'}
-            </span>
-            <span
-              className="text-[9px] bg-emerald-100 text-emerald-800 border border-emerald-300/60 p-0.5 rounded shrink-0 flex items-center"
-              title={`手机号已验证 · 硬件指纹 [${merchantSession?.hardwareHash || 'HW-INVARIANT'}] 绑定`}
-            >
-              <Fingerprint className="w-2.5 h-2.5 text-emerald-700" />
-            </span>
-            {/* Shift Handover Button */}
+          {/* Verified Phone Staff Dropdown Capsule (精简折叠卡片) */}
+          <div className="relative hidden md:block">
             <button
               type="button"
-              onClick={() => setIsShiftHandoverOpen(true)}
-              className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300/80 cursor-pointer transition-colors shadow-2xs ml-0.5"
-              title="切换在岗员工 / 快速交接班"
+              onClick={() => setIsStaffMenuOpen((prev) => !prev)}
+              className={`h-7 sm:h-8 px-2 rounded-[4px] border text-left flex items-center gap-1.5 transition-all cursor-pointer ${
+                isStaffMenuOpen
+                  ? 'bg-white border-[#1a1918] shadow-2xs'
+                  : 'bg-white border-[#e8e7e3] hover:border-[#1a1918] hover:bg-[#fafaf9]'
+              }`}
+              title="员工账号与当班状态"
             >
-              <ArrowRightLeft className="w-2.5 h-2.5 text-amber-700" />
-              <span>交接班</span>
+              <Smartphone className="w-3 h-3 text-[#1a1918] shrink-0" />
+              <span className="text-[11px] sm:text-[11.5px] font-bold text-[#1a1918] truncate max-w-[100px]">
+                {merchantSession?.name || '张伟 (店长)'}
+              </span>
+              <span className="font-mono text-[10px] text-[#787770]">
+                {merchantSession?.phone ? maskPhoneNumber(merchantSession.phone) : '138****8000'}
+              </span>
+              <span
+                className="text-[9px] bg-emerald-100 text-emerald-800 px-1 py-0.2 rounded font-mono font-bold"
+                title="已完成指纹与设备硬件绑定"
+              >
+                🪪
+              </span>
+              <ChevronDown
+                className={`w-3 h-3 text-[#787770] transition-transform ${
+                  isStaffMenuOpen ? 'rotate-180 text-[#1a1918]' : ''
+                }`}
+              />
             </button>
-            {onOpenPhoneAuth && (
-              <button
-                type="button"
-                onClick={onOpenPhoneAuth}
-                className="text-[10px] text-blue-700 hover:text-blue-900 underline ml-0.5 font-medium cursor-pointer"
-                title="更换登录手机号"
-              >
-                切换
-              </button>
-            )}
-            {onLogoutMerchant && (
-              <button
-                type="button"
-                onClick={onLogoutMerchant}
-                className="text-[10px] text-red-600 hover:text-red-800 underline ml-0.5 font-medium cursor-pointer hidden sm:inline"
-                title="退出商家端登录"
-              >
-                退出
-              </button>
+
+            {/* 员工下拉气泡菜单 */}
+            {isStaffMenuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setIsStaffMenuOpen(false)}
+                />
+                <div className="absolute right-0 top-full mt-1.5 w-56 bg-white border border-[#1a1918] rounded-[6px] shadow-xl p-2 z-50 text-xs space-y-1.5">
+                  <div className="px-2 py-1.5 bg-[#f9f9f7] rounded-[4px] border border-[#e8e7e3]">
+                    <div className="font-bold text-[#1a1918] text-[11.5px] flex items-center justify-between">
+                      <span>{merchantSession?.name || '张伟 (店长)'}</span>
+                      <span className="text-[9px] px-1.5 py-0.2 bg-emerald-100 text-emerald-800 rounded font-bold">在岗执勤</span>
+                    </div>
+                    <div className="font-mono text-[#787770] text-[10px] mt-0.5">
+                      手机号: {merchantSession?.phone ? maskPhoneNumber(merchantSession.phone) : '138****8000'}
+                    </div>
+                  </div>
+
+                  <div className="pt-1 space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsStaffMenuOpen(false);
+                        setIsShiftHandoverOpen(true);
+                      }}
+                      className="w-full px-2.5 py-1.5 rounded-[4px] text-left hover:bg-[#f4f4f2] text-[#1a1918] flex items-center justify-between cursor-pointer"
+                    >
+                      <span className="flex items-center gap-1.5 font-medium"><ArrowRightLeft className="w-3.5 h-3.5 text-amber-600" /> 当班交接班结算</span>
+                      <span className="text-[10px] text-[#787770]">对账</span>
+                    </button>
+
+                    {onOpenPhoneAuth && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsStaffMenuOpen(false);
+                          onOpenPhoneAuth();
+                        }}
+                        className="w-full px-2.5 py-1.5 rounded-[4px] text-left hover:bg-[#f4f4f2] text-[#1a1918] flex items-center justify-between cursor-pointer"
+                      >
+                        <span className="flex items-center gap-1.5 font-medium"><Smartphone className="w-3.5 h-3.5 text-blue-600" /> 切换员工账号</span>
+                        <span className="text-[10px] text-[#787770]">换号</span>
+                      </button>
+                    )}
+
+                    {onLogoutMerchant && (
+                      <>
+                        <div className="h-px bg-[#e8e7e3] my-1" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsStaffMenuOpen(false);
+                            onLogoutMerchant();
+                          }}
+                          className="w-full px-2.5 py-1.5 rounded-[4px] text-left hover:bg-rose-50 text-rose-600 flex items-center justify-between cursor-pointer font-bold"
+                        >
+                          <span className="flex items-center gap-1.5"><LogOut className="w-3.5 h-3.5" /> 退出商家端</span>
+                          <span className="text-[10px] text-rose-400">登出</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </>
             )}
           </div>
 
-          {/* 五维自动化安全中枢常驻胶囊 (Sentinel Status Capsule) */}
+          {/* 五维自动化安全中枢常驻胶囊 (精简版微标) */}
           <button
             type="button"
             id="global-sentinel-status-capsule"
             onClick={() => setActiveTab('sentinel')}
-            className={`hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] border text-xs font-semibold cursor-pointer transition-all ${
+            className={`hidden md:flex items-center gap-1 h-7 sm:h-8 px-2 rounded-[4px] border text-xs font-mono font-bold cursor-pointer transition-all ${
               sentinelState.threatLevel === 'SECURE'
-                ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
+                ? 'bg-white text-[#1a1918] border-[#e8e7e3] hover:border-[#1a1918] hover:bg-[#fafaf9]'
                 : sentinelState.threatLevel === 'CRITICAL'
-                ? 'bg-red-50 hover:bg-red-100 text-red-800 border-red-300 animate-pulse'
-                : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300'
+                ? 'bg-red-50 text-red-700 border-red-300 animate-pulse'
+                : 'bg-amber-50 text-amber-800 border-amber-300'
             }`}
-            title="点击进入五维自动化安全与自闭环中枢 (Sensing-Safety)"
+            title="五维自动化安全与自闭环中枢 (Sensing-Safety)"
           >
-            <Zap className={`w-3.5 h-3.5 ${sentinelState.threatLevel === 'SECURE' ? 'text-emerald-600' : 'text-amber-600'}`} />
-            <span className="font-mono">{sentinelState.overallHealthScore}分</span>
-            <span className="text-[10px] opacity-80">五维安全</span>
+            <Zap className={`w-3 h-3 ${sentinelState.threatLevel === 'SECURE' ? 'text-emerald-600' : 'text-amber-600'}`} />
+            <span>{sentinelState.overallHealthScore}</span>
             {sentinelState.activeDecisions.length > 0 && (
-              <span className="px-1 py-0.1 rounded text-[9px] bg-red-600 text-white font-bold">
+              <span className="px-1 py-0.1 rounded-[2px] text-[9px] bg-red-600 text-white font-medium">
                 {sentinelState.activeDecisions.length}
               </span>
             )}
@@ -1312,12 +1551,12 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
             type="button"
             id="global-header-quick-call-btn"
             onClick={() => setIsQuickCallModalOpen(true)}
-            className="px-2 sm:px-2.5 py-1 bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-950 font-black text-xs rounded-[3px] transition-all cursor-pointer border border-amber-500 flex items-center gap-1.5 shadow-2xs shrink-0"
+            className="group/btn p-1.5 sm:px-2 sm:py-1 bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-950 font-semibold text-xs rounded-[2px] transition-all cursor-pointer border border-amber-500 flex items-center justify-center shadow-2xs shrink-0"
             title="全域即时叫号广播小窗（自提催取/呼叫骑手/堂食传菜/全域喊客，快捷键: Alt+C）"
+            aria-label="喊号广播"
           >
             <Megaphone className="w-3.5 h-3.5 text-slate-950 shrink-0" />
-            <span className="hidden sm:inline font-bold">喊号广播</span>
-            <span className="sm:hidden font-bold">叫号</span>
+            <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 group-hover/btn:max-w-[80px] group-hover/btn:opacity-100 group-hover/btn:ml-1 transition-all duration-200 font-semibold">喊号广播</span>
           </button>
 
           {/* 特许加盟与总部爆品中枢 */}
@@ -1325,39 +1564,41 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
             type="button"
             id="franchise-hq-hub-btn"
             onClick={() => setIsFranchiseHQModalOpen(true)}
-            className="px-2 sm:px-2.5 py-1 bg-amber-50 hover:bg-amber-100 active:scale-95 text-amber-900 font-bold text-xs rounded-[3px] transition-all cursor-pointer border border-amber-300 flex items-center gap-1.5 shadow-2xs shrink-0"
+            className="group/btn p-1.5 sm:px-2 sm:py-1 bg-white hover:bg-slate-50 active:scale-95 text-black font-semibold text-xs rounded-[2px] transition-all cursor-pointer border border-[#e6e6e4] flex items-center justify-center shadow-2xs shrink-0"
             title="特许经营与加盟商多租户中枢 · 核心爆品全国强锁定"
+            aria-label="加盟/HQ爆品中枢"
           >
-            <Crown className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-            <span className="hidden md:inline font-bold">加盟/HQ爆品中枢</span>
-            <span className="md:hidden font-bold">加盟</span>
+            <Crown className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+            <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 group-hover/btn:max-w-[120px] group-hover/btn:opacity-100 group-hover/btn:ml-1 transition-all duration-200 font-semibold text-black">加盟/HQ爆品中枢</span>
           </button>
 
           {/* 营业状态总开关 */}
           <button
             type="button"
             onClick={() => setIsBusinessStatusModalOpen(true)}
-            className={`px-2 sm:px-2.5 py-1 rounded-[3px] font-bold text-xs transition-all cursor-pointer border flex items-center gap-1.5 shadow-2xs shrink-0 ${
+            className={`group/btn p-1.5 sm:px-2 sm:py-1 rounded-[2px] font-semibold text-xs transition-all cursor-pointer border flex items-center justify-center shadow-2xs shrink-0 ${
               businessStatus.isOpen
                 ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-300'
                 : 'bg-rose-50 hover:bg-rose-100 text-rose-900 border-rose-300 animate-pulse'
             }`}
-            title="流动餐车营业状态总控（一键打烊/恢复接单）"
+            title={`流动餐车营业状态总控（当前: ${businessStatus.isOpen ? '营业中' : '已打烊'}）`}
+            aria-label={businessStatus.isOpen ? '营业中' : '已打烊'}
           >
-            <span className={`w-2 h-2 rounded-full shrink-0 ${businessStatus.isOpen ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-            <span>{businessStatus.isOpen ? '营业中' : '已打烊'}</span>
+            <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${businessStatus.isOpen ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+            <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 group-hover/btn:max-w-[60px] group-hover/btn:opacity-100 group-hover/btn:ml-1 transition-all duration-200 font-semibold">{businessStatus.isOpen ? '营业中' : '已打烊'}</span>
           </button>
 
           {/* 协同中枢聚合胶囊 (Mobile & Tablet) */}
           <button
             type="button"
             onClick={() => setIsHardwareHubOpen(true)}
-            className="px-2 sm:px-2.5 py-1 bg-[#2b593f]/10 hover:bg-[#2b593f]/20 text-[#2b593f] rounded-[3px] font-bold text-xs transition-all cursor-pointer border border-[#2b593f]/30 flex items-center gap-1.5 shadow-2xs shrink-0 xl:hidden"
+            className="group/btn p-1.5 sm:px-2 sm:py-1 bg-white hover:bg-slate-50 text-black rounded-[2px] font-semibold text-xs transition-all cursor-pointer border border-[#e6e6e4] flex items-center justify-center shadow-2xs shrink-0 xl:hidden"
             title="打开硬件与协同中枢"
+            aria-label="硬件与协同中枢"
           >
-            <SlidersHorizontal className="w-3.5 h-3.5 text-[#2b593f] shrink-0" />
-            <span>协同</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            <SlidersHorizontal className="w-3.5 h-3.5 text-black shrink-0" />
+            <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 group-hover/btn:max-w-[48px] group-hover/btn:opacity-100 group-hover/btn:ml-1 transition-all duration-200 text-black">协同</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0 ml-0.5" />
           </button>
 
           {/* Desktop Expanded Buttons: Only visible on >= xl screens */}
@@ -1368,10 +1609,11 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
             <button
               type="button"
               onClick={() => setIsBluetoothModalOpen(true)}
-              className={`px-2 py-1 rounded-[3px] font-bold text-xs transition-all cursor-pointer border flex items-center gap-1 shadow-2xs shrink-0 ${
+              style={{ backgroundColor: '#ffffff' }}
+              className={`group/btn p-1.5 sm:px-2 sm:py-1 bg-white hover:bg-neutral-50 rounded-[2px] font-semibold text-xs transition-all cursor-pointer border flex items-center shadow-2xs shrink-0 ${
                 activeBtDevice && activeBtDevice.status === 'connected'
-                  ? 'bg-blue-50 hover:bg-blue-100 text-blue-900 border-blue-200'
-                  : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border-neutral-300'
+                  ? 'text-blue-900 border-blue-200'
+                  : 'text-neutral-700 border-[#e6e6e4]'
               }`}
               title={`流动餐车蓝牙音箱 · 当前: ${
                 activeBtDevice?.status === 'connected' ? activeBtDevice.name : '未连接'
@@ -1380,9 +1622,9 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
               <Bluetooth className={`w-3.5 h-3.5 shrink-0 ${
                 activeBtDevice && activeBtDevice.status === 'connected' ? 'text-blue-600' : 'text-neutral-500'
               }`} />
-              <span className="hidden md:inline">蓝牙</span>
+              <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 group-hover/btn:max-w-[48px] group-hover/btn:opacity-100 group-hover/btn:ml-1 transition-all duration-200">蓝牙</span>
               {activeBtDevice && activeBtDevice.status === 'connected' && (
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0 ml-0.5" />
               )}
             </button>
 
@@ -1392,7 +1634,7 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
                 setActiveTab('scanner');
                 showToast('已切换至智能扫码枪硬件控制台');
               }}
-              className={`px-2 py-1 rounded-[3px] font-bold text-xs transition-all cursor-pointer border flex items-center gap-1 shadow-2xs shrink-0 ${
+              className={`group/btn p-1.5 sm:px-2 sm:py-1 rounded-[2px] font-semibold text-xs transition-all cursor-pointer border flex items-center shadow-2xs shrink-0 ${
                 activeTab === 'scanner'
                   ? 'bg-[#2b593f] text-white border-[#2b593f]'
                   : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
@@ -1400,32 +1642,32 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
               title="智能扫码枪硬件控制台"
             >
               <Barcode className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'scanner' ? 'text-white' : 'text-emerald-700'}`} />
-              <span className="hidden md:inline">扫码</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 group-hover/btn:max-w-[48px] group-hover/btn:opacity-100 group-hover/btn:ml-1 transition-all duration-200">扫码</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0 ml-0.5" />
             </button>
 
             <button
               type="button"
               onClick={() => setIsMessageFormModalOpen(true)}
-              className="px-2 py-1 bg-white hover:bg-neutral-50 text-neutral-800 rounded-[3px] font-bold text-xs transition-all cursor-pointer border border-neutral-300 flex items-center gap-1 shadow-2xs group shrink-0"
+              className="group/btn p-1.5 sm:px-2 sm:py-1 bg-white hover:bg-neutral-50 text-neutral-800 rounded-[2px] font-semibold text-xs transition-all cursor-pointer border border-[#e6e6e4] flex items-center shadow-2xs shrink-0"
               title="订单协同消息与历史表单"
             >
               <div className="relative shrink-0">
-                <MessageSquareText className="w-3.5 h-3.5 text-emerald-700 shrink-0 group-hover:scale-110 transition-transform" />
+                <MessageSquareText className="w-3.5 h-3.5 text-emerald-700 shrink-0 group-hover/btn:scale-110 transition-transform" />
                 <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               </div>
-              <span className="hidden md:inline">消息</span>
+              <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 group-hover/btn:max-w-[48px] group-hover/btn:opacity-100 group-hover/btn:ml-1 transition-all duration-200">消息</span>
             </button>
 
             <button
               type="button"
               onClick={() => setIsCloudbaseModalOpen(true)}
-              className="px-2 py-1 bg-sky-50 hover:bg-sky-100 text-sky-800 rounded-[3px] font-bold text-xs transition-all cursor-pointer border border-sky-200 flex items-center gap-1 shadow-2xs shrink-0"
+              className="group/btn p-1.5 sm:px-2 sm:py-1 bg-sky-50 hover:bg-sky-100 text-sky-800 rounded-[2px] font-semibold text-xs transition-all cursor-pointer border border-sky-200 flex items-center shadow-2xs shrink-0"
               title="腾讯云数据同步"
             >
               <Cloud className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-              <span className="hidden md:inline">同步</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 group-hover/btn:max-w-[48px] group-hover/btn:opacity-100 group-hover/btn:ml-1 transition-all duration-200">同步</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0 ml-0.5" />
             </button>
           </div>
 
@@ -1433,25 +1675,17 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
           <button
             type="button"
             onClick={() => onSwitchRole('rider')}
-            className="hidden sm:flex px-2 py-1 bg-[#f1f1ef] hover:bg-[#e8e8e6] text-[#37352f] rounded-[3px] font-semibold text-xs transition-all cursor-pointer border border-[#d3d1cb] items-center gap-1 shrink-0"
+            style={{ backgroundColor: '#ffffff' }}
+            className="group/btn hidden sm:flex p-1.5 sm:px-2 sm:py-1 bg-white hover:bg-[#f8f8f7] text-[#37352f] rounded-[2px] font-semibold text-xs transition-all cursor-pointer border border-[#e6e6e4] items-center shrink-0 shadow-2xs"
             title="切换至骑手端配送界面"
           >
             <Bike className="w-3.5 h-3.5 text-[#2b593f] shrink-0" />
-            <span className="hidden md:inline">骑手端</span>
-            <span className="md:hidden font-bold">骑手</span>
+            <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 group-hover/btn:max-w-[60px] group-hover/btn:opacity-100 group-hover/btn:ml-1 transition-all duration-200 font-semibold">骑手端</span>
           </button>
         </div>
       </header>
 
-      {/* Franchise & Multi-Tenant Governance Ribbon */}
-      <FranchiseTenantBar
-        selectedTruckId={selectedTruckId}
-        onSelectTruck={handleSelectTruck}
-        onOpenHQModal={() => setIsFranchiseHQModalOpen(true)}
-        truckConfigs={allMerchantTruckConfigs}
-      />
-
-      {/* 2. Main Flex Container: Left Sidebar + Right Workspace */}
+      {/* 2. Main Flex Container: Left Sidebar + Right Workspace (视口纵向已彻底释放，不再受独立横幅挤压) */}
       <div className="flex-1 flex flex-row min-h-0 w-full overflow-hidden relative">
         {/* Left Sidebar Navigation */}
         <MerchantSidebar
@@ -1467,74 +1701,90 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
             setIsSidebarCollapsed((prev) => {
               const next = !prev;
               safeSetStorage('obsidian_merchant_sidebar_collapsed', next);
+              // v3 偏好云端绑定：折叠状态双写
+              try { mergeLocalPrefs({ sidebarCollapsed: next }); } catch { /* 云同步失败不影响本地 */ }
               return next;
             });
           }}
           isOpenMobile={isMobileSidebarOpen}
           onCloseMobile={() => setIsMobileSidebarOpen(false)}
-          truckName={activeTruckConfig?.truckName}
+          truckName={getUnifiedTruckName(selectedTruckId, 'standard')}
           merchantSession={merchantSession}
         />
 
         {/* Right Main Dashboard Workspace */}
         <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-[#f7f7f5]">
-          {/* Subheader: Active Module Breadcrumb & Quick Pill Bar */}
-          <div className="shrink-0 bg-[#ffffff]/95 backdrop-blur-xs border-b border-[#e6e6e4] px-2.5 sm:px-4 py-1.5 shadow-2xs flex items-center justify-between gap-2 z-20">
-            {/* Desktop Active Module Indicator Breadcrumb (Hidden on mobile to give full row to quick pill bar) */}
-            <div className="hidden md:flex items-center gap-2 min-w-0 text-xs shrink-0">
-              <span className="text-[#787774] font-medium">{currentTabConfig.category}</span>
-              <span className="text-[#d3d1cb]">/</span>
-              <div className="flex items-center gap-1.5 font-bold text-[#201f1d]">
-                <CurrentIcon className="w-3.5 h-3.5 text-emerald-700" />
+          {/* Subheader: Active Module Breadcrumb Capsules + Quick Pill Bar + Inline Right Controls */}
+          {/* 修复：回收站/显示设置此前为 absolute 悬浮层（z-30）压在面包屑行（z-20）之上，
+              现改为行内右端控制组，随文档流排布，不再遮挡任何面包屑元素 */}
+          <div
+            style={{
+              paddingLeft: (wsPrefs.windowSafeMargin ?? 0) > 0 ? `${Math.max(8, wsPrefs.windowSafeMargin)}px` : undefined,
+              paddingRight: (wsPrefs.windowSafeMargin ?? 0) > 0 ? `${Math.max(8, wsPrefs.windowSafeMargin)}px` : undefined
+            }}
+            className={`shrink-0 bg-[#ffffff]/95 backdrop-blur-xs border-b border-[#e6e6e4] py-1.5 shadow-2xs flex items-center gap-2 z-20 transition-all duration-150 ${
+              (wsPrefs.windowSafeMargin ?? 0) > 0 ? '' : 'pl-2.5 pr-2 sm:pl-3.5 sm:pr-3'
+            }`}
+          >
+            {/* Desktop Breadcrumb Capsules (Hidden on mobile to give full row to quick pill bar) */}
+            <div className="hidden md:flex items-center gap-1.5 shrink-0">
+              <span
+                className="px-2.5 py-1 rounded-full bg-white border border-[#e6e6e4] text-[11px] font-normal text-[#787774] whitespace-nowrap shadow-2xs"
+                title="所属功能分组"
+              >
+                {currentTabConfig.category}
+              </span>
+              <span
+                className="px-2.5 py-1 rounded-full bg-white text-[#1a1918] border border-[#1a1918] text-[11px] font-normal flex items-center gap-1.5 whitespace-nowrap shadow-2xs"
+                title="当前所在模块"
+              >
+                <CurrentIcon className="w-3 h-3 shrink-0 text-[#1a1918]" />
                 <span>{currentTabConfig.label}</span>
-              </div>
-              {currentTabConfig.badge !== undefined && currentTabConfig.badge > 0 && (
-                <span
-                  className={`text-[9.5px] font-mono font-bold px-1.5 py-0.2 rounded-[1px] ${
-                    currentTabConfig.badgeAlert
-                      ? 'bg-rose-50 text-rose-600 border border-rose-200'
-                      : 'bg-[#201f1d] text-white'
-                  }`}
-                >
-                  {currentTabConfig.badge}
-                </span>
-              )}
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                {currentTabConfig.badge !== undefined && currentTabConfig.badge > 0 && (
+                  <span
+                    className={`text-[9.5px] font-mono font-normal px-1.5 py-0.2 rounded-full border ${
+                      currentTabConfig.badgeAlert
+                        ? 'bg-rose-50 text-rose-600 border-rose-200'
+                        : 'bg-neutral-100 text-[#1a1918] border-neutral-300'
+                    }`}
+                  >
+                    {currentTabConfig.badge}
+                  </span>
+                )}
+              </span>
             </div>
 
-            {/* Quick Frequent Modules (Desktop & Mobile horizontal scrollable pill bar) & Width Toggle */}
-            <div className="flex items-center gap-2 w-full md:w-auto min-w-0 overflow-hidden">
-              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 w-full">
+            {/* Quick Frequent Modules (Desktop & Mobile horizontal scrollable capsule bar) */}
+            <div className="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">
+              <div
+                id="merchant-quick-tabs-container"
+                ref={tabsContainerRef}
+                className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 w-full scroll-smooth"
+              >
                 {(() => {
                   const baseQuickTabs = [
-                    { id: 'data_fallback', label: '数据兜底', icon: ShieldCheck, badgeAlert: true },
-                    { id: 'tables', label: '堂食台位', icon: UtensilsCrossed, badge: tables.filter(t => t.status === 'dining').length },
                     { id: 'orders', label: '订单', icon: ShoppingBag, badge: scopedOrders.filter(o => o.status === 'cooking' || o.status === 'pending').length },
-                    { id: 'contingency', label: '兜底中枢', icon: ShieldAlert, badge: scopedOrders.filter(o => (o.rejectionCount && o.rejectionCount > 0) || o.refundStatus === 'pending' || o.status === 'refund_pending').length, badgeAlert: true },
                     { id: 'kds', label: 'KDS', icon: ChefHat, badge: tickets.length },
+                    { id: 'tables', label: '堂食台位', icon: UtensilsCrossed, badge: tables.filter(t => t.status === 'dining').length },
                     { id: 'calling', label: '叫号', icon: BellRing },
-                    { id: 'truck_expand', label: '展开与底栏', icon: SlidersHorizontal },
                     { id: 'printing', label: '打印', icon: Printer },
-                    { id: 'held', label: '未结', icon: ShieldAlert, badge: heldOrders.length, badgeAlert: true },
+                    { id: 'menu', label: '菜品', icon: Tag },
+                    { id: 'contingency', label: '兜底审核', icon: ShieldAlert, badge: scopedOrders.filter(o => (o.rejectionCount && o.rejectionCount > 0) || o.refundStatus === 'pending' || o.status === 'refund_pending').length, badgeAlert: true },
+                    { id: 'held', label: '未结账', icon: ShieldAlert, badge: heldOrders.length, badgeAlert: true },
+                    { id: 'data_fallback', label: '数据兜底', icon: ShieldCheck, badgeAlert: true },
+                    { id: 'analytics', label: '报表', icon: TrendingUp },
                     { id: 'members', label: '会员', icon: Award },
                     { id: 'user_data_mgmt', label: '统一档案', icon: Fingerprint },
-                    { id: 'staff', label: '员工', icon: Users },
-                    { id: 'analytics', label: '报表', icon: TrendingUp },
-                    { id: 'gps', label: 'GPS', icon: MapPin }
+                    { id: 'truck_expand', label: '展开底栏', icon: SlidersHorizontal },
+                    { id: 'gps', label: 'GPS', icon: MapPin },
+                    { id: 'staff', label: '员工', icon: Users }
                   ];
 
-                  const isCurrentInBase = baseQuickTabs.some(t => t.id === activeTab);
-                  const displayTabs = !isCurrentInBase && currentTabConfig
-                    ? [
-                        {
-                          id: currentTabConfig.id,
-                          label: currentTabConfig.label.replace('矩阵', '').replace('管理', ''),
-                          icon: currentTabConfig.icon,
-                          badge: currentTabConfig.badge,
-                          badgeAlert: currentTabConfig.badgeAlert
-                        },
-                        ...baseQuickTabs
-                      ]
-                    : baseQuickTabs;
+                  // 布局修复：当前模块已在左侧面包屑胶囊中展示，不再前置到快捷条
+                  // （此前非快捷 tab 激活时会与面包屑重复渲染同一条目）
+                  const displayTabs = baseQuickTabs;
+                  const isIconOnly = wsPrefs.buttonDisplayMode === 'icon_only';
 
                   return (
                     <>
@@ -1544,24 +1794,42 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
                         return (
                           <button
                             key={quick.id}
+                            id={`merchant-tab-btn-${quick.id}`}
+                            data-tab-id={quick.id}
                             type="button"
+                            title={quick.label}
                             onClick={() => setActiveTab(quick.id as MerchantTab)}
-                            className={`px-2 py-1 rounded-[1px] text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                            className={`rounded-full text-xs font-normal flex items-center transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 border group ${
+                              isIconOnly ? 'px-2 py-1' : 'px-2.5 py-1 gap-1.5'
+                            } ${
                               isSelected
-                                ? 'bg-[#201f1d] text-white shadow-xs'
-                                : 'text-[#787774] hover:bg-[#efefed] hover:text-[#201f1d]'
+                                ? 'border border-[#1a1918] bg-white text-[#1a1918] shadow-2xs'
+                                : 'border border-transparent bg-transparent text-[#5c5a54] hover:border-[#d3d1cb] hover:bg-neutral-50 hover:text-[#1a1918]'
                             }`}
                           >
-                            <Icon className="w-3 h-3 shrink-0" />
-                            <span>{quick.label}</span>
+                            <Icon className={`w-3 h-3 shrink-0 transition-colors ${isSelected ? 'text-[#1a1918]' : 'text-[#8c8a85]'}`} />
+                            <span
+                              className={`font-normal tracking-tight transition-all duration-200 overflow-hidden whitespace-nowrap ${
+                                isIconOnly
+                                  ? 'max-w-0 opacity-0 group-hover:max-w-[140px] group-hover:opacity-100 group-hover:ml-1'
+                                  : ''
+                              }`}
+                            >
+                              {quick.label}
+                            </span>
+                            {isSelected && (
+                              <span className={`w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 ${isIconOnly ? 'ml-0.5' : ''}`} />
+                            )}
                             {quick.badge !== undefined && quick.badge > 0 && (
                               <span
-                                className={`text-[9px] font-mono font-bold px-1 rounded-[1px] ${
+                                className={`text-[9.5px] font-mono font-normal px-1.5 py-0.2 rounded-full border shrink-0 ${
+                                  isIconOnly ? 'ml-0.5' : ''
+                                } ${
                                   isSelected
-                                    ? 'bg-white/20 text-white'
+                                    ? 'bg-neutral-100 text-[#1a1918] border-neutral-300'
                                     : quick.badgeAlert
-                                    ? 'bg-rose-50 text-rose-600 border border-rose-200'
-                                    : 'bg-[#e6e6e4] text-[#37352f]'
+                                    ? 'bg-rose-50 text-rose-600 border-rose-200'
+                                    : 'bg-[#efefed] text-[#5c5a54] border-transparent'
                                 }`}
                               >
                                 {quick.badge}
@@ -1573,43 +1841,149 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
                       <button
                         type="button"
                         onClick={() => setIsMobileSidebarOpen(true)}
-                        className="md:hidden px-2 py-1 rounded-[1px] text-xs font-semibold flex items-center gap-1 text-[#787774] hover:bg-[#efefed] hover:text-[#201f1d] shrink-0 border border-dashed border-[#d3d1cb]"
-                        title="展开全部28个功能模块侧边栏"
+                        className="md:hidden px-2.5 py-1 rounded-full text-xs font-normal flex items-center gap-1 text-[#787774] hover:bg-[#efefed] hover:text-[#1a1918] shrink-0 border border-dashed border-[#d3d1cb] bg-white"
+                        title="展开全部功能模块侧边栏"
                       >
                         <MenuIcon className="w-3 h-3 text-[#787774]" />
-                        <span className="whitespace-nowrap">全部</span>
+                        <span className="whitespace-nowrap font-normal">全部</span>
                       </button>
                     </>
                   );
                 })()}
               </div>
+            </div>
 
-              {/* Desktop Workspace Width Switcher */}
+            {/* Right Inline Controls: 回收站 / 显示设置 / 宽度切换（行内排布，支持根据显示偏好折叠为纯图标模式） */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsRecycleBinOpen(true)}
+                className={`h-7 flex items-center bg-white hover:bg-[#f8f8f7] border border-[#e6e6e4] hover:border-[#000000] rounded-full text-[11px] font-bold text-[#37352f] transition-all cursor-pointer group ${
+                  wsPrefs.buttonDisplayMode === 'icon_only' ? 'px-2' : 'px-2 gap-1'
+                }`}
+                title="统一回收站（删除的业务数据 30 天内可恢复）"
+              >
+                <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                <span
+                  className={`transition-all duration-200 overflow-hidden whitespace-nowrap ${
+                    wsPrefs.buttonDisplayMode === 'icon_only'
+                      ? 'max-w-0 opacity-0 group-hover:max-w-[70px] group-hover:opacity-100 group-hover:ml-1'
+                      : 'hidden sm:inline'
+                  }`}
+                >
+                  回收站
+                </span>
+                {recycleBinCount > 0 && (
+                  <span className={`text-[9.5px] font-mono font-bold px-1 rounded-full bg-[#201f1d] text-white shrink-0 ${wsPrefs.buttonDisplayMode === 'icon_only' ? 'ml-1' : ''}`}>
+                    {recycleBinCount}
+                  </span>
+                )}
+              </button>
+              <div className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setWsPanelOpen((v) => !v)}
+                  className={`h-7 flex items-center border rounded-full text-[11px] font-bold transition-all cursor-pointer group ${
+                    wsPrefs.buttonDisplayMode === 'icon_only' ? 'px-2' : 'px-2 gap-1'
+                  } ${
+                    wsPanelOpen
+                      ? 'bg-[#000000] text-white border-[#000000]'
+                      : 'bg-white text-[#1a1c1b] border-[#e6e6e4] hover:border-[#000000]'
+                  }`}
+                  title="工作台显示设置（快捷与悬浮按钮显示模式 / 内容宽度 / 订单列数 / 毛利红线 / 客食端预览管控）"
+                >
+                  <Settings2 className="w-3.5 h-3.5 shrink-0" />
+                  <span
+                    className={`transition-all duration-200 overflow-hidden whitespace-nowrap ${
+                      wsPrefs.buttonDisplayMode === 'icon_only'
+                        ? 'max-w-0 opacity-0 group-hover:max-w-[80px] group-hover:opacity-100 group-hover:ml-1'
+                        : 'hidden sm:inline'
+                    }`}
+                  >
+                    显示设置
+                  </span>
+                </button>
+                <WorkspaceDisplaySettingsPanel
+                  open={wsPanelOpen}
+                  onClose={() => setWsPanelOpen(false)}
+                  prefs={wsPrefs}
+                  onChange={updateWsPrefs}
+                  syncState={wsSyncState}
+                  showToast={showToast}
+                />
+              </div>
               <button
                 type="button"
                 onClick={toggleFullWidthWorkspace}
-                className="hidden xl:flex p-1.5 hover:bg-[#efefed] text-[#787774] hover:text-[#201f1d] rounded-[3px] transition-all cursor-pointer items-center gap-1 border border-transparent hover:border-[#d3d1cb] shrink-0 text-xs font-medium"
-                title={isFullWidthWorkspace ? '切换为标准居中工作台 (Max-W-7xl)' : '切换为全宽铺满工作台 (100% Fluid)'}
+                className={`hidden xl:flex h-7 bg-white hover:bg-[#f8f8f7] text-[#787774] hover:text-[#201f1d] rounded-full transition-all cursor-pointer items-center border border-[#e6e6e4] hover:border-[#d3d1cb] shrink-0 text-xs font-medium group ${
+                  wsPrefs.buttonDisplayMode === 'icon_only' ? 'px-2' : 'px-2 gap-1'
+                }`}
+                title={wsPrefs.contentWidth === 'wide' ? '切换为标准居中工作台（宽度三档可在显示设置调节）' : '切换为全宽铺满工作台 (100% Fluid)'}
               >
-                {isFullWidthWorkspace ? (
+                {wsPrefs.contentWidth === 'wide' ? (
                   <>
-                    <Minimize2 className="w-3.5 h-3.5 text-[#5a5854]" />
-                    <span className="hidden 2xl:inline text-[11px]">居中</span>
+                    <Minimize2 className="w-3.5 h-3.5 text-[#5a5854] shrink-0" />
+                    <span
+                      className={`text-[11px] transition-all duration-200 overflow-hidden whitespace-nowrap ${
+                        wsPrefs.buttonDisplayMode === 'icon_only'
+                          ? 'max-w-0 opacity-0 group-hover:max-w-[60px] group-hover:opacity-100 group-hover:ml-1'
+                          : 'hidden 2xl:inline'
+                      }`}
+                    >
+                      居中
+                    </span>
                   </>
                 ) : (
                   <>
-                    <Maximize2 className="w-3.5 h-3.5 text-[#5a5854]" />
-                    <span className="hidden 2xl:inline text-[11px]">全宽</span>
+                    <Maximize2 className="w-3.5 h-3.5 text-[#5a5854] shrink-0" />
+                    <span
+                      className={`text-[11px] transition-all duration-200 overflow-hidden whitespace-nowrap ${
+                        wsPrefs.buttonDisplayMode === 'icon_only'
+                          ? 'max-w-0 opacity-0 group-hover:max-w-[60px] group-hover:opacity-100 group-hover:ml-1'
+                          : 'hidden 2xl:inline'
+                      }`}
+                    >
+                      全宽
+                    </span>
                   </>
                 )}
               </button>
             </div>
           </div>
+          <RecycleBinModal
+            open={isRecycleBinOpen}
+            onClose={() => setIsRecycleBinOpen(false)}
+            showToast={showToast}
+          />
 
           {/* 3. Main Dashboard Workspace Content */}
-          <main className={`flex-1 overflow-y-auto p-2 sm:p-4 lg:p-6 w-full ${
-            isFullWidthWorkspace ? 'max-w-none' : 'max-w-7xl mx-auto'
-          } pb-3 md:pb-8 custom-scrollbar`}>
+          <main
+            ref={mainScrollRef as any}
+            onScroll={() => {
+              if (mainScrollRef.current) {
+                tabScrollPositionsRef.current[activeTab] = mainScrollRef.current.scrollTop;
+              }
+            }}
+            style={{
+              maxWidth:
+                wsPrefs.contentWidth === 'wide' || (wsPrefs.contentWidthPercent && wsPrefs.contentWidthPercent >= 100)
+                  ? 'none'
+                  : wsPrefs.contentWidthPercent
+                  ? `${wsPrefs.contentWidthPercent}%`
+                  : undefined,
+              paddingLeft: (wsPrefs.windowSafeMargin ?? 0) > 0 ? `${wsPrefs.windowSafeMargin}px` : undefined,
+              paddingRight: (wsPrefs.windowSafeMargin ?? 0) > 0 ? `${wsPrefs.windowSafeMargin}px` : undefined,
+              paddingTop: (wsPrefs.windowSafeMargin ?? 0) > 0 ? `${wsPrefs.windowSafeMargin}px` : undefined
+            }}
+            className={`merchant-workspace-readable font-['Space_Grotesk',sans-serif] flex-1 overflow-y-auto w-full mx-auto transition-all duration-150 p-2 sm:p-4 lg:p-5 ${
+              wsPrefs.contentWidthPercent && wsPrefs.contentWidthPercent >= 100
+                ? 'max-w-none'
+                : wsPrefs.contentWidthPercent
+                ? 'mx-auto'
+                : contentWidthClass(wsPrefs.contentWidth)
+            } pb-3 md:pb-8 custom-scrollbar`}
+          >
+          <div className="w-full">
         {(() => {
           const accessCheck = canAccessMerchantTab(activeTab, merchantSession);
           if (!accessCheck.allowed) {
@@ -1644,19 +2018,51 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
         )}
 
         {activeTab === 'tables' && (
-          <MerchantTables
-            tables={scopedTables}
-            orders={scopedOrders}
-            menuItems={dishes}
-            onOpenTable={handleOpenTable}
-            onCheckoutTable={handleCheckoutTable}
-            onTransferTable={handleTransferTable}
-            onReleaseTable={handleReleaseTable}
-            onUpdateTable={handleUpdateTable}
-            onSyncOrderItems={onSyncOrderItems}
-            onVoidTableOrder={handleVoidTableOrder}
-            showToast={showToast}
-          />
+          <>
+            {/* 商家端平滑注入实时同桌协同点餐小组件（全状态双向同步与管理） */}
+            <div className="mb-4">
+              <DynamicTableMorphWidget
+                currentTable="A1"
+                diningMode="dine_in"
+                isMerchantView={true}
+                showToast={showToast}
+              />
+            </div>
+
+            <MerchantTables
+              tables={scopedTables}
+              orders={scopedOrders}
+              menuItems={dishes}
+              onOpenTable={handleOpenTable}
+              onCheckoutTable={handleCheckoutTable}
+              onTransferTable={handleTransferTable}
+              onReleaseTable={handleReleaseTable}
+              onUpdateTable={handleUpdateTable}
+              onSyncOrderItems={onSyncOrderItems}
+              onVoidTableOrder={handleVoidTableOrder}
+              showToast={showToast}
+            />
+            {/* T3：桌台会话监测台（L1/L2/L3 三层下钻 + 商家兜底队列） */}
+            <MerchantTableSessionMonitor
+              showToast={showToast}
+              onOpenVersionTracking={() => setActiveTab('version_tracking')}
+            />
+            {/* T3：桌码管理（轮换/启停/打印） */}
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => setIsQrManageOpen(true)}
+                className="h-9 px-4 rounded-console bg-dark-container hover:bg-neutral-800 text-white text-xs font-medium flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <QrCode className="w-3.5 h-3.5 text-accent-orange" />
+                <span>桌码与二维码管理</span>
+              </button>
+            </div>
+            <MerchantQrManageModal
+              open={isQrManageOpen}
+              onClose={() => setIsQrManageOpen(false)}
+              showToast={showToast}
+            />
+          </>
         )}
 
         {activeTab === 'orders' && (
@@ -1805,13 +2211,6 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
           />
         )}
 
-        {activeTab === 'menu_design' && (
-          <MerchantMenuDesignSystem
-            onNotify={showToast}
-            onPreviewCustomerMenu={() => onSwitchRole('customer')}
-          />
-        )}
-
         {activeTab === 'marketing' && (
           <MerchantMarketingHub
             showToast={showToast}
@@ -1856,6 +2255,7 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
             onToggleAvailability={handleToggleAvailability}
             onAddNewDish={handleAddNewDish}
             onUpdateDish={handleUpdateDish}
+            onBulkUpdateDishes={onUpdateDishes}
             onRematchAllImages={handleRematchAllImages}
             showToast={showToast}
           />
@@ -1889,6 +2289,23 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
           />
         )}
 
+        {activeTab === 'operations_deck' && (
+          <MerchantOperationsDeck
+            orders={scopedOrders}
+            tables={tables}
+            selectedTruckId={selectedTruckId}
+            onSelectTruckId={(tid) => handleSelectTruck(tid)}
+            showToast={showToast}
+          />
+        )}
+
+        {activeTab === 'precision_console' && (
+          <MerchantPrecisionConsole
+            selectedTruckId={selectedTruckId}
+            onStationSelect={(stNum) => setSelectedTruckId(`truck-0${stNum}`)}
+          />
+        )}
+
         {activeTab === 'master_control' && (
           <MerchantMasterControlCenter
             orders={scopedOrders}
@@ -1902,7 +2319,9 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
             </>
           );
         })()}
+          </div>
           </main>
+
 
           {/* 3.5. 嵌入主内容区底部的直立底部导航栏 (直立无圆角·工整直角·移动端内嵌) */}
           <nav
@@ -2029,7 +2448,7 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
               <span className="text-[#d3d1cb]">|</span>
               <div className="flex items-center gap-1 text-[#5a5854] shrink-0">
                 <Truck className="w-3 h-3 text-[#2b593f]" />
-                <span className="truncate">{activeTruckConfig?.truckName || '01号·旗舰车'}</span>
+                <span className="truncate">{getUnifiedTruckName(selectedTruckId, 'standard')}</span>
                 <span className={`text-[9.5px] px-1 py-0.1 rounded font-mono ${
                   businessStatus.isOpen ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
                 }`}>
@@ -2132,7 +2551,9 @@ export const MerchantSystemView: React.FC<MerchantSystemViewProps> = ({
       <BusinessStatusModal
         isOpen={isBusinessStatusModalOpen}
         onClose={() => setIsBusinessStatusModalOpen(false)}
-        truckName={truck.name}
+        truckId={selectedTruckId}
+        truckName={getUnifiedTruckName(selectedTruckId, 'standard')}
+        allTrucks={merchantTruckConfigs}
         onStatusChanged={(newStatus) => {
           setBusinessStatusState(newStatus);
         }}

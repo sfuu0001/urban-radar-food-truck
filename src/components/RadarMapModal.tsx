@@ -14,14 +14,14 @@ export const RadarMapModal: React.FC<RadarMapModalProps> = ({
   isOpen,
   onClose,
   truck,
-  orderId = '#DEL-9912',
+  orderId = '#UR-98215',
   deliveryAddress
 }) => {
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
-      <div className="relative w-full max-w-4xl max-h-[90vh] bg-[#f4f4f2] rounded-2xl shadow-2xl overflow-y-auto hide-scrollbar">
+      <div className="relative w-full max-w-md max-h-[95vh] bg-[#FAFAFA] rounded-2xl shadow-2xl overflow-y-auto hide-scrollbar border border-gray-200">
         <OrderTrackingView
           orderId={orderId}
           truck={truck}
@@ -32,5 +32,3 @@ export const RadarMapModal: React.FC<RadarMapModalProps> = ({
     </div>
   );
 };
-
-

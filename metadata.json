@@ -1,6 +1,6 @@
 {
-  "name": "Remix Remix Remix ctre.cop",
-  "description": "Urban Radar 流动餐车 GPS 极速专送平台与特许经营多租户联邦中枢",
+  "name": "Urban Radar 流动餐车",
+  "description": "Urban Radar 流动餐车 GPS 极速专送平台 - 总部分级权限、组件功能授权分流与高德地图闭环运力调度中枢",
   "requestFramePermissions": [
     "microphone",
     "camera",

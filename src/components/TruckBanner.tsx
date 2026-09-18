@@ -15,12 +15,14 @@ import {
   Check,
   Gift,
   Clock,
-  Zap
+  Zap,
+  AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { TruckInfo } from '../types';
 import { DiningMode } from './DiningModeSelector';
 import { TruckLocationConfig, getAllTruckConfigs, calculateGeodesicDistanceKm, resolveAddressCoordinates } from '../utils/truckLocationEngine';
+import { BusinessStatusConfig, getTruckBusinessStatus, getAllTruckBusinessStatuses } from '../utils/businessStatusEngine';
 
 interface TruckBannerProps {
   truck: TruckInfo;
@@ -214,6 +216,30 @@ export const TruckBanner: React.FC<TruckBannerProps> = ({
   });
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
 
+  // Real multi-truck business statuses
+  const [allStatuses, setAllStatuses] = useState<Record<string, BusinessStatusConfig>>(() =>
+    getAllTruckBusinessStatuses()
+  );
+
+  useEffect(() => {
+    const handleStatusChange = (e: Event) => {
+      const custom = e as CustomEvent<{
+        truckId?: string;
+        status?: BusinessStatusConfig;
+        allStatuses?: Record<string, BusinessStatusConfig>;
+      }>;
+      if (custom.detail?.allStatuses) {
+        setAllStatuses(custom.detail.allStatuses);
+      } else {
+        setAllStatuses(getAllTruckBusinessStatuses());
+      }
+    };
+    window.addEventListener('obsidian_business_status_changed', handleStatusChange);
+    return () => window.removeEventListener('obsidian_business_status_changed', handleStatusChange);
+  }, []);
+
+  const currentTruckStatus = allStatuses[truck.id || 'truck-01'] || getTruckBusinessStatus(truck.id || 'truck-01');
+
   const truckList = allTrucks && allTrucks.length > 0 ? allTrucks : getAllTruckConfigs();
 
   // 每2秒上下滚动切换热门活动
@@ -265,10 +291,58 @@ export const TruckBanner: React.FC<TruckBannerProps> = ({
                   [换车]
                 </span>
               </h2>
-              <span className="text-[10px] text-[#006d36] font-bold inline-flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 shrink-0">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-                {truck.statusText}
-              </span>
+              <div className="flex items-center gap-1">
+                <span
+                  className={`text-[10px] font-bold inline-flex items-center gap-1 px-2 py-0.5 rounded-full border shrink-0 ${
+                    currentTruckStatus.isOpen
+                      ? 'text-[#006d36] bg-emerald-50 border-emerald-200'
+                      : 'text-rose-700 bg-rose-50 border-rose-200'
+                  }`}
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      currentTruckStatus.isOpen ? 'bg-emerald-500 animate-ping' : 'bg-rose-500'
+                    }`}
+                  />
+                  {currentTruckStatus.isOpen ? '营业中' : '已打烊'}
+                </span>
+
+                {/* 3 Channels Pill Indicators */}
+                {currentTruckStatus.isOpen && (
+                  <div className="hidden xs:flex items-center gap-0.5 text-[9px] font-bold">
+                    <span
+                      className={`px-1 py-0.2 rounded-[2px] ${
+                        currentTruckStatus.dineInOpen !== false
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-neutral-100 text-neutral-400 line-through'
+                      }`}
+                      title={currentTruckStatus.dineInOpen !== false ? '堂食正常' : '堂食暂停'}
+                    >
+                      堂
+                    </span>
+                    <span
+                      className={`px-1 py-0.2 rounded-[2px] ${
+                        currentTruckStatus.deliveryOpen !== false
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-neutral-100 text-neutral-400 line-through'
+                      }`}
+                      title={currentTruckStatus.deliveryOpen !== false ? '外卖正常' : '外卖暂停'}
+                    >
+                      外
+                    </span>
+                    <span
+                      className={`px-1 py-0.2 rounded-[2px] ${
+                        currentTruckStatus.pickupOpen !== false
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-neutral-100 text-neutral-400 line-through'
+                      }`}
+                      title={currentTruckStatus.pickupOpen !== false ? '自提正常' : '自提暂停'}
+                    >
+                      提
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -321,6 +395,7 @@ export const TruckBanner: React.FC<TruckBannerProps> = ({
                 const dist = calculateGeodesicDistanceKm(userCoord.latitude, userCoord.longitude, t.latitude, t.longitude);
                 const isCurrent = t.name === truck.name || (truck.code && t.code === truck.code);
                 const inRange = dist <= t.deliveryRadiusKm;
+                const tStatus = allStatuses[t.id] || getTruckBusinessStatus(t.id);
                 return (
                   <div
                     key={t.id}
@@ -344,6 +419,15 @@ export const TruckBanner: React.FC<TruckBannerProps> = ({
                             当前
                           </span>
                         )}
+                        <span
+                          className={`text-[9px] px-1 py-0.2 rounded font-bold ${
+                            tStatus.isOpen
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-rose-100 text-rose-800'
+                          }`}
+                        >
+                          {tStatus.isOpen ? '营业中' : '打烊'}
+                        </span>
                       </div>
                       <div className="text-[10px] text-neutral-500 truncate mt-0.5">
                         {t.locationName}
@@ -363,6 +447,21 @@ export const TruckBanner: React.FC<TruckBannerProps> = ({
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* Closed Announcement Banner if master switch is turned OFF for active truck */}
+        {!currentTruckStatus.isOpen && (
+          <div className="mt-1.5 p-2 bg-rose-50 border border-rose-200 rounded text-xs text-rose-800 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span className="font-bold truncate">
+                该餐车已打烊：{currentTruckStatus.closeReason || '暂停接单中'}
+              </span>
+            </div>
+            <span className="text-[10px] font-mono text-rose-600 shrink-0 bg-white px-1.5 py-0.5 rounded border border-rose-200">
+              预计恢复: {currentTruckStatus.reopenTime}
+            </span>
           </div>
         )}
 

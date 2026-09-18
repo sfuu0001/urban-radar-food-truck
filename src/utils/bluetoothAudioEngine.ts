@@ -522,7 +522,8 @@ class BluetoothAudioEngine {
    * 验证 1：测试蓝牙播放器专属通道（仅蓝牙音箱发声）
    */
   public async testBluetoothVoiceChannel(): Promise<void> {
-    const audio = new Audio('/audio/audition_gentle_female.wav');
+    // BASE_URL 跟随部署路径（根目录部署时为 '/'，子目录部署时自动带上前缀）
+    const audio = new Audio(`${import.meta.env.BASE_URL}audio/audition_gentle_female.wav`);
     audio.volume = 1.0;
     // 标记为 isSystemVoice = true，路由至蓝牙通道
     await this.applyRouting(audio, true);

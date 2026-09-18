@@ -62,44 +62,44 @@ export const VIPPerkModal: React.FC<VIPPerkModalProps> = ({
       {/* 极淡遮罩,点击关闭(仅遮罩层拦截,内嵌卡片不遮挡页面) */}
       <div className="fixed inset-0 bg-black/20 pointer-events-auto" onClick={onClose} />
 
-      {/* 内嵌卡片 - 订单结算 token 风格 */}
-      <div className="relative pointer-events-auto w-full max-w-md bg-white rounded-2xl border border-[#E8E8E6] shadow-sm flex flex-col overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-200">
-        {/* Top Banner - 浅色结算风格 */}
-        <div className="bg-[#EBF7EF] border-b border-[#E8E8E6] px-4 py-3.5 relative">
+      {/* 内嵌卡片 - 黑曜石与品牌全新重构风格 */}
+      <div className="relative pointer-events-auto w-full max-w-md bg-white rounded-2xl border border-brand-border shadow-card flex flex-col overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-200">
+        {/* Top Banner - 品牌暗调渐变与黑曜石元素 */}
+        <div className="obsidian-mesh text-white border-b border-neutral-700 px-4 py-3.5 relative">
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 w-7 h-7 rounded-full bg-white/70 hover:bg-white border border-[#E8E8E6] text-[#1A1C1B] flex items-center justify-center transition-colors cursor-pointer"
+            className="absolute top-3 right-3 w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-white flex items-center justify-center transition-colors cursor-pointer"
             type="button"
           >
             <X className="w-3.5 h-3.5" />
           </button>
 
-          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#006D36]/10 text-[#006D36] text-[11px] font-bold mb-1.5">
+          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-brand-emerald/20 border border-brand-emerald/40 text-brand-emeraldLight text-[11px] font-bold mb-1.5">
             <Sparkles className="w-3 h-3" />
             <span>URBAN RADAR BLACK VIP</span>
           </div>
 
-          <h3 className="text-base sm:text-lg font-black tracking-tight text-[#1A1C1B]">
+          <h3 className="text-base sm:text-lg font-black tracking-tight text-white">
             黑曜石 VIP 专属优先出餐特权
           </h3>
-          <p className="text-[11px] text-[#7E7E7A] mt-0.5">
-            动态巡游智能餐车专属快速通道,告别排队等待
+          <p className="text-[11px] text-neutral-300 mt-0.5">
+            动态巡游智能餐车专属快速通道 · 告别排队等待
           </p>
         </div>
 
-        {/* Perks list - 结算 token 卡片,可展开内嵌特权明细 */}
-        <div className="p-3.5 space-y-2.5 bg-[#F9F9F7] text-xs max-h-[60vh] overflow-y-auto">
+        {/* Perks list */}
+        <div className="p-3.5 space-y-2.5 bg-neutral-50/70 text-xs max-h-[60vh] overflow-y-auto">
           {perks.map((perk) => {
             const isOpenDetail = expandedId === perk.id;
             return (
               <div
                 key={perk.id}
-                className="rounded-xl border border-[#E8E8E6] bg-white shadow-sm overflow-hidden"
+                className="rounded-xl border border-brand-border bg-white shadow-sm overflow-hidden"
               >
                 <button
                   type="button"
                   onClick={() => setExpandedId(isOpenDetail ? null : perk.id)}
-                  className="w-full flex items-start gap-2.5 p-2.5 text-left cursor-pointer hover:bg-[#F9F9F7] transition-colors"
+                  className="w-full flex items-start gap-2.5 p-2.5 text-left cursor-pointer hover:bg-neutral-50 transition-colors"
                 >
                   <div
                     className="p-1.5 rounded-lg shrink-0"
@@ -108,20 +108,20 @@ export const VIPPerkModal: React.FC<VIPPerkModalProps> = ({
                     {perk.icon}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-bold text-[#1A1C1B] text-xs">{perk.title}</h4>
-                    <p className="text-[#7E7E7A] text-[10.5px] mt-0.5 leading-snug">{perk.desc}</p>
+                    <h4 className="font-bold text-neutral-900 text-xs">{perk.title}</h4>
+                    <p className="text-neutral-500 text-[10.5px] mt-0.5 leading-snug">{perk.desc}</p>
                   </div>
                   <ChevronDown
-                    className={`w-4 h-4 text-[#9E9E98] shrink-0 transition-transform ${
+                    className={`w-4 h-4 text-neutral-400 shrink-0 transition-transform ${
                       isOpenDetail ? 'rotate-180' : ''
                     }`}
                   />
                 </button>
 
-                {/* 内嵌子面板 - 特权明细(抽屉弹窗下的弹窗组件,结算 token 重设计) */}
+                {/* 内嵌子面板 - 特权明细 */}
                 {isOpenDetail && (
                   <div className="px-2.5 pb-2.5 -mt-1">
-                    <div className="rounded-lg border border-[#E8E8E6] bg-[#F9F9F7] p-2.5 text-[10.5px] leading-relaxed text-[#5b5b57]">
+                    <div className="rounded-lg border border-brand-border bg-neutral-50 p-2.5 text-[10.5px] leading-relaxed text-neutral-600">
                       {perk.detail}
                     </div>
                   </div>
@@ -131,14 +131,14 @@ export const VIPPerkModal: React.FC<VIPPerkModalProps> = ({
           })}
         </div>
 
-        {/* Action Toggle - 结算主按钮风格 */}
-        <div className="p-3 bg-white border-t border-[#E8E8E6] flex items-center justify-between">
+        {/* Action Toggle - 品牌主按钮风格 */}
+        <div className="p-3 bg-white border-t border-brand-border flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-[#1A1C1B]">当前 VIP 特权状态:</span>
+            <span className="text-xs font-bold text-neutral-900">当前 VIP 特权状态:</span>
             <span
               className={`text-xs font-bold px-2 py-0.5 rounded border ${
                 isVIPActive
-                  ? 'bg-[#EBF7EF] text-[#006D36] border-[#006D36]/20'
+                  ? 'bg-emerald-50 text-brand-emerald border-emerald-200'
                   : 'bg-neutral-100 text-neutral-600 border-neutral-200'
               }`}
             >
@@ -150,8 +150,8 @@ export const VIPPerkModal: React.FC<VIPPerkModalProps> = ({
             onClick={onToggleVIP}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm border ${
               isVIPActive
-                ? 'bg-[#006D36] border-[#006D36] text-white hover:bg-[#005a2d]'
-                : 'bg-[#1A1C1B] border-[#1A1C1B] text-white hover:bg-black'
+                ? 'bg-brand-emerald border-brand-emerald text-white hover:bg-emerald-700'
+                : 'bg-brand-charcoal border-brand-charcoal text-white hover:bg-black'
             }`}
             type="button"
           >

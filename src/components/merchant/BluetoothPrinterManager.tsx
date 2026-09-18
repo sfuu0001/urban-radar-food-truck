@@ -552,27 +552,27 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* 顶部极简状态横幅 */}
-      <div className="bg-neutral-900 text-white rounded-xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 border border-neutral-800 shadow-sm">
+      <div className="bg-white rounded-[4px] border border-[#e6e6e4] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-lg bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center justify-center shrink-0">
-            <Bluetooth className="w-5 h-5 animate-pulse" />
+          <div className="w-9 h-9 rounded-[2px] bg-[#f7f7f5] text-[#37352f] border border-[#e6e6e4] flex items-center justify-center shrink-0">
+            <Bluetooth className="w-4 h-4 text-[#37352f]" />
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-bold text-base text-white">随车蓝牙便携打印机中枢</h3>
-              <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 text-xs font-semibold rounded border border-emerald-500/30 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+              <h3 className="font-semibold text-sm text-[#37352f]">随车蓝牙便携打印机中枢</h3>
+              <span className="px-2 py-0.5 bg-[#edf6f1] text-[#2b593f] text-xs font-medium rounded-[2px] border border-[#cbe4d7] flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#2b593f] animate-pulse" />
                 <span>
                   {printers.filter((p) => p.status === 'connected').length} 台已连接
                 </span>
               </span>
-              <span className="px-2 py-0.5 bg-neutral-800 text-neutral-300 text-xs font-mono rounded border border-neutral-700">
+              <span className="px-2 py-0.5 bg-[#f7f7f5] text-[#787774] text-xs font-mono rounded-[2px] border border-[#e6e6e4]">
                 BLE 5.2 / ESC/POS
               </span>
             </div>
-            <p className="text-xs text-neutral-400 mt-1">
+            <p className="text-xs text-[#787774] mt-1">
               免布线直连流动餐车车载热敏小票机、手持收银一体机及后厨防水标签机，支持
               58mm / 80mm 双规格与新订单极速自动出纸。
             </p>
@@ -584,7 +584,7 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
             type="button"
             onClick={handleStartBluetoothScan}
             disabled={isScanning}
-            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+            className="px-3.5 py-1.5 bg-[#37352f] hover:bg-[#201f1d] text-white text-xs font-semibold rounded-[2px] flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs disabled:opacity-50"
           >
             <Radio className={`w-3.5 h-3.5 ${isScanning ? 'animate-spin' : ''}`} />
             <span>{isScanning ? '正在搜索蓝牙...' : '搜索附近蓝牙设备'}</span>
@@ -597,8 +597,8 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
         {/* 左侧：已配对蓝牙设备列表与控制卡 (5 Cols) */}
         <div className="lg:col-span-5 space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[#37352f] flex items-center gap-1.5">
-              <HardDrive className="w-4 h-4 text-neutral-600" />
+            <span className="text-xs font-semibold text-[#37352f] flex items-center gap-1.5">
+              <HardDrive className="w-4 h-4 text-[#787774]" />
               <span>已配对设备 ({printers.length})</span>
             </span>
             <span className="text-[11px] text-[#787774]">点击切换活动操作设备</span>
@@ -613,21 +613,21 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
                 <div
                   key={printer.id}
                   onClick={() => setSelectedPrinterId(printer.id)}
-                  className={`bg-white rounded-xl p-4 border transition-all cursor-pointer relative ${
+                  className={`bg-white rounded-[4px] p-3.5 border transition-all cursor-pointer relative shadow-2xs ${
                     isSelected
-                      ? 'border-neutral-900 shadow-sm ring-1 ring-neutral-900'
-                      : 'border-[#e3e2e0] hover:border-neutral-400'
+                      ? 'border-[#37352f]'
+                      : 'border-[#e6e6e4] hover:border-[#37352f]'
                   }`}
                 >
                   {/* Top Bar */}
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-[#37352f] truncate">
+                        <span className="font-semibold text-sm text-[#37352f] truncate">
                           {printer.name}
                         </span>
                         {printer.isDefault && (
-                          <span className="px-1.5 py-0.2 bg-neutral-100 text-neutral-800 text-[10px] font-bold rounded border border-neutral-300 shrink-0">
+                          <span className="px-1.5 py-0.2 bg-[#efefed] text-[#37352f] text-[10px] font-medium rounded-[2px] border border-[#e6e6e4] shrink-0">
                             默认
                           </span>
                         )}
@@ -639,21 +639,21 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
 
                     <div className="flex items-center gap-1 shrink-0">
                       <span
-                        className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
+                        className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-[2px] border ${
                           isConnected
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            ? 'bg-[#edf6f1] text-[#2b593f] border-[#cbe4d7]'
                             : printer.status === 'connecting'
-                            ? 'bg-amber-50 text-amber-800 border-amber-200'
-                            : 'bg-neutral-100 text-neutral-600 border-neutral-200'
+                            ? 'bg-[#fef3d6] text-[#d9730d] border-[#fae2a0]'
+                            : 'bg-[#f7f7f5] text-[#787774] border-[#e6e6e4]'
                         }`}
                       >
                         <span
                           className={`w-1.5 h-1.5 rounded-full ${
                             isConnected
-                              ? 'bg-emerald-500 animate-pulse'
+                              ? 'bg-[#2b593f] animate-pulse'
                               : printer.status === 'connecting'
-                              ? 'bg-amber-500 animate-ping'
-                              : 'bg-neutral-400'
+                              ? 'bg-[#d9730d] animate-ping'
+                              : 'bg-[#787774]'
                           }`}
                         />
                         <span>
@@ -668,23 +668,23 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
                   </div>
 
                   {/* Hardware Telemetry Grid */}
-                  <div className="grid grid-cols-3 gap-2 py-2.5 my-2 border-y border-[#f1f1ef] text-xs">
+                  <div className="grid grid-cols-3 gap-2 py-2.5 my-2 border-y border-[#efefed] text-xs">
                     <div>
                       <span className="text-[10px] text-[#787774] block">纸张规格</span>
-                      <span className="font-bold text-[#37352f]">
+                      <span className="font-medium text-[#37352f]">
                         {printer.paperWidth} 热敏卷
                       </span>
                     </div>
                     <div>
                       <span className="text-[10px] text-[#787774] block">设备电量</span>
-                      <span className="font-bold text-emerald-700 flex items-center gap-1">
+                      <span className="font-medium text-[#2b593f] flex items-center gap-1">
                         <Battery className="w-3.5 h-3.5" />
                         <span>{printer.batteryLevel}%</span>
                       </span>
                     </div>
                     <div>
                       <span className="text-[10px] text-[#787774] block">蓝牙信号</span>
-                      <span className="font-mono text-neutral-800 font-semibold">
+                      <span className="font-mono text-[#37352f] font-medium">
                         {printer.signalRssi} dBm
                       </span>
                     </div>
@@ -694,7 +694,7 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
                   <div className="flex items-center justify-between pt-1 text-xs">
                     <div className="text-[11px] text-[#787774]">
                       <span>上次出单: </span>
-                      <span className="text-neutral-800 font-medium">
+                      <span className="text-[#37352f] font-medium">
                         {printer.lastPrintedAt || '暂无'}
                       </span>
                     </div>
@@ -706,10 +706,10 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
                           e.stopPropagation();
                           handleToggleConnection(printer.id);
                         }}
-                        className={`px-2.5 py-1 text-xs font-semibold rounded cursor-pointer transition-colors border ${
+                        className={`px-2.5 py-1 text-xs font-semibold rounded-[2px] cursor-pointer transition-colors border shadow-2xs ${
                           isConnected
-                            ? 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200 border-neutral-300'
-                            : 'bg-blue-600 text-white hover:bg-blue-500 border-blue-600'
+                            ? 'bg-[#f7f7f5] text-[#37352f] hover:bg-[#efefed] border-[#e6e6e4]'
+                            : 'bg-[#37352f] text-white hover:bg-[#201f1d] border-[#37352f]'
                         }`}
                       >
                         {isConnected ? '断开' : '连接'}
@@ -722,7 +722,7 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
                             e.stopPropagation();
                             handleSetDefault(printer.id);
                           }}
-                          className="text-[11px] text-neutral-600 hover:text-black underline cursor-pointer"
+                          className="text-[11px] text-[#787774] hover:text-[#37352f] underline cursor-pointer"
                         >
                           设为默认
                         </button>
@@ -734,7 +734,7 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
                           e.stopPropagation();
                           handleRemovePrinter(printer.id);
                         }}
-                        className="p-1 text-neutral-400 hover:text-red-600 rounded cursor-pointer transition-colors"
+                        className="p-1 text-[#787774] hover:text-[#e03e3e] rounded-[2px] cursor-pointer transition-colors"
                         title="移除此设备"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -747,11 +747,11 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
           </div>
 
           {/* 自动出纸策略开关 */}
-          <div className="bg-[#fbfbfa] rounded-xl p-3.5 border border-[#e3e2e0] space-y-3">
+          <div className="bg-[#fafaf8] rounded-[4px] p-3.5 border border-[#e6e6e4] space-y-3 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Bell className="w-4 h-4 text-neutral-700" />
-                <span className="font-bold text-xs text-[#37352f]">
+                <Bell className="w-4 h-4 text-[#37352f]" />
+                <span className="font-semibold text-xs text-[#37352f]">
                   来单自动蓝牙极速出纸
                 </span>
               </div>
@@ -771,14 +771,14 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
                       : '已关闭来单自动出纸'
                   );
                 }}
-                className="w-4 h-4 rounded text-neutral-900 cursor-pointer"
+                className="w-4 h-4 rounded-[2px] text-[#37352f] cursor-pointer"
               />
             </div>
             <p className="text-[11px] text-[#787774]">
               开启后，当食客下单或派单系统分配新订单时，随车蓝牙打印机将自动蜂鸣并打印出纸。
             </p>
 
-            <div className="flex items-center justify-between pt-2 border-t border-[#f1f1ef] text-xs">
+            <div className="flex items-center justify-between pt-2 border-t border-[#efefed] text-xs">
               <span className="text-[#787774]">出纸联数:</span>
               <div className="flex items-center gap-1.5">
                 {[1, 2, 3].map((cp) => (
@@ -791,10 +791,10 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
                       );
                       savePrinters(updated);
                     }}
-                    className={`px-2.5 py-0.5 rounded text-xs font-semibold cursor-pointer border ${
+                    className={`px-2.5 py-0.5 rounded-[2px] text-xs font-medium cursor-pointer border shadow-2xs ${
                       activePrinter?.copies === cp
-                        ? 'bg-neutral-900 text-white border-neutral-900'
-                        : 'bg-white text-neutral-700 border-neutral-300'
+                        ? 'bg-[#37352f] text-white border-[#37352f]'
+                        : 'bg-white text-[#37352f] border-[#e6e6e4]'
                     }`}
                   >
                     {cp} 联
@@ -808,12 +808,12 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
         {/* 右侧：当前设备操作台、订单即时出纸与硬件指令 (7 Cols) */}
         <div className="lg:col-span-7 space-y-4">
           {/* Active Device Dashboard Card */}
-          <div className="bg-white rounded-xl border border-[#e3e2e0] p-5 space-y-4 shadow-2xs">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#e3e2e0] gap-2">
+          <div className="bg-white rounded-[4px] border border-[#e6e6e4] p-4 sm:p-5 space-y-4 shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#e6e6e4] gap-2">
               <div>
                 <div className="flex items-center gap-2">
-                  <Printer className="w-4 h-4 text-neutral-800" />
-                  <h4 className="font-bold text-sm text-[#37352f]">
+                  <Printer className="w-4 h-4 text-[#37352f]" />
+                  <h4 className="font-semibold text-sm text-[#37352f]">
                     当前活动打印机：{activePrinter?.name}
                   </h4>
                 </div>
@@ -826,7 +826,7 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
                 <button
                   type="button"
                   onClick={() => setShowHexModal(true)}
-                  className="px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded text-xs font-medium border border-neutral-300 flex items-center gap-1 cursor-pointer transition-colors"
+                  className="px-2.5 py-1 bg-[#f7f7f5] hover:bg-[#efefed] text-[#37352f] rounded-[2px] text-xs font-medium border border-[#e6e6e4] flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
                 >
                   <FileText className="w-3 h-3" />
                   <span>查看 ESC/POS 报文</span>
@@ -836,14 +836,14 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
 
             {/* Print Progress Bar */}
             {isPrinting && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-1.5 animate-pulse">
-                <div className="flex justify-between text-xs font-semibold text-blue-900">
+              <div className="bg-[#edf6f1] border border-[#cbe4d7] rounded-[2px] p-3 space-y-1.5 animate-pulse">
+                <div className="flex justify-between text-xs font-semibold text-[#2b593f]">
                   <span>正在通过蓝牙信道向打印机发送 ESC/POS 数据包...</span>
                   <span>{printProgress}%</span>
                 </div>
-                <div className="w-full bg-blue-200 h-1.5 rounded-full overflow-hidden">
+                <div className="w-full bg-[#cbe4d7] h-1.5 rounded-[2px] overflow-hidden">
                   <div
-                    className="bg-blue-600 h-full transition-all duration-150 rounded-full"
+                    className="bg-[#2b593f] h-full transition-all duration-150 rounded-[2px]"
                     style={{ width: `${printProgress}%` }}
                   />
                 </div>
@@ -851,8 +851,8 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
             )}
 
             {/* Order Direct Print Form */}
-            <div className="bg-[#fbfbfa] rounded-xl p-4 border border-[#e3e2e0] space-y-3">
-              <span className="text-xs font-bold text-[#37352f] block">
+            <div className="bg-[#fafaf8] rounded-[4px] p-3.5 border border-[#e6e6e4] space-y-3">
+              <span className="text-xs font-semibold text-[#37352f] block">
                 选择订单即时蓝牙出纸
               </span>
 
@@ -860,7 +860,7 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
                 <select
                   value={selectedOrderId}
                   onChange={(e) => setSelectedOrderId(e.target.value)}
-                  className="flex-1 px-3 py-2 bg-white border border-[#d3d1cb] rounded-lg text-xs font-semibold text-[#37352f] focus:outline-none focus:border-neutral-900 cursor-pointer"
+                  className="flex-1 px-3 py-1.5 bg-white border border-[#e6e6e4] rounded-[2px] text-xs font-medium text-[#37352f] focus:outline-none focus:border-[#37352f] cursor-pointer"
                 >
                   {orders.map((ord) => (
                     <option key={ord.id} value={ord.id}>
@@ -874,9 +874,9 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
                   type="button"
                   onClick={() => handlePrintOrder()}
                   disabled={isPrinting || activePrinter?.status !== 'connected'}
-                  className="px-4 py-2 bg-neutral-900 hover:bg-black text-white text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-xs disabled:opacity-50"
+                  className="px-4 py-1.5 bg-[#37352f] hover:bg-[#201f1d] text-white text-xs font-semibold rounded-[2px] flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-2xs disabled:opacity-50"
                 >
-                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  <Zap className="w-3.5 h-3.5 text-[#d9730d]" />
                   <span>
                     {isPrinting ? '正在蓝牙出纸...' : '一键极速出纸'} (
                     {activePrinter?.paperWidth})
@@ -886,21 +886,21 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
 
               {/* Order Preview Detail Chips */}
               <div className="flex flex-wrap gap-1.5 pt-1 text-[11px] text-[#787774]">
-                <span className="px-2 py-0.5 bg-white rounded border border-[#e3e2e0]">
-                  顾客: <b className="text-neutral-900">{targetOrder.customerName}</b>
+                <span className="px-2 py-0.5 bg-white rounded-[2px] border border-[#e6e6e4]">
+                  顾客: <b className="text-[#37352f]">{targetOrder.customerName}</b>
                 </span>
-                <span className="px-2 py-0.5 bg-white rounded border border-[#e3e2e0]">
-                  金额: <b className="text-neutral-900">¥{targetOrder.totalAmount.toFixed(1)}</b>
+                <span className="px-2 py-0.5 bg-white rounded-[2px] border border-[#e6e6e4]">
+                  金额: <b className="text-[#37352f]">¥{targetOrder.totalAmount.toFixed(1)}</b>
                 </span>
-                <span className="px-2 py-0.5 bg-white rounded border border-[#e3e2e0]">
-                  菜品数: <b className="text-neutral-900">{targetOrder.items.length} 样</b>
+                <span className="px-2 py-0.5 bg-white rounded-[2px] border border-[#e6e6e4]">
+                  菜品数: <b className="text-[#37352f]">{targetOrder.items.length} 样</b>
                 </span>
               </div>
             </div>
 
             {/* Hardware Diagnostic Command Suite */}
             <div className="space-y-2 pt-1">
-              <span className="text-xs font-bold text-[#37352f] block">
+              <span className="text-xs font-semibold text-[#37352f] block">
                 打印机硬件指令自检与调优
               </span>
 
@@ -909,61 +909,61 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
                   type="button"
                   onClick={handlePrintSelfTest}
                   disabled={isPrinting || activePrinter?.status !== 'connected'}
-                  className="p-2.5 bg-white hover:bg-neutral-50 rounded-lg border border-[#d3d1cb] text-[#37352f] flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
+                  className="p-2.5 bg-white hover:bg-[#fafaf8] rounded-[2px] border border-[#e6e6e4] text-[#37352f] flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-2xs disabled:opacity-50"
                 >
-                  <FileText className="w-4 h-4 text-blue-600" />
-                  <span className="font-semibold">打印自检样张</span>
+                  <FileText className="w-4 h-4 text-[#37352f]" />
+                  <span className="font-medium">打印自检样张</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={handleTestBuzzer}
                   disabled={activePrinter?.status !== 'connected'}
-                  className="p-2.5 bg-white hover:bg-neutral-50 rounded-lg border border-[#d3d1cb] text-[#37352f] flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
+                  className="p-2.5 bg-white hover:bg-[#fafaf8] rounded-[2px] border border-[#e6e6e4] text-[#37352f] flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-2xs disabled:opacity-50"
                 >
-                  <Bell className="w-4 h-4 text-amber-600" />
-                  <span className="font-semibold">测试蜂鸣器</span>
+                  <Bell className="w-4 h-4 text-[#d9730d]" />
+                  <span className="font-medium">测试蜂鸣器</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={handleFeedLines}
                   disabled={activePrinter?.status !== 'connected'}
-                  className="p-2.5 bg-white hover:bg-neutral-50 rounded-lg border border-[#d3d1cb] text-[#37352f] flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
+                  className="p-2.5 bg-white hover:bg-[#fafaf8] rounded-[2px] border border-[#e6e6e4] text-[#37352f] flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-2xs disabled:opacity-50"
                 >
-                  <Sliders className="w-4 h-4 text-emerald-600" />
-                  <span className="font-semibold">走纸 3 行</span>
+                  <Sliders className="w-4 h-4 text-[#2b593f]" />
+                  <span className="font-medium">走纸 3 行</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={handleCutPaper}
                   disabled={activePrinter?.status !== 'connected'}
-                  className="p-2.5 bg-white hover:bg-neutral-50 rounded-lg border border-[#d3d1cb] text-[#37352f] flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
+                  className="p-2.5 bg-white hover:bg-[#fafaf8] rounded-[2px] border border-[#e6e6e4] text-[#37352f] flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-2xs disabled:opacity-50"
                 >
-                  <Scissors className="w-4 h-4 text-purple-600" />
-                  <span className="font-semibold">自动切纸</span>
+                  <Scissors className="w-4 h-4 text-[#37352f]" />
+                  <span className="font-medium">自动切纸</span>
                 </button>
               </div>
             </div>
           </div>
 
           {/* Bluetooth Print Activity Log Table */}
-          <div className="bg-white rounded-xl border border-[#e3e2e0] p-4 space-y-3">
+          <div className="bg-white rounded-[4px] border border-[#e6e6e4] p-4 space-y-3 shadow-2xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#37352f]">
+              <span className="text-xs font-semibold text-[#37352f]">
                 蓝牙传输与出纸流水记录 (实时)
               </span>
               <button
                 type="button"
                 onClick={() => setLogs([])}
-                className="text-[11px] text-neutral-500 hover:text-black cursor-pointer"
+                className="text-[11px] text-[#787774] hover:text-[#37352f] cursor-pointer"
               >
                 清空记录
               </button>
             </div>
 
-            <div className="divide-y divide-[#f1f1ef] max-h-48 overflow-y-auto no-scrollbar">
+            <div className="divide-y divide-[#efefed] max-h-48 overflow-y-auto no-scrollbar">
               {logs.length === 0 ? (
                 <div className="text-center py-6 text-xs text-[#787774]">
                   暂无蓝牙出纸记录，点击上方按钮测试出单
@@ -977,10 +977,10 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
                     <div className="flex items-center gap-2 min-w-0">
                       <span
                         className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                          log.status === 'success' ? 'bg-emerald-500' : 'bg-red-500'
+                          log.status === 'success' ? 'bg-[#2b593f]' : 'bg-[#e03e3e]'
                         }`}
                       />
-                      <span className="font-bold text-[#37352f]">{log.orderNo}</span>
+                      <span className="font-semibold text-[#37352f]">{log.orderNo}</span>
                       <span className="text-[11px] text-[#787774] truncate max-w-[180px] sm:max-w-xs">
                         {log.detail || log.printerName}
                       </span>
@@ -1001,16 +1001,16 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
       {/* 搜索蓝牙设备配对弹窗 */}
       {isPairModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-neutral-200 max-w-md w-full p-5 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between pb-3 border-b border-[#e3e2e0]">
+          <div className="bg-white rounded-[4px] border border-[#e6e6e4] max-w-md w-full p-5 space-y-4 shadow-xl">
+            <div className="flex items-center justify-between pb-3 border-b border-[#e6e6e4]">
               <div className="flex items-center gap-2">
-                <Radio className="w-5 h-5 text-blue-600 animate-spin" />
-                <h3 className="font-bold text-sm text-[#37352f]">搜索附近蓝牙热敏打印机</h3>
+                <Radio className="w-5 h-5 text-[#37352f] animate-spin" />
+                <h3 className="font-semibold text-sm text-[#37352f]">搜索附近蓝牙热敏打印机</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsPairModalOpen(false)}
-                className="text-xs text-neutral-400 hover:text-black cursor-pointer"
+                className="text-xs text-[#787774] hover:text-[#37352f] cursor-pointer"
               >
                 关闭
               </button>
@@ -1024,25 +1024,25 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {isScanning ? (
                 <div className="text-center py-8 space-y-2">
-                  <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
-                  <p className="text-xs text-neutral-500">
+                  <div className="w-6 h-6 border-2 border-[#37352f] border-t-transparent rounded-full animate-spin mx-auto" />
+                  <p className="text-xs text-[#787774]">
                     正在广播探测 2.4GHz 蓝牙热敏小票设备...
                   </p>
                 </div>
               ) : discoveredDevices.length === 0 ? (
-                <div className="text-center py-8 text-xs text-neutral-500">
+                <div className="text-center py-8 text-xs text-[#787774]">
                   未探测到新设备，请靠近后点击重试
                 </div>
               ) : (
                 discoveredDevices.map((d, i) => (
                   <div
                     key={i}
-                    className="p-3 rounded-xl border border-[#e3e2e0] hover:border-blue-500 hover:bg-blue-50/20 flex items-center justify-between transition-all"
+                    className="p-3 rounded-[2px] border border-[#e6e6e4] hover:border-[#37352f] hover:bg-[#fafaf8] flex items-center justify-between transition-all"
                   >
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-xs text-[#37352f]">{d.name}</span>
-                        <span className="px-1.5 py-0.2 bg-neutral-100 text-neutral-700 text-[10px] rounded font-semibold">
+                        <span className="font-semibold text-xs text-[#37352f]">{d.name}</span>
+                        <span className="px-1.5 py-0.2 bg-[#f7f7f5] text-[#37352f] text-[10px] rounded-[2px] font-medium border border-[#e6e6e4]">
                           {d.width}
                         </span>
                       </div>
@@ -1054,7 +1054,7 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
                     <button
                       type="button"
                       onClick={() => handlePairDiscoveredDevice(d)}
-                      className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-semibold cursor-pointer transition-colors shadow-2xs"
+                      className="px-3 py-1 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-[2px] text-xs font-semibold cursor-pointer transition-colors shadow-2xs"
                     >
                       配对并连接
                     </button>
@@ -1063,18 +1063,18 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
               )}
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-[#f1f1ef]">
+            <div className="flex justify-end gap-2 pt-2 border-t border-[#efefed]">
               <button
                 type="button"
                 onClick={handleStartBluetoothScan}
-                className="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded text-xs font-semibold cursor-pointer"
+                className="px-3 py-1.5 bg-[#f7f7f5] hover:bg-[#efefed] text-[#37352f] rounded-[2px] text-xs font-semibold cursor-pointer border border-[#e6e6e4]"
               >
                 重新搜索
               </button>
               <button
                 type="button"
                 onClick={() => setIsPairModalOpen(false)}
-                className="px-3 py-1.5 bg-neutral-900 text-white rounded text-xs font-semibold cursor-pointer"
+                className="px-3 py-1.5 bg-[#37352f] text-white rounded-[2px] text-xs font-semibold cursor-pointer"
               >
                 完成
               </button>
@@ -1086,18 +1086,18 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
       {/* Hex Stream Inspector Modal */}
       {showHexModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-neutral-200 max-w-lg w-full p-5 space-y-3 shadow-xl">
-            <div className="flex items-center justify-between pb-2 border-b border-[#e3e2e0]">
+          <div className="bg-white rounded-[4px] border border-[#e6e6e4] max-w-lg w-full p-5 space-y-3 shadow-xl">
+            <div className="flex items-center justify-between pb-2 border-b border-[#e6e6e4]">
               <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-neutral-700" />
-                <h4 className="font-bold text-sm text-[#37352f]">
+                <FileText className="w-4 h-4 text-[#37352f]" />
+                <h4 className="font-semibold text-sm text-[#37352f]">
                   ESC/POS 蓝牙指令流解析器 (Hex Stream)
                 </h4>
               </div>
               <button
                 type="button"
                 onClick={() => setShowHexModal(false)}
-                className="text-xs text-neutral-400 hover:text-black cursor-pointer"
+                className="text-xs text-[#787774] hover:text-[#37352f] cursor-pointer"
               >
                 关闭
               </button>
@@ -1107,7 +1107,7 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
               符合国际热敏打印机标准 ESC/POS 指令集规范，可被市面绝大多数蓝牙热敏机直接执行：
             </p>
 
-            <pre className="p-3 bg-neutral-950 text-emerald-400 font-mono text-[11px] rounded-xl overflow-x-auto max-h-60 leading-relaxed select-all">
+            <pre className="p-3 bg-[#1e1e1e] text-[#4ec9b0] font-mono text-[11px] rounded-[2px] overflow-x-auto max-h-60 leading-relaxed select-all border border-[#e6e6e4]">
               {activeHexPreview ||
                 '// 暂无活跃出纸数据流。请在操作台点击【一键极速出纸】或【自检样张】生成实时报文。'}
             </pre>
@@ -1119,7 +1119,7 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
                   navigator.clipboard.writeText(activeHexPreview);
                   showToast('已复制十六进制报文指令到剪贴板！');
                 }}
-                className="px-3 py-1.5 bg-neutral-900 text-white rounded text-xs font-semibold cursor-pointer"
+                className="px-3 py-1.5 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-[2px] text-xs font-semibold cursor-pointer shadow-2xs"
               >
                 复制报文
               </button>

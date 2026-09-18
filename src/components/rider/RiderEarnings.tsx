@@ -239,19 +239,19 @@ export const RiderEarnings: React.FC<RiderEarningsProps> = ({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
           <div className="bg-[#fbfbfa] p-2.5 sm:p-3 rounded-xl border border-[#e6e6e4] space-y-1">
             <span className="text-[10px] text-[#787774] block truncate">今日累计配送净收入</span>
-            <p className="font-bold text-base sm:text-lg text-[#2b593f] truncate">¥{totalSettledEarnings.toFixed(2)}</p>
+            <p className="font-bold text-base sm:text-lg text-[#2b593f] truncate font-amount">¥{totalSettledEarnings.toFixed(2)}</p>
             <span className="text-[9.5px] text-[#4dab63] block truncate">已完成 {allSettledRecords.length} 单</span>
           </div>
 
           <div className="bg-[#fbfbfa] p-2.5 sm:p-3 rounded-xl border border-[#e6e6e4] space-y-1">
             <span className="text-[10px] text-[#787774] block truncate">可提现余额</span>
-            <p className="font-mono font-bold text-base sm:text-lg text-[#37352f] truncate">¥{withdrawableBalance.toFixed(2)}</p>
+            <p className="font-amount font-bold text-base sm:text-lg text-[#37352f] truncate">¥{withdrawableBalance.toFixed(2)}</p>
             <span className="text-[9.5px] text-[#787774] block truncate">已实名认证结算</span>
           </div>
 
           <div className="bg-[#fbfbfa] p-2.5 sm:p-3 rounded-xl border border-[#e6e6e4] space-y-1">
             <span className="text-[10px] text-[#787774] block truncate">餐车专属近距补贴</span>
-            <p className="font-bold text-base sm:text-lg text-[#d9730d] truncate">¥48.00</p>
+            <p className="font-bold text-base sm:text-lg text-[#d9730d] truncate font-amount">¥48.00</p>
             <span className="text-[9.5px] text-[#d9730d] block truncate">每单立享 +¥2~¥5</span>
           </div>
 

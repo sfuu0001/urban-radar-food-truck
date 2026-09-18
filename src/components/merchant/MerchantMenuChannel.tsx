@@ -75,9 +75,18 @@ import {
   getVariantFilterClass,
   getVariantBadgeClasses
 } from '../../utils/variantStyleHelper';
+import {
+  getChannelOverrides,
+  setChannelOverride,
+  setChannelOverridesBulk,
+  DishChannelStatus
+} from '../../utils/dishAvailability';
 import { MerchantMenuHeaderDeck } from './MerchantMenuHeaderDeck';
 import { MerchantDishListView } from './MerchantDishListView';
 import { MerchantMenuPagination } from './MerchantMenuPagination';
+import { ConsoleBatchRibbon } from './menu-console/ConsoleBatchRibbon';
+import { DishQrCodeModal } from '../common/DishQrCodeModal';
+import { ComboQrGeneratorModal } from './ComboQrGeneratorModal';
 
 // Standard Preset Options for quick selection
 export const SPICINESS_PRESETS = [
@@ -117,6 +126,7 @@ interface MerchantMenuChannelProps {
   onToggleAvailability: (dishId: string) => void;
   onAddNewDish: (dish: Partial<DishItem>) => void;
   onUpdateDish?: (dish: DishItem) => void;
+  onBulkUpdateDishes?: (updater: (prev: DishItem[]) => DishItem[]) => void;
   onRematchAllImages?: () => void;
   showToast: (msg: string) => void;
 }
@@ -126,6 +136,7 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
   onToggleAvailability,
   onAddNewDish,
   onUpdateDish,
+  onBulkUpdateDishes,
   onRematchAllImages,
   showToast
 }) => {
@@ -158,6 +169,24 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
       setIsSyncingCloud(false);
       setSyncProgress(null);
     }
+  };
+
+  /**
+   * 重匹配云端图库：按菜品名称 / 类目重新解析主图与图集，
+   * 由 Top Deck 的「重匹配图片」战术按钮触发。
+   */
+  const handleRematchAllImages = () => {
+    if (!onBulkUpdateDishes) {
+      showToast('当前运行环境未开放批量图片重匹配通道，请稍后重试');
+      return;
+    }
+    let matchedCount = 0;
+    onBulkUpdateDishes((prev) => {
+      const next = rematchAllDishImages(prev);
+      matchedCount = next.length;
+      return next;
+    });
+    showToast(`已按菜品名称与类目重新匹配云端图库：${matchedCount} 道菜品主图已同步刷新`);
   };
 
   // Edit Dish Modal State
@@ -229,6 +258,11 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
   const [batchActionType, setBatchActionType] = useState<
     'delivery_discount' | 'dinein_discount' | 'price_adjust' | 'spicy_flavor' | 'flavor_tags' | 'cooking_style' | 'availability'
   >('delivery_discount');
+
+  // Real Usable QR Code States (Single Dish / Variant QR & Multi-Dish Combo QR)
+  const [qrCodeDish, setQrCodeDish] = useState<DishItem | null>(null);
+  const [isDishQrModalOpen, setIsDishQrModalOpen] = useState<boolean>(false);
+  const [isComboQrModalOpen, setIsComboQrModalOpen] = useState<boolean>(false);
   const [batchDeliveryDiscount, setBatchDeliveryDiscount] = useState('5.00');
   const [batchDeliveryDiscountTag, setBatchDeliveryDiscountTag] = useState('外卖立减¥5');
   const [batchDineInDiscount, setBatchDineInDiscount] = useState('3.00');
@@ -317,22 +351,29 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
   const [newDishPrepTime, setNewDishPrepTime] = useState('约8m');
   const [newDishImageUrl, setNewDishImageUrl] = useState('https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=800&q=80');
 
-  // Channel overrides states (simulate multi-channel activation)
-  const [channelOverrides, setChannelOverrides] = useState<Record<string, { dineIn: boolean; delivery: boolean; pickup: boolean }>>({
-    'dish-1': { dineIn: true, delivery: true, pickup: true },
-    'dish-2': { dineIn: true, delivery: false, pickup: false },
-    'dish-3': { dineIn: true, delivery: true, pickup: true }
-  });
+  // Channel overrides states (persist multi-channel activation in safeStorage)
+  const [channelOverrides, setChannelOverrides] = useState<Record<string, DishChannelStatus>>(() =>
+    getChannelOverrides()
+  );
 
   // Granular Toggle Single Channel for a Dish
   const toggleChannel = (dishId: string, channel: 'dineIn' | 'delivery' | 'pickup') => {
-    const current = channelOverrides[dishId] || { dineIn: true, delivery: true, pickup: true };
-    const updated = { ...current, [channel]: !current[channel] };
+    const targetDish = dishes.find((d) => d.id === dishId);
+    const initialFallback: DishChannelStatus = targetDish
+      ? {
+          dineIn: targetDish.available !== false,
+          delivery: targetDish.available !== false,
+          pickup: targetDish.available !== false
+        }
+      : { dineIn: true, delivery: true, pickup: true };
+
+    const current = channelOverrides[dishId] || initialFallback;
+    const updated: DishChannelStatus = { ...current, [channel]: !current[channel] };
     const hasAnyActive = updated.dineIn || updated.delivery || updated.pickup;
 
     setChannelOverrides((prev) => ({ ...prev, [dishId]: updated }));
+    setChannelOverride(dishId, updated);
 
-    const targetDish = dishes.find((d) => d.id === dishId);
     if (targetDish && onUpdateDish) {
       onUpdateDish({
         ...targetDish,
@@ -351,10 +392,12 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
 
   // One-click All Channels (In-Stock / Sold-Out) for a Single Dish
   const handleSetSingleDishAllChannels = (dish: DishItem, status: boolean) => {
+    const newStatus: DishChannelStatus = { dineIn: status, delivery: status, pickup: status };
     setChannelOverrides((prev) => ({
       ...prev,
-      [dish.id]: { dineIn: status, delivery: status, pickup: status }
+      [dish.id]: newStatus
     }));
+    setChannelOverride(dish.id, newStatus);
     if (onUpdateDish) {
       onUpdateDish({
         ...dish,
@@ -370,36 +413,56 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
 
   // Bulk One-click In-Stock (All Channels On)
   const handleBulkAllInStock = (targets: DishItem[] = filteredDishes) => {
-    if (targets.length === 0) {
+    const list = targets && targets.length > 0 ? targets : filteredDishes;
+    if (!list || list.length === 0) {
       showToast('当前列表无菜品');
       return;
     }
-    const newOverrides: Record<string, { dineIn: boolean; delivery: boolean; pickup: boolean }> = {};
-    targets.forEach((d) => {
+    const newOverrides: Record<string, DishChannelStatus> = {};
+    const targetMap = new Map(list.map((d) => [d.id, true]));
+    list.forEach((d) => {
       newOverrides[d.id] = { dineIn: true, delivery: true, pickup: true };
-      if (onUpdateDish) {
-        onUpdateDish({ ...d, available: true });
-      }
     });
     setChannelOverrides((prev) => ({ ...prev, ...newOverrides }));
-    showToast(`已一键将 ${targets.length} 道菜品全渠道上架在售！`);
+    setChannelOverridesBulk(newOverrides);
+
+    if (onBulkUpdateDishes) {
+      onBulkUpdateDishes((prev) =>
+        prev.map((d) => (targetMap.has(d.id) ? { ...d, available: true } : d))
+      );
+    } else if (onUpdateDish) {
+      list.forEach((d) => {
+        onUpdateDish({ ...d, available: true });
+      });
+    }
+    showToast(`已一键将 ${list.length} 道菜品全渠道上架在售！`);
   };
 
   // Bulk One-click Out-of-Stock / Sold-Out (All Channels Off)
   const handleBulkAllSoldOut = (targets: DishItem[] = filteredDishes) => {
-    if (targets.length === 0) {
+    const list = targets && targets.length > 0 ? targets : filteredDishes;
+    if (!list || list.length === 0) {
       showToast('当前列表无菜品');
       return;
     }
-    const newOverrides: Record<string, { dineIn: boolean; delivery: boolean; pickup: boolean }> = {};
-    targets.forEach((d) => {
+    const newOverrides: Record<string, DishChannelStatus> = {};
+    const targetMap = new Map(list.map((d) => [d.id, true]));
+    list.forEach((d) => {
       newOverrides[d.id] = { dineIn: false, delivery: false, pickup: false };
-      if (onUpdateDish) {
-        onUpdateDish({ ...d, available: false });
-      }
     });
     setChannelOverrides((prev) => ({ ...prev, ...newOverrides }));
-    showToast(`已一键将 ${targets.length} 道菜品全渠道一键沽清！`);
+    setChannelOverridesBulk(newOverrides);
+
+    if (onBulkUpdateDishes) {
+      onBulkUpdateDishes((prev) =>
+        prev.map((d) => (targetMap.has(d.id) ? { ...d, available: false } : d))
+      );
+    } else if (onUpdateDish) {
+      list.forEach((d) => {
+        onUpdateDish({ ...d, available: false });
+      });
+    }
+    showToast(`已一键将 ${list.length} 道菜品全渠道一键沽清！`);
   };
 
   const filteredDishes = dishes.filter((d) => {
@@ -518,18 +581,22 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
       kitchenStation: drawerStation,
       packagingType: drawerPackaging,
       packagingFee: pkgFee,
-      dailyStockLimit: quota
+      dailyStockLimit: quota,
+      available: Boolean(drawerDeliveryAvail || drawerDineInAvail || drawerPickupAvail)
     } as any;
+
+    const channelStatus: DishChannelStatus = {
+      delivery: drawerDeliveryAvail,
+      dineIn: drawerDineInAvail,
+      pickup: drawerPickupAvail
+    };
 
     // Persist channel availability overrides
     setChannelOverrides((prev) => ({
       ...prev,
-      [drawerDish.id]: {
-        delivery: drawerDeliveryAvail,
-        dineIn: drawerDineInAvail,
-        pickup: drawerPickupAvail
-      }
+      [drawerDish.id]: channelStatus
     }));
+    setChannelOverride(drawerDish.id, channelStatus);
 
     if (onUpdateDish) {
       onUpdateDish(updated);
@@ -712,6 +779,7 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
 
     if (Object.keys(newOverrides).length > 0) {
       setChannelOverrides((prev) => ({ ...prev, ...newOverrides }));
+      setChannelOverridesBulk(newOverrides);
     }
 
     showToast(`成功批量更新 ${selectedDishIds.size} 道菜品的参数与规则！`);
@@ -1540,14 +1608,19 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
   ];
 
   return (
-    <div id="merchant-menu-channel-container" className="space-y-3 text-xs font-sans bg-[#F4F4F2] min-h-screen pb-16 p-2 sm:p-4 max-w-[1600px] mx-auto">
-      {/* 1. Header Deck (Branding, Metrics, Categories, Search, Filters, Floating Batch Dock) */}
+    <div
+      id="merchant-menu-channel-container"
+      className="min-h-screen bg-page-bg font-body-md text-text-prominent antialiased pb-24 sm:pb-16"
+    >
+      {/* 1. Console Top Deck + Metrics Deck + Filter Deck（Industrial Precision Console） */}
       <MerchantMenuHeaderDeck
         dishes={dishes}
         viewMode={viewMode}
         setViewMode={setViewMode}
         isSyncingCloud={isSyncingCloud}
         onSyncAllDishesToCloud={handleSyncAllDishesToCloud}
+        onRematchImages={handleRematchAllImages}
+        channelOverrides={channelOverrides}
         selectedDishIds={selectedDishIds}
         onToggleSelectAll={handleToggleSelectAll}
         onClearSelection={() => setSelectedDishIds(new Set())}
@@ -1596,18 +1669,27 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
         }}
         onOpenQuickPriceModal={() => setIsQuickPriceModalOpen(true)}
         onBulkAllInStock={() => {
-          const targets = dishes.filter((d) => selectedDishIds.has(d.id));
+          const targets =
+            selectedDishIds.size > 0
+              ? dishes.filter((d) => selectedDishIds.has(d.id))
+              : filteredDishes;
           handleBulkAllInStock(targets);
         }}
         onBulkAllSoldOut={() => {
-          const targets = dishes.filter((d) => selectedDishIds.has(d.id));
+          const targets =
+            selectedDishIds.size > 0
+              ? dishes.filter((d) => selectedDishIds.has(d.id))
+              : filteredDishes;
           handleBulkAllSoldOut(targets);
         }}
         onOpenBatchModal={() => setIsBatchModalOpen(true)}
+        onOpenComboQrModal={() => setIsComboQrModalOpen(true)}
       />
 
-      {/* 2. Main Dishes List View (Desktop High-Density Table & Mobile Card Flow) */}
-      <MerchantDishListView
+      {/* 2+3. DISH TOPOLOGY MATRIX：高密度表格 / 卡片拓扑 + 页脚遥测与分页（一体化硬边界容器） */}
+      <div className="px-space-sm sm:px-space-md lg:px-space-lg pb-space-sm sm:pb-space-md lg:pb-space-lg">
+        <div className="bg-card-bg rounded-console border border-border-main overflow-hidden">
+          <MerchantDishListView
         pagedDishes={pagedDishes}
         filteredDishesCount={filteredDishes.length}
         viewMode={viewMode}
@@ -1623,6 +1705,10 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
         onOpenDrawer={openParamDrawer}
         onOpenUploadModal={(dish) => setUploadModalDish(dish)}
         onPreviewZoom={(dish) => setPreviewZoomDish(dish)}
+        onOpenQrCode={(dish) => {
+          setQrCodeDish(dish);
+          setIsDishQrModalOpen(true);
+        }}
         onQuickPrice={(dish) => {
           const policy = globalFranchiseEngine.getPolicy(dish.id);
           const ctx = globalFranchiseEngine.getContext();
@@ -1651,17 +1737,36 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
         }}
       />
 
-      {/* 3. Modern Pagination Toolbar */}
-      <MerchantMenuPagination
-        currentPage={safeCurrentPage}
-        totalPages={totalPages}
-        pageSize={pageSize}
-        totalItems={filteredDishes.length}
-        onPageChange={(page) => setCurrentPage(page)}
-        onPageSizeChange={(size) => {
-          setPageSize(size);
-          setCurrentPage(1);
-        }}
+          {/* 3. 页脚遥测条与战术分页器 */}
+          <MerchantMenuPagination
+            currentPage={safeCurrentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={filteredDishes.length}
+            onPageChange={(page) => setCurrentPage(page)}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setCurrentPage(1);
+            }}
+          />
+        </div>
+      </div>
+
+      {/* 4. 战术批量操作 HUD 浮层（仅在存在选中项时吸附底部） */}
+      <ConsoleBatchRibbon
+        selectedDishes={dishes.filter((d) => selectedDishIds.has(d.id))}
+        onOpenQuickPriceModal={() => setIsQuickPriceModalOpen(true)}
+        onBulkAllInStock={() =>
+          handleBulkAllInStock(
+            selectedDishIds.size > 0 ? dishes.filter((d) => selectedDishIds.has(d.id)) : filteredDishes
+          )
+        }
+        onBulkAllSoldOut={() =>
+          handleBulkAllSoldOut(
+            selectedDishIds.size > 0 ? dishes.filter((d) => selectedDishIds.has(d.id)) : filteredDishes
+          )
+        }
+        onClearSelection={() => setSelectedDishIds(new Set())}
       />
 
       {/* Modal 1: 单品参数与运营规则配置弹窗 (Urban Radar Redesigned Modal) */}
@@ -1671,6 +1776,15 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
           initialTab={editActiveTab as any}
           onClose={() => setEditingDish(null)}
           onSave={(updatedDish) => {
+            if (typeof updatedDish.available === 'boolean') {
+              const status: DishChannelStatus = {
+                delivery: updatedDish.available,
+                dineIn: updatedDish.available,
+                pickup: updatedDish.available
+              };
+              setChannelOverrides((prev) => ({ ...prev, [updatedDish.id]: status }));
+              setChannelOverride(updatedDish.id, status);
+            }
             if (onUpdateDish) {
               onUpdateDish(updatedDish);
             }
@@ -2459,7 +2573,18 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
         onSelectDish={(d) => setPreviewZoomDish(d)}
         onEditDish={(d) => openEditModal(d)}
         onUpdateDish={onUpdateDish}
-        onToggleAvailability={(dishId) => onToggleAvailability(dishId)}
+        onToggleAvailability={(dishId) => {
+          onToggleAvailability(dishId);
+          const target = dishes.find((d) => d.id === dishId);
+          const nextAvail = target ? !target.available : true;
+          const status: DishChannelStatus = {
+            delivery: nextAvail,
+            dineIn: nextAvail,
+            pickup: nextAvail
+          };
+          setChannelOverrides((prev) => ({ ...prev, [dishId]: status }));
+          setChannelOverride(dishId, status);
+        }}
         showToast={showToast}
       />
 
@@ -2522,24 +2647,24 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
         isConnected={true}
       />
 
-      {/* BEGIN: Mobile Bottom Status Bar */}
-      <aside className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-[#1A1A17] text-white px-4 py-2 flex items-center justify-between border-t border-neutral-800 text-xs font-mono shadow-lg rounded-none">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 bg-emerald-400 animate-ping rounded-none"></span>
-          <span>全渠道终端网关已连通</span>
+      {/* BEGIN: Mobile Bottom Status Bar（已迁移至 Industrial Precision Console 令牌集） */}
+      <aside className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-dark-container text-white px-3 py-1.5 flex items-center justify-between gap-2 border-t border-dark-container-border shadow-console-2">
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="w-2 h-2 rounded-full bg-signal-live animate-pulse" />
+          <span className="font-label-micro uppercase">网关已连通</span>
         </div>
         <div className="flex items-center gap-1.5">
           <button
             type="button"
             onClick={() => setIsQuickPriceModalOpen(true)}
-            className="px-2.5 py-1 bg-white text-[#1A1A17] border border-neutral-300 font-semibold hover:bg-[#FAF9F5] rounded-none cursor-pointer"
+            className="px-2 py-1 border border-white/25 text-white font-label-micro uppercase rounded-console hover:bg-white/10 transition-colors cursor-pointer"
           >
             批量改价
           </button>
           <button
             type="button"
             onClick={() => handleBulkAllInStock(dishes)}
-            className="px-2.5 py-1 bg-white text-emerald-700 border border-emerald-600 font-bold hover:bg-emerald-50 rounded-none cursor-pointer"
+            className="px-2 py-1 bg-status-olive border border-transparent text-white font-label-micro uppercase font-bold rounded-console hover:opacity-90 transition-colors cursor-pointer"
           >
             一键全通售
           </button>
@@ -2627,9 +2752,9 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
         </div>
 
         {/* Drawer Body */}
-        <div className="p-5 overflow-y-auto flex-1 space-y-5 text-xs text-neutral-800">
+        <div className="p-4 sm:p-5 overflow-y-auto overflow-x-hidden flex-1 space-y-5 text-xs text-neutral-800 min-w-0">
           {/* Dish Meta Card */}
-          <div className="border border-[#D3D1CB] p-3 bg-white space-y-1.5 rounded-none">
+          <div className="border border-[#D3D1CB] p-3 bg-white space-y-1.5 rounded-none min-w-0">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono text-neutral-500 uppercase font-bold">
                 当前调控对象 (SKU SPEC)
@@ -2638,16 +2763,16 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
                 类目: {drawerDish?.category || '炭烤串串'}
               </span>
             </div>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-base font-black text-[#1A1A17]">
+            <div className="flex items-start justify-between gap-3 min-w-0">
+              <div className="min-w-0 flex-1">
+                <div className="text-base font-black text-[#1A1A17] truncate">
                   {drawerDish?.name}
                 </div>
-                <div className="text-neutral-500 font-mono text-[11px]">
+                <div className="text-neutral-500 font-mono text-[11px] truncate">
                   {drawerDish?.enName || 'ARTISANAL DISH SPECIFICATION'}
                 </div>
               </div>
-              <div className="text-right font-mono">
+              <div className="text-right font-mono shrink-0">
                 <div className="text-base font-extrabold text-[#1A1A17]">
                   ¥{parseFloat(drawerDeliveryPrice || '0').toFixed(2)}
                 </div>
@@ -2658,13 +2783,13 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
 
           {/* TAB 1: 基础工艺味型 */}
           {drawerActiveTab === 'params' && (
-            <div className="space-y-4 animate-in fade-in duration-100">
+            <div className="space-y-4 animate-in fade-in duration-100 min-w-0">
               {/* 1.1 辣度等级锁定 */}
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-0">
                 <label className="font-bold text-xs uppercase tracking-wider block text-neutral-700">
                   1.1 辣度等级与出餐工艺锁定
                 </label>
-                <div className="grid grid-cols-4 gap-1.5 font-mono text-center">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 font-mono text-center min-w-0">
                   {[
                     { label: '不辣 (0/5)', val: '不辣 (原味)' },
                     { label: '微辣 (1/5)', val: '微辣 (推荐)' },
@@ -2677,7 +2802,7 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
                         key={sp.label}
                         type="button"
                         onClick={() => setDrawerSpiciness(sp.val)}
-                        className={`py-2 border text-xs font-mono transition-colors rounded-none cursor-pointer ${
+                        className={`py-2 px-1 border text-xs font-mono transition-colors rounded-none cursor-pointer min-w-0 truncate ${
                           active
                             ? 'border-red-500 bg-red-50 text-red-700 font-bold shadow-xs'
                             : 'border-[#D3D1CB] bg-white hover:bg-neutral-100 text-neutral-700'
@@ -3281,6 +3406,25 @@ export const MerchantMenuChannel: React.FC<MerchantMenuChannelProps> = ({
         onRestoreSuccess={() => {
           showToast('菜品数据已恢复至历史版本！');
         }}
+      />
+
+      {/* 真实可用菜品/规格二维码弹窗（单点/直接支付/加购） */}
+      <DishQrCodeModal
+        isOpen={isDishQrModalOpen}
+        onClose={() => {
+          setIsDishQrModalOpen(false);
+          setQrCodeDish(null);
+        }}
+        dish={qrCodeDish}
+        showToast={showToast}
+      />
+
+      {/* 真实可用商家套餐组合二维码生成弹窗（扫单码多点/批量加购/组合直付） */}
+      <ComboQrGeneratorModal
+        isOpen={isComboQrModalOpen}
+        onClose={() => setIsComboQrModalOpen(false)}
+        dishes={dishes}
+        showToast={showToast}
       />
     </div>
   );

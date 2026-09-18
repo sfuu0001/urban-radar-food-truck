@@ -41,16 +41,20 @@ import {
   MerchantOperator,
   FieldDiff,
   VersionModuleType,
-  VersionActionType
+  VersionActionType,
+  ChainVerifyReport
 } from '../../types/versionTracking';
 import {
   globalVersionEngine,
+  getGovernanceHealth,
   DEFAULT_MERCHANT_OPERATORS,
   MODULE_NAME_MAP,
   ACTION_NAME_MAP
 } from '../../utils/versionPointerEngine';
 import { useDevSimulation } from '../../context/DevSimulationContext';
 import { SimulationProbe } from '../dev/SimulationProbe';
+import { DateRangeFilter } from '../common/DateRangeFilter';
+import { DateFilterState, resolveDateRange, isWithinRange } from '../../utils/dateFilter';
 
 interface MerchantVersionTrackingViewProps {
   showToast: (msg: string) => void;
@@ -74,6 +78,28 @@ export const MerchantVersionTrackingView: React.FC<MerchantVersionTrackingViewPr
     globalVersionEngine.getMilestoneSnapshots()
   );
 
+  // P0-c：真实存证链校验结果（由 getGovernanceHealth 驱动，"校验通过"不得硬编码）
+  const [integrityReport, setIntegrityReport] = useState<ChainVerifyReport | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getGovernanceHealth()
+      .then((health) => {
+        if (!cancelled) setIntegrityReport(health.integrity);
+      })
+      .catch((err) => {
+        console.warn('[VersionTracking] 存证链校验失败:', err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pointers.length]);
+
+  const integrityLabelOf = (p: VersionPointer): string => {
+    if (!integrityReport) return '存证中 · 未校验';
+    return integrityReport.brokenPointerIds.includes(p.pointerId) ? '校验失败' : '校验通过';
+  };
+
   // Active Sub-tab
   const [activeSubTab, setActiveSubTab] = useState<'timeline' | 'snapshots' | 'operators' | 'sandbox'>('timeline');
 
@@ -83,6 +109,9 @@ export const MerchantVersionTrackingView: React.FC<MerchantVersionTrackingViewPr
   const [selectedModule, setSelectedModule] = useState<string>('all');
   const [selectedAction, setSelectedAction] = useState<string>('all');
   const [onlyRevertible, setOnlyRevertible] = useState(false);
+  // 时间区间筛选（指针 timestamp: 'YYYY-MM-DD HH:mm:ss'，可被 Date 解析）
+  const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'all' });
+  const dateRange = useMemo(() => resolveDateRange(dateFilter), [dateFilter]);
 
   // Inspector Modal State
   const [inspectingPointer, setInspectingPointer] = useState<VersionPointer | null>(null);
@@ -130,6 +159,7 @@ export const MerchantVersionTrackingView: React.FC<MerchantVersionTrackingViewPr
   // Filtered pointers list
   const filteredPointers = useMemo(() => {
     return pointers.filter((p) => {
+      if (!isWithinRange(new Date(p.timestamp).getTime(), dateRange)) return false;
       if (selectedOperatorId !== 'all' && p.operator.id !== selectedOperatorId) return false;
       if (selectedModule !== 'all' && p.module !== selectedModule) return false;
       if (selectedAction !== 'all' && p.actionType !== selectedAction) return false;
@@ -147,7 +177,7 @@ export const MerchantVersionTrackingView: React.FC<MerchantVersionTrackingViewPr
 
       return true;
     });
-  }, [pointers, selectedOperatorId, selectedModule, selectedAction, onlyRevertible, searchQuery]);
+  }, [pointers, selectedOperatorId, selectedModule, selectedAction, onlyRevertible, searchQuery, dateRange]);
 
   // Statistics calculation
   const stats = useMemo(() => {
@@ -195,26 +225,57 @@ export const MerchantVersionTrackingView: React.FC<MerchantVersionTrackingViewPr
   };
 
   // Handle Rollback Pointer
+  /**
+   * 回滚执行器。
+   *
+   * P0-a 修复：此前回滚失败只弹一句 toast，且 executeCascadingRollback 在失败时
+   * 根本不提示，用户点击毫无反馈。现在区分三类结果：
+   *  - 成功 → 提示 + 刷新；
+   *  - CONFLICT（该实体在指针之后又被修改）→ 弹确认框，由管理员显式决定是否强制覆盖；
+   *  - 其他失败（模块不支持 / 写入失败）→ 明确提示原因，不产生任何静默变更。
+   */
+  const runRollback = (pointerId: string, force: boolean): boolean => {
+    const res = globalVersionEngine.rollbackPointer(pointerId, { force });
+
+    if (res.success) {
+      showToast(`🎉 ${res.message}`);
+      reloadData();
+      return true;
+    }
+
+    if (res.reason === 'CONFLICT' && !force) {
+      const proceed = window.confirm(
+        `${res.message}\n\n是否确认丢弃上述后续变更，强制回滚到该历史版本？`
+      );
+      if (proceed) {
+        return runRollback(pointerId, true);
+      }
+      showToast('已取消回滚，数据未发生任何变更');
+      return false;
+    }
+
+    showToast(`❌ ${res.message}`);
+    return false;
+  };
+
   const handleExecuteRollback = () => {
     if (!rollbackTargetPointer) return;
+    const pointerId = rollbackTargetPointer.pointerId;
     setIsRollbacking(true);
 
     setTimeout(() => {
-      const res = globalVersionEngine.rollbackPointer(rollbackTargetPointer.pointerId);
+      runRollback(pointerId, false);
       setIsRollbacking(false);
       setRollbackTargetPointer(null);
       setInspectingPointer(null);
-
-      if (res.success) {
-        showToast(`🎉 ${res.message}`);
-        reloadData();
-      } else {
-        showToast(`❌ ${res.message}`);
-      }
     }, 400);
   };
 
   // Handle Single Field Rollback
+  /**
+   * P0-a 修复：此前对未支持模块会"提示修复成功但数据未改"。
+   * 现在失败原因被真实回传，冲突时交由管理员裁决。
+   */
   const handleRollbackField = (pointerId: string, fieldKey: string) => {
     const res = globalVersionEngine.rollbackSingleField(pointerId, fieldKey);
     if (res.success) {
@@ -223,9 +284,33 @@ export const MerchantVersionTrackingView: React.FC<MerchantVersionTrackingViewPr
       if (inspectingPointer) {
         setInspectingPointer(null);
       }
-    } else {
-      showToast(`✕ ${res.message}`);
+      return;
     }
+
+    if (res.reason === 'CONFLICT') {
+      const proceed = window.confirm(
+        `${res.message}\n\n是否确认丢弃后续变更，强制将该字段恢复为历史值？`
+      );
+      if (proceed) {
+        const forced = globalVersionEngine.rollbackSingleField(pointerId, fieldKey, {
+          force: true
+        });
+        if (forced.success) {
+          showToast(`✓ ${forced.message}`);
+          reloadData();
+          if (inspectingPointer) {
+            setInspectingPointer(null);
+          }
+        } else {
+          showToast(`❌ ${forced.message}`);
+        }
+        return;
+      }
+      showToast('已取消字段修复，数据未发生任何变更');
+      return;
+    }
+
+    showToast(`✕ ${res.message}`);
   };
 
   // Handle Create Snapshot
@@ -479,6 +564,8 @@ export const MerchantVersionTrackingView: React.FC<MerchantVersionTrackingViewPr
       {/* 2. Sub-tab Controller */}
       <div className="bg-white rounded-[4px] border border-[#e2e8f0] p-1.5 shadow-xs flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-1.5 flex-wrap">
+          {/* 时间区间筛选：版本指针/快照按操作时间过滤 */}
+          <DateRangeFilter value={dateFilter} onChange={setDateFilter} compact />
           <button
             type="button"
             onClick={() => setActiveSubTab('timeline')}
@@ -746,7 +833,11 @@ export const MerchantVersionTrackingView: React.FC<MerchantVersionTrackingViewPr
                   {/* Bottom Integrity Hash Footer */}
                   <div className="mt-2.5 pt-1.5 border-t border-[#f1f5f9] flex items-center justify-between text-[10px] text-[#64748b]">
                     <span className="font-mono text-[9.5px]">
-                      Hash: <strong className="text-slate-700 font-mono">{pointer.integrityHash}</strong> · 校验通过
+                      Hash:{' '}
+                      <strong className="text-slate-700 font-mono">
+                        {pointer.chainProof?.chainHash?.slice(0, 18) ?? pointer.integrityHash}
+                      </strong>{' '}
+                      · {integrityLabelOf(pointer)}
                     </span>
                     <span className="font-mono text-[9.5px]">Pointer ID: {pointer.pointerId}</span>
                   </div>

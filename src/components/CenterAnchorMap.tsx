@@ -108,13 +108,14 @@ export const CenterAnchorMap: React.FC<CenterAnchorMapProps> = ({
       const amap = L.tileLayer(TILE_AMAP, {
         maxZoom: 18,
         subdomains: '1234',
-        attribution: '© 高德地图'
+        attribution: '© 高德地图',
+        className: 'minimal-flat-map-tile'
       }).addTo(map);
       (amap as any).on('tileerror', () => {
         if (!(map as any)._tileSwapped) {
           (map as any)._tileSwapped = true;
           map.removeLayer(amap);
-          L.tileLayer(TILE_FALLBACK, { maxZoom: 19, subdomains: 'abc' }).addTo(map);
+          L.tileLayer(TILE_FALLBACK, { maxZoom: 19, subdomains: 'abc', className: 'minimal-flat-map-tile' }).addTo(map);
         }
       });
 
@@ -143,10 +144,10 @@ export const CenterAnchorMap: React.FC<CenterAnchorMapProps> = ({
         if (accRef.current) mapRef.current.removeLayer(accRef.current);
         accRef.current = window.L.circle([res.latitude, res.longitude], {
           radius: Math.max(res.accuracy, 20),
-          color: '#d9730d',
-          weight: 1,
-          fillColor: '#d9730d',
-          fillOpacity: 0.16
+          color: '#1a1c1b',
+          weight: 1.2,
+          fillColor: '#1a1c1b',
+          fillOpacity: 0.1
         }).addTo(mapRef.current);
         setGpsAcc(res.accuracy);
         reverseCenter(res.latitude, res.longitude);
@@ -197,10 +198,10 @@ export const CenterAnchorMap: React.FC<CenterAnchorMapProps> = ({
       if (accRef.current) mapRef.current.removeLayer(accRef.current);
       accRef.current = window.L.circle([res.latitude, res.longitude], {
         radius: Math.max(res.accuracy, 20),
-        color: '#d9730d',
-        weight: 1,
-        fillColor: '#d9730d',
-        fillOpacity: 0.16
+        color: '#1a1c1b',
+        weight: 1.2,
+        fillColor: '#1a1c1b',
+        fillOpacity: 0.1
       }).addTo(mapRef.current);
       setGpsAcc(res.accuracy);
       reverseCenter(res.latitude, res.longitude);
@@ -236,7 +237,7 @@ export const CenterAnchorMap: React.FC<CenterAnchorMapProps> = ({
       {status === 'ready' && (
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full pointer-events-none z-[400]">
           <div className="relative flex flex-col items-center">
-            <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-10 h-10 rounded-full bg-emerald-500/20 animate-ping pointer-events-none" />
+            <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-10 h-10 rounded-full bg-neutral-800/10 animate-ping pointer-events-none" />
             <svg width="30" height="42" viewBox="0 0 38 52" xmlns="http://www.w3.org/2000/svg" className="drop-shadow">
               <path
                 d="M19 2 C8.5 2 4 11 4 20.5 C4 31 15 40 19 50 C23 40 34 31 34 20.5 C34 11 29.5 2 19 2 Z"
@@ -244,9 +245,9 @@ export const CenterAnchorMap: React.FC<CenterAnchorMapProps> = ({
                 stroke="#ffffff"
                 strokeWidth="2.5"
               />
-              <circle cx="19" cy="19" r="7" fill="#fde047" stroke="#1A1C1B" strokeWidth="1.5" />
+              <circle cx="19" cy="19" r="7" fill="#ffffff" stroke="#1A1C1B" strokeWidth="2" />
             </svg>
-            <div className="-mt-1 w-0.5 h-4 bg-emerald-600/70" />
+            <div className="-mt-1 w-0.5 h-4 bg-neutral-800/70" />
           </div>
         </div>
       )}

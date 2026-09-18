@@ -44,6 +44,11 @@ import { globalScannerEngine, playScannerBeep } from '../../utils/barcodeScanner
 import { resolveOrderChannelType, normalizeOrderKey } from '../../utils/orderNormalizer';
 import { TableDishProgressView } from './TableDishProgressView';
 import { TableBatchPrintModal } from './TableBatchPrintModal';
+import { TableCardSynergyMonitor } from './table/TableCardSynergyMonitor';
+import { TableCardSynergyDrawer } from './table/TableCardSynergyDrawer';
+import { TableSynergyHeaderPill } from './table/TableSynergyHeaderPill';
+import { TableCardSynergyFooterAction } from './table/TableCardSynergyFooterAction';
+import { TableSession } from '../../types/tableSession';
 import { voiceAlerts } from '../../utils/voiceAlertEngine';
 import { AccountAuditDrawer } from './AccountAuditDrawer';
 import { globalVersionEngine } from '../../utils/versionPointerEngine';
@@ -103,6 +108,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
   const [activeModal, setActiveModal] = useState<'open' | 'bill' | 'transfer' | 'addWaiting' | 'manualTransfer' | 'cleanPrompt' | 'voidOrder' | null>(null);
   const [isBatchPrintModalOpen, setIsBatchPrintModalOpen] = useState<boolean>(false);
   const [selectedTable, setSelectedTable] = useState<TableItem | null>(null);
+  const [activeSynergySession, setActiveSynergySession] = useState<TableSession | null>(null);
 
   // Void Order Modal State
   const [voidTargetTable, setVoidTargetTable] = useState<TableItem | null>(null);
@@ -432,19 +438,19 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
   return (
     <div className="space-y-3.5 text-xs">
       {/* Top Filter & Search Bar */}
-      <div className="bg-white p-2.5 sm:p-3 rounded-[3px] border border-[#e6e6e4] flex items-center justify-between gap-3 flex-wrap lg:flex-nowrap shadow-2xs">
+      <div className="bg-[#fbfbfa] p-2.5 sm:p-3 rounded-[4px] border border-[#e6e6e4] flex items-center justify-between gap-3 flex-wrap lg:flex-nowrap shadow-2xs">
         <div className="flex items-center gap-2 sm:gap-2.5 flex-1 w-full sm:w-auto min-w-0 flex-wrap sm:flex-nowrap">
           {/* Zone Dropdown Selector */}
           <div className="relative shrink-0" ref={zoneDropdownRef}>
             <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-[#787774] shrink-0 text-xs">台区:</span>
+              <span className="font-medium text-[#787774] shrink-0 text-xs">台区:</span>
               <button
                 type="button"
                 onClick={() => setIsZoneDropdownOpen(!isZoneDropdownOpen)}
-                className="px-2.5 py-1.5 bg-[#f7f7f5] hover:bg-[#efefed] border border-[#d3d1cb] hover:border-[#b8b6af] rounded-[4px] text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-2xs shrink-0"
+                className="px-2.5 py-1.5 bg-white hover:bg-[#f7f7f5] border border-[#e6e6e4] hover:border-[#d3d1cb] rounded-[2px] text-xs font-medium flex items-center gap-2 transition-all cursor-pointer shadow-2xs shrink-0"
               >
                 <span className="text-[#37352f]">{currentZone.label}</span>
-                <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-[2px] bg-[#37352f] text-white">
+                <span className="text-[10px] font-mono font-medium px-1.5 py-0.2 rounded-[2px] bg-[#37352f] text-white">
                   {currentZone.count}
                 </span>
                 <ChevronDown
@@ -457,8 +463,8 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
 
             {/* Zone Dropdown Menu */}
             {isZoneDropdownOpen && (
-              <div className="absolute left-0 top-full mt-1.5 w-[200px] bg-white border border-[#d3d1cb] rounded-[6px] shadow-xl z-50 py-1 animate-in fade-in zoom-in-95 duration-150">
-                <div className="px-3 py-1 text-[10px] font-bold text-[#9b9a97] uppercase tracking-wider border-b border-[#f1f1ef]">
+              <div className="absolute left-0 top-full mt-1.5 w-[200px] bg-white border border-[#e6e6e4] rounded-[4px] shadow-xs z-50 py-1 animate-in fade-in zoom-in-95 duration-150">
+                <div className="px-3 py-1 text-[10px] font-medium text-[#787774] uppercase tracking-wider border-b border-[#f1f1ef]">
                   选择台位区域
                 </div>
                 <div className="py-1 space-y-0.5 px-1">
@@ -472,9 +478,9 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                           setSelectedZone(z.id);
                           setIsZoneDropdownOpen(false);
                         }}
-                        className={`w-full px-2.5 py-1.5 rounded-[4px] text-xs font-medium flex items-center justify-between gap-2 transition-colors cursor-pointer text-left ${
+                        className={`w-full px-2.5 py-1.5 rounded-[2px] text-xs font-medium flex items-center justify-between gap-2 transition-colors cursor-pointer text-left ${
                           isSelected
-                            ? 'bg-[#37352f] text-white font-semibold'
+                            ? 'bg-[#37352f] text-white font-medium'
                             : 'text-[#37352f] hover:bg-[#f1f1ef]'
                         }`}
                       >
@@ -505,7 +511,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="搜索订单号 (如 UR-DIN-9821)、桌台 (A1) 或菜品..."
-              className="w-full pl-8 pr-7 py-1.5 bg-[#f7f7f5] hover:bg-[#f1f1ef] focus:bg-white border border-[#d3d1cb] focus:border-[#37352f] rounded-[4px] text-xs transition-colors focus:outline-none"
+              className="w-full pl-8 pr-7 py-1.5 bg-white hover:bg-[#f7f7f5] focus:bg-white border border-[#e6e6e4] focus:border-[#37352f] rounded-[2px] text-xs transition-colors focus:outline-none"
             />
             {searchQuery && (
               <button
@@ -547,7 +553,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
             <button
               type="button"
               onClick={handleQuickOpenTable}
-              className="px-2.5 py-1.5 bg-[#37352f] hover:bg-[#201f1c] text-white rounded-[3px] font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
+              className="px-2.5 py-1.5 bg-[#37352f] hover:bg-[#201f1c] text-white rounded-[2px] font-medium text-xs flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
               title="自动寻找空闲桌台并快速开台"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -558,7 +564,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
             <button
               type="button"
               onClick={handleCleanAllTables}
-              className={`px-2.5 py-1.5 rounded-[3px] font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer border shadow-2xs ${
+              className={`px-2.5 py-1.5 rounded-[2px] font-medium text-xs flex items-center gap-1 transition-colors cursor-pointer border shadow-2xs ${
                 cleaningCount > 0
                   ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
                   : 'bg-white text-slate-500 border-slate-300 hover:bg-slate-50'
@@ -573,7 +579,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
             <button
               type="button"
               onClick={() => setIsBatchPrintModalOpen((prev) => !prev)}
-              className={`px-2.5 py-1.5 rounded-[3px] font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs whitespace-nowrap ${
+              className={`px-2.5 py-1.5 rounded-[2px] font-medium text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs whitespace-nowrap ${
                 isBatchPrintModalOpen
                   ? 'bg-[#1e3e2b] text-white ring-1 ring-emerald-400'
                   : 'bg-[#2b593f] hover:bg-[#204430] text-white'
@@ -603,8 +609,8 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
         const transferredWaitings = waitingQueue.filter((w) => w.status === 'transferred');
 
         return (
-          <div className="bg-white p-3 rounded-[3px] border border-[#d3d1cb] shadow-2xs space-y-2.5">
-            <div className="flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap border-b border-[#f1f1ef] pb-2.5">
+          <div className="bg-[#fbfbfa] p-3 rounded-[4px] border border-[#e6e6e4] shadow-2xs space-y-2.5">
+            <div className="flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap border-b border-[#e6e6e4] pb-2.5">
               {/* Left Title & Status */}
               <div className="flex items-center gap-2">
                 <div className="p-1.5 bg-[#37352f] text-white rounded-[2px]">
@@ -612,9 +618,9 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-xs text-[#37352f]">等位桌号队列</span>
+                    <span className="font-semibold text-xs text-[#37352f]">等位桌号队列</span>
                     <span
-                      className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-[2px] ${
+                      className={`text-[10px] font-mono font-medium px-1.5 py-0.2 rounded-[2px] ${
                         activeWaitings.length > 0
                           ? 'bg-[#d9730d] text-white'
                           : 'bg-[#e6e6e4] text-[#787774]'
@@ -633,7 +639,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
               <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap sm:flex-nowrap w-full sm:w-auto justify-between sm:justify-end">
                 {/* Auto Transfer Toggle */}
                 <div
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#f7f7f5] hover:bg-[#efefed] border border-[#d3d1cb] rounded-[3px] cursor-pointer transition-colors"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white hover:bg-[#f7f7f5] border border-[#e6e6e4] rounded-[2px] cursor-pointer transition-colors"
                   onClick={() => {
                     const nextVal = !autoTransferOnClean;
                     setAutoTransferOnClean(nextVal);
@@ -646,7 +652,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                   }}
                   title="点击切换：桌台保洁完成后是否自动纳入等待队列的食客"
                 >
-                  <span className="text-[11px] font-semibold text-[#5a5854]">
+                  <span className="text-[11px] font-medium text-[#5a5854]">
                     桌台清理后自动转移:
                   </span>
                   <div className="flex items-center gap-1">
@@ -656,7 +662,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                       }`}
                     />
                     <span
-                      className={`text-xs font-bold font-mono ${
+                      className={`text-xs font-medium font-mono ${
                         autoTransferOnClean ? 'text-[#2b593f]' : 'text-[#787774]'
                       }`}
                     >
@@ -680,7 +686,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                     setWaitZone('餐车外摆区');
                     setActiveModal('addWaiting');
                   }}
-                  className="px-3 py-1.5 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-[3px] font-medium text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors shrink-0"
+                  className="px-3 py-1.5 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-[2px] font-medium text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors shrink-0"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
                   <span>+ 登记等位桌号</span>
@@ -690,7 +696,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
 
             {/* Waiting Queue Cards or Empty State */}
             {activeWaitings.length === 0 ? (
-              <div className="py-2.5 px-3 bg-[#f7f7f5] rounded-[2px] border border-dashed border-[#d3d1cb] flex items-center justify-between text-xs text-[#787774]">
+              <div className="py-2.5 px-3 bg-white rounded-[2px] border border-dashed border-[#e6e6e4] flex items-center justify-between text-xs text-[#787774]">
                 <div className="flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#4dab63]" />
                   <span>当前无等位排队客单。现有桌台翻台与就餐流转正常。</span>
@@ -703,20 +709,20 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                {activeWaitings.map((w, idx) => {
+                {activeWaitings.map((w) => {
                   const hasOrder = Boolean(w.orderNo || (w.orderItems && w.orderItems.length > 0));
                   return (
                     <div
                       key={w.id}
-                      className="p-2.5 bg-[#fafafa] border border-[#d3d1cb] rounded-[3px] flex flex-col justify-between gap-2 hover:border-[#37352f] transition-all relative group"
+                      className="p-2.5 bg-white border border-[#e6e6e4] rounded-[4px] shadow-2xs flex flex-col justify-between gap-2 hover:border-[#37352f] transition-all relative group"
                     >
                       {/* Card Header */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-xs bg-[#37352f] text-white px-1.5 py-0.2 rounded-[2px]">
+                          <span className="font-mono font-semibold text-xs bg-[#37352f] text-white px-1.5 py-0.2 rounded-[2px]">
                             {w.code}
                           </span>
-                          <span className="font-bold text-xs text-[#37352f]">
+                          <span className="font-medium text-xs text-[#37352f]">
                             {w.guestName || '等位客人'}
                           </span>
                         </div>
@@ -746,11 +752,11 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                           <div className="bg-[#edf3ec] p-1.5 rounded-[2px] border border-[#c4dcbc] text-[#2b593f] flex items-center justify-between">
                             <div className="flex items-center gap-1">
                               <UtensilsCrossed className="w-3 h-3" />
-                              <span className="font-semibold">
+                              <span className="font-medium">
                                 提前备餐中 ({w.orderItems?.length || 1}道菜)
                               </span>
                             </div>
-                            <span className="font-mono font-bold">
+                            <span className="font-mono font-semibold">
                               ¥{(w.totalAmount || 0).toFixed(2)}
                             </span>
                           </div>
@@ -777,7 +783,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                             cancelWaitingTable(w.id);
                             showToast(`等位号 ${w.code} 已取消！`);
                           }}
-                          className="py-1 px-2 bg-white hover:bg-[#efefed] text-[#787774] hover:text-[#e03e3e] border border-[#d3d1cb] rounded-[2px] text-[11px] cursor-pointer transition-colors"
+                          className="py-1 px-2 bg-white hover:bg-[#efefed] text-[#787774] hover:text-[#e03e3e] border border-[#e6e6e4] rounded-[2px] text-[11px] cursor-pointer transition-colors"
                           title="取消排队"
                         >
                           取消
@@ -809,16 +815,16 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
           })[0] || idleTables[0];
 
         return (
-          <div className="bg-emerald-900 text-white px-3 py-2 rounded-[3px] border border-emerald-800 shadow-xs flex items-center justify-between gap-3 flex-wrap animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="bg-[#1c2e24] text-white px-3 py-2 rounded-[4px] border border-[#2b593f] shadow-2xs flex items-center justify-between gap-3 flex-wrap animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="flex items-center gap-2 flex-wrap text-xs">
-              <span className="flex items-center gap-1 font-bold text-emerald-300 bg-emerald-950/60 px-2 py-0.5 rounded-[2px] border border-emerald-700/50">
+              <span className="flex items-center gap-1 font-semibold text-emerald-300 bg-emerald-950/60 px-2 py-0.5 rounded-[2px] border border-emerald-700/50">
                 <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
                 <span>智能等位撮合推荐</span>
               </span>
               <span className="text-emerald-100">
                 等位 <strong className="text-white font-mono text-xs underline decoration-emerald-400 underline-offset-2">{bestWait.code} 号</strong>
                 （{bestWait.guests}人 · 已候补 {bestWait.elapsedMinutes || 1}m）匹配空闲桌台
-                <strong className="text-emerald-200 font-bold ml-1">{bestMatchTable.code} 桌</strong> ({bestMatchTable.name} · {bestMatchTable.capacity}人位)
+                <strong className="text-emerald-200 font-semibold ml-1">{bestMatchTable.code} 桌</strong> ({bestMatchTable.name} · {bestMatchTable.capacity}人位)
               </span>
             </div>
 
@@ -836,7 +842,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                     onUpdateTable?.(res.table);
                   }
                 }}
-                className="px-3 py-1 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs rounded-[2px] shadow-sm flex items-center gap-1.5 cursor-pointer transition-colors"
+                className="px-3 py-1 bg-amber-400 hover:bg-amber-300 text-slate-950 font-medium text-xs rounded-[2px] shadow-2xs flex items-center gap-1.5 cursor-pointer transition-colors"
                 title="呼叫该等位顾客并直接开台安排就座"
               >
                 <Megaphone className="w-3.5 h-3.5" />
@@ -950,14 +956,15 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                 <div className={`px-2.5 py-2 flex items-center justify-between gap-1.5 border-b ${bgHeader} min-w-0`}>
                   {/* Left: Code, Name, Active Synergy */}
                   <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
-                    <span className="font-mono font-bold text-xs sm:text-sm px-1.5 py-0.5 bg-black/15 rounded-[2px] shrink-0 leading-none">
+                    <span className="font-mono font-semibold text-xs sm:text-sm px-1.5 py-0.5 bg-black/15 rounded-[2px] shrink-0 leading-none">
                       {tbl.code}
                     </span>
-                    <span className="font-semibold text-xs truncate min-w-0" title={tbl.name}>
+                    <span className="font-medium text-xs truncate min-w-0" title={tbl.name}>
                       {tbl.name}
                     </span>
+                    <TableSynergyHeaderPill tableCode={tbl.code} />
                     {isCurrentlyActiveInSidePanel && (
-                      <span className="text-[9px] bg-emerald-500 text-white px-1.5 py-0.5 rounded-[2px] font-bold shrink-0 whitespace-nowrap leading-none">
+                      <span className="text-[9px] bg-emerald-500 text-white px-1.5 py-0.5 rounded-[2px] font-medium shrink-0 whitespace-nowrap leading-none">
                         协同中
                       </span>
                     )}
@@ -987,7 +994,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                     >
                       <Ban className="w-3.5 h-3.5" />
                     </button>
-                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-[2px] bg-white/90 text-slate-800 shrink-0 whitespace-nowrap shadow-2xs leading-tight">
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-[2px] bg-white/90 text-slate-800 shrink-0 whitespace-nowrap shadow-2xs leading-tight">
                       {isDining && `就餐 ${tbl.elapsedMinutes || 12}m`}
                       {isIdle && `空闲·${tbl.capacity}座`}
                       {isCleaning && `保洁 ${tbl.elapsedMinutes}m`}
@@ -1000,14 +1007,14 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                 <div className="p-2.5 sm:p-3 space-y-2.5 min-w-0">
                   {/* Dine-in Matched Order Banner */}
                   {matchedDineInOrder && (
-                    <div className="flex items-center justify-between gap-1.5 bg-amber-50 px-2 py-1.5 rounded-[3px] border border-amber-200 text-[11px] text-amber-900 font-medium min-w-0">
+                    <div className="flex items-center justify-between gap-1.5 bg-amber-50 px-2 py-1.5 rounded-[2px] border border-amber-200 text-[11px] text-amber-900 font-medium min-w-0">
                       <div className="flex items-center gap-1 min-w-0 flex-1">
                         <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                         <span className="truncate">
                           堂食匹配: <strong className="font-mono">#{matchedDineInOrder.orderNo.replace(/^#/, '')}</strong>
                         </span>
                       </div>
-                      <span className="font-bold font-mono text-amber-700 shrink-0 whitespace-nowrap">
+                      <span className="font-semibold font-mono text-amber-700 shrink-0 whitespace-nowrap">
                         ¥{matchedDineInOrder.totalAmount.toFixed(1)}
                       </span>
                     </div>
@@ -1017,13 +1024,13 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                   {isDining && (
                     <>
                       {/* Prominent Order Number Field (订单号字段功能，便于快速查询与复制) */}
-                      <div className="flex items-center justify-between gap-1.5 bg-[#f1f1ef] px-2 py-1.5 rounded-[3px] border border-[#e6e6e4] text-[11px] min-w-0">
+                      <div className="flex items-center justify-between gap-1.5 bg-[#fbfbfa] px-2 py-1.5 rounded-[2px] border border-[#e6e6e4] text-[11px] min-w-0">
                         <span className="text-[#787774] font-medium flex items-center gap-1 shrink-0">
                           <Barcode className="w-3.5 h-3.5 text-[#37352f] shrink-0" />
                           <span>订单号:</span>
                         </span>
                         <div className="flex items-center gap-1 min-w-0">
-                          <span className="font-mono font-bold text-[#1a1c1b] tracking-tight truncate max-w-[125px] sm:max-w-none" title={orderNo}>
+                          <span className="font-mono font-medium text-[#1a1c1b] tracking-tight truncate max-w-[125px] sm:max-w-none" title={orderNo}>
                             {orderNo}
                           </span>
                           <button
@@ -1037,7 +1044,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                                 showToast(`订单号: ${orderNo}`);
                               }
                             }}
-                            className="p-1 hover:bg-black/10 rounded text-[#787774] hover:text-[#1a1c1b] transition-colors cursor-pointer shrink-0"
+                            className="p-1 hover:bg-black/10 rounded-[2px] text-[#787774] hover:text-[#1a1c1b] transition-colors cursor-pointer shrink-0"
                             title="复制订单号"
                           >
                             <Copy className="w-3 h-3" />
@@ -1049,7 +1056,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                       <div className="flex items-center justify-between text-[11px] text-[#787774] gap-1.5 min-w-0">
                         <span className="flex items-center gap-1 shrink-0">
                           <Users className="w-3 h-3 text-[#37352f] shrink-0" />
-                          <span>客数: <strong>{tbl.currentGuests || 2}/{tbl.capacity}人</strong></span>
+                          <span>客数: <span className="font-medium text-[#37352f]">{tbl.currentGuests || 2}/{tbl.capacity}人</span></span>
                         </span>
                         <span className="truncate text-right" title={tbl.serverName || '小林 (No.04)'}>
                           服务: {tbl.serverName || '小林 (No.04)'}
@@ -1058,17 +1065,17 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
 
                       {/* Dish Prep & Serving Progress Indicator (菜品出餐制作进展条) */}
                       {orderItems.length > 0 && (
-                        <div className="bg-[#fbfbfa] p-2 rounded-[3px] border border-[#e6e6e4] space-y-1.5 min-w-0">
+                        <div className="bg-[#fbfbfa] p-2 rounded-[2px] border border-[#e6e6e4] space-y-1.5 min-w-0">
                           <div className="flex items-center justify-between text-[10.5px] gap-1">
                             <span className="text-[#787774] font-medium shrink-0">出餐上菜进展:</span>
-                            <span className="font-mono font-bold text-[#2b593f] truncate text-right">
+                            <span className="font-mono font-medium text-[#2b593f] truncate text-right">
                               已上 {servedDishes}/{totalDishes} 件 ({servePercent}%)
                             </span>
                           </div>
 
-                          <div className="h-1.5 w-full bg-[#e6e6e4] rounded-full overflow-hidden">
+                          <div className="h-1.5 w-full bg-[#e6e6e4] rounded-[1px] overflow-hidden">
                             <div
-                              className={`h-full transition-all duration-500 rounded-full ${
+                              className={`h-full transition-all duration-500 rounded-[1px] ${
                                 servePercent === 100
                                   ? 'bg-[#2b593f]'
                                   : hasUrged
@@ -1092,15 +1099,15 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                                   <div className="flex items-center gap-1 shrink-0">
                                     <span className="font-mono text-[#787774]">x{item.quantity}</span>
                                     {isItemServed ? (
-                                      <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc] whitespace-nowrap">
+                                      <span className="text-[9px] font-medium px-1 py-0.2 rounded-[2px] bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc] whitespace-nowrap">
                                         已上桌
                                       </span>
                                     ) : isItemUrged ? (
-                                      <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-[#fdf2f2] text-[#e03e3e] border border-[#fbd0d0] animate-pulse whitespace-nowrap">
+                                      <span className="text-[9px] font-medium px-1 py-0.2 rounded-[2px] bg-[#fdf2f2] text-[#e03e3e] border border-[#fbd0d0] animate-pulse whitespace-nowrap">
                                         催单中
                                       </span>
                                     ) : (
-                                      <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-[#fbf3db] text-[#8f6412] border border-[#ecd9a8] whitespace-nowrap">
+                                      <span className="text-[9px] font-medium px-1 py-0.2 rounded-[2px] bg-[#fbf3db] text-[#8f6412] border border-[#ecd9a8] whitespace-nowrap">
                                         烹饪中
                                       </span>
                                     )}
@@ -1117,6 +1124,15 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                         </div>
                       )}
 
+                      {/* 协同双向监管组件（扫码授权待批、多人员在线状态与行为轨迹） */}
+                      <TableCardSynergyMonitor
+                        tableCode={tbl.code}
+                        tableId={tbl.id}
+                        isDining={isDining}
+                        showToast={showToast}
+                        onOpenSynergyDrawer={(sess) => setActiveSynergySession(sess)}
+                      />
+
                       {/* Primary Button to Jump to Detail View (点击跳转新界面) */}
                       <button
                         type="button"
@@ -1124,7 +1140,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                           e.stopPropagation();
                           setSelectedTableForDetail(tbl);
                         }}
-                        className="w-full py-1.5 px-2 bg-[#edf3ec] hover:bg-[#ddead8] border border-[#c4dcbc] text-[#2b593f] rounded-[3px] font-bold text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer group shadow-2xs whitespace-nowrap min-w-0"
+                        className="w-full py-1.5 px-2 bg-[#edf3ec] hover:bg-[#ddead8] border border-[#c4dcbc] text-[#2b593f] rounded-[2px] font-medium text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer group shadow-2xs whitespace-nowrap min-w-0"
                         title="点击打开菜品出餐制作情况与状态流转节点详情界面"
                       >
                         <UtensilsCrossed className="w-3.5 h-3.5 group-hover:scale-110 transition-transform shrink-0" />
@@ -1134,7 +1150,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
 
                       <div className="flex items-center justify-between pt-1 border-t border-[#efefed] min-w-0">
                         <span className="text-[11px] text-[#787774] shrink-0">消费合计:</span>
-                        <span className="font-mono font-bold text-sm text-[#2b593f] shrink-0 whitespace-nowrap">
+                        <span className="font-mono font-semibold text-sm text-[#2b593f] shrink-0 whitespace-nowrap">
                           ¥{(tbl.totalAmount || 0).toFixed(2)}
                         </span>
                       </div>
@@ -1143,8 +1159,8 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
 
                   {/* Reserved Details */}
                   {isReserved && tbl.reservation && (
-                    <div className="space-y-1.5 bg-[#edf3f8] p-2 rounded-[3px] border border-[#c4d6ec] text-[11px] text-[#1c5598]">
-                      <p className="font-bold flex items-center justify-between">
+                    <div className="space-y-1.5 bg-[#edf3f8] p-2 rounded-[2px] border border-[#c4d6ec] text-[11px] text-[#1c5598]">
+                      <p className="font-medium flex items-center justify-between">
                         <span>宾客: {tbl.reservation.guestName}</span>
                         <span className="font-mono text-[10px] bg-[#2383e2] text-white px-1.5 py-0.2 rounded-[2px]">
                           {tbl.reservation.countdownMinutes}m后到
@@ -1157,8 +1173,8 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
 
                   {/* Cleaning Details */}
                   {isCleaning && (
-                    <div className="bg-[#fbf3db] p-2.5 rounded-[3px] border border-[#ecd9a8] text-[#8f6412] space-y-1">
-                      <p className="font-bold flex items-center gap-1">
+                    <div className="bg-[#fbf3db] p-2.5 rounded-[2px] border border-[#ecd9a8] text-[#8f6412] space-y-1">
+                      <p className="font-medium flex items-center gap-1">
                         <Clock className="w-3 h-3 text-[#d9730d]" />
                         <span>已清洁 {tbl.elapsedMinutes} 分钟</span>
                       </p>
@@ -1168,8 +1184,8 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
 
                   {/* Idle Details */}
                   {isIdle && (
-                    <div className="bg-[#edf3ec] p-2.5 rounded-[3px] border border-[#c4dcbc] text-[#2b593f] space-y-1">
-                      <p className="font-bold">可随时开台扫码点餐</p>
+                    <div className="bg-[#edf3ec] p-2.5 rounded-[2px] border border-[#c4dcbc] text-[#2b593f] space-y-1">
+                      <p className="font-medium">可随时开台扫码点餐</p>
                       <p className="text-[10px] text-[#2b593f]/80">标准 {tbl.capacity} 人位 · 桌码已同步激活</p>
                     </div>
                   )}
@@ -1186,7 +1202,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                         e.stopPropagation();
                         handleBillModal(tbl);
                       }}
-                      className="flex-1 min-w-0 py-1 px-1.5 sm:px-2 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-[3px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-2xs whitespace-nowrap"
+                      className="flex-1 min-w-0 py-1 px-1.5 sm:px-2 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-[2px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-2xs whitespace-nowrap"
                     >
                       <ReceiptText className="w-3 h-3 shrink-0" />
                       <span>结账</span>
@@ -1197,19 +1213,23 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                         e.stopPropagation();
                         handleTransferModal(tbl);
                       }}
-                      className="shrink-0 py-1 px-1.5 sm:px-2 bg-white hover:bg-[#f1f1ef] text-[#37352f] border border-[#d3d1cb] rounded-[3px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
+                      className="shrink-0 py-1 px-1.5 sm:px-2 bg-white hover:bg-[#f1f1ef] text-[#37352f] border border-[#e6e6e4] rounded-[2px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
                       title="换桌"
                     >
                       <ArrowRightLeft className="w-3 h-3 text-[#787774] shrink-0" />
                       <span>换桌</span>
                     </button>
+                    <TableCardSynergyFooterAction
+                      tableCode={tbl.code}
+                      onOpenSynergyDrawer={(sess) => setActiveSynergySession(sess)}
+                    />
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleVoidOrderModal(tableForDetail);
                       }}
-                      className="shrink-0 py-1 px-1.5 sm:px-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-[3px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
+                      className="shrink-0 py-1 px-1.5 sm:px-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-[2px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
                       title="作废此桌订单并释放台位"
                     >
                       <Ban className="w-3 h-3 text-rose-600 shrink-0" />
@@ -1226,7 +1246,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                         e.stopPropagation();
                         handleOpenModal(tbl);
                       }}
-                      className="flex-1 min-w-0 py-1 px-1.5 sm:px-2 bg-[#2b593f] hover:bg-[#204430] text-white rounded-[3px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-2xs whitespace-nowrap"
+                      className="flex-1 min-w-0 py-1 px-1.5 sm:px-2 bg-[#2b593f] hover:bg-[#204430] text-white rounded-[2px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-2xs whitespace-nowrap"
                     >
                       <Plus className="w-3 h-3 shrink-0" />
                       <span>开台</span>
@@ -1249,7 +1269,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                             }
                           }
                         }}
-                        className="shrink-0 py-1 px-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-[3px] font-semibold text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
+                        className="shrink-0 py-1 px-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-[2px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
                         title={`一键撮合排队第一位顾客 (${waitingQueue.find((w) => w.status === 'waiting')?.code}) 入座`}
                       >
                         <Zap className="w-3 h-3 text-amber-600 fill-amber-500 shrink-0" />
@@ -1262,7 +1282,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                         e.stopPropagation();
                         handleVoidOrderModal(tableForDetail);
                       }}
-                      className="shrink-0 py-1 px-1.5 sm:px-2 bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-700 border border-[#d3d1cb] hover:border-rose-200 rounded-[3px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
+                      className="shrink-0 py-1 px-1.5 sm:px-2 bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-700 border border-[#e6e6e4] hover:border-rose-200 rounded-[2px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
                       title="作废/重置此台位历史关联单据"
                     >
                       <Ban className="w-3 h-3 text-rose-600 shrink-0" />
@@ -1279,7 +1299,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                         e.stopPropagation();
                         handleCleanComplete(tbl);
                       }}
-                      className="flex-1 min-w-0 py-1 px-1.5 sm:px-2 bg-[#d9730d] hover:bg-[#b55f0b] text-white rounded-[3px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-2xs whitespace-nowrap"
+                      className="flex-1 min-w-0 py-1 px-1.5 sm:px-2 bg-[#d9730d] hover:bg-[#b55f0b] text-white rounded-[2px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-2xs whitespace-nowrap"
                     >
                       <CheckCircle2 className="w-3 h-3 shrink-0" />
                       <span className="truncate">
@@ -1297,7 +1317,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                         e.stopPropagation();
                         handleVoidOrderModal(tableForDetail);
                       }}
-                      className="shrink-0 py-1 px-1.5 sm:px-2 bg-white hover:bg-rose-50 text-rose-700 border border-[#d3d1cb] hover:border-rose-200 rounded-[3px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
+                      className="shrink-0 py-1 px-1.5 sm:px-2 bg-white hover:bg-rose-50 text-rose-700 border border-[#e6e6e4] hover:border-rose-200 rounded-[2px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
                       title="强制作废单据并清台归位"
                     >
                       <Ban className="w-3 h-3 text-rose-600 shrink-0" />
@@ -1315,7 +1335,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                         onOpenTable(tbl.id, 4, '小林 (No.04)');
                         showToast(`预约宾客已入座，桌台 ${tbl.code} 成功开台！`);
                       }}
-                      className="flex-1 min-w-0 py-1 px-1.5 sm:px-2 bg-[#2383e2] hover:bg-[#1a66b2] text-white rounded-[3px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-2xs whitespace-nowrap"
+                      className="flex-1 min-w-0 py-1 px-1.5 sm:px-2 bg-[#2383e2] hover:bg-[#1a66b2] text-white rounded-[2px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-2xs whitespace-nowrap"
                     >
                       <UserCheck className="w-3 h-3 shrink-0" />
                       <span>入座开台</span>
@@ -1326,7 +1346,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                         e.stopPropagation();
                         handleVoidOrderModal(tableForDetail);
                       }}
-                      className="shrink-0 py-1 px-1.5 sm:px-2 bg-white hover:bg-rose-50 text-rose-700 border border-[#d3d1cb] hover:border-rose-200 rounded-[3px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
+                      className="shrink-0 py-1 px-1.5 sm:px-2 bg-white hover:bg-rose-50 text-rose-700 border border-[#e6e6e4] hover:border-rose-200 rounded-[2px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
                       title="作废/取消预订"
                     >
                       <Ban className="w-3 h-3 text-rose-600 shrink-0" />
@@ -1345,20 +1365,20 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
         {selectedTableForDetail && (
           <div
             id="pip-dish-progress-panel"
-            className="w-full lg:w-[38%] sticky top-2 z-20 h-[82vh] sm:h-[85vh] lg:h-[88vh] max-h-[88vh] overflow-hidden rounded-[4px] border border-[#d3d1cb] shadow-md bg-white flex flex-col animate-in fade-in slide-in-from-right-3 duration-200"
+            className="w-full lg:w-[38%] sticky top-2 z-20 h-[82vh] sm:h-[85vh] lg:h-[88vh] max-h-[88vh] overflow-hidden rounded-[4px] border border-[#e6e6e4] shadow-2xs bg-white flex flex-col animate-in fade-in slide-in-from-right-3 duration-200"
           >
             <div className="flex items-center justify-between bg-slate-900 text-white px-3 py-2 border-b border-slate-800 shrink-0">
               <div className="flex items-center gap-2">
-                <span className="font-mono font-bold text-xs bg-emerald-600 text-white px-1.5 py-0.5 rounded-[2px]">
+                <span className="font-mono font-semibold text-xs bg-emerald-600 text-white px-1.5 py-0.5 rounded-[2px]">
                   {selectedTableForDetail.code} 桌
                 </span>
-                <span className="text-xs font-semibold text-slate-200">画中画出餐协同</span>
+                <span className="text-xs font-medium text-slate-200">画中画出餐协同</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => setDetailViewMode('fullscreen')}
-                  className="p-1 hover:bg-slate-800 rounded text-slate-300 hover:text-white transition-colors cursor-pointer"
+                  className="p-1 hover:bg-slate-800 rounded-[2px] text-slate-300 hover:text-white transition-colors cursor-pointer"
                   title="放大为全屏出餐大屏"
                 >
                   <Maximize2 className="w-3.5 h-3.5" />
@@ -1366,7 +1386,7 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
                 <button
                   type="button"
                   onClick={() => setSelectedTableForDetail(null)}
-                  className="p-1 hover:bg-slate-800 rounded text-slate-300 hover:text-white transition-colors cursor-pointer"
+                  className="p-1 hover:bg-slate-800 rounded-[2px] text-slate-300 hover:text-white transition-colors cursor-pointer"
                   title="关闭画中画分栏"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -2228,6 +2248,15 @@ export const MerchantTables: React.FC<MerchantTablesProps> = ({
         title="堂食桌台操作审计与版本恢复"
         showToast={showToast}
       />
+
+      {/* 堂食双向协同监管深度抽屉 (成员权限变更、心跳探针、异常仲裁强制关台) */}
+      {activeSynergySession && (
+        <TableCardSynergyDrawer
+          session={activeSynergySession}
+          onClose={() => setActiveSynergySession(null)}
+          showToast={showToast}
+        />
+      )}
     </div>
   );
 };

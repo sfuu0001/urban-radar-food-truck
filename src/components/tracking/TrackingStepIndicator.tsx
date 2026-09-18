@@ -228,7 +228,7 @@ export const TrackingStepIndicator: React.FC<TrackingStepIndicatorProps> = ({
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-[11px] font-medium text-neutral-500 shrink-0">当前流转节点:</span>
           <span
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-none text-xs font-black border ${statusConfig.badgeClass}`}
+            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black border ${statusConfig.badgeClass}`}
           >
             <span
               className="w-2 h-2 rounded-full animate-pulse"
@@ -241,13 +241,13 @@ export const TrackingStepIndicator: React.FC<TrackingStepIndicatorProps> = ({
         {/* Toggle dynamic state simulation panel or Non-admin Lock Badge */}
         {effectiveAllowSimulation ? (
           <div className="flex items-center gap-1.5 shrink-0">
-            <span className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-mono font-bold">
+            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-mono font-bold">
               <Unlock className="w-2.5 h-2.5" /> 管理员可改
             </span>
             <button
               type="button"
               onClick={() => setShowSimulator((prev) => !prev)}
-              className="text-[10.5px] text-neutral-600 hover:text-black font-medium flex items-center gap-1 px-2 py-0.5 rounded-none bg-neutral-100 hover:bg-neutral-200 transition-all cursor-pointer shadow-2xs"
+              className="text-[10.5px] text-neutral-600 hover:text-black font-medium flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-neutral-100 hover:bg-neutral-200 transition-all cursor-pointer shadow-2xs"
               title="查看或模拟切换所有细化流程节点"
             >
               <SlidersHorizontal className="w-3 h-3 text-neutral-500" />
@@ -259,7 +259,7 @@ export const TrackingStepIndicator: React.FC<TrackingStepIndicatorProps> = ({
           <button
             type="button"
             onClick={() => openDevAuthModal()}
-            className="flex items-center gap-1 px-2.5 py-0.5 rounded-none bg-neutral-100 hover:bg-neutral-200 text-neutral-600 hover:text-neutral-900 text-[10.5px] font-medium border border-neutral-200/80 transition-all cursor-pointer shadow-2xs shrink-0"
+            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-600 hover:text-neutral-900 text-[10.5px] font-medium border border-neutral-200/80 transition-all cursor-pointer shadow-2xs shrink-0"
             title="当前为普通食客视图，流转节点已锁定；点击唤出管理员登录"
           >
             <Lock className="w-3 h-3 text-neutral-500" />

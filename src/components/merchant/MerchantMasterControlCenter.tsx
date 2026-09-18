@@ -33,8 +33,10 @@ import {
   HelpCircle,
   ArrowUpRight,
   TrendingDown,
-  Target
+  Target,
+  Radio
 } from 'lucide-react';
+import { MerchantPrecisionConsole } from './MerchantPrecisionConsole';
 import { Order, DishItem } from '../../types';
 import {
   userJourneyTracker,
@@ -49,21 +51,34 @@ import {
   MerchantAuditLogItem,
   MerchantBackupSnapshot
 } from '../../utils/merchantBackupEngine';
+import { DateRangeFilter } from '../common/DateRangeFilter';
+import {
+  DateFilterState,
+  resolveDateRange,
+  isWithinRange
+} from '../../utils/dateFilter';
 
 interface MerchantMasterControlCenterProps {
   orders: Order[];
   dishes: DishItem[];
   showToast: (msg: string) => void;
   onDataRestored?: () => void;
+  initialSubTab?: 'channel_matrix' | 'journey_funnel' | 'backup_fallback' | 'audit_logs';
 }
 
 export const MerchantMasterControlCenter: React.FC<MerchantMasterControlCenterProps> = ({
   orders,
   dishes,
   showToast,
-  onDataRestored
+  onDataRestored,
+  initialSubTab = 'channel_matrix'
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'journey_funnel' | 'backup_fallback' | 'audit_logs'>('journey_funnel');
+  const [activeSubTab, setActiveSubTab] = useState<'channel_matrix' | 'journey_funnel' | 'backup_fallback' | 'audit_logs'>(
+    initialSubTab
+  );
+  // 时间区间筛选（三个子页统一：会话 startTime / 快照与审计 timestamp）
+  const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'all' });
+  const dateRange = useMemo(() => resolveDateRange(dateFilter), [dateFilter]);
   const [sessions, setSessions] = useState<UserJourneySession[]>([]);
   const [funnelData, setFunnelData] = useState<ReturnType<typeof userJourneyTracker.getFunnelMetrics>>({
     totalSessions: 0,
@@ -113,6 +128,7 @@ export const MerchantMasterControlCenter: React.FC<MerchantMasterControlCenterPr
   // 过滤后的用户会话列表
   const filteredSessions = useMemo(() => {
     return sessions.filter((s) => {
+      if (!isWithinRange(s.startTime, dateRange)) return false;
       if (sessionFilterNode !== 'all') {
         if (sessionFilterNode === 'completed' && s.status !== 'completed') return false;
         if (sessionFilterNode === 'unsubmitted' && s.dropOffNode !== 'checkout' && s.dropOffNode !== 'cart_active') return false;
@@ -129,7 +145,17 @@ export const MerchantMasterControlCenter: React.FC<MerchantMasterControlCenterPr
       }
       return true;
     });
-  }, [sessions, sessionFilterNode, sessionSearchKeyword]);
+  }, [sessions, sessionFilterNode, sessionSearchKeyword, dateRange]);
+
+  // 时间区间过滤后的快照与审计列表
+  const filteredSnapshots = useMemo(
+    () => snapshots.filter((snap) => isWithinRange(snap.timestamp, dateRange)),
+    [snapshots, dateRange]
+  );
+  const filteredAuditLogs = useMemo(
+    () => auditLogs.filter((log) => isWithinRange(log.timestamp, dateRange)),
+    [auditLogs, dateRange]
+  );
 
   const selectedSession = useMemo(() => {
     return sessions.find((s) => s.sessionId === selectedSessionId) || sessions[0] || null;
@@ -240,7 +266,21 @@ export const MerchantMasterControlCenter: React.FC<MerchantMasterControlCenterPr
 
         {/* 导航 Tab 切换 */}
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex bg-[#f1f1ef] p-0.5 rounded border border-[#e6e6e4]">
+          <div className="flex bg-[#f1f1ef] p-0.5 rounded border border-[#e6e6e4] flex-wrap">
+            <button
+              type="button"
+              onClick={() => setActiveSubTab('channel_matrix')}
+              className={`px-3 py-1.5 rounded font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeSubTab === 'channel_matrix'
+                  ? 'bg-console-dark text-white shadow-xs'
+                  : 'text-[#787774] hover:text-black'
+              }`}
+            >
+              <Radio className="w-3.5 h-3.5 text-console-accent" />
+              <span>全渠道供售与打样主控</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-console-accent animate-ping" />
+            </button>
+
             <button
               type="button"
               onClick={() => setActiveSubTab('journey_funnel')}
@@ -294,11 +334,22 @@ export const MerchantMasterControlCenter: React.FC<MerchantMasterControlCenterPr
           >
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
+
+          {/* 时间区间筛选：会话/快照/审计三子页统一生效 */}
+          <DateRangeFilter value={dateFilter} onChange={setDateFilter} className="ml-1" />
         </div>
       </div>
 
-      {/* 4 项总控 KPI 指标卡 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* SUBTAB 0: 全渠道供售与营业打样主控矩阵 (Direct Replica from Design Spec) */}
+      {activeSubTab === 'channel_matrix' && (
+        <div className="rounded-lg overflow-hidden border border-console-borderDark/60 shadow-xs">
+          <MerchantPrecisionConsole />
+        </div>
+      )}
+
+      {/* 4 项总控 KPI 指标卡 (仅在非 channel_matrix 漏斗子页面展示) */}
+      {activeSubTab !== 'channel_matrix' && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-white p-3.5 rounded border border-[#e6e6e4] space-y-1 shadow-2xs">
           <div className="flex items-center justify-between text-[#787774]">
             <span>总进店访客量 (Sessions)</span>
@@ -359,6 +410,7 @@ export const MerchantMasterControlCenter: React.FC<MerchantMasterControlCenterPr
           </div>
         </div>
       </div>
+      )}
 
       {/* SUBTAB 1: 用户行为监听与流量漏斗 */}
       {activeSubTab === 'journey_funnel' && (
@@ -1018,7 +1070,7 @@ export const MerchantMasterControlCenter: React.FC<MerchantMasterControlCenterPr
                 {snapshots.length === 0 ? (
                   <div className="text-center py-6 text-[#787774]">暂无历史快照版本</div>
                 ) : (
-                  snapshots.map((snap, idx) => {
+                  filteredSnapshots.map((snap, idx) => {
                     const isFirst = idx === 0;
                     return (
                       <div
@@ -1121,7 +1173,7 @@ export const MerchantMasterControlCenter: React.FC<MerchantMasterControlCenterPr
             {auditLogs.length === 0 ? (
               <div className="text-center py-10 text-[#787774]">暂无商家端操作审计流水</div>
             ) : (
-              auditLogs.map((log) => (
+              filteredAuditLogs.map((log) => (
                 <div key={log.id} className="p-2.5 rounded border border-[#ebebe8] bg-[#fafafa] space-y-1">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useSyncExternalStore } from 'react';
 import {
   ShieldAlert,
   History,
@@ -34,6 +34,7 @@ import {
   ACTION_NAME_MAP
 } from '../../utils/versionPointerEngine';
 import { businessTransactionEngine } from '../../utils/businessTransactionEngine';
+import { subscribeWorkspacePrefs, getWorkspacePrefsSnapshot } from '../../utils/workspacePreferences';
 
 interface AccountAuditDrawerProps {
   currentModule: VersionModuleType;
@@ -57,6 +58,9 @@ export const AccountAuditDrawer: React.FC<AccountAuditDrawerProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedPointer, setSelectedPointer] = useState<VersionPointer | null>(null);
   const [isRestoring, setIsRestoring] = useState<boolean>(false);
+
+  const wsPrefs = useSyncExternalStore(subscribeWorkspacePrefs, getWorkspacePrefsSnapshot);
+  const isIconOnly = wsPrefs.buttonDisplayMode === 'icon_only';
 
   // Reload pointers when drawer opens or storage event fires
   const reloadPointers = () => {
@@ -132,7 +136,7 @@ export const AccountAuditDrawer: React.FC<AccountAuditDrawerProps> = ({
       {/* 1. 右侧浮动折叠吸附抓手 (Floating Handle Tab) */}
       <aside 
         aria-label="账号操作审计与数据兜底侧边栏"
-        className="fixed right-0 top-1/2 -translate-y-1/2 z-40 flex items-center"
+        className="js-audit-handle fixed right-0 top-1/2 -translate-y-1/2 z-40 flex items-center"
       >
         <button
           type="button"
@@ -140,7 +144,9 @@ export const AccountAuditDrawer: React.FC<AccountAuditDrawerProps> = ({
             reloadPointers();
             setIsOpen(prev => !prev);
           }}
-          className={`flex flex-col items-center gap-1 py-3 px-1.5 rounded-l-md shadow-xl border-l border-y transition-all cursor-pointer select-none group ${
+          className={`flex flex-col items-center gap-1 rounded-l-md shadow-xl border-l border-y transition-all cursor-pointer select-none group ${
+            isIconOnly && !isOpen ? 'py-2 px-1.5' : 'py-3 px-1.5'
+          } ${
             isOpen
               ? 'bg-slate-900 text-white border-slate-700'
               : suspectedMistakeCount > 0
@@ -150,21 +156,27 @@ export const AccountAuditDrawer: React.FC<AccountAuditDrawerProps> = ({
           title={isOpen ? '收起操作对比与数据兜底组件' : '展开当前页面各账号操作记录对比与版本恢复兜底'}
         >
           {suspectedMistakeCount > 0 ? (
-            <AlertTriangle className="w-4 h-4 text-amber-300 animate-pulse" />
+            <AlertTriangle className="w-4 h-4 text-amber-300 animate-pulse shrink-0" />
           ) : (
-            <ShieldAlert className={`w-4 h-4 ${isOpen ? 'text-amber-400' : 'text-slate-600 group-hover:text-slate-900'}`} />
+            <ShieldAlert className={`w-4 h-4 shrink-0 ${isOpen ? 'text-amber-400' : 'text-slate-600 group-hover:text-slate-900'}`} />
           )}
 
-          <span className="text-[11px] font-bold [writing-mode:vertical-lr] tracking-widest py-1">
+          <span
+            className={`text-[11px] font-bold [writing-mode:vertical-lr] tracking-widest transition-all duration-200 overflow-hidden whitespace-nowrap ${
+              isIconOnly && !isOpen
+                ? 'max-h-0 opacity-0 group-hover:max-h-[160px] group-hover:opacity-100 group-hover:py-1'
+                : 'py-1'
+            }`}
+          >
             {isOpen ? '收起审计' : '操作审计·数据兜底'}
           </span>
 
           {suspectedMistakeCount > 0 ? (
-            <span className="w-4 h-4 rounded-full bg-amber-400 text-slate-900 text-[10px] font-black flex items-center justify-center font-mono">
+            <span className="w-4 h-4 rounded-full bg-amber-400 text-slate-900 text-[10px] font-black flex items-center justify-center font-mono shrink-0">
               {suspectedMistakeCount}
             </span>
           ) : (
-            <History className="w-3.5 h-3.5 text-slate-400" />
+            <History className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           )}
         </button>
       </aside>

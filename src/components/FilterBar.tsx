@@ -819,11 +819,11 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         )}
       </AnimatePresence>
 
-      {/* 4. Search & Action Bar (新设计: 左侧双联视图切换 [网格/列表] + 右侧带星标推杆搜索栏) */}
-      <section className="flex items-center gap-2 sm:gap-2.5 relative w-full">
+      {/* 4. Search & Action Bar (精细化现代极简风格: 视图切换 + 高级微推杆搜索栏) */}
+      <section className="flex items-center gap-2 relative w-full">
         {/* View Mode Segmented Box: [ ⊞ | ☰ ] */}
         {onViewModeChange && (
-          <div className="flex items-center border border-[#D3D1CB] bg-white h-9 sm:h-9.5 rounded-none overflow-hidden shrink-0 shadow-2xs">
+          <div className="flex items-center bg-neutral-100/90 p-0.5 rounded-lg border border-neutral-200/80 h-9 shrink-0 select-none shadow-inner">
             {/* Grid View (⊞) */}
             <button
               type="button"
@@ -836,35 +836,35 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                   onViewModeChange('grid2');
                 }
               }}
-              className={`w-9 h-9 sm:w-9.5 sm:h-9.5 flex items-center justify-center transition-colors cursor-pointer select-none border-r border-[#D3D1CB] ${
+              className={`w-8 h-8 rounded-md flex items-center justify-center transition-all cursor-pointer select-none ${
                 viewMode !== 'list'
-                  ? 'bg-[#1a1c1b] text-white'
-                  : 'bg-white text-[#2d3139] hover:bg-neutral-50'
+                  ? 'bg-white text-[#1a1c1b] shadow-xs font-bold'
+                  : 'text-neutral-500 hover:text-neutral-900'
               }`}
               title={viewMode === 'grid' ? '当前：大图卡片 (点击切换双列网格)' : '网格视图'}
             >
-              <LayoutGrid className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+              <LayoutGrid className="w-4 h-4" />
             </button>
 
             {/* List View (☰) */}
             <button
               type="button"
               onClick={() => onViewModeChange('list')}
-              className={`w-9 h-9 sm:w-9.5 sm:h-9.5 flex items-center justify-center transition-colors cursor-pointer select-none ${
+              className={`w-8 h-8 rounded-md flex items-center justify-center transition-all cursor-pointer select-none ${
                 viewMode === 'list'
-                  ? 'bg-[#1a1c1b] text-white'
-                  : 'bg-white text-[#2d3139] hover:bg-neutral-50'
+                  ? 'bg-white text-[#1a1c1b] shadow-xs font-bold'
+                  : 'text-neutral-500 hover:text-neutral-900'
               }`}
               title="单列列表视图"
             >
-              <Menu className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+              <Menu className="w-4 h-4" />
             </button>
           </div>
         )}
 
-        {/* Search Bar matching Image 2 */}
-        <div className="relative flex-1 flex items-center h-9 sm:h-9.5 rounded-none bg-white border border-[#D3D1CB] px-2.5 sm:px-3 min-w-0 transition-all focus-within:border-neutral-700 shadow-2xs">
-          <Search className="w-4 h-4 text-[#9ca3af] shrink-0 pointer-events-none" />
+        {/* Search Bar matching modern obsidian styling */}
+        <div className="relative flex-1 flex items-center h-9 rounded-lg bg-neutral-100/80 border border-neutral-200/80 px-2.5 min-w-0 transition-all focus-within:bg-white focus-within:border-neutral-400 focus-within:shadow-xs">
+          <Search className="w-4 h-4 text-neutral-400 shrink-0 pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
@@ -874,11 +874,11 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               setIsSearchDropdownOpen(true);
             }}
             placeholder="搜索菜品、食材、炭烤、和牛..."
-            className="w-full pl-2 sm:pl-2.5 pr-2 bg-transparent text-[13px] sm:text-sm outline-none transition-all placeholder:text-[#9ca3af] text-[#1f2937] font-normal"
+            className="w-full pl-2 pr-2 bg-transparent text-[13px] outline-none transition-all placeholder:text-neutral-400 text-neutral-800 font-normal"
           />
 
           {/* Right Action Cluster inside Search Bar: Star | Sliders */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 select-none">
+          <div className="flex items-center gap-1.5 shrink-0 select-none">
             {searchQuery && (
               <button
                 type="button"
@@ -901,16 +901,16 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             </button>
 
             {/* Vertical Divider */}
-            <div className="w-[1px] h-3.5 bg-[#d1d5db]" />
+            <div className="w-[1px] h-3.5 bg-neutral-300" />
 
             {/* Filter Sliders Button (垂直调节推杆图标) */}
             <button
               type="button"
               onClick={onOpenFilterModal}
-              className="text-[#4b5563] hover:text-black transition-colors cursor-pointer flex items-center justify-center relative p-0.5"
+              className="text-neutral-600 hover:text-black transition-colors cursor-pointer flex items-center justify-center relative p-0.5"
               title="高级筛选器"
             >
-              <Sliders className="w-4 h-4 text-[#4b5563]" />
+              <Sliders className="w-4 h-4 text-neutral-600" />
               {activeFilterCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500 border border-white" />
               )}

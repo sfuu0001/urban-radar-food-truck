@@ -17,19 +17,23 @@ export function fallbackToast(titleOrMsg: string, description?: string): void {
     el.id = id;
     el.style.cssText = [
       'position:fixed',
-      'top:18px',
-      'right:18px',
+      'top:16px',
+      'right:16px',
       'z-index:99999',
-      'max-width:320px',
-      'background:#181816',
-      'color:#fff',
+      'max-width:340px',
+      'background:rgba(18,18,18,0.92)',
+      'color:#ffffff',
       'padding:10px 14px',
-      'border-radius:10px',
-      'box-shadow:0 8px 30px rgba(0,0,0,.25)',
-      'font:500 12px/1.5 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif',
+      'border:1px solid rgba(255,255,255,0.12)',
+      'border-radius:8px',
+      'box-shadow:0 16px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.08)',
+      'backdrop-filter:blur(16px)',
+      '-webkit-backdrop-filter:blur(16px)',
+      'font:500 12px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC",sans-serif',
       'opacity:0',
       'transform:translateY(-6px)',
-      'transition:opacity .18s ease, transform .18s ease'
+      'transition:opacity .18s ease, transform .18s ease',
+      'pointer-events:auto'
     ].join(';');
     const titleEl = document.createElement('div');
     titleEl.textContent = titleOrMsg;

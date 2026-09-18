@@ -92,7 +92,9 @@ export const OrdersModal: React.FC<OrdersModalProps> = ({
         estArrival: o.estimatedDeliveryTime?.replace('约', '')?.replace('后', '')?.trim() || (isDelivering ? '12:55:00' : '12 分钟'),
         distance: '1.2 mi',
         itemsCount: o.items.reduce((s, i) => s + i.quantity, 0),
-        itemsSummary: o.items.map((i) => `${i.name} x ${i.quantity}`).join(', '),
+        itemsSummary: o.items
+          .map((i) => `${i.name} x ${i.quantity}${i.isStruckOff ? ' [已划菜作废]' : i.isCompensatoryGift ? ' [致歉赠品]' : ''}`)
+          .join(', '),
         totalAmount: o.totalAmount,
         hasTopAccent: isDelivering,
         stepIndex: isDelivering ? 3 : 1,

@@ -29,6 +29,7 @@ import {
   planAmapRidingRoute,
   getAmapNavigationUrls,
   AmapRouteResult,
+  DeliveryRouteOption,
   calculateHaversineDistance,
   AMAP_KEY_EVENT
 } from '../../utils/truckLocationEngine';
@@ -40,11 +41,14 @@ declare global {
   }
 }
 
-// 高德地图标准图层源 (GCJ-02 对齐)
+// 高德与高可靠矢量/卫星/暗夜底图图层源 (GCJ-02 精确对齐)
 const AMAP_TILE_VECTOR = 'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}';
 const AMAP_TILE_SATELLITE = 'https://webst0{s}.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}';
 const AMAP_TILE_ROADNET = 'https://webst0{s}.is.autonavi.com/appmaptile?style=8&x={x}&y={y}&z={z}';
+const CARTO_DARK_TILE = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+const CARTO_VOYAGER_TILE = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
 const OSM_FALLBACK_TILE = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+const ESRI_SATELLITE_TILE = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 
 export interface TrackingRadarMapProps {
   initialSpeed?: number;
@@ -78,6 +82,9 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
   // 坐标计算：优先使用订单/餐车实际经纬度，若无则使用标准演示经纬度 (上海/杭州核心商圈)
   const defaultOrigin = useMemo(() => {
     if (originCoords) return originCoords;
+    if ((truck as any)?.location?.latitude && (truck as any)?.location?.longitude) {
+      return { lat: (truck as any).location.latitude, lng: (truck as any).location.longitude };
+    }
     if (truck?.latitude && truck?.longitude) {
       return { lat: truck.latitude, lng: truck.longitude };
     }
@@ -104,21 +111,26 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
 
   // 高德 API 路径规划状态
   const [routeData, setRouteData] = useState<AmapRouteResult | null>(null);
+  const [selectedRouteId, setSelectedRouteId] = useState<string>('route-1');
   const [isRouteLoading, setIsRouteLoading] = useState(true);
   const [routeSource, setRouteSource] = useState<'amap' | 'fallback_simulated'>('amap');
   const [toastTip, setToastTip] = useState<string | null>(null);
 
-  // 地图 DOM 引用
+  // 地图 DOM 与图层引用
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
-  const tileLayerRef = useRef<any>(null);
-  const satLayerRef = useRef<any>(null);
-  const roadLayerRef = useRef<any>(null);
+  const activeTileLayersRef = useRef<any[]>([]);
+  const inactivePolylinesRef = useRef<any[]>([]);
   const polylineLayerRef = useRef<any>(null);
   const polylineGlowRef = useRef<any>(null);
+  const polylineCasingRef = useRef<any>(null);
+  const polylineFlowRef = useRef<any>(null);
+  const radarCircle100Ref = useRef<any>(null);
+  const radarCircle300Ref = useRef<any>(null);
   const truckMarkerRef = useRef<any>(null);
   const destMarkerRef = useRef<any>(null);
   const riderMarkerRef = useRef<any>(null);
+  const currentTileStyleRef = useRef<string>('');
 
   const showInternalToast = (msg: string) => {
     setToastTip(msg);
@@ -135,6 +147,52 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
     return () => window.removeEventListener(AMAP_KEY_EVENT, handleKeyChange);
   }, []);
 
+  // 计算多条候选配送路线
+  const allRoutes: DeliveryRouteOption[] = useMemo(() => {
+    if (routeData?.routes && routeData.routes.length > 0) {
+      return routeData.routes;
+    }
+    if (routeData && routeData.points && routeData.points.length >= 2) {
+      return [
+        {
+          id: 'route-1',
+          name: '路线 1 · 极速绿波',
+          tag: '最快推荐',
+          color: '#00B96B',
+          glowColor: 'rgba(0, 185, 107, 0.35)',
+          distanceMeters: routeData.distanceMeters,
+          durationMinutes: routeData.durationMinutes,
+          durationSeconds: routeData.durationSeconds,
+          points: routeData.points,
+          steps: routeData.steps,
+          description: '高德绿波专线 · 直达优先'
+        }
+      ];
+    }
+    return [];
+  }, [routeData]);
+
+  // 当前选中的激活路线
+  const activeRoute = useMemo(() => {
+    return allRoutes.find((r) => r.id === selectedRouteId) || allRoutes[0] || null;
+  }, [allRoutes, selectedRouteId]);
+
+  // 切换路线并同步遥测数据
+  const handleSelectRoute = (routeId: string) => {
+    setSelectedRouteId(routeId);
+    const target = allRoutes.find((r) => r.id === routeId);
+    if (target) {
+      setDistanceMeters(Math.max(5, Math.round(target.distanceMeters * (1 - routeProgress / 100))));
+      showInternalToast(`已切换至【${target.name}】(${target.distanceMeters}米 · 预估${target.durationMinutes}分钟)`);
+      if (mapInstanceRef.current && target.points.length >= 2) {
+        try {
+          const bounds = window.L.latLngBounds(target.points);
+          mapInstanceRef.current.fitBounds(bounds, { padding: [40, 40], animate: true });
+        } catch {}
+      }
+    }
+  };
+
   // 1. 调用高德开放平台 Direction API 进行骑行路径规划
   useEffect(() => {
     let cancelled = false;
@@ -150,7 +208,12 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
         if (cancelled) return;
         setRouteData(res);
         setRouteSource(res.source);
-        setDistanceMeters(Math.round(res.distanceMeters * (1 - routeProgress / 100)));
+        if (res.routes && res.routes.length > 0) {
+          const currentOpt = res.routes.find((r) => r.id === selectedRouteId) || res.routes[0];
+          setDistanceMeters(Math.round(currentOpt.distanceMeters * (1 - routeProgress / 100)));
+        } else {
+          setDistanceMeters(Math.round(res.distanceMeters * (1 - routeProgress / 100)));
+        }
       } catch (err) {
         console.error('高德路径规划调用异常:', err);
       } finally {
@@ -187,21 +250,22 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
           return 100;
         }
         const next = prev + 1.5;
-        if (routeData) {
-          setDistanceMeters(Math.max(0, Math.round(routeData.distanceMeters * (1 - next / 100))));
+        const currentDist = activeRoute?.distanceMeters || routeData?.distanceMeters;
+        if (currentDist) {
+          setDistanceMeters(Math.max(0, Math.round(currentDist * (1 - next / 100))));
         }
         return next;
       });
     }, 300);
     return () => clearInterval(tourInterval);
-  }, [autoTour, routeData]);
+  }, [autoTour, activeRoute, routeData]);
 
   // 4. 根据当前进度在折线上插值计算骑手真实经纬度
   const currentRiderCoord = useMemo<[number, number]>(() => {
-    if (!routeData || !routeData.points || routeData.points.length === 0) {
+    const pts = activeRoute?.points || routeData?.points;
+    if (!pts || pts.length === 0) {
       return [defaultOrigin.lat, defaultOrigin.lng];
     }
-    const pts = routeData.points;
     if (routeProgress <= 0) return pts[0];
     if (routeProgress >= 100) return pts[pts.length - 1];
 
@@ -210,7 +274,123 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
       Math.max(0, Math.floor((pts.length - 1) * (routeProgress / 100)))
     );
     return pts[targetIndex];
-  }, [routeData, routeProgress, defaultOrigin]);
+  }, [activeRoute, routeData, routeProgress, defaultOrigin]);
+
+  // 切换或初始化底图瓦片层 (彻底修复底图空白/失效 Bug)
+  const applyTileLayers = (map: any, style: 'standard' | 'dark' | 'satellite') => {
+    const L = window.L;
+    if (!L || !map) return;
+
+    // 清理现有全部旧瓦片层
+    if (activeTileLayersRef.current.length > 0) {
+      activeTileLayersRef.current.forEach((layer) => {
+        try {
+          map.removeLayer(layer);
+        } catch {}
+      });
+      activeTileLayersRef.current = [];
+    }
+
+    if (style === 'standard') {
+      const tile = L.tileLayer(AMAP_TILE_VECTOR, {
+        maxZoom: 18,
+        minZoom: 11,
+        subdomains: '1234',
+        attribution: '© 高德地图 AMap',
+        className: 'minimal-flat-map-tile'
+      });
+      tile.on('tileerror', () => {
+        if (!(tile as any)._hasFallback) {
+          (tile as any)._hasFallback = true;
+          try {
+            map.removeLayer(tile);
+          } catch {}
+          const fallback = L.tileLayer(CARTO_VOYAGER_TILE, {
+            maxZoom: 18,
+            subdomains: 'abcd',
+            className: 'minimal-flat-map-tile'
+          }).addTo(map);
+          activeTileLayersRef.current = [fallback];
+        }
+      });
+      tile.addTo(map);
+      activeTileLayersRef.current = [tile];
+    } else if (style === 'satellite') {
+      const sat = L.tileLayer(AMAP_TILE_SATELLITE, {
+        maxZoom: 18,
+        minZoom: 11,
+        subdomains: '1234'
+      });
+      const road = L.tileLayer(AMAP_TILE_ROADNET, {
+        maxZoom: 18,
+        minZoom: 11,
+        subdomains: '1234'
+      });
+      sat.on('tileerror', () => {
+        if (!(sat as any)._hasFallback) {
+          (sat as any)._hasFallback = true;
+          try {
+            map.removeLayer(sat);
+          } catch {}
+          const esri = L.tileLayer(ESRI_SATELLITE_TILE, { maxZoom: 18 }).addTo(map);
+          activeTileLayersRef.current = [esri, road];
+        }
+      });
+      sat.addTo(map);
+      road.addTo(map);
+      activeTileLayersRef.current = [sat, road];
+    } else if (style === 'dark') {
+      const darkTile = L.tileLayer(CARTO_DARK_TILE, {
+        maxZoom: 18,
+        minZoom: 11,
+        subdomains: 'abcd',
+        attribution: '© CartoDB Dark Matter'
+      });
+      darkTile.on('tileerror', () => {
+        if (!(darkTile as any)._hasFallback) {
+          (darkTile as any)._hasFallback = true;
+          try {
+            map.removeLayer(darkTile);
+          } catch {}
+          const amapDark = L.tileLayer(
+            'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
+            { maxZoom: 18, subdomains: '1234' }
+          ).addTo(map);
+          activeTileLayersRef.current = [amapDark];
+        }
+      });
+      darkTile.addTo(map);
+      activeTileLayersRef.current = [darkTile];
+    }
+
+    currentTileStyleRef.current = style;
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 50);
+  };
+
+  // 组件卸载清理
+  useEffect(() => {
+    return () => {
+      if (mapInstanceRef.current) {
+        try {
+          mapInstanceRef.current.remove();
+        } catch {}
+        mapInstanceRef.current = null;
+      }
+      truckMarkerRef.current = null;
+      destMarkerRef.current = null;
+      riderMarkerRef.current = null;
+      radarCircle100Ref.current = null;
+      radarCircle300Ref.current = null;
+      polylineGlowRef.current = null;
+      polylineCasingRef.current = null;
+      polylineLayerRef.current = null;
+      polylineFlowRef.current = null;
+      inactivePolylinesRef.current = [];
+      activeTileLayersRef.current = [];
+    };
+  }, []);
 
   // 5. 初始化与维护 Leaflet 真实高德地图图层
   useEffect(() => {
@@ -218,6 +398,23 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
     const L = window.L;
 
     if (!mapInstanceRef.current) {
+      if ((mapContainerRef.current as any)._leaflet_id) {
+        try {
+          delete (mapContainerRef.current as any)._leaflet_id;
+        } catch {}
+      }
+      truckMarkerRef.current = null;
+      destMarkerRef.current = null;
+      riderMarkerRef.current = null;
+      radarCircle100Ref.current = null;
+      radarCircle300Ref.current = null;
+      polylineGlowRef.current = null;
+      polylineCasingRef.current = null;
+      polylineLayerRef.current = null;
+      polylineFlowRef.current = null;
+      inactivePolylinesRef.current = [];
+      activeTileLayersRef.current = [];
+
       const map = L.map(mapContainerRef.current, {
         center: [defaultOrigin.lat, defaultOrigin.lng],
         zoom: 16,
@@ -226,150 +423,280 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
         scrollWheelZoom: true
       });
       mapInstanceRef.current = map;
-
-      // 添加高德标准瓦片
-      const tile = L.tileLayer(AMAP_TILE_VECTOR, {
-        maxZoom: 18,
-        minZoom: 12,
-        subdomains: '1234',
-        attribution: '© 高德地图 AMap'
-      }).addTo(map);
-      tileLayerRef.current = tile;
-
-      // 瓦片加载容灾兜底
-      tile.on('tileerror', () => {
-        if (!(map as any)._tileSwapped) {
-          (map as any)._tileSwapped = true;
-          map.removeLayer(tile);
-          L.tileLayer(OSM_FALLBACK_TILE, { maxZoom: 18, subdomains: 'abc' }).addTo(map);
-        }
-      });
+      applyTileLayers(map, mapStyle);
+    } else {
+      // 检查底图风格是否发生变化
+      if (currentTileStyleRef.current !== mapStyle) {
+        applyTileLayers(mapInstanceRef.current, mapStyle);
+      }
     }
 
     const map = mapInstanceRef.current;
 
-    // 图层风格动态切换
-    if (mapStyle === 'satellite') {
-      if (!satLayerRef.current) {
-        satLayerRef.current = L.tileLayer(AMAP_TILE_SATELLITE, { maxZoom: 18, subdomains: '1234' }).addTo(map);
-        roadLayerRef.current = L.tileLayer(AMAP_TILE_ROADNET, { maxZoom: 18, subdomains: '1234' }).addTo(map);
-      }
-    } else {
-      if (satLayerRef.current) {
-        map.removeLayer(satLayerRef.current);
-        satLayerRef.current = null;
-      }
-      if (roadLayerRef.current) {
-        map.removeLayer(roadLayerRef.current);
-        roadLayerRef.current = null;
-      }
+    // 绘制以流动餐车为基点的极速雷达覆盖同心圆 (120m 即烹圈, 320m 极速圈)
+    if (radarCircle100Ref.current) map.removeLayer(radarCircle100Ref.current);
+    if (radarCircle300Ref.current) map.removeLayer(radarCircle300Ref.current);
+
+    radarCircle100Ref.current = L.circle([defaultOrigin.lat, defaultOrigin.lng], {
+      radius: 120,
+      color: mapStyle === 'dark' ? '#3B82F6' : '#1a1c1b',
+      weight: 1.2,
+      dashArray: '4, 8',
+      opacity: 0.35,
+      fillColor: mapStyle === 'dark' ? '#3B82F6' : '#1a1c1b',
+      fillOpacity: 0.04
+    }).addTo(map);
+
+    radarCircle300Ref.current = L.circle([defaultOrigin.lat, defaultOrigin.lng], {
+      radius: 320,
+      color: mapStyle === 'dark' ? '#3B82F6' : '#1a1c1b',
+      weight: 1,
+      dashArray: '6, 12',
+      opacity: 0.2,
+      fillColor: mapStyle === 'dark' ? '#3B82F6' : '#1a1c1b',
+      fillOpacity: 0.02
+    }).addTo(map);
+
+    // 清理非激活候选路线的旧折线
+    if (inactivePolylinesRef.current.length > 0) {
+      inactivePolylinesRef.current.forEach((layer) => {
+        try {
+          map.removeLayer(layer);
+        } catch {}
+      });
+      inactivePolylinesRef.current = [];
     }
 
-    // 绘制高德专送路线折线
-    if (routeData && routeData.points.length >= 2) {
-      if (polylineLayerRef.current) map.removeLayer(polylineLayerRef.current);
-      if (polylineGlowRef.current) map.removeLayer(polylineGlowRef.current);
+    // 清理当前激活路线的旧折线
+    if (polylineGlowRef.current) {
+      map.removeLayer(polylineGlowRef.current);
+      polylineGlowRef.current = null;
+    }
+    if (polylineCasingRef.current) {
+      map.removeLayer(polylineCasingRef.current);
+      polylineCasingRef.current = null;
+    }
+    if (polylineLayerRef.current) {
+      map.removeLayer(polylineLayerRef.current);
+      polylineLayerRef.current = null;
+    }
+    if (polylineFlowRef.current) {
+      map.removeLayer(polylineFlowRef.current);
+      polylineFlowRef.current = null;
+    }
 
-      // 外层半透明发光底轨
-      polylineGlowRef.current = L.polyline(routeData.points, {
-        color: '#10b981',
-        weight: 8,
-        opacity: 0.35,
+    // 绘制所有备选路线 (未激活的路线以半透明微弧虚线呈现，带专属识别色，点击即可直接切换)
+    allRoutes.forEach((route) => {
+      if (route.id === activeRoute?.id) return;
+      if (!route.points || route.points.length < 2) return;
+
+      const casing = L.polyline(route.points, {
+        color: mapStyle === 'dark' ? '#1E293B' : '#FFFFFF',
+        weight: 5,
+        opacity: 0.75,
         lineCap: 'round',
-        lineJoin: 'round'
+        lineJoin: 'round',
+        smoothFactor: 1.0
       }).addTo(map);
 
-      // 内层高德绿波专送流线
-      polylineLayerRef.current = L.polyline(routeData.points, {
-        color: '#059669',
-        weight: 4.5,
+      const altLine = L.polyline(route.points, {
+        color: route.color,
+        weight: 3.2,
+        opacity: 0.45,
+        dashArray: '6, 8',
+        lineCap: 'round',
+        lineJoin: 'round',
+        smoothFactor: 1.0
+      }).addTo(map);
+
+      // 可点击交互热区
+      const hitArea = L.polyline(route.points, {
+        color: 'transparent',
+        weight: 18,
+        opacity: 0.01,
+        lineCap: 'round',
+        lineJoin: 'round',
+        className: 'cursor-pointer'
+      }).addTo(map);
+
+      hitArea.on('click', () => {
+        handleSelectRoute(route.id);
+      });
+
+      altLine.on('click', () => {
+        handleSelectRoute(route.id);
+      });
+
+      inactivePolylinesRef.current.push(casing, altLine, hitArea);
+    });
+
+    // 绘制当前激活路线：4 阶微弧转弯专送光轨 (重新上色，活力明亮高辨识度)
+    if (activeRoute && activeRoute.points && activeRoute.points.length >= 2) {
+      const activeColor = activeRoute.color || '#00B96B';
+      const activeGlow = activeRoute.glowColor || 'rgba(0, 185, 107, 0.35)';
+
+      // 第 1 阶：外层弥散呼吸底光 (路线专属明亮光晕)
+      polylineGlowRef.current = L.polyline(activeRoute.points, {
+        color: activeColor,
+        weight: 12,
+        opacity: 0.28,
+        lineCap: 'round',
+        lineJoin: 'round',
+        smoothFactor: 1.0
+      }).addTo(map);
+
+      // 第 2 阶：纯白隔离套边 (使微弧光轨在各类平铺路面上分明凸显)
+      polylineCasingRef.current = L.polyline(activeRoute.points, {
+        color: '#FFFFFF',
+        weight: 6,
+        opacity: 0.98,
+        lineCap: 'round',
+        lineJoin: 'round',
+        smoothFactor: 1.0
+      }).addTo(map);
+
+      // 第 3 阶：主干活力专送实体线 (翡翠绿 / 高德蓝 / 珊瑚橙)
+      polylineLayerRef.current = L.polyline(activeRoute.points, {
+        color: activeColor,
+        weight: 3.8,
+        opacity: 1,
+        lineCap: 'round',
+        lineJoin: 'round',
+        smoothFactor: 1.0
+      }).addTo(map);
+
+      // 第 4 阶：顶层定向流向微弧虚线流动动画 (纯白高光动态粒子流)
+      polylineFlowRef.current = L.polyline(activeRoute.points, {
+        color: '#FFFFFF',
+        weight: 1.8,
         opacity: 0.95,
-        dashArray: '8, 6',
+        dashArray: '6, 10',
+        className: 'leaflet-microarc-flow',
         lineCap: 'round',
-        lineJoin: 'round'
+        lineJoin: 'round',
+        smoothFactor: 1.0
       }).addTo(map);
 
-      // 调整视窗边界以完整囊括餐车与目的地
       try {
-        const bounds = L.latLngBounds(routeData.points);
-        map.fitBounds(bounds, { padding: [35, 35], maxZoom: 17, animate: true });
-      } catch {
-        // ignore
-      }
+        const bounds = L.latLngBounds(activeRoute.points);
+        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 17, animate: true });
+      } catch {}
     }
 
-    // 起点 Marker：流动餐车
-    if (!truckMarkerRef.current) {
+    // 起点 Marker：流动餐车站台
+    const truckNeedsCreate = !truckMarkerRef.current || !(truckMarkerRef.current as any)._map || !truckMarkerRef.current.getElement();
+    if (truckNeedsCreate) {
+      if (truckMarkerRef.current) {
+        try { map.removeLayer(truckMarkerRef.current); } catch {}
+      }
       const truckIcon = L.divIcon({
         className: 'custom-truck-pin',
         html: `
-          <div class="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2 select-none">
-            <div class="absolute w-8 h-8 rounded-full bg-amber-400/40 animate-ping"></div>
-            <div class="absolute w-6 h-6 rounded-full bg-amber-500/20"></div>
-            <div class="w-7 h-7 rounded-full bg-[#181816] border-2 border-white shadow-lg flex items-center justify-center text-white relative z-10">
-              <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+          <div class="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2 select-none pointer-events-auto cursor-pointer group">
+            <div class="absolute w-14 h-14 rounded-full border border-emerald-500/30 map-radar-pulse-ring"></div>
+            <div class="absolute w-9 h-9 rounded-full bg-emerald-500/15 border border-emerald-500/30 animate-pulse"></div>
+            <div class="w-7.5 h-7.5 rounded-full bg-[#1A1A17] border-2 border-white shadow-xl flex items-center justify-center text-white relative z-10 transition-transform group-hover:scale-110">
+              <span class="w-2.5 h-2.5 rounded-full bg-white border border-[#1A1A17]"></span>
             </div>
-            <div class="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap bg-[#181816] text-white text-[9.5px] font-bold px-1.5 py-0.2 rounded-xs shadow-md border border-white/10">
-              ${truckName || '流动餐车'}
+            <div class="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap bg-white/95 backdrop-blur-xs text-gray-900 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md border border-gray-200/90 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-black"></span>
+              <span>${truckName || '流动餐车'} · 驻点</span>
             </div>
           </div>
         `,
-        iconSize: [28, 28]
+        iconSize: [30, 30]
       });
       truckMarkerRef.current = L.marker([defaultOrigin.lat, defaultOrigin.lng], { icon: truckIcon }).addTo(map);
     } else {
-      truckMarkerRef.current.setLatLng([defaultOrigin.lat, defaultOrigin.lng]);
+      try {
+        truckMarkerRef.current.setLatLng([defaultOrigin.lat, defaultOrigin.lng]);
+      } catch {
+        // Safe fallback
+      }
     }
 
-    // 终点 Marker：收货地址
-    if (!destMarkerRef.current) {
+    // 终点 Marker：收货目标地址
+    const destNeedsCreate = !destMarkerRef.current || !(destMarkerRef.current as any)._map || !destMarkerRef.current.getElement();
+    if (destNeedsCreate) {
+      if (destMarkerRef.current) {
+        try { map.removeLayer(destMarkerRef.current); } catch {}
+      }
       const destIcon = L.divIcon({
         className: 'custom-dest-pin',
         html: `
-          <div class="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2 select-none">
-            <div class="absolute w-7 h-7 rounded-full bg-blue-500/30 animate-pulse"></div>
-            <div class="w-6 h-6 rounded-full bg-blue-600 border-2 border-white shadow-lg flex items-center justify-center text-white relative z-10">
-              <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path></svg>
+          <div class="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2 select-none pointer-events-auto cursor-pointer group">
+            <div class="absolute w-9 h-9 rounded-full bg-red-500/20 animate-pulse"></div>
+            <div class="w-7 h-7 rounded-full bg-red-500 border-2 border-white shadow-xl flex items-center justify-center text-white relative z-10 transition-transform group-hover:scale-110">
+              <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                <circle cx="12" cy="11" r="2.5" stroke-width="2"></circle>
+              </svg>
             </div>
-            <div class="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap bg-blue-900 text-white text-[9.5px] font-bold px-1.5 py-0.2 rounded-xs shadow-md border border-blue-400/30">
-              ${destinationLabel}
+            <div class="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap bg-white/95 backdrop-blur-xs text-gray-900 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md border border-gray-200/90 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+              <span>${destinationLabel}</span>
             </div>
           </div>
         `,
-        iconSize: [24, 24]
+        iconSize: [26, 26]
       });
       destMarkerRef.current = L.marker([defaultDest.lat, defaultDest.lng], { icon: destIcon }).addTo(map);
     } else {
-      destMarkerRef.current.setLatLng([defaultDest.lat, defaultDest.lng]);
+      try {
+        destMarkerRef.current.setLatLng([defaultDest.lat, defaultDest.lng]);
+      } catch {
+        // Safe fallback
+      }
     }
 
-    // 骑手 Marker：动态跟随坐标平滑移动
-    if (!riderMarkerRef.current) {
+    // 骑手 Marker：动态跟随坐标平滑移动，搭载时速与专属路线色系浮标
+    const activeRiderColor = activeRoute?.color || '#00B96B';
+    const riderHtml = `
+      <div class="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2 select-none pointer-events-auto cursor-pointer group">
+        <div class="absolute w-12 h-12 rounded-full animate-ping opacity-60" style="background-color: ${activeRiderColor}; animation-duration: 2s;"></div>
+        <div class="w-8 h-8 rounded-full border-2 border-white shadow-2xl flex items-center justify-center text-white relative z-10 transition-transform group-hover:scale-110" style="background-color: ${activeRiderColor}">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+          </svg>
+        </div>
+        <div class="absolute -top-6.5 left-1/2 -translate-x-1/2 whitespace-nowrap bg-[#1A1A17] text-white text-[9.5px] font-mono font-bold px-2 py-0.5 rounded-full shadow-lg border border-white/20 flex items-center gap-1">
+          <span style="color: ${activeRiderColor}">⚡ ${speed}km/h</span>
+          <span class="text-white/30">|</span>
+          <span class="text-neutral-200">${activeRoute?.name?.split('·')?.[0]?.trim() || '专送'} ${Math.round(routeProgress)}%</span>
+        </div>
+      </div>
+    `;
+
+    const riderNeedsCreate = !riderMarkerRef.current || !(riderMarkerRef.current as any)._map || !riderMarkerRef.current.getElement();
+    if (riderNeedsCreate) {
+      if (riderMarkerRef.current) {
+        try { map.removeLayer(riderMarkerRef.current); } catch {}
+      }
       const riderIcon = L.divIcon({
         className: 'custom-rider-pin',
-        html: `
-          <div class="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2 select-none">
-            <div class="absolute w-9 h-9 rounded-full bg-emerald-400/30 animate-ping"></div>
-            <div class="w-8 h-8 rounded-full bg-[#10b981] border-2 border-white shadow-xl flex items-center justify-center text-white relative z-10">
-              <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-            </div>
-            <div class="absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap bg-emerald-950 text-emerald-200 text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-xs border border-emerald-400/30">
-              骑手 ${routeProgress}%
-            </div>
-          </div>
-        `,
+        html: riderHtml,
         iconSize: [32, 32]
       });
       riderMarkerRef.current = L.marker(currentRiderCoord, { icon: riderIcon, zIndexOffset: 1000 }).addTo(map);
     } else {
-      riderMarkerRef.current.setLatLng(currentRiderCoord);
+      try {
+        const riderIcon = L.divIcon({
+          className: 'custom-rider-pin',
+          html: riderHtml,
+          iconSize: [32, 32]
+        });
+        riderMarkerRef.current.setIcon(riderIcon);
+        riderMarkerRef.current.setLatLng(currentRiderCoord);
+      } catch {
+        // Safe fallback
+      }
     }
 
     // 触发尺寸重算
     setTimeout(() => {
       map.invalidateSize();
     }, 150);
-  }, [defaultOrigin, defaultDest, routeData, currentRiderCoord, mapStyle, destinationLabel, truckName, routeProgress]);
+  }, [defaultOrigin, defaultDest, routeData, activeRoute, allRoutes, currentRiderCoord, mapStyle, destinationLabel, truckName, routeProgress]);
 
   // 地图容器尺寸变动时触发 invalidateSize
   useEffect(() => {
@@ -442,7 +769,7 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
   };
 
   return (
-    <div className="overflow-hidden bg-[#f4f5f1] border-y border-[#ededeb] relative select-none font-sans">
+    <div className="overflow-hidden bg-[#FAFAF8] border-b border-gray-200 relative select-none font-sans">
       {/* 内部 Toast 提示 */}
       <AnimatePresence>
         {toastTip && (
@@ -450,7 +777,7 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="absolute top-12 left-1/2 -translate-x-1/2 z-40 bg-[#181816]/95 text-white text-[10.5px] font-semibold px-3 py-1 shadow-lg border border-white/15 flex items-center gap-1.5"
+            className="absolute top-12 left-1/2 -translate-x-1/2 z-40 bg-[#181816]/95 text-white text-[10.5px] font-semibold px-3 py-1 rounded-full shadow-lg border border-white/15 flex items-center gap-1.5"
           >
             <CheckCircle2 className="w-3 h-3 text-emerald-400" />
             <span>{toastTip}</span>
@@ -459,14 +786,14 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
       </AnimatePresence>
 
       <motion.div
-        animate={{ height: isMapExpanded ? 360 : 235 }}
+        animate={{ height: isMapExpanded ? 400 : 256 }}
         transition={{ duration: 0.3, ease: 'easeInOut' }}
-        className="w-full relative overflow-hidden bg-[#e6e8e2]"
+        className="w-full relative overflow-hidden bg-[#FAFAF8]"
       >
-        {/* Leaflet 真实高德地图容器 */}
+        {/* Leaflet 真实高德地图容器 (极简平铺渲染引擎，支持标准/卫星/黑曜暗夜原生图层) */}
         <div
           ref={mapContainerRef}
-          className={`w-full h-full ${mapStyle === 'dark' ? 'invert-[0.92] hue-rotate-180 contrast-[1.1]' : ''}`}
+          className="w-full h-full amap-clean-white-container"
           style={{ zIndex: 1 }}
         />
 
@@ -477,24 +804,26 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
             <button
               type="button"
               onClick={() => setIsAmapModalOpen(true)}
-              className="bg-[#181816]/90 hover:bg-[#181816] backdrop-blur-xs text-white text-[10px] font-bold px-2 py-1 flex items-center gap-1.5 shadow-2xs cursor-pointer border border-white/10 transition-colors"
+              className="bg-[#1A1A17]/90 hover:bg-[#1A1A17] backdrop-blur-md text-white text-[10.5px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-md cursor-pointer border border-white/15 transition-all"
               title="点击查看/配置高德开放平台 API 对接详情"
             >
               <Compass className="w-3 h-3 text-emerald-400 animate-spin-slow" />
               <span className="text-emerald-400 font-mono">AMap</span>
-              <span className="text-neutral-300">
-                {routeSource === 'amap' ? '高德绿波专线' : '高德网格对齐'}
+              <span className="text-neutral-200">
+                {activeRoute?.name?.split('·')?.[1]?.trim() || (routeSource === 'amap' ? '极速绿波' : '网格对齐')}
               </span>
             </button>
 
-            <div className="bg-white/95 backdrop-blur-xs text-[#111] text-[10.5px] font-bold px-2 py-1 border border-[#e2e2dc] shadow-2xs flex items-center gap-1">
-              <Clock className="w-3 h-3 text-amber-500" />
+            <div className="bg-white/95 backdrop-blur-md text-gray-900 text-[10.5px] font-bold px-2.5 py-1 rounded-full border border-gray-200/90 shadow-sm flex items-center gap-1">
+              <Clock className="w-3 h-3 text-neutral-800" />
               <span>
                 {routeProgress >= 100
                   ? '已顺利送达'
+                  : activeRoute?.durationMinutes
+                  ? `高德预估 ${Math.max(1, Math.ceil(activeRoute.durationMinutes * (1 - routeProgress / 100)))} 分钟`
                   : routeData?.durationMinutes
                   ? `高德预估 ${Math.max(1, Math.ceil(routeData.durationMinutes * (1 - routeProgress / 100)))} 分钟`
-                  : '约 8-12 分钟'}
+                  : '约 5-8 分钟'}
               </span>
             </div>
           </div>
@@ -504,7 +833,7 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
             <button
               type="button"
               onClick={handleOpenAmapNavigation}
-              className="bg-blue-600 hover:bg-blue-700 text-white text-[10.5px] font-bold px-2 py-1 shadow-2xs flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+              className="bg-[#1677FF] hover:bg-blue-600 text-white text-[10.5px] font-bold px-2.5 py-1 rounded-full shadow-md flex items-center gap-1 cursor-pointer transition-all active:scale-95"
               title="一键拉起高德地图官方 App / 网页版骑行导航"
             >
               <Navigation className="w-3 h-3 fill-white" />
@@ -512,61 +841,111 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
               <ExternalLink className="w-2.5 h-2.5 opacity-80" />
             </button>
 
-            <div className="bg-[#181816]/90 backdrop-blur-xs text-white text-[10.5px] font-mono font-bold px-2 py-1 shadow-2xs flex items-center gap-1 border border-white/10">
+            <div className="bg-[#1A1A17]/95 backdrop-blur-md text-white text-[10.5px] font-mono font-bold px-2.5 py-1 rounded-full shadow-md flex items-center gap-1 border border-white/15">
               <motion.span
                 animate={{ opacity: [1, 0.3, 1], scale: [1, 1.2, 1] }}
                 transition={{ repeat: Infinity, duration: 1.2 }}
-                className="w-1.5 h-1.5 rounded-full bg-[#10b981]"
+                className="w-1.5 h-1.5 rounded-full"
+                style={{ backgroundColor: activeRoute?.color || '#00B96B' }}
               />
               <span>{routeProgress >= 100 ? '0m' : `${distanceMeters}m`}</span>
             </div>
           </div>
         </div>
 
+        {/* 备选专送路径智能切换胶囊栏 (路线 1 极速绿波 / 路线 2 宽道直达 / 路线 3 园区穿行) */}
+        {allRoutes.length > 0 && (
+          <div className="absolute top-11 left-2.5 z-20 flex items-center gap-1 pointer-events-auto bg-white/95 backdrop-blur-md p-1 rounded-xl shadow-md border border-gray-200/90 max-w-[calc(100%-80px)] overflow-x-auto no-scrollbar">
+            {allRoutes.map((r) => {
+              const isCurrent = r.id === (activeRoute?.id || 'route-1');
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => handleSelectRoute(r.id)}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10.5px] font-bold transition-all whitespace-nowrap cursor-pointer ${
+                    isCurrent
+                      ? 'bg-[#181816] text-white shadow-xs'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 active:scale-95'
+                  }`}
+                  title={`${r.name} - ${r.description} (${r.distanceMeters}米 · ${r.durationMinutes}分钟)`}
+                >
+                  <span
+                    className="w-2 h-2 rounded-full ring-1 ring-white/60"
+                    style={{ backgroundColor: r.color }}
+                  />
+                  <span>{r.name.split('·')[0].trim()}</span>
+                  <span
+                    className={`text-[9px] px-1 py-0.2 rounded font-mono ${
+                      isCurrent ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
+                    }`}
+                  >
+                    {r.durationMinutes}分
+                  </span>
+                  {isCurrent && (
+                    <span className="text-[9px] text-emerald-400 font-normal">
+                      · {r.tag}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* 右侧浮动小工具栏：图层切换 & 视角复位 */}
-        <div className="absolute right-2.5 top-12 flex flex-col gap-1 z-20 pointer-events-auto">
+        <div className="absolute right-2.5 top-11 flex flex-col gap-1.5 z-20 pointer-events-auto">
           <button
             type="button"
             onClick={() => {
-              const next = mapStyle === 'standard' ? 'dark' : mapStyle === 'dark' ? 'satellite' : 'standard';
+              const next = mapStyle === 'standard' ? 'satellite' : mapStyle === 'satellite' ? 'dark' : 'standard';
               setMapStyle(next);
               showInternalToast(
-                next === 'standard' ? '已切换至高德标准街道图层' : next === 'dark' ? '已切换至高德黑曜石深色图层' : '已切换至高德高分卫星图层'
+                next === 'standard'
+                  ? '已切换至高德极简平铺白底'
+                  : next === 'satellite'
+                  ? '已切换至高分卫星与路网'
+                  : '已切换至黑曜石深色夜景'
               );
             }}
-            className="w-7 h-7 bg-white/95 hover:bg-white text-neutral-800 border border-[#dedede] shadow-xs flex items-center justify-center cursor-pointer active:scale-95 transition-all"
-            title={`当前图层: ${mapStyle}，点击切换`}
+            className={`w-7.5 h-7.5 rounded-lg border shadow-sm flex items-center justify-center cursor-pointer active:scale-95 transition-all ${
+              mapStyle === 'dark'
+                ? 'bg-neutral-900 text-white border-neutral-700'
+                : 'bg-white/95 hover:bg-white text-gray-800 border-gray-200/90'
+            }`}
+            title={`当前底图: ${mapStyle === 'standard' ? '极简白底' : mapStyle === 'satellite' ? '高分卫星' : '黑曜深色'} (点击切换)`}
           >
-            <Layers className="w-3.5 h-3.5 text-neutral-700" />
+            <Layers className="w-3.5 h-3.5" />
           </button>
 
           <button
             type="button"
             onClick={() => {
-              if (mapInstanceRef.current && routeData?.points) {
-                mapInstanceRef.current.fitBounds(window.L.latLngBounds(routeData.points), {
-                  padding: [35, 35],
+              const pts = activeRoute?.points || routeData?.points;
+              if (mapInstanceRef.current && pts && pts.length >= 2) {
+                mapInstanceRef.current.fitBounds(window.L.latLngBounds(pts), {
+                  padding: [40, 40],
                   animate: true
                 });
-                showInternalToast('已重置高德视窗中心');
+                showInternalToast(`已居中【${activeRoute?.name || '专线'}】全览`);
               }
             }}
-            className="w-7 h-7 bg-white/95 hover:bg-white text-neutral-800 border border-[#dedede] shadow-xs flex items-center justify-center cursor-pointer active:scale-95 transition-all"
-            title="居中高德专送全线"
+            className="w-7.5 h-7.5 rounded-lg bg-white/95 hover:bg-white text-gray-800 border border-gray-200/90 shadow-sm flex items-center justify-center cursor-pointer active:scale-95 transition-all"
+            title="居中重绘专送全线"
           >
-            <Target className="w-3.5 h-3.5 text-neutral-700" />
+            <Target className="w-3.5 h-3.5 text-gray-700" />
           </button>
         </div>
 
         {/* 底部左侧：时速、高德路况、模拟操纵台 */}
         <div className="absolute bottom-2.5 left-3 flex items-center gap-1.5 z-20 flex-wrap pointer-events-auto">
-          <div className="bg-white text-black text-[11px] font-bold px-2 py-0.8 border border-[#e5e5e0] shadow-xs flex items-center gap-1">
-            <Zap className="w-3 h-3 text-amber-500 fill-amber-500" />
+          <div className="bg-white/95 backdrop-blur-md text-gray-900 text-[11px] font-bold px-2 py-0.5 rounded-md border border-gray-200/90 shadow-sm flex items-center gap-1">
+            <Zap className="w-3 h-3 text-neutral-900 fill-neutral-900" />
             <span className="font-mono">{speed} km/h</span>
           </div>
 
-          <div className="bg-white text-neutral-800 text-[10.5px] font-medium px-2 py-0.8 border border-[#e5e5e0] shadow-xs flex items-center gap-1">
-            <Bike className="w-3 h-3 text-emerald-600" />
+          <div className="bg-white/95 backdrop-blur-md text-gray-800 text-[10.5px] font-medium px-2 py-0.5 rounded-md border border-gray-200/90 shadow-sm flex items-center gap-1">
+            <Bike className="w-3.5 h-3.5 text-[#00B96B]" />
             <span>实时进度 {Math.round(routeProgress)}%</span>
           </div>
 
@@ -576,7 +955,7 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
               <button
                 type="button"
                 onClick={handleStepSimulation}
-                className="bg-white hover:bg-neutral-50 active:scale-95 text-[#333] text-[10.5px] font-bold px-2 py-0.8 border border-[#e5e5e0] shadow-xs cursor-pointer transition-all flex items-center gap-1"
+                className="bg-white/95 hover:bg-white active:scale-95 text-gray-800 text-[10.5px] font-bold px-2 py-0.5 rounded-md border border-gray-200/90 shadow-sm cursor-pointer transition-all flex items-center gap-1"
               >
                 <Play className="w-3 h-3 text-blue-600 fill-blue-600" />
                 <span>{isSimulating ? '模拟中...' : '推进 (+15%)'}</span>
@@ -585,7 +964,7 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
               <button
                 type="button"
                 onClick={handleResetRoute}
-                className="bg-white hover:bg-neutral-50 active:scale-95 text-[#555] text-[10.5px] font-semibold px-2 py-0.8 border border-[#e5e5e0] shadow-xs cursor-pointer transition-all flex items-center gap-0.5"
+                className="bg-white/95 hover:bg-white active:scale-95 text-gray-700 text-[10.5px] font-semibold px-2 py-0.5 rounded-md border border-gray-200/90 shadow-sm cursor-pointer transition-all flex items-center gap-0.5"
                 title="高德道路全线自动巡航演示"
               >
                 <RotateCcw className="w-3 h-3" />
@@ -599,7 +978,7 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
         <button
           type="button"
           onClick={() => setIsMapExpanded((v) => !v)}
-          className="absolute bottom-2.5 right-3 w-7 h-7 bg-white hover:bg-neutral-50 text-black border border-[#e5e5e0] shadow-xs flex items-center justify-center cursor-pointer active:scale-95 transition-all z-20 pointer-events-auto"
+          className="absolute bottom-2.5 right-3 w-7.5 h-7.5 bg-white/95 hover:bg-white text-gray-800 border border-gray-200/90 shadow-sm rounded-lg flex items-center justify-center cursor-pointer active:scale-95 transition-all z-20 pointer-events-auto"
           title={isMapExpanded ? '收起地图' : '展开高德全景大图'}
         >
           {isMapExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}

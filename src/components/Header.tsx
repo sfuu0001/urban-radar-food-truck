@@ -1,7 +1,23 @@
-import React from 'react';
-import { Ticket, ShoppingBag, ClipboardList, User, Compass, Cloud, MessageSquareText, Bike, Utensils, ChevronDown } from 'lucide-react';
-import { motion } from 'motion/react';
-import { DiningModeSelector, DiningMode } from './DiningModeSelector';
+import React, { useState, useEffect } from 'react';
+import {
+  Bike,
+  Utensils,
+  ChevronDown,
+  MessageSquare,
+  Search,
+  LayoutGrid,
+  List,
+  Star,
+  SlidersHorizontal,
+  ShoppingBag,
+  Ticket,
+  ClipboardList,
+  User,
+  Compass,
+  Maximize2,
+  Minimize2
+} from 'lucide-react';
+import { DiningMode } from './DiningModeSelector';
 import { RoleSwitcherDropdown, UserRole } from './RoleSwitcherDropdown';
 import { DeliveryRangeEvaluation } from '../utils/truckLocationEngine';
 import { ViewMode } from '../types';
@@ -121,6 +137,13 @@ interface HeaderProps {
   currentTable?: string;
   onSwitchTable?: () => void;
   activeOrderNo?: string;
+  onOpenFilterModal?: () => void;
+  onlyDiscountFilter?: boolean;
+  onToggleDiscountFilter?: () => void;
+  onNavigateToPlatformMatrix?: () => void;
+  onOpenAuthGate?: (role: 'merchant' | 'rider') => void;
+  truckSpotName?: string;
+  onOpenPickupDetail?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -137,191 +160,345 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectRole,
   pendingOrdersCount = 3,
   activeNavTab = 'home',
-  previousNavTab = 'home',
-  onBackToMenu,
-  customRouteConfig,
-  onOpenCloudbaseModal,
   onOpenMessageForm,
-  isCloudbaseConnected = true,
-  deliveryEvaluation,
   searchQuery,
   onSearchChange,
-  viewMode = 'grid2',
+  viewMode = 'list',
   onViewModeChange,
   currentTable,
   onSwitchTable,
-  activeOrderNo
+  activeOrderNo,
+  onOpenFilterModal,
+  onlyDiscountFilter,
+  onToggleDiscountFilter,
+  onNavigateToPlatformMatrix,
+  onOpenAuthGate,
+  deliveryEvaluation,
+  truckSpotName = '黑曜石01车 · 北座中庭',
+  onOpenPickupDetail
 }) => {
-  return (
-    <div className="w-full flex flex-col shrink-0 z-40 select-none">
-      {/* Top Nav: Artisan Architectural Header */}
-      <header
-        id="main-unified-header"
-        className="bg-paper-card border-b border-line px-3 pt-[6px] pb-0 z-20 flex-shrink-0"
-      >
-        {/* Top Live Status Row */}
-        <div className="flex items-center justify-between text-[10px] font-mono tracking-wider text-pitch border-b border-line pb-[5px] mb-[3px]">
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block w-2 h-2 bg-pitch shrink-0"></span>
-            <span className="font-black uppercase tracking-tight">URBAN RADAR / TOKYO CRAFT</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 text-[10px] font-mono font-bold text-pitch">
-              <span className="inline-block w-1.5 h-1.5 bg-emeraldAccent rounded-full animate-pulse shrink-0"></span>
-              <span className="hidden xs:inline">800°C BICHOTAN #LIVE</span>
-              <span className="xs:hidden">#LIVE</span>
-            </div>
+  const [isFullscreen, setIsFullscreen] = useState(() => {
+    if (typeof document !== 'undefined') {
+      return !!document.fullscreenElement;
+    }
+    return false;
+  });
 
-            {/* Historical Order Messages / Message Hub Trigger */}
-            {onOpenMessageForm && (
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const handleToggleFullscreen = () => {
+    try {
+      if (!document.fullscreenElement) {
+        if (document.documentElement.requestFullscreen) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        }
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        }
+      }
+    } catch {}
+  };
+
+  const displayAddress =
+    diningMode === 'delivery'
+      ? `外送 · ${deliveryAddress || '静安大悦城商务座 1204室'}`
+      : diningMode === 'dine_in'
+      ? (currentTable ? `堂食 · ${currentTable}` : '堂食 · 请选座开台')
+      : `自提 · ${truckSpotName || '黑曜石01车 · 北座中庭'}`;
+
+  const handleTopAddressClick = () => {
+    if (diningMode === 'delivery') {
+      onChangeAddress();
+    } else if (diningMode === 'dine_in') {
+      if (onSwitchTable) onSwitchTable();
+      else onChangeAddress();
+    } else {
+      if (onOpenPickupDetail) onOpenPickupDetail();
+      else if (onSwitchTable) onSwitchTable();
+      else onChangeAddress();
+    }
+  };
+
+  return (
+    <header className="sticky top-0 z-40 bg-white border-b border-[#E2E4E8] select-none w-full">
+      {/* Row 1: Status Bar / Brand Line */}
+      <div className="px-3 pt-2.5 pb-2 flex items-center justify-between gap-1.5 flex-wrap sm:flex-nowrap">
+        <button
+          type="button"
+          onClick={handleTopAddressClick}
+          className="flex items-center space-x-1.5 text-left group focus:outline-none cursor-pointer min-w-0"
+          title={
+            diningMode === 'delivery'
+              ? `配送地址: ${deliveryAddress || '静安大悦城商务座 1204室'}`
+              : diningMode === 'dine_in'
+              ? `堂食桌位: ${currentTable || '点击选桌开台'}`
+              : `餐车自提点: ${truckSpotName || '黑曜石01车 · 北座中庭'}`
+          }
+        >
+          <span
+            className={`w-2 h-2 rounded-[1px] shrink-0 ${
+              diningMode === 'delivery'
+                ? 'bg-[#0092D6]'
+                : diningMode === 'dine_in'
+                ? 'bg-amber-600'
+                : 'bg-emerald-600'
+            }`}
+          />
+          <span className="font-bold tracking-tight text-[13px] text-[#121212] truncate max-w-[150px] sm:max-w-[200px]">
+            {displayAddress}
+          </span>
+          <ChevronDown className="w-3 h-3 text-gray-400 group-hover:text-black shrink-0 transition-colors" />
+        </button>
+
+        <div className="flex items-center space-x-1.5 shrink-0">
+          {/* #LIVE Pill Status */}
+          <div className="hidden xs:flex items-center space-x-1 text-[11px] font-mono font-semibold px-1.5 py-0.5 text-[#121212]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse shrink-0" />
+            <span>#LIVE</span>
+          </div>
+
+          {/* 全屏显示切换按钮 */}
+          <button
+            type="button"
+            onClick={handleToggleFullscreen}
+            className="w-7 h-7 flex items-center justify-center border border-[#D5D7DA] bg-white text-[#121212] hover:bg-gray-100 rounded transition-colors shadow-2xs cursor-pointer"
+            title={isFullscreen ? '退出全屏' : '全屏显示'}
+            aria-label={isFullscreen ? '退出全屏' : '全屏显示'}
+          >
+            {isFullscreen ? (
+              <Minimize2 className="w-3.5 h-3.5 stroke-current" />
+            ) : (
+              <Maximize2 className="w-3.5 h-3.5 stroke-current" />
+            )}
+          </button>
+
+          {/* Message Icon */}
+          {onOpenMessageForm && (
+            <button
+              type="button"
+              onClick={onOpenMessageForm}
+              className={`w-7 h-7 flex items-center justify-center border rounded transition-colors shadow-sm cursor-pointer ${
+                activeNavTab === 'order_messages'
+                  ? 'border-black bg-black text-white'
+                  : 'border-[#D5D7DA] bg-white text-[#121212] hover:bg-gray-100'
+              }`}
+              title="消息"
+            >
+              <MessageSquare className="w-4 h-4 stroke-current" />
+            </button>
+          )}
+
+          {/* 方案 A 融合版：全域工作台与分层授权中枢单点入口 */}
+          <RoleSwitcherDropdown
+            currentRole={currentRole}
+            onSelectRole={onSelectRole}
+            pendingOrdersCount={pendingOrdersCount}
+            onNavigateToPlatformMatrix={onNavigateToPlatformMatrix}
+            onOpenAuthGate={onOpenAuthGate}
+          />
+        </div>
+      </div>
+
+      {/* Row 2: Service Mode & Location Bar */}
+      <div className="px-3 py-1.5 flex items-center justify-between border-t border-[#F0F1F3] gap-2 text-xs">
+        {/* Order Mode Selector */}
+        <div className="flex items-center border border-[#D0D3D8] rounded p-[2px] bg-[#F4F5F7] shrink-0 gap-0.5">
+          <button
+            type="button"
+            onClick={() => onDiningModeChange('delivery')}
+            className={`px-2 sm:px-2.5 py-1 rounded font-medium flex items-center space-x-1 cursor-pointer transition-all ${
+              diningMode === 'delivery'
+                ? 'bg-[#1A1A1A] text-white font-bold shadow-xs'
+                : 'text-[#4B5563] hover:text-black hover:bg-white/70'
+            }`}
+            title="外卖专送 · 极速直送"
+          >
+            <Bike className="w-3.5 h-3.5 stroke-current shrink-0" />
+            <span className="text-[11px] whitespace-nowrap">外卖</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onDiningModeChange('dine_in')}
+            className={`px-2 sm:px-2.5 py-1 rounded font-medium flex items-center space-x-1 cursor-pointer transition-all ${
+              diningMode === 'dine_in'
+                ? 'bg-[#1A1A1A] text-white font-bold shadow-xs'
+                : 'text-[#4B5563] hover:text-black hover:bg-white/70'
+            }`}
+            title="堂食就餐 · 扫码入座"
+          >
+            <Utensils className="w-3.5 h-3.5 stroke-current shrink-0" />
+            <span className="text-[11px] whitespace-nowrap">堂食</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onDiningModeChange('pickup')}
+            className={`px-2 sm:px-2.5 py-1 rounded font-medium flex items-center space-x-1 cursor-pointer transition-all ${
+              diningMode === 'pickup'
+                ? 'bg-[#1A1A1A] text-white font-bold shadow-xs'
+                : 'text-[#4B5563] hover:text-black hover:bg-white/70'
+            }`}
+            title="餐车自提 · 免配送费"
+          >
+            <ShoppingBag className="w-3.5 h-3.5 stroke-current shrink-0" />
+            <span className="text-[11px] whitespace-nowrap">自提</span>
+          </button>
+        </div>
+
+        {/* Location Badge */}
+        <button
+          type="button"
+          onClick={() => {
+            if (diningMode === 'delivery') {
+              onChangeAddress();
+            } else if (diningMode === 'dine_in') {
+              if (onSwitchTable) onSwitchTable();
+              else onChangeAddress();
+            } else {
+              if (onOpenPickupDetail) onOpenPickupDetail();
+              else if (onSwitchTable) onSwitchTable();
+              else onChangeAddress();
+            }
+          }}
+          className="flex items-center space-x-1 px-2 py-1 border border-[#D0D3D8] hover:border-neutral-400 rounded bg-white hover:bg-neutral-50 active:scale-[0.98] text-[11px] font-medium text-[#111] max-w-[140px] sm:max-w-[170px] truncate cursor-pointer transition-all shadow-2xs group shrink-0"
+          title={
+            diningMode === 'delivery'
+              ? `外卖配送地址: ${deliveryAddress || '静安大悦城'}${deliveryEvaluation?.isOutOfRange ? ' (已超出配送范围)' : ''}`
+              : diningMode === 'dine_in'
+              ? `堂食桌号: ${currentTable || '点击选桌/扫码开台'}`
+              : `餐车自提点: ${truckSpotName || '静安大悦城北座中庭餐车'}`
+          }
+        >
+          {diningMode === 'delivery' ? (
+            <>
+              <span
+                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                  deliveryEvaluation?.isOutOfRange ? 'bg-[#EF4444]' : 'bg-[#04A777]'
+                }`}
+              />
+              <span className="truncate">
+                {deliveryAddress
+                  ? deliveryAddress.length > 5
+                    ? deliveryAddress.slice(0, 5) + '...'
+                    : deliveryAddress
+                  : '静安大悦城...'}
+              </span>
+              {deliveryEvaluation?.isOutOfRange ? (
+                <span className="text-[9px] text-[#EF4444] font-bold shrink-0">超区</span>
+              ) : (
+                <span className="text-[9px] text-gray-400 group-hover:text-black shrink-0">切换</span>
+              )}
+            </>
+          ) : diningMode === 'dine_in' ? (
+            <>
+              <span
+                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                  currentTable ? 'bg-[#10B981]' : 'bg-[#F59E0B] animate-pulse'
+                }`}
+              />
+              <span className="truncate">
+                {currentTable || '选座开台'}
+              </span>
+              <span className="text-[9px] text-amber-700 bg-amber-50 px-1 py-0.2 rounded font-medium shrink-0">
+                {currentTable ? '换桌' : '扫码'}
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] shrink-0" />
+              <span className="truncate">
+                {truckSpotName
+                  ? truckSpotName.length > 6
+                    ? truckSpotName.slice(0, 6) + '...'
+                    : truckSpotName
+                  : '01车自提点'}
+              </span>
+              <span className="text-[9px] text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded font-medium shrink-0">
+                自提点
+              </span>
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Row 3: Search & Layout Controls Bar (when on home tab) */}
+      {activeNavTab === 'home' && (
+        <div className="px-3 py-2 flex items-center space-x-2 border-t border-[#F0F1F3] bg-[#FAFAFA]">
+          {/* View Toggle (Grid / List) */}
+          {onViewModeChange && (
+            <div className="flex items-center border border-[#D0D3D8] rounded overflow-hidden bg-white shrink-0">
               <button
                 type="button"
-                onClick={onOpenMessageForm}
-                className={`w-6 h-6 border flex items-center justify-center transition-colors cursor-pointer shrink-0 ${
-                  activeNavTab === 'order_messages'
-                    ? 'border-pitch bg-pitch text-white'
-                    : 'border-line bg-white hover:bg-stone-100 text-pitch'
+                onClick={() => onViewModeChange('grid2')}
+                className={`w-7 h-7 flex items-center justify-center cursor-pointer transition-colors ${
+                  viewMode === 'grid2'
+                    ? 'bg-[#1A1A1A] text-white'
+                    : 'text-gray-400 hover:text-black'
                 }`}
-                title="查看订单协同联络室"
+                title="Grid View"
               >
-                <MessageSquareText className="w-3.5 h-3.5" />
+                <LayoutGrid className="w-4 h-4" />
               </button>
-            )}
-
-            {/* Role Switcher Dropdown */}
-            <RoleSwitcherDropdown
-              currentRole={currentRole}
-              onSelectRole={onSelectRole}
-              pendingOrdersCount={pendingOrdersCount}
-            />
-          </div>
-        </div>
-
-        {/* 3-Mode Selector & Table Spec Status */}
-        <div className="flex items-center justify-between gap-1.5 mb-2">
-          <div className="flex items-center border border-[#1a1c1b] bg-white h-7.5 sm:h-8 rounded-none overflow-hidden shrink-0 select-none shadow-2xs">
-            <button
-              type="button"
-              onClick={() => onDiningModeChange('delivery')}
-              className={`h-full px-2.5 sm:px-3 flex items-center gap-1.5 cursor-pointer transition-colors text-xs font-medium tracking-tight ${
-                diningMode === 'delivery'
-                  ? 'bg-[#1a1c1b] text-white font-bold'
-                  : 'text-[#2d3139] hover:bg-neutral-50'
-              }`}
-            >
-              <Bike className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-              <span>外卖</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => onDiningModeChange('dine_in')}
-              className={`h-full px-2.5 sm:px-3 flex items-center gap-1.5 cursor-pointer transition-colors text-xs font-medium tracking-tight border-l border-[#d3d1cb] ${
-                diningMode === 'dine_in'
-                  ? 'bg-[#1a1c1b] text-white font-bold'
-                  : 'text-[#2d3139] hover:bg-neutral-50'
-              }`}
-            >
-              <Utensils className="w-3.5 h-3.5 shrink-0" />
-              <span>堂食</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => onDiningModeChange('pickup')}
-              className={`h-full px-2.5 sm:px-3 flex items-center gap-0.5 sm:gap-1 cursor-pointer transition-colors text-xs font-medium tracking-tight border-l border-[#d3d1cb] ${
-                diningMode === 'pickup'
-                  ? 'bg-[#1a1c1b] text-white font-bold'
-                  : 'text-[#2d3139] hover:bg-neutral-50'
-              }`}
-            >
-              <span>自提</span>
-              <ChevronDown className="w-3.5 h-3.5 shrink-0 text-inherit" />
-            </button>
-          </div>
-
-          <div className="flex items-stretch gap-1 min-w-0 h-7.5 sm:h-8">
-            <span className="flex items-center text-[9px] font-mono bg-techTag text-stone-700 px-1 h-full border border-line shrink-0">
-              单号 #{activeOrderNo || '8921'}
-            </span>
-            <button
-              type="button"
-              onClick={onSwitchTable || onChangeAddress}
-              className="flex items-center text-[10px] font-mono px-2 h-full bg-paper hover:bg-stone-100 border border-pitch text-pitch font-black gap-1 transition-colors cursor-pointer truncate"
-              title={diningMode === 'delivery' ? deliveryAddress : '点击切换堂食就餐桌号'}
-            >
-              <span className="w-1.5 h-1.5 bg-emeraldAccent rounded-full shrink-0"></span>
-              <span className="truncate">
-                {diningMode === 'delivery'
-                  ? (deliveryAddress ? deliveryAddress.slice(0, 5) + '…' : '配送点')
-                  : `桌号 ${currentTable || 'T-04'}`}
-              </span>
-              <span className="text-[8px] text-stone-500 border-l border-line pl-1 shrink-0">切换▾</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Industrial Search Bar with Matrix Toggle & Filter (when on home tab and onSearchChange is provided) */}
-        {activeNavTab === 'home' && onSearchChange && (
-          <div className="flex items-center gap-1.5">
-            <div className="flex-1 flex items-center border border-line bg-white px-2 py-1 justify-between shadow-inner">
-              <div className="flex-1 flex items-center gap-1.5 text-xs text-stone-400 font-mono min-w-0">
-                <svg
-                  className="w-3.5 h-3.5 text-stone-600 flex-shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    strokeLinecap="square"
-                    strokeLinejoin="miter"
-                    strokeWidth="2"
-                  ></path>
-                </svg>
-                <input
-                  type="text"
-                  value={searchQuery || ''}
-                  onChange={(e) => onSearchChange(e.target.value)}
-                  placeholder="搜索菜品..."
-                  className="w-full bg-transparent border-none text-[11px] font-sans text-pitch placeholder-stone-400 focus:outline-none focus:ring-0 p-0 m-0"
-                />
-              </div>
+              <button
+                type="button"
+                onClick={() => onViewModeChange('list')}
+                className={`w-7 h-7 flex items-center justify-center cursor-pointer transition-colors ${
+                  viewMode === 'list'
+                    ? 'bg-[#1A1A1A] text-white'
+                    : 'text-gray-400 hover:text-black'
+                }`}
+                title="List View"
+              >
+                <List className="w-4 h-4" />
+              </button>
             </div>
+          )}
 
-            {onViewModeChange && (
-              <div className="flex items-center border border-line bg-white shrink-0">
-                <button
-                  type="button"
-                  onClick={() => onViewModeChange('grid2')}
-                  aria-label="九宫格"
-                  className={`p-1 border-r border-line cursor-pointer transition-colors ${
-                    viewMode === 'grid2' ? 'bg-pitch text-white' : 'text-stone-500 hover:text-pitch'
+          {/* Search Input Bar */}
+          <div className="flex-1 flex items-center border border-[#D0D3D8] rounded bg-white px-2.5 h-7">
+            <Search className="w-3.5 h-3.5 text-gray-400 mr-2 shrink-0" />
+            <input
+              type="text"
+              value={searchQuery || ''}
+              onChange={(e) => onSearchChange && onSearchChange(e.target.value)}
+              className="w-full bg-transparent text-[11px] placeholder:text-gray-400 focus:outline-none border-none p-0 text-[#111]"
+              placeholder="搜索菜品、食材、炭烤、和牛..."
+            />
+            {/* Favorite & Filter Icons inside search */}
+            <div className="flex items-center space-x-2 pl-1 border-l border-gray-100 ml-1 text-gray-400 shrink-0">
+              <button
+                type="button"
+                onClick={onToggleDiscountFilter}
+                title="特惠筛选"
+                className="cursor-pointer flex items-center justify-center"
+              >
+                <Star
+                  className={`w-3.5 h-3.5 transition-colors ${
+                    onlyDiscountFilter
+                      ? 'fill-[#FF9900] text-[#FF9900]'
+                      : 'text-gray-300 hover:text-[#FF9900]'
                   }`}
-                  title="切换双列网格视图"
-                >
-                  <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
-                    <path d="M4 4h4v4H4zm6 0h4v4h-4zm6 0h4v4h-4zM4 10h4v4H4zm6 0h4v4h-4zm6 0h4v4h-4zM4 16h4v4H4zm6 0h4v4h-4zm6 0h4v4h-4z"></path>
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onViewModeChange('list')}
-                  aria-label="列表"
-                  className={`p-1 cursor-pointer transition-colors ${
-                    viewMode === 'list' ? 'bg-pitch text-white' : 'text-stone-500 hover:text-pitch'
-                  }`}
-                  title="切换单列工单列表视图"
-                >
-                  <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
-                    <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"></path>
-                  </svg>
-                </button>
-              </div>
-            )}
+                />
+              </button>
+              <span className="text-gray-200">|</span>
+              <button
+                type="button"
+                onClick={onOpenFilterModal}
+                title="高级筛选"
+                className="cursor-pointer flex items-center justify-center text-gray-500 hover:text-black transition-colors"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
-        )}
-
-        {/* Sub-Route back navigation now lives inside each sub-page via <BackButton /> */}
-      </header>
-    </div>
+        </div>
+      )}
+    </header>
   );
 };

@@ -2,6 +2,8 @@
 // 真人风格语音播报与高保真声学和弦引擎（去人机机械声、智能神经语音优选、自然呼吸节奏、广播队列管理、自动播放激活）
 
 import { globalBluetoothAudio } from './bluetoothAudioEngine';
+import { IS_EMBED_CUSTOMER } from './embedMode';
+import { getWorkspacePrefsSnapshot, mergeLocalPrefs } from './workspacePreferences';
 
 export type VoicePersonaId = 
   | 'gentle_female'     // 知性温柔女声 (大堂经理级，温润优雅，天然去机械感)
@@ -43,7 +45,7 @@ export const VOICE_PERSONAS: VoicePersonaConfig[] = [
     description: '语调亲切温婉、吐字自然流畅，母带级高保真真人女声录音，完全杜绝低端人机电音感。',
     badge: '推荐 · 默认真人体感',
     avatarIcon: '🎙️',
-    audioUrl: '/audio/audition_gentle_female.wav',
+    audioUrl: `${import.meta.env.BASE_URL}audio/audition_gentle_female.wav`,
     sampleText: '您好，欢迎光临流动餐车！真人知性女声为您提供亲切细致的播报服务。',
     defaultPitch: 1.02,
     defaultRate: 0.96,
@@ -58,7 +60,7 @@ export const VOICE_PERSONAS: VoicePersonaConfig[] = [
     description: '清脆甜美、轻柔亲和，宛如迎宾小姐姐现场呼叫，营造宾至如归的就餐体验。',
     badge: '叫号与等位推荐',
     avatarIcon: '🛎️',
-    audioUrl: '/audio/audition_sweet_frontdesk.wav',
+    audioUrl: `${import.meta.env.BASE_URL}audio/audition_sweet_frontdesk.wav`,
     sampleText: '叮咚！欢迎光临，我是甜美前台领位，请问今天想吃点什么呢？',
     defaultPitch: 1.22,
     defaultRate: 0.98,
@@ -73,7 +75,7 @@ export const VOICE_PERSONAS: VoicePersonaConfig[] = [
     description: '浑厚沉着、雄性磁性，完全脱离机械音，与女声呈现鲜明性别反差，适合后厨大单。',
     badge: '后厨沉稳男声',
     avatarIcon: '👔',
-    audioUrl: '/audio/audition_steady_male.wav',
+    audioUrl: `${import.meta.env.BASE_URL}audio/audition_steady_male.wav`,
     sampleText: '您好，这是纯正的真人沉稳男声，专注为后厨制作与安全运营提供清晰指令！',
     defaultPitch: 0.70,
     defaultRate: 0.94,
@@ -88,7 +90,7 @@ export const VOICE_PERSONAS: VoicePersonaConfig[] = [
     description: '饱满热情、阳光活泼，瞬间唤醒听觉，高峰期出餐不沉闷。',
     badge: '自营爆单推荐',
     avatarIcon: '⚡',
-    audioUrl: '/audio/audition_energetic_rep.wav',
+    audioUrl: `${import.meta.env.BASE_URL}audio/audition_energetic_rep.wav`,
     sampleText: '您好，这是纯正的真人元气女声，快速接单出餐！',
     defaultPitch: 1.14,
     defaultRate: 1.10,
@@ -103,7 +105,7 @@ export const VOICE_PERSONAS: VoicePersonaConfig[] = [
     description: '干脆利落、穿透力强，专门针对户外骑行佩戴耳机或嘈杂街道调校的刚健男声。',
     badge: '骑手调度男声',
     avatarIcon: '🛵',
-    audioUrl: '/audio/audition_speedy_rider.wav',
+    audioUrl: `${import.meta.env.BASE_URL}audio/audition_speedy_rider.wav`,
     sampleText: '骑士您好，这是纯正的真人男声调度，极速专送指令已准备！',
     defaultPitch: 0.78,
     defaultRate: 1.12,
@@ -118,10 +120,16 @@ export interface VoiceConfig {
   pitch: number; // 0.8 to 1.3
   persona: VoicePersonaId;
   selectedVoiceName?: string;
+  /**
+   * 每个真人角色独立绑定的系统音源名（精准切换核心）：
+   * 修复跨角色关键词碰撞导致"切换语音后仍播放同一音源"的不精准问题。
+   * 键为 VoicePersonaId，值为系统 SpeechSynthesisVoice.name。
+   */
+  personaVoiceMap?: Partial<Record<VoicePersonaId, string>>;
   chimeStyle: ChimeStyleId;
   soundEffectEnabled: boolean;
   humanCadenceEnabled: boolean; // 自然人声呼吸韵律与停顿优化 (核心去机械声)
-  
+
   // 业务场景独立开关
   autoPlayNewOrder: boolean;   // 商家端：自营新订单播报
   autoPlayUrgent: boolean;     // 商家端：顾客催单与超时预警
@@ -151,6 +159,12 @@ const DEFAULT_CONFIG: VoiceConfig = {
 };
 
 let inMemoryVoiceConfig: VoiceConfig | null = null;
+/** 角色独占音源分配缓存：保证不同真人角色解析到互不相同的系统音源（可分配范围内）。配置或音源变化时重置。 */
+let voiceAssignmentCache: Map<VoicePersonaId, SpeechSynthesisVoice> | null = null;
+
+export function invalidateVoiceAssignmentCache(): void {
+  voiceAssignmentCache = null;
+}
 
 export function getVoiceConfig(): VoiceConfig {
   if (inMemoryVoiceConfig) {
@@ -162,6 +176,19 @@ export function getVoiceConfig(): VoiceConfig {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
+      // v3 偏好自愈（批次3）：本地键缺失时优先从 wsPrefs.voice 快照恢复
+      // （跨设备/清 localStorage 场景，云端偏好经 workspacePreferences 快照可达）
+      const wsVoice = getWorkspacePrefsSnapshot().voice;
+      if (wsVoice) {
+        const restored: VoiceConfig = { ...DEFAULT_CONFIG, ...wsVoice } as VoiceConfig;
+        inMemoryVoiceConfig = restored;
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(restored));
+        } catch {
+          // ignore
+        }
+        return restored;
+      }
       const legacyRaw = localStorage.getItem('obsidian_merchant_voice_config');
       if (legacyRaw) {
         const legacy = JSON.parse(legacyRaw);
@@ -180,11 +207,55 @@ export function getVoiceConfig(): VoiceConfig {
 
 export function saveVoiceConfig(config: VoiceConfig): void {
   inMemoryVoiceConfig = config;
+  voiceAssignmentCache = null; // 关键：配置变更时重置音源分配缓存，确保切换音色即时重新计算生效
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
     localStorage.setItem('obsidian_merchant_voice_config', JSON.stringify(config));
   } catch (e) {
+    // ignore
+  }
+  // v3 偏好云端绑定（批次3）：镜像到 wsPrefs.voice → 云端跟随
+  // （embed 预览实例不写账号偏好；selectedVoiceName 为设备级不上云）
+  if (!IS_EMBED_CUSTOMER) {
+    try {
+      void mergeLocalPrefs({
+        voice: {
+          enabled: config.enabled,
+          volume: config.volume,
+          rate: config.rate,
+          pitch: config.pitch,
+          persona: config.persona,
+          personaVoiceMap: config.personaVoiceMap
+            ? (Object.fromEntries(Object.entries(config.personaVoiceMap).filter(([, v]) => typeof v === 'string')) as Record<string, string>)
+            : undefined,
+          chimeStyle: config.chimeStyle,
+          soundEffectEnabled: config.soundEffectEnabled,
+          humanCadenceEnabled: config.humanCadenceEnabled,
+          autoPlayNewOrder: config.autoPlayNewOrder,
+          autoPlayUrgent: config.autoPlayUrgent,
+          autoPlayCalling: config.autoPlayCalling,
+          autoPlayQueueWait: config.autoPlayQueueWait,
+          autoPlayRiderPool: config.autoPlayRiderPool,
+          autoPlayRiderAction: config.autoPlayRiderAction
+        }
+      });
+    } catch {
+      // 云同步失败不影响本地生效
+    }
+  }
+}
+
+/** v3 云端自愈：云端 wsPrefs.voice 到达且本地键缺失时，静默水合本地（不触发二次云写） */
+export function hydrateVoiceFromCloudSubset(subset: Partial<VoiceConfig>): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (localStorage.getItem(STORAGE_KEY)) return; // 本地已有真源，不覆盖
+    const merged: VoiceConfig = { ...DEFAULT_CONFIG, ...subset } as VoiceConfig;
+    inMemoryVoiceConfig = merged;
+    voiceAssignmentCache = null;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+  } catch {
     // ignore
   }
 }
@@ -551,10 +622,19 @@ function refreshVoices(): SpeechSynthesisVoice[] {
 }
 
 if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-  window.speechSynthesis.onvoiceschanged = () => {
+  // 深度修复：必须用 addEventListener，禁止 onvoiceschanged 赋值——
+  // 组件侧同名义赋值会整体覆盖本监听，导致引擎音源缓存失效、
+  // 全部角色回落 voices[0] 同一音源（"切换语音不精准"的根因之一）。
+  window.speechSynthesis.addEventListener('voiceschanged', () => {
     refreshVoices();
-  };
+    voiceAssignmentCache = null; // 音源清单变化后重新分配角色绑定
+  });
   setTimeout(refreshVoices, 100);
+  // 部分浏览器 voices 异步加载较慢，追加延迟补扫
+  setTimeout(() => {
+    refreshVoices();
+    voiceAssignmentCache = null;
+  }, 1200);
 }
 
 export function getAvailableSystemVoices(): SpeechSynthesisVoice[] {
@@ -581,81 +661,154 @@ export function getAvailableSystemVoices(): SpeechSynthesisVoice[] {
   return filtered.length > 0 ? filtered : voices;
 }
 
+function isMaleishVoice(v: SpeechSynthesisVoice): boolean {
+  const n = (v.name || '').toLowerCase();
+  if (n.includes('female') || n.includes('女')) return false;
+  return (
+    n.includes('male') ||
+    n.includes('yunxi') ||
+    n.includes('yunjian') ||
+    n.includes('yunyang') ||
+    n.includes('kangkang') ||
+    n.includes('li-mu') ||
+    n.includes('男') ||
+    n.includes('danny')
+  );
+}
+
+function isFemaleishVoice(v: SpeechSynthesisVoice): boolean {
+  const n = (v.name || '').toLowerCase();
+  if ((n.includes('male') && !n.includes('female')) || n.includes('男')) return false;
+  return (
+    n.includes('female') ||
+    n.includes('xiaoxiao') ||
+    n.includes('xiaoyi') ||
+    n.includes('xiaoyan') ||
+    n.includes('xiaoni') ||
+    n.includes('xiaomeng') ||
+    n.includes('xiaohan') ||
+    n.includes('tingting') ||
+    n.includes('sin-ji') ||
+    n.includes('mei-jia') ||
+    n.includes('hiugaai') ||
+    n.includes('女')
+  );
+}
+
+/** 全量分配：按角色注册顺序独占式取用音源池，性别守卫优先，独占防撞车 */
+function buildVoiceAssignment(): Map<VoicePersonaId, SpeechSynthesisVoice> {
+  const pool = getAvailableSystemVoices();
+  const map = new Map<VoicePersonaId, SpeechSynthesisVoice>();
+  if (pool.length === 0) return map;
+  const used = new Set<string>();
+  const personaVoiceMap = getVoiceConfig().personaVoiceMap || {};
+
+  for (const persona of VOICE_PERSONAS) {
+    // 1. 用户手动绑定（personaVoiceMap）优先级最高
+    const boundName = personaVoiceMap[persona.id];
+    if (boundName) {
+      const bound = pool.find((v) => v.name === boundName);
+      if (bound) {
+        map.set(persona.id, bound);
+        used.add(bound.name);
+        continue;
+      }
+    }
+
+    // 2. 性别守卫：男声角色绝不全选到女声音源（反之亦然）
+    const genderPool =
+      persona.gender === 'male'
+        ? pool.filter((v) => !isFemaleishVoice(v))
+        : pool.filter((v) => !isMaleishVoice(v));
+    const base = genderPool.length > 0 ? genderPool : pool;
+
+    // 3. 独占候选：优先未被其他角色占用的音源
+    const unclaimed = base.filter((v) => !used.has(v.name));
+    const searchPool = unclaimed.length > 0 ? unclaimed : base;
+
+    // 4. 角色专属关键词顺序匹配
+    let picked: SpeechSynthesisVoice | null = null;
+    for (const kw of persona.voiceKeywords) {
+      picked = searchPool.find((v) => v.name.toLowerCase().includes(kw.toLowerCase())) || null;
+      if (picked) break;
+    }
+    // 5. 兜底：池内第一个可用音源
+    if (!picked) picked = searchPool[0] || null;
+
+    if (picked) {
+      map.set(persona.id, picked);
+      used.add(picked.name);
+    }
+  }
+  return map;
+}
+
 export function findBestPersonaVoice(personaId: VoicePersonaId, selectedVoiceName?: string): SpeechSynthesisVoice | null {
   const voices = getAvailableSystemVoices();
   if (voices.length === 0) return null;
 
+  const personaMeta = VOICE_PERSONAS.find(p => p.id === personaId);
+  const targetGender = personaMeta?.gender;
+
   if (selectedVoiceName) {
     const userSelected = voices.find(v => v.name === selectedVoiceName);
-    if (userSelected) return userSelected;
-  }
-
-  const personaMeta = VOICE_PERSONAS.find(p => p.id === personaId) || VOICE_PERSONAS[0];
-  const keywords = personaMeta.voiceKeywords;
-
-  for (const kw of keywords) {
-    const matched = voices.find(v => v.name.toLowerCase().includes(kw.toLowerCase()));
-    if (matched) return matched;
-  }
-
-  const isMale = personaMeta.gender === 'male';
-  if (isMale) {
-    const maleVoice = voices.find(v => {
-      const n = v.name.toLowerCase();
-      const hasMale = (
-        n.includes('male') || 
-        n.includes('yunxi') || 
-        n.includes('yunjian') || 
-        n.includes('yunyang') || 
-        n.includes('kangkang') || 
-        n.includes('li-mu') || 
-        n.includes('男') || 
-        n.includes('danny')
-      );
-      const hasFemale = (
-        n.includes('female') || 
-        n.includes('女') || 
-        n.includes('xiaoxiao') || 
-        n.includes('tingting') || 
-        n.includes('xiaoyi') || 
-        n.includes('sin-ji') || 
-        n.includes('mei-jia') ||
-        n.includes('xiaoni') ||
-        n.includes('xiaoyan')
-      );
-      return hasMale && !hasFemale;
-    });
-    if (maleVoice) return maleVoice;
-  } else {
-    const femaleVoice = voices.find(v => {
-      const n = v.name.toLowerCase();
-      return (
-        n.includes('female') || 
-        n.includes('xiaoxiao') || 
-        n.includes('xiaoyi') || 
-        n.includes('xiaoyan') || 
-        n.includes('xiaoni') || 
-        n.includes('tingting') || 
-        n.includes('sin-ji') || 
-        n.includes('mei-jia') || 
-        n.includes('女')
-      );
-    });
-    if (femaleVoice) return femaleVoice;
-  }
-
-  const neuralVoice = voices.find(v => {
-    const n = v.name.toLowerCase();
-    const isNeural = n.includes('neural') || n.includes('natural') || n.includes('siri');
-    if (!isNeural) return false;
-    if (isMale && (n.includes('female') || n.includes('女') || n.includes('xiaoxiao') || n.includes('tingting'))) {
-      return false;
+    if (userSelected) {
+      // 严格性别守卫：杜绝男声角色套用女声音源、或女声角色套用男声音源（解决切换音色后仍出旧性别声音的根因）
+      const isMismatch = (targetGender === 'male' && isFemaleishVoice(userSelected)) ||
+                         (targetGender === 'female' && isMaleishVoice(userSelected));
+      if (!isMismatch) {
+        return userSelected;
+      }
     }
-    return true;
-  });
-  if (neuralVoice) return neuralVoice;
+  }
 
-  return voices[0] || null;
+  if (!voiceAssignmentCache) {
+    voiceAssignmentCache = buildVoiceAssignment();
+  }
+  return voiceAssignmentCache.get(personaId) || voices[0] || null;
+}
+
+/** 供 UI 展示：某真人角色当前实际生效的系统音源名（手动绑定 > 独占分配 > 默认） */
+export function resolvePersonaVoiceName(personaId: VoicePersonaId): string {
+  const voices = getAvailableSystemVoices();
+  if (voices.length === 0) return '系统音源加载中…';
+  const bound = getVoiceConfig().personaVoiceMap?.[personaId];
+  if (bound && voices.some((v) => v.name === bound)) return bound;
+  if (!voiceAssignmentCache) {
+    voiceAssignmentCache = buildVoiceAssignment();
+  }
+  return voiceAssignmentCache.get(personaId)?.name || voices[0]?.name || '默认音源';
+}
+
+// -------------------------------------------------------------
+// 真人语音包（WAV 母带）装载状态检测：每个角色的母带是否可用，
+// 不可用即说明试听会回退系统合成音（供 UI 明示"语言包"真实状态）
+// -------------------------------------------------------------
+const voicePackStatusCache: {
+  status: Partial<Record<VoicePersonaId, boolean>>;
+  checkedAt: number;
+} = { status: {}, checkedAt: 0 };
+
+export async function checkVoicePackAvailability(
+  force = false
+): Promise<Partial<Record<VoicePersonaId, boolean>>> {
+  const hasResult = Object.keys(voicePackStatusCache.status).length > 0;
+  if (!force && hasResult && Date.now() - voicePackStatusCache.checkedAt < 60000) {
+    return voicePackStatusCache.status;
+  }
+  const entries = await Promise.all(
+    VOICE_PERSONAS.map(async (p) => {
+      try {
+        const res = await fetch(p.audioUrl, { method: 'HEAD' });
+        return [p.id, res.ok] as const;
+      } catch {
+        return [p.id, false] as const;
+      }
+    })
+  );
+  voicePackStatusCache.status = Object.fromEntries(entries);
+  voicePackStatusCache.checkedAt = Date.now();
+  return voicePackStatusCache.status;
 }
 
 // -------------------------------------------------------------
@@ -668,6 +821,7 @@ export function stopCurrentAudio(): void {
     try {
       activeAudioElement.pause();
       activeAudioElement.currentTime = 0;
+      activeAudioElement.src = '';
     } catch (e) {
       // ignore
     }
@@ -685,6 +839,51 @@ export function stopCurrentAudio(): void {
   isProcessingQueue = false;
 }
 
+// -------------------------------------------------------------
+// 连续播报状态与强制中断（连续播报强制结束按钮的引擎侧支撑）
+// -------------------------------------------------------------
+export const VOICE_FORCE_STOP_EVENT = 'obsidian_voice_force_stopped';
+
+export interface BroadcastState {
+  /** 播报队列中等待的条目数 */
+  queueLength: number;
+  /** 当前是否有语音正在播出 */
+  speaking: boolean;
+  /** 合成通道是否处于挂起状态 */
+  paused: boolean;
+}
+
+/** 读取当前广播引擎状态（供 UI 轮询展示） */
+export function getBroadcastState(): BroadcastState {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    return { queueLength: 0, speaking: false, paused: false };
+  }
+  try {
+    return {
+      queueLength: broadcastQueue.length,
+      speaking: isProcessingQueue || window.speechSynthesis.speaking,
+      paused: window.speechSynthesis.paused
+    };
+  } catch {
+    return { queueLength: broadcastQueue.length, speaking: isProcessingQueue, paused: false };
+  }
+}
+
+/**
+ * 强制中断全部连续播报：立即停止当前语音 + 清空待播队列 + 停掉母带音频，
+ * 并广播强制结束事件（UI 可据此复位状态）。这是「连续播报强制中断结束按钮」的统一入口。
+ */
+export function forceStopAllBroadcasts(): void {
+  stopCurrentAudio();
+  try {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(VOICE_FORCE_STOP_EVENT));
+    }
+  } catch {
+    // ignore
+  }
+}
+
 /**
  * 播放母带级真人预录音频文件 (WAV)，带全量错误捕获与超时回退
  */
@@ -698,7 +897,9 @@ export function playRealAudio(url: string, volume = 1.0, onEnd?: () => void): Pr
 
     try {
       stopCurrentAudio();
-      const audio = new Audio(url);
+      // 规避浏览器对母带音频旧版本的强缓存
+      const cleanUrl = url.includes('?') ? url : `${url}?t=${Date.now()}`;
+      const audio = new Audio(cleanUrl);
       activeAudioElement = audio;
       audio.volume = Math.max(0, Math.min(1, volume));
 
@@ -717,10 +918,21 @@ export function playRealAudio(url: string, volume = 1.0, onEnd?: () => void): Pr
         resolve(success);
       };
 
-      // 4.5 秒防卡死守卫
-      const guardTimeout = setTimeout(() => {
+      // 防卡死守卫：默认 6 秒；读到真实时长后按「时长 + 3 秒」重设，
+      // 修复较长语音包（>4.5s 母带）被旧固定守卫掐断导致的播报不完整
+      let guardTimeout = setTimeout(() => {
         cleanup(false);
-      }, 4500);
+      }, 6000);
+      audio.onloadedmetadata = () => {
+        if (isFinished) return;
+        const durMs = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration * 1000 : 0;
+        if (durMs > 0) {
+          clearTimeout(guardTimeout);
+          guardTimeout = setTimeout(() => {
+            cleanup(false);
+          }, durMs + 3000);
+        }
+      };
 
       audio.onended = () => cleanup(true);
       audio.onerror = () => {
@@ -750,6 +962,8 @@ export async function playPersonaAudition(personaId: VoicePersonaId, volume?: nu
 
   if (cfg.soundEffectEnabled) {
     playChimeSound('order');
+    // 留出 240ms 和弦消退空隙，保证真人母带发音清晰无遮蔽
+    await new Promise(r => setTimeout(r, 240));
   }
 
   const ok = await playRealAudio(personaMeta.audioUrl, targetVolume);
@@ -894,9 +1108,16 @@ function executeSingleUtterance(text: string, options?: SpeakOptions, onFinish?:
     utterance.rate = Math.min(1.5, Math.max(0.6, targetRate));
     utterance.pitch = Math.min(1.5, Math.max(0.6, targetPitch));
 
-    const voiceNameToMatch = (options?.persona && options.persona !== cfg.persona) 
-      ? undefined 
-      : cfg.selectedVoiceName;
+    // 音源精准解析（三层优先级）：
+    // ① 该角色在 personaVoiceMap 中手动绑定的专属音源；
+    // ② 全局 selectedVoiceName（仅当播报角色 = 当前全局角色时沿用，防旧绑定串味）；
+    // ③ 角色独占自动分配（buildVoiceAssignment，性别守卫 + 独占防撞车）。
+    const personaBoundVoice = cfg.personaVoiceMap?.[effectivePersona];
+    const voiceNameToMatch = personaBoundVoice
+      ? personaBoundVoice
+      : (options?.persona && options.persona !== cfg.persona)
+        ? undefined
+        : cfg.selectedVoiceName;
     const matchedVoice = findBestPersonaVoice(effectivePersona, voiceNameToMatch);
     if (matchedVoice) {
       utterance.voice = matchedVoice;

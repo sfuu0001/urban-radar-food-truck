@@ -47,6 +47,7 @@ import { RiderWeatherBanner } from './RiderWeatherBanner';
 import { RiderRejectionModal } from './RiderRejectionModal';
 import { RiderPickupCodeModal } from './RiderPickupCodeModal';
 import { getOrGeneratePickupCode, getPickupShelfCode, subscribePickupVerifiedEvent } from '../../utils/pickupCodeEngine';
+import { useCascadeAuth } from '../../context/CascadeAuthContext';
 
 interface RiderActiveTaskProps {
   activeOrders: ActiveDeliveryOrder[];
@@ -137,6 +138,8 @@ export const RiderActiveTask: React.FC<RiderActiveTaskProps> = ({
   const [photoInfo, setPhotoInfo] = useState<{ locationTag: string; timestamp: string } | null>(null);
   const [activeExceptionNotes, setActiveExceptionNotes] = useState<Record<string, string>>({});
   const [isClosedLoopOpen, setIsClosedLoopOpen] = useState(false);
+
+  const { canExecute, promptPermissionBlocked } = useCascadeAuth();
 
   const activeOrder = activeOrders.find((o) => o.id === selectedOrderId) || activeOrders[0];
 
@@ -686,7 +689,14 @@ export const RiderActiveTask: React.FC<RiderActiveTaskProps> = ({
                     </button>
                     <button
                       type="button"
-                      onClick={() => setIsCameraOpen(true)}
+                      onClick={() => {
+                        const evalRes = canExecute('PERM_PROOF_HASH');
+                        if (!evalRes.allowed) {
+                          promptPermissionBlocked('PERM_PROOF_HASH', '拍照存证分层授权拦截');
+                          return;
+                        }
+                        setIsCameraOpen(true);
+                      }}
                       className={`py-1 px-1.5 rounded-[2px] font-semibold text-[11px] flex items-center gap-1 cursor-pointer border transition-all whitespace-nowrap shrink-0 ${
                         photoInfo ? 'bg-[#edf3ec] text-[#2b593f] border-[#c4dcbc]' : 'bg-white text-[#37352f] border-[#d3d1cb] hover:bg-[#efefed]'
                       }`}
@@ -697,6 +707,11 @@ export const RiderActiveTask: React.FC<RiderActiveTaskProps> = ({
                     <button
                       type="button"
                       onClick={() => {
+                        const evalRes = canExecute('PERM_VOIP_CALL');
+                        if (!evalRes.allowed) {
+                          promptPermissionBlocked('PERM_VOIP_CALL', '隐私虚拟小号直拨分层授权拦截');
+                          return;
+                        }
                         setContactTarget({
                           targetName: activeOrder.customerName,
                           targetPhone: activeOrder.customerPhone,
@@ -771,6 +786,11 @@ export const RiderActiveTask: React.FC<RiderActiveTaskProps> = ({
                   type="button"
                   onClick={() => {
                     if (isPickupPhase) {
+                      const evalRes = canExecute('PERM_INTERCOM_VOICE');
+                      if (!evalRes.allowed) {
+                        promptPermissionBlocked('PERM_INTERCOM_VOICE', '餐车双向语音直连分层授权拦截');
+                        return;
+                      }
                       setContactTarget({
                         targetName: '黑曜石餐车主厨/列车长',
                         targetPhone: '021-8899-0110',
@@ -795,6 +815,11 @@ export const RiderActiveTask: React.FC<RiderActiveTaskProps> = ({
                 <button
                   type="button"
                   onClick={() => {
+                    const evalRes = canExecute('PERM_VOIP_CALL');
+                    if (!evalRes.allowed) {
+                      promptPermissionBlocked('PERM_VOIP_CALL', '隐私虚拟号直拨分层授权拦截');
+                      return;
+                    }
                     if (isPickupPhase) {
                       setContactTarget({
                         targetName: '黑曜石餐车主厨/列车长',
