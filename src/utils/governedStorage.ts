@@ -353,6 +353,38 @@ export function governedWrite<T>(key: string, next: T, options: { forceRecord?: 
 // -------------------------------------------------------------
 
 /**
+ * 初始化播种判据。
+ *
+ * 为什么必须单独识别它：
+ *   冷启动时首份种子数据（菜单 / 订单等）是从**空基线**写入的，其本质是
+ *   「初始化播种」而非「业务变更」。若按变更逐条建指针，一次菜单播种会产生
+ *   上百条 create 记录（实测 127 道菜 + 9 笔订单 → 137 条），并逐条进入
+ *   反篡改规则评估 —— 于是**一次合法的初始化被误判为 sensitive 级价格篡改**，
+ *   同时造成 O(n²) 写放大（每条记录都全量重写整个指针数组）。
+ *
+ * 判据收敛原则：
+ *   以「基线为空」为**主判据**；数组大幅增长仅作批量导入兜底。
+ *   这样既覆盖冷启动播种，又不会把真实的批量改价误纳入豁免。
+ */
+const SEED_GROWTH_FACTOR = 5;
+const SEED_GROWTH_MIN_DELTA = 20;
+
+function isInitialSeed(prev: unknown, next: unknown): boolean {
+  if (next === undefined || next === null) return false;
+
+  const prevIsEmpty =
+    prev === undefined || prev === null || (Array.isArray(prev) && prev.length === 0);
+  if (prevIsEmpty) return true;
+
+  // 兜底：集合型键从少量条目跃增为大量条目（批量导入），同样不属于逐条业务变更
+  if (Array.isArray(prev) && Array.isArray(next)) {
+    return next.length > prev.length * SEED_GROWTH_FACTOR + SEED_GROWTH_MIN_DELTA;
+  }
+
+  return false;
+}
+
+/**
  * 与 governedWrite 的区别：此处业务数据**已经落盘**，只负责生成版本记录。
  * 由 safeStorage 的写入钩子调用，因此绝不能再次写入业务键（防循环）。
  */
@@ -361,6 +393,26 @@ export function governedRecordOnly(key: string, prev: unknown, next: unknown): v
   if (!descriptor) return; // 非受治键：不记录
   // 静默登记（遥测类，如行为探针）：可读可回滚，但不自动进版本链，避免冲垮保留配额
   if (descriptor.recordMode === 'silent') return;
+
+  // FIX(P0 版本指针风暴): 初始化播种只落 **1 条聚合存证**，不再逐条生成 create。
+  // 审计可追溯（存证含播种条数），但不会产生上百条误判记录与写放大。
+  if (isInitialSeed(prev, next)) {
+    const seededCount = Array.isArray(next) ? next.length : 1;
+    if (seededCount > 0) {
+      pendingHookDrafts.push({
+        targetKey: key,
+        module: descriptor.module,
+        entityId: descriptor.singletonEntityId || key,
+        entityName: descriptor.label,
+        actionType: 'create',
+        beforeData: null,
+        afterData: { __seed__: true, seededCount, seededLabel: descriptor.label }
+      });
+      scheduleHookFlush();
+    }
+    return;
+  }
+
   const drafts = buildDrafts(descriptor, key, prev, next);
   if (drafts.length === 0) return;
   pendingHookDrafts.push(...drafts);

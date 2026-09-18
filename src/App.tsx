@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect, useCallback, useSyncExternalStore } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback, useSyncExternalStore, lazy, Suspense } from 'react';
 import { motion, AnimatePresence, MotionConfig } from 'motion/react';
 import { Header } from './components/Header';
 import { TruckBanner } from './components/TruckBanner';
@@ -23,11 +23,11 @@ import { UserRole } from './components/RoleSwitcherDropdown';
 import { OrdersPageView } from './components/OrdersPageView';
 import { ProfilePageView } from './components/ProfilePageView';
 import { UserCouponsPageView } from './components/UserCouponsPageView';
-import { MerchantSystemView } from './components/merchant/MerchantSystemView';
+// 三大角色端视图改为**动态导入**（声明见文件下方「角色端视图按需加载」区块）：
+// 它们受 mountedRoles 保活门控，只有角色首次激活时才真正挂载，
+// 因此不会进入首屏包，而是在角色切换时按需拉取。
 // ⛔ 分辨率锁定：客食端电脑端手机壳视口（iPhone 15 Pro Max 430×932）——尺寸常量禁止修改，见 src/constants/deviceViewport.ts
 import { CustomerPhoneFrame } from './components/customer/CustomerPhoneFrame';
-import { RiderSystemView } from './components/rider/RiderSystemView';
-import { PlatformSystemView } from './components/platform/PlatformSystemView';
 import { OrderHistoryMessagesModal } from './components/chat/OrderHistoryMessagesModal';
 import { TruckSynergyRoomPageView } from './components/chat/TruckSynergyRoomPageView';
 import { DynamicFeedsPageView } from './components/chat/DynamicFeedsPageView';
@@ -64,6 +64,7 @@ import { isOrderMatch, normalizeOrderKey, getCanonicalOrderNo } from './utils/or
 import { getCurrentBoundTable, setCurrentBoundTable, bindOrderToMerchantTable } from './utils/tableStorage';
 import { sendOrderChatMessage } from './utils/chatHub';
 import { rematchAllDishImages } from './utils/dishImageMatcher';
+import { safeVibrate } from './utils/haptics';
 import { merchantBackupEngine } from './utils/merchantBackupEngine';
 import { performAutoLogin } from './utils/autoAuthEngine';
 import { AuthGateView, type AuthGateRole } from './components/auth/AuthGateView';
@@ -138,6 +139,33 @@ import { DevFloatingDock } from './components/dev/DevFloatingDock';
 import { DevAuthModal } from './components/dev/DevAuthModal';
 import { DevSimulationControlCenter } from './components/dev/DevSimulationControlCenter';
 import { CascadeAuthProvider, useCascadeAuth } from './context/CascadeAuthContext';
+
+// -------------------------------------------------------------
+// 角色端视图按需加载（配合 mountedRoles Keep-Alive 门控）
+// -------------------------------------------------------------
+//
+// 为什么可行：角色视图由 mountedRoles 保活门控 —— 角色**首次激活**时才挂载，
+// 之后常驻并用 CSS 显隐，以免来回切换导致滚动位置与视觉标签重置。
+// 因此这三个视图天然适合动态导入：首屏只加载食客端，
+// 商户端（约 8.4 万行）/ 平台端（约 1.9 万行）/ 骑手端（约 0.9 万行）
+// 只在用户真正切换到对应角色时才拉取。
+
+/** 角色端视图加载占位（仅在首次切换到该角色的极短时间内可见） */
+const RoleViewFallback = (
+  <div className="w-full min-h-screen grid place-items-center">
+    <span className="text-sm text-[#8a8a82]">正在加载视图…</span>
+  </div>
+);
+
+const MerchantSystemView = lazy(() =>
+  import('./components/merchant/MerchantSystemView').then((m) => ({ default: m.MerchantSystemView }))
+);
+const RiderSystemView = lazy(() =>
+  import('./components/rider/RiderSystemView').then((m) => ({ default: m.RiderSystemView }))
+);
+const PlatformSystemView = lazy(() =>
+  import('./components/platform/PlatformSystemView').then((m) => ({ default: m.PlatformSystemView }))
+);
 
 export default function App() {
   return (
@@ -790,8 +818,10 @@ function MainAppContent() {
       autoExpandTimerRef.current = setTimeout(() => {
         setIsPullUpMenuOpen(true);
         hasAutoExpandedRef.current = true;
-        if (truckExpandConfig.hapticFeedback && typeof navigator !== 'undefined' && navigator.vibrate) {
-          try { navigator.vibrate(40); } catch {}
+        if (truckExpandConfig.hapticFeedback) {
+          // FIX(控制台 intervention): 自动展开发生在无用户手势的定时器中，
+          // 直接调用 navigator.vibrate 会被浏览器策略阻断并产生控制台错误条目。
+          safeVibrate(40);
         }
       }, 350);
       return;
@@ -803,8 +833,9 @@ function MainAppContent() {
       autoExpandTimerRef.current = setTimeout(() => {
         setIsPullUpMenuOpen(true);
         hasAutoExpandedRef.current = true;
-        if (truckExpandConfig.hapticFeedback && typeof navigator !== 'undefined' && navigator.vibrate) {
-          try { navigator.vibrate(40); } catch {}
+        if (truckExpandConfig.hapticFeedback) {
+          // FIX(控制台 intervention): 同 immediate 模式，避免无手势振动被策略阻断
+          safeVibrate(40);
         }
       }, delayMs);
       return;
@@ -2603,40 +2634,42 @@ function MainAppContent() {
           className={`w-full min-h-screen ${currentRole === 'merchant' ? 'block' : 'hidden'}`}
           style={{ display: currentRole === 'merchant' ? 'block' : 'none' }}
         >
-          <MerchantSystemView
-            dishes={dishes}
-            orders={orders}
-            truck={truck}
-            initialTab={merchantActiveTab as any}
-            activeTabControlled={merchantActiveTab as any}
-            onTabChange={(tab) => {
-              setMerchantActiveTab(tab);
-              safeSetStorage('obsidian_merchant_active_tab', tab);
-            }}
-            isRoleActive={currentRole === 'merchant'}
-            merchantSession={merchantSession}
-            onOpenPhoneAuth={() => {
-              setTargetAuthRole('merchant');
-              setAuthGateRole('merchant');
-            }}
-            onLogoutMerchant={() => {
-              logoutMerchant();
-              setMerchantSession(null);
-              setCurrentRole('customer');
-              switchTier('CUSTOMER');
-              persistUserRole('customer');
-              toast.info('已退出商家工作台，切回前台顾客点餐');
-            }}
-            onUpdateDishes={setDishes}
-            onAdvanceOrderStatus={handleAdvanceOrderStatus}
-            onRejectOrder={handleRejectOrder}
-            onDeleteOrder={handleDeleteOrder}
-            onUpdateTruckLocation={handleUpdateTruckLocation}
-            onSwitchRole={handleSelectRole}
-            onAuditRefund={handleAuditRefund}
-            onSyncOrderItems={handleSyncTableOrderItems}
-            onToggleNonRefundable={handleToggleNonRefundable}
-          />
+          <Suspense fallback={RoleViewFallback}>
+            <MerchantSystemView
+              dishes={dishes}
+              orders={orders}
+              truck={truck}
+              initialTab={merchantActiveTab as any}
+              activeTabControlled={merchantActiveTab as any}
+              onTabChange={(tab) => {
+                setMerchantActiveTab(tab);
+                safeSetStorage('obsidian_merchant_active_tab', tab);
+              }}
+              isRoleActive={currentRole === 'merchant'}
+              merchantSession={merchantSession}
+              onOpenPhoneAuth={() => {
+                setTargetAuthRole('merchant');
+                setAuthGateRole('merchant');
+              }}
+              onLogoutMerchant={() => {
+                logoutMerchant();
+                setMerchantSession(null);
+                setCurrentRole('customer');
+                switchTier('CUSTOMER');
+                persistUserRole('customer');
+                toast.info('已退出商家工作台，切回前台顾客点餐');
+              }}
+              onUpdateDishes={setDishes}
+              onAdvanceOrderStatus={handleAdvanceOrderStatus}
+              onRejectOrder={handleRejectOrder}
+              onDeleteOrder={handleDeleteOrder}
+              onUpdateTruckLocation={handleUpdateTruckLocation}
+              onSwitchRole={handleSelectRole}
+              onAuditRefund={handleAuditRefund}
+              onSyncOrderItems={handleSyncTableOrderItems}
+              onToggleNonRefundable={handleToggleNonRefundable}
+            />
+          </Suspense>
         </div>
       )}
 
@@ -2647,26 +2680,28 @@ function MainAppContent() {
           className={`w-full min-h-screen ${currentRole === 'rider' ? 'block' : 'hidden'}`}
           style={{ display: currentRole === 'rider' ? 'block' : 'none' }}
         >
-          <RiderSystemView
-            orders={orders}
-            truck={truck}
-            riderSession={riderSession}
-            onOpenPhoneAuth={() => {
-              setTargetAuthRole('rider');
-              setAuthGateRole('rider');
-            }}
-            onLogoutRider={() => {
-              logoutRider();
-              setRiderSession(null);
-              setCurrentRole('customer');
-              switchTier('CUSTOMER');
-              persistUserRole('customer');
-              toast.info('已退出骑士专送工作台，切回前台顾客点餐');
-            }}
-            onAdvanceOrderStatus={handleAdvanceOrderStatus}
-            onUpdateTruckLocation={handleUpdateTruckLocation}
-            onSwitchRole={handleSelectRole}
-          />
+          <Suspense fallback={RoleViewFallback}>
+            <RiderSystemView
+              orders={orders}
+              truck={truck}
+              riderSession={riderSession}
+              onOpenPhoneAuth={() => {
+                setTargetAuthRole('rider');
+                setAuthGateRole('rider');
+              }}
+              onLogoutRider={() => {
+                logoutRider();
+                setRiderSession(null);
+                setCurrentRole('customer');
+                switchTier('CUSTOMER');
+                persistUserRole('customer');
+                toast.info('已退出骑士专送工作台，切回前台顾客点餐');
+              }}
+              onAdvanceOrderStatus={handleAdvanceOrderStatus}
+              onUpdateTruckLocation={handleUpdateTruckLocation}
+              onSwitchRole={handleSelectRole}
+            />
+          </Suspense>
         </div>
       )}
 
@@ -2710,11 +2745,13 @@ function MainAppContent() {
             onOpenPickupDetail={() => setIsDeliveryRangeModalOpen(true)}
           />
           <main className="w-full px-2 sm:px-4 lg:px-6 py-2 flex-grow">
-            <PlatformSystemView
-              orders={orders}
-              onSelectRole={handleSelectRole}
-              showToast={(msg) => toast.info(msg)}
-            />
+            <Suspense fallback={RoleViewFallback}>
+              <PlatformSystemView
+                orders={orders}
+                onSelectRole={handleSelectRole}
+                showToast={(msg) => toast.info(msg)}
+              />
+            </Suspense>
           </main>
         </div>
       )}

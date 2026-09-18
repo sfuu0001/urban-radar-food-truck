@@ -126,6 +126,101 @@ export function clearCloudFunctionLogs(): void {
   safeSetStorage('obsidian_cf_logs', []);
 }
 
+// ==========================================
+// 后端资源可用性熔断（熔断 → 半开重探）
+// ==========================================
+
+/**
+ * 为什么需要熔断：
+ *   当 CloudBase 环境尚未开荒（集合未创建 / 云函数未部署）时，每一次页面加载都会
+ *   重放全部失败请求（实测冷启动固定产生 8 条云函数 404 + 10 条集合 422），
+ *   持续污染控制台与 Network 面板，而应用侧本来就有完全可用的本地双轨降级。
+ *   既然失败是**确定性**的，就没有必要每次加载都重试一遍。
+ *
+ * 半开语义（关键）：
+ *   熔断不是永久的 —— 超过 BACKEND_RETRY_INTERVAL_MS 后自动放行一次真实请求
+ *   作为探测。若后端已补齐即可自动恢复，无需刷新或重启；
+ *   若仍失败则重新进入熔断窗口。
+ */
+const BACKEND_RETRY_INTERVAL_MS = 5 * 60 * 1000;
+
+let backendCircuitOpenUntil = 0;
+let backendNoticeEmitted = false;
+
+/** 判定错误是否属于「后端资源未就绪」（而非网络抖动或业务错误） */
+function looksLikeBackendNotProvisioned(err: any): boolean {
+  if (!err) return false;
+  const haystack = [
+    err.code,
+    err.error,
+    err.error_description,
+    err.status,
+    err.statusCode,
+    err.message,
+    err.name,
+    typeof err === 'string' ? err : ''
+  ]
+    .filter(Boolean)
+    .join(' | ')
+    .toLowerCase();
+
+  return (
+    haystack.includes('404') ||
+    haystack.includes('422') ||
+    haystack.includes('not found') ||
+    haystack.includes('not exist') ||
+    haystack.includes('unprocessable') ||
+    haystack.includes('function_not_found') ||
+    haystack.includes('env not found')
+  );
+}
+
+/** 熔断是否生效中 */
+export function isBackendCircuitOpen(): boolean {
+  return Date.now() < backendCircuitOpenUntil;
+}
+
+/**
+ * 标记后端资源未就绪并开启熔断窗口。
+ * 首次触发时输出**一条**汇总提示（而非每次加载重放全部失败），
+ * 明确告知需要在哪个环境补齐什么，避免"以为坏了"的排查成本。
+ */
+function tripBackendCircuit(context: string, reason: string): void {
+  const wasOpen = isBackendCircuitOpen();
+  backendCircuitOpenUntil = Date.now() + BACKEND_RETRY_INTERVAL_MS;
+
+  if (!wasOpen && !backendNoticeEmitted) {
+    backendNoticeEmitted = true;
+    console.info(
+      `[TCB] 后端资源未就绪（${reason}，首次触发于 ${context}）：` +
+        `已启用本地双轨降级并暂停云端重试，${Math.round(BACKEND_RETRY_INTERVAL_MS / 60000)} 分钟后自动重探。` +
+        `如需启用云端能力，请在 CloudBase 环境「${TCB_ENV_ID}」创建对应集合与云函数。`
+    );
+  }
+}
+
+/** 熔断生效时统一的降级结论（各调用方据此直接走本地数据） */
+function backendCircuitFallback(reason: string): { success: false; error: string } {
+  return {
+    success: false,
+    error: `后端资源未就绪（已熔断，跳过重试）：${reason}`
+  };
+}
+
+/**
+ * 供 cloudbase 之外的模块上报「后端确定性失败」（集合不存在 / 云函数未部署）。
+ *
+ * 内部自行判定错误类型：仅在确属资源未就绪时才开启熔断，
+ * 网络抖动等瞬时错误不会被误判为熔断条件。
+ *
+ * @returns 是否已判定为后端资源未就绪
+ */
+export function reportBackendUnavailable(context: string, err: unknown): boolean {
+  if (!looksLikeBackendNotProvisioned(err)) return false;
+  tripBackendCircuit(context, '数据库集合不存在或未授权');
+  return true;
+}
+
 /**
  * 获取或初始化 Cloudbase 实例 (安全防护单例)
  */
@@ -201,6 +296,17 @@ export async function callCloudFunction<T = any>(
   data: any = {}
 ): Promise<{ success: boolean; result?: T; durationMs: number; error?: string; source: 'cloud_function' | 'local_fallback' }> {
   const startTime = Date.now();
+
+  // 熔断生效：直接返回本地降级结论，避免每次加载重放全部云函数 404
+  if (isBackendCircuitOpen()) {
+    return {
+      success: false,
+      durationMs: Date.now() - startTime,
+      source: 'local_fallback',
+      error: backendCircuitFallback(`functions/${name}`).error
+    };
+  }
+
   try {
     const { app: tcbApp } = getCloudbaseApp();
     if (!tcbApp || typeof tcbApp.callFunction !== 'function') {
@@ -242,6 +348,12 @@ export async function callCloudFunction<T = any>(
     return { success: true, result: finalResult as T, durationMs, source: 'cloud_function' };
   } catch (err: any) {
     const durationMs = Date.now() - startTime;
+
+    // 确定性失败（未部署/环境不可访问）→ 开启熔断，避免后续重复请求
+    if (looksLikeBackendNotProvisioned(err)) {
+      tripBackendCircuit(`functions/${name}`, '云函数未部署或环境不可访问');
+    }
+
     recordCloudFunctionLog({
       functionName: name,
       action: data.action || name,
@@ -292,10 +404,10 @@ export async function fetchUserProfileFromCloud(
     // try cloud database next
   }
 
-  // 2. 尝试云数据库集合拉取
+  // 2. 尝试云数据库集合拉取（熔断生效时跳过，避免重复 422）
   try {
     const { db: tcbDb } = getCloudbaseApp();
-    if (tcbDb) {
+    if (tcbDb && !isBackendCircuitOpen()) {
       const res = await tcbDb.collection(TCB_COLLECTIONS.USERS).where({ uid: targetUid }).get();
       if (res.data && res.data.length > 0) {
         const { _id, ...rest } = res.data[0];
@@ -308,7 +420,10 @@ export async function fetchUserProfileFromCloud(
         return { success: true, profile: cleanProfile, source: 'cloud_database' };
       }
     }
-  } catch {
+  } catch (err: any) {
+    if (looksLikeBackendNotProvisioned(err)) {
+      tripBackendCircuit(`collections/${TCB_COLLECTIONS.USERS}`, '数据库集合不存在或未授权');
+    }
     // fallback to local
   }
 
@@ -516,10 +631,10 @@ export async function fetchOrdersFromCloud(userUid?: string): Promise<{
     return { success: true, orders: fnRes.orders, fromCloud: true, source: 'cloud_function' };
   }
 
-  // 2. 尝试云数据库集合
+  // 2. 尝试云数据库集合（熔断生效时跳过，避免重复 422）
   try {
     const { db: tcbDb } = getCloudbaseApp();
-    if (tcbDb) {
+    if (tcbDb && !isBackendCircuitOpen()) {
       let query = tcbDb.collection(TCB_COLLECTIONS.ORDERS);
       if (userUid) {
         query = query.where({ userId: userUid });
@@ -538,6 +653,9 @@ export async function fetchOrdersFromCloud(userUid?: string): Promise<{
       }
     }
   } catch (err: any) {
+    if (looksLikeBackendNotProvisioned(err)) {
+      tripBackendCircuit(`collections/${TCB_COLLECTIONS.ORDERS}`, '数据库集合不存在或未授权');
+    }
     // 静默降级本地
   }
 
@@ -939,6 +1057,18 @@ export async function fetchDishesFromCloud(): Promise<{ success: boolean; dishes
     return Array.from(map.values());
   };
 
+  // 熔断生效：直接走本地数据，避免每次加载重放集合 422
+  if (isBackendCircuitOpen()) {
+    const cached = safeGetStorage<DishItem[]>('obsidian_truck_dishes', INITIAL_DISHES);
+    const finalDishes = applyDishFieldOverrides(applyAvailabilityOverrides(mergeInitial(cached)));
+    return {
+      success: false,
+      dishes: finalDishes,
+      fromCloud: false,
+      error: backendCircuitFallback(`collections/${TCB_COLLECTIONS.DISHES}`).error
+    };
+  }
+
   try {
     const { db: tcbDb } = getCloudbaseApp();
     if (!tcbDb) {
@@ -979,6 +1109,10 @@ export async function fetchDishesFromCloud(): Promise<{ success: boolean; dishes
     safeSetStorage('obsidian_truck_dishes', finalDishes);
     return { success: true, dishes: finalDishes, fromCloud: false };
   } catch (err: any) {
+    // 集合不存在或未授权属确定性失败 → 开启熔断
+    if (looksLikeBackendNotProvisioned(err)) {
+      tripBackendCircuit(`collections/${TCB_COLLECTIONS.DISHES}`, '数据库集合不存在或未授权');
+    }
     const cached = safeGetStorage<DishItem[]>('obsidian_truck_dishes', INITIAL_DISHES);
     const merged = mergeInitial(cached);
     const finalDishes = applyDishFieldOverrides(applyAvailabilityOverrides(merged));

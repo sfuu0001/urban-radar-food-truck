@@ -33,6 +33,7 @@ import {
 } from '../utils/chatHub';
 import { BottomCartBar } from './BottomCartBar';
 import { safeGetStorage, safeSetStorage } from '../utils/safeStorage';
+import { safeVibrate } from '../utils/haptics';
 
 export type NavTabType = 'home' | 'orders' | 'tracking' | 'profile' | 'checkout' | 'coupons' | 'cart' | 'order_messages' | 'trucks';
 
@@ -108,11 +109,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
   const toggleNavLock = (locked: boolean) => {
     setIsNavLocked(locked);
     safeSetStorage('obsidian_bottom_nav_locked', locked);
-    if (typeof navigator !== 'undefined' && navigator.vibrate) {
-      try {
-        navigator.vibrate(30);
-      } catch {}
-    }
+    safeVibrate(30);
   };
 
   const handleLockedBarClick = () => {
@@ -121,11 +118,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
     lockPromptTimerRef.current = setTimeout(() => {
       setShowLockPrompt(false);
     }, 1800);
-    if (typeof navigator !== 'undefined' && navigator.vibrate) {
-      try {
-        navigator.vibrate([20, 30, 20]);
-      } catch {}
-    }
+    safeVibrate([20, 30, 20]);
   };
 
   // Subscribe to real-time chat updates to refresh unread badges
@@ -185,10 +178,8 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
 
     // 1. 如果商家后台设置为“直接展开 (immediate)”或“纯手动模式 (disabled)”下点击
     if (truckExpandConfig.mode === 'immediate' || truckExpandConfig.mode === 'disabled' || !truckExpandConfig.enableOnTabClick) {
-      if (truckExpandConfig.hapticFeedback && typeof navigator !== 'undefined' && navigator.vibrate) {
-        try {
-          navigator.vibrate(40);
-        } catch {}
+      if (truckExpandConfig.hapticFeedback) {
+        safeVibrate(40);
       }
       if (onOpenPullUpMenu) onOpenPullUpMenu();
       return;
@@ -214,10 +205,8 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
     twoSecTimerRef.current = setTimeout(() => {
       setIsOpeningMenu2s(false);
       setCountdownProgress(0);
-      if (truckExpandConfig.hapticFeedback && typeof navigator !== 'undefined' && navigator.vibrate) {
-        try {
-          navigator.vibrate(40);
-        } catch {}
+      if (truckExpandConfig.hapticFeedback) {
+        safeVibrate(40);
       }
       if (onOpenPullUpMenu) {
         onOpenPullUpMenu();
@@ -231,13 +220,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
     isLongPressRef.current = false;
     longPressTimerRef.current = setTimeout(() => {
       isLongPressRef.current = true;
-      if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        try {
-          navigator.vibrate(50);
-        } catch {
-          // ignore
-        }
-      }
+      safeVibrate(50);
       if (onOpenPullUpMenu) {
         onOpenPullUpMenu();
       } else {

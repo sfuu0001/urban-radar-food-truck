@@ -16,7 +16,7 @@ import { UserProfile } from '../types/user';
 import { INITIAL_USER_PROFILE } from '../data/mockUser';
 import { collectDeviceHardwareDetails, DeviceHardwareDetails } from './deviceFingerprint';
 import { persistVaultIdentity, recoverVaultIdentity } from './antiCacheStorage';
-import { getCloudbaseApp, TCB_COLLECTIONS, callCloudFunction, recordCloudFunctionLog, TCB_FUNCTION_NAMES } from './cloudbase';
+import { getCloudbaseApp, TCB_COLLECTIONS, callCloudFunction, recordCloudFunctionLog, TCB_FUNCTION_NAMES, isBackendCircuitOpen, reportBackendUnavailable } from './cloudbase';
 import { safeGetStorage, safeSetStorage } from './safeStorage';
 
 export interface AutoAuthResult {
@@ -101,7 +101,7 @@ export async function saveDeviceBinding(
   // 尝试写入腾讯云开发数据库集合
   try {
     const { db: tcbDb } = getCloudbaseApp();
-    if (tcbDb) {
+    if (tcbDb && !isBackendCircuitOpen()) {
       const collection = tcbDb.collection(TCB_COLLECTIONS.USERS);
       const queryRes = await collection.where({ uid: user.uid }).get();
       if (queryRes.data && queryRes.data.length > 0) {
@@ -113,8 +113,8 @@ export async function saveDeviceBinding(
         });
       }
     }
-  } catch {
-    // ignore
+  } catch (err) {
+    reportBackendUnavailable(`collections/${TCB_COLLECTIONS.USERS}`, err);
   }
 }
 
@@ -219,7 +219,8 @@ export async function performAutoLogin(): Promise<AutoAuthResult> {
   if (!matchedUser) {
     try {
       const { db: tcbDb } = getCloudbaseApp();
-      if (tcbDb) {
+      // 熔断生效时跳过云数据库检索，直接进入本地注册表匹配
+      if (tcbDb && !isBackendCircuitOpen()) {
         const collection = tcbDb.collection(TCB_COLLECTIONS.USERS);
         // 先查 hardwareHash
         const hwRes = await collection.where({ hardwareHash }).get();
@@ -239,7 +240,8 @@ export async function performAutoLogin(): Promise<AutoAuthResult> {
           }
         }
       }
-    } catch {
+    } catch (err) {
+      reportBackendUnavailable(`collections/${TCB_COLLECTIONS.USERS}`, err);
       // continue
     }
   }

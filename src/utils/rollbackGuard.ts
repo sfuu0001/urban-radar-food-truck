@@ -137,7 +137,13 @@ export const ENTITY_SCOPE_REGISTRY: Record<VersionModuleType, ModuleScopeDescrip
   },
   system: {
     moduleLabel: '系统应急与全局配置',
-    keys: [s('obsidian_business_status', ['business-status', 'system-config'])],
+    keys: [
+      s('obsidian_business_status', ['business-status', 'system-config']),
+      // FIX(治理一致性): 该键已在写入网关 GOVERNED_KEY_MAP 登记，但此前遗漏于本适配表，
+      // 导致 assertGatewayConsistency 报告「已接入写入网关但缺少回滚适配」——
+      // 即版本指针可以生成，却没有任何回滚路径，属真实的功能缺口。
+      c('obsidian_truck_business_statuses', 'truckId')
+    ],
     snapshotManaged: true
   }
 };

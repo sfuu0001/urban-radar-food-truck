@@ -32,6 +32,7 @@ import {
 import { Order, TableDishItem } from '../../types';
 import { voiceAlerts, speakText, playChimeSound, unlockAudioContext } from '../../utils/voiceAlertEngine';
 import { getAmapNavigationUrls } from '../../utils/truckLocationEngine';
+import { safeVibrate } from '../../utils/haptics';
 
 interface PickupTrackingSectionProps {
   order: Order;
@@ -147,9 +148,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
   const handleBroadcastMyCode = async () => {
     setIsBroadcastingVoice(true);
     await unlockAudioContext();
-    if (typeof navigator !== 'undefined' && navigator.vibrate) {
-      navigator.vibrate([120, 60, 120]);
-    }
+    safeVibrate([120, 60, 120]);
     voiceAlerts.callingGuest(pickupCode, lockerShelf);
     showToast(`正在播放餐车前台叫号：请 ${pickupCode} 号顾客到 ${lockerShelf} 取餐`);
     setTimeout(() => setIsBroadcastingVoice(false), 3000);
@@ -204,9 +203,8 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
       setLockerDoorState('open');
       setDoorCountDown(45);
       playChimeSound('order');
-      if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        navigator.vibrate([200, 100, 200]);
-      }
+      // FIX(控制台 intervention): 定时器回调内无用户手势，振动会被策略阻断
+      safeVibrate([200, 100, 200]);
       showToast('【开柜成功】01 号柜门已弹开，指示灯常亮绿灯，请取餐！');
     }, 1000);
   };

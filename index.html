@@ -25,7 +25,8 @@
           msg.indexOf('AMap') !== -1 ||
           msg.indexOf('_leaflet_pos') !== -1 ||
           msg.indexOf('initWebSocketConnection') !== -1 ||
-          msg.indexOf('credentials not found') !== -1
+          msg.indexOf('credentials not found') !== -1 ||
+          msg.indexOf('wsclient.send timedout') !== -1
         ) {
           if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
           if (typeof event.preventDefault === 'function') event.preventDefault();
@@ -43,7 +44,8 @@
           reason.indexOf('AMap') !== -1 ||
           reason.indexOf('_leaflet_pos') !== -1 ||
           reason.indexOf('initWebSocketConnection') !== -1 ||
-          reason.indexOf('credentials not found') !== -1
+          reason.indexOf('credentials not found') !== -1 ||
+          reason.indexOf('wsclient.send timedout') !== -1
         ) {
           if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
           if (typeof event.preventDefault === 'function') event.preventDefault();

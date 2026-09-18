@@ -4,6 +4,7 @@
 **检查时间**：2026-09-18
 **检查范围**：类型检查、生产构建、dev 运行时、生产构建运行时（浏览器控制台 / 未捕获异常 / 网络失败 / localStorage 写入行为）
 **检查结论**：**未发现编译期错误与崩溃级缺陷；控制台污染集中在 1 个 P0 级冷启动缺陷 + 3 个 P1 级配置/资源缺陷。**
+**实施状态**：**全部 10 项已实施并逐项验证通过 —— 见 §0.1。**
 
 ---
 
@@ -20,6 +21,91 @@
 | **P2-7** | 主 chunk 5.14 MB（单一巨块） | 中 | 构建告警 | — | 中 |
 
 **一句话根因**：冷启动时，写入网关在「基线为空」的前提下把 **127 道菜 + 9 笔订单**当作 **136 条全新实体创建**逐条落成版本指针，每条指针又逐条进入反篡改规则评估——于是**一次合法的种子数据初始化，被系统误判为「10 分钟内改价 127 次」的价格篡改攻击**，产生 132 条告警刷屏，并伴随 276 次 localStorage 全量重写。
+
+---
+
+## 0.1 实施状态与最终验证结果
+
+**状态**：全部 10 项已实施并逐项验证通过。
+
+| 项目 | 提交 | 规模 |
+| :-- | :-- | :-- |
+| 修复前基线快照 | `34b7fc4` | 462 文件（同时另存完整文件系统快照备份） |
+| 实施提交 | `ffb9acc` | 41 文件，+712 / −145 行（另含 29 张图片原地重编码） |
+
+### 效果对照（生产构建 · 全新访客冷启动 20 秒）
+
+| 指标 | 修复前 | 修复后 | 变化 |
+| :-- | --: | --: | --: |
+| **控制台消息总数** | **147** | **14** | **−90.5%** |
+| warning 条数 | 136 | 4 | −97.1% |
+| **`治理规则命中` 误报** | **132** | **0** | **−100%** |
+| `initWatch success` | 7 | **3** | −57% |
+| 未捕获异常 | 1 | **0** | −100% |
+| `缺少回滚适配` 告警 | 2 | **0** | −100% |
+| `navigator.vibrate` intervention | 有 | **0** | −100% |
+| 云函数 404 + 集合 422 | 18 | **0**（熔断 + 1 条汇总提示） | −100% |
+| localStorage 写入次数 | 335 | 约 **50** | −85% |
+| **`obsidian_version_pointers` 写入** | **276** | **4** | **−98.6%** |
+| **首屏 JS（index chunk）** | **5,142 kB** | **1,896 kB** | **−63.1%** |
+| 菜品图片总体积 | 19.6 MB | **7.71 MB** | −60.6% |
+
+### 关键语义修正（不只是"日志变少"）
+
+版本指针由 **137 条 `create`**（被判为 `sensitive` 级「张磊 价格篡改」）变为**每模块 1 条聚合存证**：
+
+```
+module: dishes   action: create   risk: normal
+summary: 「系统启动初始化播种【菜品与菜单管理】」
+```
+
+即审计数据从**错误的告警**变为**正确的初始化记录**，且 9 条真实历史记录完好保留。
+
+### 逐项落地与验证
+
+| # | 项目 | 落地位置 | 验证结论 |
+| :-- | :-- | :-- | :-- |
+| ① | `navigator.vibrate` 用户激活门控 | 新增 `src/utils/haptics.ts`（`safeVibrate`）；收敛 9 处调用（`App.tsx` 2 / `BottomNavBar.tsx` 5 / `PickupTrackingSection.tsx` 2） | 残留原始调用 0 处；intervention 告警 0 条 |
+| ② | 全局守卫补 SDK 噪声模式 | `index.html`、`src/main.tsx`（两处清单对齐，并注明"无法过滤 SDK 主动 `console.error`"） | `wsclient.send timedout` 未捕获异常归零 |
+| ③ | 治理告警窗口去重 | `versionPointerEngine.ts`（按 `module+ruleId` 10s 窗口，仅影响日志） | 单条告警不再重复上百次 |
+| ④ | 补回滚适配 | `rollbackGuard.ts`（`system` 模块补 `c('obsidian_truck_business_statuses','truckId')`） | 一致性告警 2 → 0，该键恢复可回滚 |
+| ⑤ | **初始化播种豁免** | `governedStorage.ts`（`isInitialSeed` 判据 + 1 条聚合存证） | 137 条 create → 1 条；写盘 276 → 4 次 |
+| ⑥ | 播种不参与反篡改计数 | `versionPointerEngine.ts`（`isBulkSeed`，与既有 `isRepairAction` 同范式） | 132 条误报 → 0；`riskLevel` 由 `sensitive` 修正为 `normal` |
+| ⑦ | 批量 + 合并落盘 | `versionPointerEngine.ts`（`beginBatchPersist` / `endBatchPersist` / `savePointersDeferred`，`finally` 保证落盘；派生哈希延迟一 tick 且有启动自愈兜底） | 实测 `endBatchPersist` 落盘路径生效 |
+| ⑧ | watch 单路化 + 就绪门控 | `adapters.ts`（目标并集 `mergedTargets`、同 tick 合并、签名复用、降级后停止自建重连） | `initWatch` 43–165 → **3** |
+| ⑨ | 后端不可用熔断 | `cloudbase.ts`（5 分钟半开重探）+ 入口守卫（`fetchDishesFromCloud` / `fetchOrdersFromCloud` / `fetchUserProfileFromCloud` / `autoAuthEngine`） | 18 条 404/422 → 0，改为 1 条汇总提示 |
+| ⑩ | 首屏瘦身 | `App.tsx`（三视图 `React.lazy` + **每视图独立** Suspense 边界）；29 张菜品图**原地重编码** | 首屏 5,142 → 1,896 kB；图片 19.6 → 7.71 MB |
+
+### 全流程中一处自引入回归（已修复，如实记录）
+
+首次实施第 ⑧ 项时，我在 `openWatcher` 内无条件加入 `closeWatchers()`，导致**关闭仍在握手的 watcher 触发 SDK 错误回调 → 重连风暴**：`initWatch` 一度恶化到 **165 次**、连接抖动 86 次、控制台 544 条。
+
+经复验定位后改为三段式修正：① `setTimeout(0)` 合并同 tick 内的多次订阅；② 以订阅目标**签名**判断是否需要重建（签名不变则复用连接）；③ 连续失败达阈值后**停止自建重连**，交由恢复周期统一重探。最终 `initWatch` 收敛至 **3 次**。
+
+> 说明该问题是通过**修复后再测量**发现的，而不是靠代码审阅——这也是本报告坚持"每项改动都跑一次冷启动采集"的原因。
+
+### 第 ⑩ 项的两处工程判断
+
+1. **未使用 `manualChunks` 拆分业务代码**。`React.lazy` 已让 Rollup 在动态导入边界自动切分（`MerchantSystemView` 2,498 kB / `PlatformSystemView` 509 kB / `RiderSystemView` 244 kB 独立成块）。强行按目录再拆会引入**循环 chunk 依赖**风险，收益为零。
+2. **图片保持 JPEG 格式与文件名**。实测 29 张原图严重未优化（1024² 却达 600–740 kB）。方案对比：
+
+   | 方案 | 体积 | 缩减 | 最差 PSNR | 结论 |
+   | :-- | --: | --: | --: | :-- |
+   | `quality=keep`（数学无损） | 17.2 MB | 12.1% | ∞ | 收益过小 |
+   | **`quality=95` + optimize + progressive** | **7.71 MB** | **60.6%** | **42.05 dB** | **✅ 采用**（≥40 dB 即视觉不可区分） |
+   | `quality=92` | 5.8 MB | 70.5% | 39.84 dB | 低于 40 dB 门槛 |
+   | `quality=90` | 5.2 MB | 73.4% | 38.81 dB | 同上 |
+
+   因**格式与文件名均未变动**，64 处引用、5 个源文件**零改动**；29/29 张可正常解码；git 显示纯二进制变更（0 行代码增删）。
+
+### 遗留与后续建议
+
+| 项 | 说明 |
+| :-- | :-- |
+| 后端资源未开荒 | 熔断只消除了噪声，**能力仍需补齐**：在 `tc100-d9gz0e2ko5929e360` 创建 `shaokao-sku` / `obsidian_truck_users` / `obsidian_truck_orders` / `obsidian_reactive_events` 集合，并部署 `userProfile` / `orders` / `getOrders` / `obsidian_orders` 云函数。熔断为半开语义，补齐后 **5 分钟内自动恢复**，无需重新部署前端。 |
+| 播种记录的 `operator` 字段 | 聚合存证的 `summary` 已正确表述为「系统启动初始化播种」，但结构化 `operator` 字段仍取当前登录人（`getActiveOperator()`）。若要彻底修正需引入系统身份对象，会牵动依赖 `operator.name` 的展示逻辑，本次**未改动**以守住零影响。 |
+| SDK 连接抖动 | 沙箱环境无法维持 WebSocket（`pong timed out`），故仍可见少量 `ws event` 重连日志。正常网络下端到端通道应稳定保持。 |
+| 主 chunk 仍 1,896 kB | 食客端仍偏大，可进一步按页面视图（点餐 / 购物车 / 追踪）动态导入。 |
 
 ---
 
@@ -506,4 +592,4 @@ msg.indexOf('INIT_WATCH') !== -1
 
 ---
 
-*本报告未修改任何项目源文件。第 2–8 节的补丁均为可直接套用的代码片段；如需我代为实施并跑通回归验证，请告知适用的补丁范围。*
+*本报告的第 2–8 节为**诊断与补丁方案**（保留原始分析过程，便于复核根因推理）；第 0.1 节为**实施结果与验证数据**。全部 10 项已落地于提交 `ffb9acc`，可随时以 `git diff 34b7fc4 ffb9acc` 逐项复核，或以 `git checkout 34b7fc4 -- <路径>` 单文件回退。*

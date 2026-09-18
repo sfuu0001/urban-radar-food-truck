@@ -82,6 +82,69 @@ function safeDispatchEvent(name: string, detail?: unknown): void {
   }
 }
 
+// -------------------------------------------------------------
+// 治理告警窗口去重（仅影响 console 输出）
+// -------------------------------------------------------------
+
+/**
+ * 为什么需要去重：
+ *   规则引擎对**每一条**版本指针独立判定，而一次批量写入会产生大量指针
+ *   （典型场景：冷启动播种一次性写入 127 道菜 → 127 条指针 → 127 次同样的
+ *   「10 分钟内价格字段被修改 N 次」告警）。逐条 console.warn 会让单条信息
+ *   重复上百次，把控制台里真正有用的错误彻底淹没 —— 而这恰恰是本项目最
+ *   看重的可运维性。
+ *
+ * 边界（务必保持）：
+ *   本机制**只决定日志是否打印**。ruleHits 的计算、riskLevel / governanceAction /
+ *   isSuspectedMistake / mistakeReason 的落盘一律照旧，审计链不受任何影响。
+ *   被抑制的只是"同一条已知告警的重复副本"，而不是告警本身。
+ */
+const RULE_WARNING_WINDOW_MS = 10_000;
+
+interface RuleWarningWindow {
+  windowStart: number;
+  /** 本窗口内累计命中次数（含已打印的那次） */
+  total: number;
+  /** 本窗口内已打印次数 */
+  emitted: number;
+}
+
+const ruleWarningWindows = new Map<string, RuleWarningWindow>();
+
+/**
+ * 判定某条治理告警在当前时间窗口内是否应打印。
+ * @returns emit 是否打印；suppressedInPrevWindow 上一个窗口被抑制的条数（用于在恢复打印时交代）
+ */
+function shouldEmitRuleWarning(
+  signature: string,
+  now: number
+): { emit: boolean; suppressedInPrevWindow: number } {
+  const entry = ruleWarningWindows.get(signature);
+
+  if (!entry) {
+    // 防御性清理：「模块 × 规则组合」理论上有限，仅防极端情况下无界增长
+    if (ruleWarningWindows.size > 200) ruleWarningWindows.clear();
+    ruleWarningWindows.set(signature, { windowStart: now, total: 1, emitted: 1 });
+    return { emit: true, suppressedInPrevWindow: 0 };
+  }
+
+  if (now - entry.windowStart >= RULE_WARNING_WINDOW_MS) {
+    // 窗口到期：本次恢复打印，并交代上一窗口内被抑制的条数，避免"静默丢日志"
+    const suppressedInPrevWindow = entry.total - entry.emitted;
+    ruleWarningWindows.set(signature, { windowStart: now, total: 1, emitted: 1 });
+    return { emit: true, suppressedInPrevWindow };
+  }
+
+  entry.total += 1;
+  return { emit: false, suppressedInPrevWindow: 0 };
+}
+
+/** 构造告警签名：同一模块 + 同一组规则 视为同类，避免不同规则互相掩盖 */
+function ruleWarningSignature(module: string, hits: { ruleId: string }[]): string {
+  const rules = Array.from(new Set(hits.map((h) => h.ruleId))).sort().join('+');
+  return `${module}:${rules}`;
+}
+
 // Default Merchant Operators (Staff accounts)
 export const DEFAULT_MERCHANT_OPERATORS: MerchantOperator[] = [
   {
@@ -900,12 +963,84 @@ class VersionPointerEngine {
     safeDispatchEvent('obsidian_operator_changed', operator);
   }
 
-  // Get all version pointers
+  /**
+   * 读取版本指针。
+   *
+   * 若有**尚未落盘的内存副本**（批模式或合并写入进行中），优先返回它 ——
+   * 否则批内后续的 recordDataMutation 会读到磁盘上的旧数组，
+   * 导致 updatedPointers = [newPointer, ...旧数组] 覆盖而非追加，反而丢记录。
+   */
   public getAllPointers(): VersionPointer[] {
+    if (this.pendingPointers) return this.pendingPointers;
+    return this.readPointers();
+  }
+
+  /** 仅从持久化层读取（不含内存缓冲），供落盘与批开始时取基线 */
+  private readPointers(): VersionPointer[] {
     return persistentStore.getSync<VersionPointer[]>(
       STORAGE_KEY_POINTERS,
       INITIAL_VERSION_POINTERS
     );
+  }
+
+  // -----------------------------------------------------------
+  // 批量 / 合并落盘（消除 O(n²) 全量重写）
+  // -----------------------------------------------------------
+
+  /**
+   * 尚未落盘的最新指针数组。为 null 表示内存与磁盘一致。
+   *
+   * 为什么需要它：
+   *   原实现中每一处 savePointers 都会把**整个指针数组**重新序列化写入
+   *   localStorage。一次批量记录 N 条指针 → N 次全量写盘，即 O(n²)。
+   *   实测冷启动播种场景写盘 276 次（137 条记录 × 2 处落盘）。
+   */
+  private pendingPointers: VersionPointer[] | null = null;
+
+  /** 批模式嵌套深度（0 表示不在批内） */
+  private batchDepth = 0;
+
+  /** 合并写入的定时器（同一事件循环内的多次请求折叠为一次） */
+  private persistTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** 开启批模式：批内 savePointers 只更新内存，由 endBatchPersist 统一落盘 */
+  public beginBatchPersist(): void {
+    if (this.batchDepth === 0 && this.pendingPointers === null) {
+      this.pendingPointers = this.readPointers();
+    }
+    this.batchDepth += 1;
+  }
+
+  /** 结束批模式并落盘一次。**必须放在 finally 中**，否则批内异常会造成内存有、磁盘无 */
+  public endBatchPersist(): void {
+    if (this.batchDepth === 0) return;
+    this.batchDepth -= 1;
+    if (this.batchDepth > 0) return;
+    const pending = this.pendingPointers;
+    if (pending) this.persistNow(pending);
+  }
+
+  /**
+   * 延迟合并落盘：供 **派生字段回写** 使用（典型：backfillChainProof 异步补算存证）。
+   *
+   * 与 savePointers 的区别：不立即写盘，而是把请求折叠到下一个宏任务。
+   * 一批异步补算（如 137 条）因此只产生 1 次全量写盘。
+   *
+   * 数据安全性：指针本体已由 recordDataMutation 路径落盘，此处仅延后派生的
+   * chainProof 哈希；即便页面在延迟窗口内关闭，下次启动的
+   * `backfillAllChainProofs()` 自愈会为重算缺失存证 —— 不会造成永久丢失。
+   */
+  public savePointersDeferred(pointers: VersionPointer[]): void {
+    this.pendingPointers = pointers;
+    if (this.batchDepth > 0) return;
+    if (this.persistTimer !== null) return;
+
+    this.persistTimer = setTimeout(() => {
+      this.persistTimer = null;
+      const pending = this.pendingPointers;
+      if (pending) this.persistNow(pending);
+    }, 0);
+    (this.persistTimer as unknown as { unref?: () => void })?.unref?.();
   }
 
   /**
@@ -917,8 +1052,21 @@ class VersionPointerEngine {
    *   新：分层保留（permanent / long / rolling），仅在超出该层配额时才动最旧记录，
    *       且归档时保留补丁（P2-a 之后回滚只需补丁，不再需要完整快照）；
    *       写路径升级为 IndexedDB 主存储 + localStorage 同步缓存。
+   *
+   * 批模式 / 合并模式由 beginBatchPersist / savePointersDeferred 控制，
+   * 本方法只负责"真正落盘"这一件事。
    */
   public savePointers(pointers: VersionPointer[]): void {
+    this.pendingPointers = pointers;
+    // 批内：不落盘，等 endBatchPersist 统一写入
+    if (this.batchDepth > 0) return;
+    this.persistNow(pointers);
+  }
+
+  /** 真正执行一次持久化（含保留策略、失败上报与事件派发） */
+  private persistNow(pointers: VersionPointer[]): void {
+    this.pendingPointers = null;
+
     const plan = applyRetentionPolicy(pointers, POINTER_RETENTION_CAP);
     const pruned = plan.kept;
 
@@ -1082,7 +1230,15 @@ class VersionPointerEngine {
       params.actionType === 'rollback' ||
       params.actionType === 'snapshot_restore';
 
-    const ruleHits: RuleHit[] = isRepairAction
+    // 初始化播种（冷启动种子数据）同样不参与反篡改计数：
+    // 它是一次性的初始化写入，不具备"短时间内反复变更价格"的攻击特征，
+    // 参与计数只会把合法初始化误判为敏感级篡改。
+    // 判据依赖写入网关在聚合存证上打的 __seed__ 标记（见 governedStorage.ts），
+    // 因此**不会豁免任何真实的业务变更记录**。
+    const isBulkSeed =
+      (params.afterData as unknown as { __seed__?: boolean } | null)?.__seed__ === true;
+
+    const ruleHits: RuleHit[] = isRepairAction || isBulkSeed
       ? []
       : evaluateRules(newPointer, [newPointer, ...existingPointers]);
 
@@ -1093,9 +1249,19 @@ class VersionPointerEngine {
     newPointer.mistakeReason = ruleHits.length > 0 ? summarizeHits(ruleHits) : undefined;
 
     if (ruleHits.length > 0) {
-      console.warn(
-        `[VersionPointerEngine] 治理规则命中 ${ruleHits.length} 项（${newPointer.riskLevel}）：${newPointer.mistakeReason}`
+      const verdict = shouldEmitRuleWarning(
+        ruleWarningSignature(newPointer.module, ruleHits),
+        Date.now()
       );
+      if (verdict.emit) {
+        const carry =
+          verdict.suppressedInPrevWindow > 0
+            ? `（上一统计窗口内同类告警已抑制 ${verdict.suppressedInPrevWindow} 条重复副本，审计链记录不受影响）`
+            : '';
+        console.warn(
+          `[VersionPointerEngine] 治理规则命中 ${ruleHits.length} 项（${newPointer.riskLevel}）：${newPointer.mistakeReason}${carry}`
+        );
+      }
     }
 
     // quarantine 处置：登记隔离以阻止后续写入；不修改已经落盘的业务数据
@@ -1175,7 +1341,8 @@ class VersionPointerEngine {
         ? { ...p, chainProof: proof, integrityHash: proof.chainHash }
         : p
     );
-    this.savePointers(updated);
+    // 合并落盘：批量补算时（如冷启动自愈）把多次全量重写折叠为一次
+    this.savePointersDeferred(updated);
     safeDispatchEvent('obsidian_chain_proof_updated', { pointerId, proof });
     return proof;
   }
@@ -1931,23 +2098,38 @@ export const globalVersionEngine = new VersionPointerEngine();
 registerGovernanceCommitHandler(
   (drafts: GovernanceMutationDraft[], label: string, transactionId: string) => {
     const operator = globalVersionEngine.getActiveOperator();
-    drafts.forEach((draft) => {
-      globalVersionEngine.recordDataMutation({
-        module: draft.module,
-        entityId: draft.entityId,
-        entityName: draft.entityName,
-        actionType: draft.actionType,
-        beforeData: draft.beforeData,
-        afterData: draft.afterData,
-        transactionId,
-        transactionLabel: label,
-        origin: 'gateway',
-        customSummary:
-          `🌐 网关自动记录（事务：${label}）｜${operator.name} 对【${draft.entityName}】执行「${
-            ACTION_NAME_MAP[draft.actionType]
-          }」`
+
+    // 批模式：一次事务内的 N 条记录只在结束时落盘一次，
+    // 避免每条记录都全量重写整个指针数组（O(n²) 写放大）。
+    // endBatchPersist 必须置于 finally —— 若批内抛错而未落盘，
+    // 会造成「内存有、磁盘无」的审计缺口。
+    globalVersionEngine.beginBatchPersist();
+    try {
+      drafts.forEach((draft) => {
+        // 初始化播种不是任何操作员的业务行为，不可归因到当前登录人名下
+        const isSeed =
+          (draft.afterData as unknown as { __seed__?: boolean } | null)?.__seed__ === true;
+
+        const customSummary = isSeed
+          ? `🌐 网关自动记录（事务：${label}）｜系统启动初始化播种【${draft.entityName}】`
+          : `🌐 网关自动记录（事务：${label}）｜${operator.name} 对【${draft.entityName}】执行「${ACTION_NAME_MAP[draft.actionType]}」`;
+
+        globalVersionEngine.recordDataMutation({
+          module: draft.module,
+          entityId: draft.entityId,
+          entityName: draft.entityName,
+          actionType: draft.actionType,
+          beforeData: draft.beforeData,
+          afterData: draft.afterData,
+          transactionId,
+          transactionLabel: label,
+          origin: 'gateway',
+          customSummary
+        });
       });
-    });
+    } finally {
+      globalVersionEngine.endBatchPersist();
+    }
   }
 );
 

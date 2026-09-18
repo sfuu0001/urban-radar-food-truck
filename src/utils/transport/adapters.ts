@@ -360,6 +360,10 @@ export class CloudBaseAdapter extends BaseAdapter {
   private lastSeenMs = 0;
   private currentFilter: SubscriptionFilter = {};
   private channel: CloudChannel;
+  /** 当前已建立的 watch 所对应的订阅目标签名 —— 签名不变则复用连接，不重建 */
+  private watcherSignature = '';
+  /** 同一宏任务内的多次订阅是否已排入一次 watcher 同步 */
+  private ensureScheduled = false;
 
   constructor(channel?: CloudChannel) {
     super();
@@ -404,23 +408,85 @@ export class CloudBaseAdapter extends BaseAdapter {
     this.currentFilter = filter;
     const entry = { filter, onMessage };
     this.subscribers.push(entry);
-    this.openWatcher(filter);
+    // 合并同一宏任务内的多次订阅 → 只建立一路 watch（见 scheduleEnsureWatcher）
+    this.scheduleEnsureWatcher();
     return () => {
       this.subscribers = this.subscribers.filter((s) => s !== entry);
-      if (this.subscribers.length === 0) this.closeWatchers();
+      if (this.subscribers.length === 0) {
+        this.closeWatchers();
+        this.watcherSignature = '';
+      }
     };
   }
 
-  private targetFilter(): SubscriptionFilter {
-    if (this.subscribers.length > 0) return this.subscribers[0].filter;
-    return this.currentFilter;
+  /**
+   * 合并全部订阅者的服务端收窄条件。
+   *
+   * 为什么必须取并集：同一集合只需**一路** watch（见 ensureWatcher），
+   * 而该路 watch 的服务端过滤条件来自订阅者。若只取第一个订阅者的条件，
+   * 其余事件类型的定向消息根本不会被服务端下发 —— 单路化的前提是目标并集。
+   */
+  private mergedTargets(): string[] {
+    const merged = new Set<string>();
+    this.subscribers.forEach((sub) => {
+      filterTargets(sub.filter).forEach((t) => merged.add(t));
+    });
+    if (merged.size === 0) {
+      filterTargets(this.currentFilter).forEach((t) => merged.add(t));
+    }
+    return [...merged];
   }
 
-  private openWatcher(filter: SubscriptionFilter): void {
+  /**
+   * 合并同一宏任务内的多次订阅请求，只建立**一路** watch。
+   *
+   * 为什么必须合并：12 类 ReactiveEventType 会在启动时依次 subscribe。
+   * 若每次订阅都立即建 watch，就会出现「建 → 关 → 再建」的连续重建；
+   * 而关闭一个**仍在握手**的 watcher 会触发 SDK 的错误回调，进而触发重连，
+   * 形成 initWatch 风暴（实测 20s 内 165 次 INIT_WATCH + 86 次连接抖动）。
+   */
+  private scheduleEnsureWatcher(): void {
+    if (this.ensureScheduled || this.closed) return;
+    this.ensureScheduled = true;
+    setTimeout(() => {
+      this.ensureScheduled = false;
+      void this.ensureWatcher();
+    }, 0);
+  }
+
+  /**
+   * 确保存在**恰好一路** watch；订阅目标集合未变化时复用已有连接。
+   *
+   * 两个关键设计：
+   *   1. 就绪门控 —— 未登录/未就绪时不开 watch，避免 SDK 以约 3s 周期空转重试；
+   *   2. 复用而非重建 —— 仅当订阅目标集合真正变化时才关闭旧连接。
+   *      无谓的关闭会打断正在进行的握手，引发 SDK 错误回调 → 重连 → 风暴。
+   */
+  private async ensureWatcher(): Promise<void> {
+    if (this.closed || this.subscribers.length === 0) return;
+
+    try {
+      const ready = await this.channel.isReady();
+      if (!ready || this.closed || this.subscribers.length === 0) return;
+    } catch {
+      // 未就绪属合法状态（非错误），交由健康评估与恢复流程处理
+      return;
+    }
+
+    const signature = [...this.mergedTargets()].sort().join('|');
+    if (this.watchers.length > 0 && signature === this.watcherSignature) return;
+
+    this.closeWatchers();
+    this.watcherSignature = signature;
+    this.openWatcher();
+  }
+
+  private openWatcher(): void {
     if (this.closed) return;
-    const targets = filterTargets(filter);
+    if (this.subscribers.length === 0) return;
+
     // 窄订阅：只订阅发往这些标识的事件，避免全量快照风暴
-    const where = { targets: { $in: targets } };
+    const where = { targets: { $in: this.mergedTargets() } };
 
     const watcher = this.channel.watch(
       TRANSPORT_COLLECTION,
@@ -447,6 +513,18 @@ export class CloudBaseAdapter extends BaseAdapter {
           return;
         }
         this.recordFailure(err);
+
+        // 已判定通道不可用 → 停止自建重连，交由 manager 的恢复周期（RECOVER_INTERVAL_MS）统一重探。
+        //
+        // 为什么必须封顶：若继续退避重连，会出现「短暂握手成功 → recordSuccess 重置退避
+        // → 立刻再次失败」的抖动，反复重建 watch（实测 20s 内 86 次连接抖动 +
+        // 165 次 INIT_WATCH）。而客户端本身无法改善服务端连接质量，重试只是放大器。
+        if (this.consecutiveFailures >= CloudBaseAdapter.FAILURE_THRESHOLD) {
+          this.closeWatchers();
+          this.watcherSignature = '';
+          return;
+        }
+
         this.scheduleReconnect();
       }
     );
@@ -481,11 +559,13 @@ export class CloudBaseAdapter extends BaseAdapter {
       this.reconnectTimer = null;
       if (this.closed) return;
       this.closeWatchers();
+      // 清空签名：本次是**有意的**重建，需绕过 ensureWatcher 的复用判断
+      this.watcherSignature = '';
       if (this.consecutiveFailures >= CloudBaseAdapter.FAILURE_THRESHOLD) {
         // 已达阈值：交由 manager 切换到轮询；本适配器仍在退避中尝试恢复
         console.warn('[Transport:cloudbase] 连续失败达阈值，等待上层切换降级通道');
       }
-      this.openWatcher(this.targetFilter());
+      void this.ensureWatcher();
     }, delay);
   }
 
@@ -509,7 +589,9 @@ export class CloudBaseAdapter extends BaseAdapter {
       return false;
     }
     this.closeWatchers();
-    this.openWatcher(this.targetFilter());
+    // 有意重建：清空签名以绕过复用判断
+    this.watcherSignature = '';
+    await this.ensureWatcher();
     return true;
   }
 
@@ -520,6 +602,7 @@ export class CloudBaseAdapter extends BaseAdapter {
       this.reconnectTimer = null;
     }
     this.closeWatchers();
+    this.watcherSignature = '';
     this.subscribers = [];
   }
 }
