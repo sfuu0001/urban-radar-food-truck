@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover" />
+    <script>
+      // 防输入框聚焦与手势缩放导致互动器视口比例被拉伸放大的硬性守卫
+      if (typeof document !== 'undefined') {
+        document.addEventListener('gesturestart', function(e) {
+          if (typeof e.preventDefault === 'function') e.preventDefault();
+        }, { passive: false });
+        document.addEventListener('gesturechange', function(e) {
+          if (typeof e.preventDefault === 'function') e.preventDefault();
+        }, { passive: false });
+        document.addEventListener('gestureend', function(e) {
+          if (typeof e.preventDefault === 'function') e.preventDefault();
+        }, { passive: false });
+      }
+    </script>
+    <!-- FIX(控制台 404): 内联 SVG favicon，消除 /favicon.ico 404，无需新增二进制资源 -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23151a20'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%23ff7a1a' stroke-width='2.5'/%3E%3Ccircle cx='16' cy='16' r='2.5' fill='%23ff7a1a'/%3E%3C/svg%3E"
+    />
+    <title>Urban Radar 流动餐车</title>
+    <meta name="description" content="流动餐车 GPS 极速专送平台与黑曜石协同中枢，配备版本自愈清理与腾讯云端实时拉取数据引擎" />
+    <meta property="og:title" content="Urban Radar 流动餐车" />
+    <meta property="og:description" content="流动餐车 GPS 极速专送平台与黑曜石协同中枢，配备版本自愈清理与腾讯云端实时拉取数据引擎" />
+    <script>
+      // Global uncaught error guard for iframe preview stability & SDK key checks
+      window.addEventListener('error', function(event) {
+        var msg = event && event.message ? String(event.message) : '';
+        if (
+          !msg ||
+          msg === 'Script error.' ||
+          msg.indexOf('Script error') !== -1 ||
+          msg.indexOf('INVALID_USER_KEY') !== -1 ||
+          msg.indexOf('FlyDataAuthTask') !== -1 ||
+          msg.indexOf('AMap') !== -1 ||
+          msg.indexOf('_leaflet_pos') !== -1 ||
+          msg.indexOf('initWebSocketConnection') !== -1 ||
+          msg.indexOf('credentials not found') !== -1 ||
+          msg.indexOf('wsclient.send timedout') !== -1
+        ) {
+          if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+          if (typeof event.preventDefault === 'function') event.preventDefault();
+          return true;
+        }
+      }, true);
+      window.addEventListener('unhandledrejection', function(event) {
+        var reason = event && event.reason ? String(event.reason.message || event.reason) : '';
+        if (
+          !reason ||
+          reason === 'Script error.' ||
+          reason.indexOf('Script error') !== -1 ||
+          reason.indexOf('INVALID_USER_KEY') !== -1 ||
+          reason.indexOf('FlyDataAuthTask') !== -1 ||
+          reason.indexOf('AMap') !== -1 ||
+          reason.indexOf('_leaflet_pos') !== -1 ||
+          reason.indexOf('initWebSocketConnection') !== -1 ||
+          reason.indexOf('credentials not found') !== -1 ||
+          reason.indexOf('wsclient.send timedout') !== -1
+        ) {
+          if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+          if (typeof event.preventDefault === 'function') event.preventDefault();
+          return true;
+        }
+      }, true);
+    </script>
+
+    <!-- Google Fonts: Space Grotesk, Manrope & Material Symbols (彻底剔除等宽字体) -->
+    <link href="https://fonts.googleapis.com" rel="preconnect">
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+
+    <!-- Leaflet 真实地图 (中国可达 CDN + 真实瓦片, 取代硬编码上海 SVG) -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.bootcdn.net/ajax/libs/leaflet/1.9.4/leaflet.min.css"
+      crossorigin=""
+    />
+    <script
+      src="https://cdn.bootcdn.net/ajax/libs/leaflet/1.9.4/leaflet.min.js"
+      crossorigin=""
+    ></script>
+    <script>
+      // Defensive protection against Leaflet unmounted marker / animation _leaflet_pos access
+      (function() {
+        if (typeof window !== 'undefined' && window.L && window.L.DomUtil) {
+          var _origGetPos = window.L.DomUtil.getPosition;
+          window.L.DomUtil.getPosition = function(el) {
+            if (!el) return new window.L.Point(0, 0);
+            try {
+              return _origGetPos.call(window.L.DomUtil, el);
+            } catch (e) {
+              return (el && el._leaflet_pos) || new window.L.Point(0, 0);
+            }
+          };
+
+          var _origSetPos = window.L.DomUtil.setPosition;
+          window.L.DomUtil.setPosition = function(el, point) {
+            if (!el) return;
+            try {
+              el._leaflet_pos = point;
+              if (_origSetPos) _origSetPos.call(window.L.DomUtil, el, point);
+            } catch (e) {}
+          };
+        }
+      })();
+    </script>
+    <style>
+      /* 避免 Leaflet 图片被 Tailwind 的 img{max-width:100%} 压缩变形 */
+      .leaflet-container img { max-width: none !important; }
+      .leaflet-container { background: #f9f9f7 !important; font-family: inherit; }
+      .truck-pin { filter: drop-shadow(0 2px 3px rgba(0,0,0,0.35)); }
+      /* 极简黑白平铺渲染滤镜：去除杂乱色与2D/3D立体建筑模型 */
+      .minimal-flat-map-tile,
+      .amap-clean-white-tile {
+        filter: grayscale(100%) contrast(0.92) brightness(1.03) !important;
+        opacity: 0.92 !important;
+      }
+    </style>
+    <script type="module" crossorigin src="/urban-radar-food-truck/assets/index-13V7QlqN.js"></script>
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/vendor-react-DuAEMYdq.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/chat-HistoryMessageFoldBanner-D1jMcBvi.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/vendor-other-TNh_riWu.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/vendor-cloudbase-PQHSEGHI.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/chat-UnifiedOmniChatModal-6uY0QXm3.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantPrecisionConsole-DGHutW02.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/chat-ActiveMessageFormModal-IGuL9nDq.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/chat-FleetGroupChatRoomView-BK3tvGrS.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/chat-DynamicFeedsPageView-WFIGYPfT.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantScannerConsole-BXJHf5jc.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantPickupVerifyModal-DJiwybIc.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantAuditConvertToDeliveryModal-8szPpJkh.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/chat-FeishuQuoteBanner-BATM1_1r.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/chat-MediaEvidenceLightbox-COQMpqHv.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/chat-ExceptionWorkflowCard-Da3fx0Ec.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/chat-MaterialMessageBubble-CJVTSqVF.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/chat-FeishuReadReceiptModal-DqbBwIs4.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/chat-FeishuReadReceiptCapsule-BivBwhKv.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/chat-FeishuMessageActions-DEH4liUr.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/chat-ContextTimeInspectorDock-Ds5tOt-b.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/chat-SynergyChatRoomView-DaLCcwnO.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/chat-WeChatMessageSessionsView-BQQMoaJO.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/chat-TruckSynergyRoomPageView-CYOI6iTi.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-TableDishProgressView-BjNclLuL.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-AccountAuditDrawer-kzk3P5bn.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantStrikeOffCompensationModal-BTGqLHyK.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-SmoothScrollContainer-CT9yWQ0w.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantOrderEditModal-McnfRae7.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-TableBatchPrintModal-CVNKj1-6.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-OrderMetaDrawerCard-Bqrpo19z.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-AutoScrollButtonRow-rFHwMD5R.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantOrders-C8GtIagG.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-QrAndScannerDiagnosticView-tFkphgQG.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantQrManageModal-DRO2HcUR.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantCouponsView-m1I77dBJ.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantAnalytics-D_vVEd9H.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantPrecisionConsoleV2-BE0VGlXF.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantOperationsDeck-BjuLyIj8.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-FlavorTagSelector-CFFmTxjK.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MediaLibraryPicker-BSoiALt-.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-IngredientPackageCameraModal-MUTOL1uW.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-IngredientTraceSopSection-C_hWbYTj.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-DishParameterRulesModal-BQ7hRmRA.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-DishImageUploadModal-AD4IRIJq.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-DishImagePreviewModal-UeQ6yV-0.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-consoleTokens-B6XEZzKS.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-ConsoleTopDeck-Qioe0lJR.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-ConsoleMetricsDeck-DhGu-nLC.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-ConsoleFilterDeck-B-HdUraT.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantMenuHeaderDeck-Bnxmkfo7.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-ConsoleMatrix-Cr2-kLhL.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantDishListView-BfKx9WIt.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantMenuPagination-Bz26HgK5.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-ConsoleBatchRibbon-B2j-h52w.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-ComboQrGeneratorModal-BJ8JUetN.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantMenuChannel-B3r0-ETV.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/chat-OmniAggregatedChatHub-Clx3mmKM.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/chat-OrderHistoryMessagesModal-CiYqQQM8.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-TableCardSynergyMonitor-DClgSZiY.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-useTableSynergyBadge-DaKpLKn2.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-TableCardSynergyFooterAction-DNycUbHG.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-TableSynergyHeaderPill-CLo0r7TM.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MonoTableCard-Bc_lXXNZ.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-TableCardSynergyDrawer-C3P6Ab4f.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantTables-D6SFZzE6.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantTablesV2-BbFepUGR.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantTableSessionMonitor-Cg-uerjc.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-UiverseDynamicComponents-CCQFO28E.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantKDS-CR5X02gP.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantKDSDesktopView-CaOOVW_l.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantKDSV2-DZDFJ5O-.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantHeldOrders-NVNPYRNn.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-TruckQuickConfigModal-BiD1wZMq.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-TruckLocationMapPicker-BaAviE1M.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantStallGPS-syPTO1ra.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantLossHub-C6vBVN0A.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantInventory-9i_V_Jui.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantCraftSOP-QuCwpPte.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantShiftRefund-DrV9BOov.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantAuditLog-ll4FhxU5.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantVersionTrackingView-CHrcU0B0.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantCloudSyncView-CYjLMPM0.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-CraftDetailModal-COx1Zmuj.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-CraftStandardView-DLhJzHMW.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantMarketingHub-B5T1L46E.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MaterialTemplateModal-z64ytbt7.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MaterialStockInModal-CHT0GC8f.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-WeightSkewerCalculatorModal-BLF3NqJ4.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-SkewerProcessingModal-BteiY6ib.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-PurchaseDetailTraceModal-C5pZJT5Z.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MaterialView-EMgcrR56.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-ProcessingLossView-CAEULwdK.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-InventoryView-cyWES7Wa.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-SkuMetricsStrip-DBIvLr7f.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-SkuYieldCalculatorModal-MWm3d8bD.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-SkuStockInModal-DL-LFVWr.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-SkuStockOutModal-CCxFauIP.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-SkuEditDetailModal-CWUdbIYb.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-SkuCreateModal-DSgydTrp.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-SkuManagementView-DT4GYuox.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-BluetoothSpeakerModal-CDrZeGO-.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantVoiceControls-C7z0F63T.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-PrinterActionPopover-CWSsHPoQ.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-PrinterQuickConfigDrawer-DAHPA9HQ.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-ReceiptSelfTestModal-DwaUt4EI.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-BluetoothPrinterManager-CR_M0-vU.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-PrinterAutoDetectorModal-DCIlB--y.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-ReceiptPaperTemplateEditor-DYNrTlfN.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantPrintingHub-B_JAJtbT.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-callingTokens-Cbi0rX83.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-CallingTopRibbon-DUROwOjU.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-CallingQueueMetrics-CDerVmik.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-CallingVoiceConsole-Cbg-47Pu.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-CallingFilterDeck-DBMgPTr0.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-CallingTicketGrid-UQy2Ps01.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-CallingTvMirror-DN2h1y97.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantCallingHub-CGRgTsoz.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantContingencyHub-BntNSEGs.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-FranchiseBomTab-_oiuqhBg.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-FranchiseSupplyTab-X3jx7_5g.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-FranchiseGeofenceTab-BAvWs6R4.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-FranchiseSplitTab-BSEX6z4u.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-FranchiseAuditTab-F-kl8OO3.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-FranchiseHQModal-DF1k9kiJ.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-uiverseRegistry-SXZGLYfb.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-UiverseDynamicStudioModal-D11cKSER.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-useUiverseSkin-D9O2yUCH.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantMemberCRM-Dh413hpZ.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-UserDataDiagnostics-D_Vud5OJ.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-UserDataHardwareMatrix-C2gxPSuy.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-UserDataMultiDevice-CLmuqyNT.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-UserDataProfileForm-B59FJprt.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-UserDataViolationControl-D8dxi5jC.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantUserDataCenter-CK9HVhHH.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantStaffHub-kkRwb__Z.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantTruckExpandSettings-ccE9oOFj.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantCategoryBrandSettings-Bb7u9RUi.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantPaymentChannels-DkFTqg1O.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantMasterControlCenter-DpIWJ18n.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantDataFallbackCenter-BL-TE91i.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantSidebar-PRM7Ov5H.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-WorkspaceDisplaySettingsPanel-B39GiOnY.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-RecycleBinModal-CjrQv_-p.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-BusinessStatusModal-Bs62uUzM.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-TruckBusinessScopeDropdown-DWjGa5hh.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantHardwareHubModal-TCLJa94O.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-GlobalQuickCallModal-egYxDcqk.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/merchant-MerchantSystemView-BhgXVMBn.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/chat-FloatingChatBubbleWidget-jICzt9Jp.js">
+    <link rel="modulepreload" crossorigin href="/urban-radar-food-truck/assets/view-rider-Cukr-K8a.js">
+    <link rel="stylesheet" crossorigin href="/urban-radar-food-truck/assets/index-B9r-SETd.css">
+  </head>
+  <body class="bg-white text-[#1a1c1b] antialiased selection:bg-neutral-900 selection:text-white">
+    <div id="root"></div>
+  </body>
+</html>
+
