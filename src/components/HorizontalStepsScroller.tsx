@@ -254,7 +254,7 @@ export const HorizontalStepsScroller: React.FC<HorizontalStepsScrollerProps> = (
               if (timerRef.current) clearTimeout(timerRef.current);
               if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
             }}
-            className="inline-flex items-center gap-1 bg-[#fff7ed] border border-[#fed7aa] text-[#c2410c] px-2 py-0.5 rounded-full font-mono text-[9.5px] font-bold active:scale-95 transition-transform cursor-pointer shadow-2xs"
+            className="inline-flex items-center gap-1 bg-[#fff7ed] border border-[#fed7aa] text-[#c2410c] px-2 py-0.5 rounded-full tabular-nums text-[9.5px] font-bold active:scale-95 transition-transform cursor-pointer shadow-2xs"
             title="点击立即回正到当前执行状态"
           >
             <RotateCcw className="w-2.5 h-2.5 animate-spin" style={{ animationDuration: '4s' }} />
@@ -342,15 +342,15 @@ export const HorizontalStepsScroller: React.FC<HorizontalStepsScrollerProps> = (
                 {/* 顶部时间戳胶囊 */}
                 <div className="h-5 flex items-center justify-center mb-1">
                   {isCurrent ? (
-                    <span className="text-[10px] font-mono font-black text-[#059669] bg-[#ecfdf5] border border-[#a7f3d0] px-2 py-0.5 rounded-full shadow-2xs whitespace-nowrap">
+                    <span className="text-[10px] tabular-nums font-black text-[#059669] bg-[#ecfdf5] border border-[#a7f3d0] px-2 py-0.5 rounded-full shadow-2xs whitespace-nowrap">
                       {timeText}
                     </span>
                   ) : isCompleted ? (
-                    <span className="text-[8.5px] font-mono font-bold text-[#059669]/80 whitespace-nowrap">
+                    <span className="text-[8.5px] tabular-nums font-bold text-[#059669]/80 whitespace-nowrap">
                       {timeText}
                     </span>
                   ) : (
-                    <span className="text-[8.5px] font-mono text-[#a0a098] whitespace-nowrap">
+                    <span className="text-[8.5px] tabular-nums text-[#a0a098] whitespace-nowrap">
                       {timeText}
                     </span>
                   )}
@@ -371,7 +371,7 @@ export const HorizontalStepsScroller: React.FC<HorizontalStepsScrollerProps> = (
                       <Check className="w-3.5 h-3.5 stroke-[2.5]" />
                     </div>
                   ) : (
-                    <div className="w-5.5 h-5.5 rounded-full bg-[#f4f4f2] border border-[#d6d6ce] text-[#9c9a92] flex items-center justify-center text-[9px] font-mono font-bold transition-all group-hover:bg-[#ebebe7] group-hover:text-black">
+                    <div className="w-5.5 h-5.5 rounded-full bg-[#f4f4f2] border border-[#d6d6ce] text-[#9c9a92] flex items-center justify-center text-[9px] tabular-nums font-bold transition-all group-hover:bg-[#ebebe7] group-hover:text-black">
                       {idx + 1}
                     </div>
                   )}

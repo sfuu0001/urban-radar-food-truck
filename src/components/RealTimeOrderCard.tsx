@@ -32,6 +32,7 @@ import {
 import { useToast } from './ui/ToastContext';
 import { matchDishImageUrl } from '../utils/dishImageMatcher';
 import { generateQrCodeDataUrl } from '../utils/qrCodeEngine';
+import { useCardScrollReveal, organicCardScrollVariants } from '../utils/useCardScrollReveal';
 
 export interface RealTimeOrderCardProps {
   order: any;
@@ -55,6 +56,7 @@ export const RealTimeOrderCard: React.FC<RealTimeOrderCardProps> = ({
   renderHorizontalSteps
 }) => {
   const toast = useToast();
+  const { elementRef, currentVariant } = useCardScrollReveal();
   const orderKey = String(order.id || order.orderNo || idx);
 
   // 悬停和点击显示完整订单号的小型下拉菜单状态
@@ -209,16 +211,86 @@ export const RealTimeOrderCard: React.FC<RealTimeOrderCardProps> = ({
 
   const isDineIn = order.channel === 'dine_in';
   const isPickup = order.channel === 'pickup';
+  const isDelivered = order.statusType === 'delivered' || order.status === '已送达' || order.status === '已完成' || stepIndex >= 4;
+  const isRefunded = order.statusType === 'refunded' || order.status === '已退款' || order.status === '已取消';
+  const isEnRoute = order.statusType === 'en_route' || order.statusType === 'delivering' || order.status === '骑手配送中';
+
+  // 监听订单状态变更：当订单状态、阶段节点或更新时间发生变化时，触发“刚刚更新”微脉冲指示器
+  const [isStatusRecentlyUpdated, setIsStatusRecentlyUpdated] = useState<boolean>(() => {
+    if (order.isRecentlyUpdated || order._justUpdated || order.justUpdated) return true;
+    if (order.statusUpdatedAt) {
+      const diff = Date.now() - new Date(order.statusUpdatedAt).getTime();
+      return !isNaN(diff) && diff < 45000;
+    }
+    return false;
+  });
+
+  const prevStatusSignatureRef = useRef<string>(
+    `${order.status || ''}_${order.statusType || ''}_${order.stepIndex ?? ''}_${order.rawStatus || ''}`
+  );
+  const updateTimerRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (order.isRecentlyUpdated || order._justUpdated || order.justUpdated) {
+      setIsStatusRecentlyUpdated(true);
+      if (updateTimerRef.current) clearTimeout(updateTimerRef.current);
+      updateTimerRef.current = setTimeout(() => {
+        setIsStatusRecentlyUpdated(false);
+      }, 10000);
+    }
+  }, [order.isRecentlyUpdated, order._justUpdated, order.justUpdated]);
+
+  useEffect(() => {
+    const currentSig = `${order.status || ''}_${order.statusType || ''}_${order.stepIndex ?? ''}_${order.rawStatus || ''}`;
+    if (prevStatusSignatureRef.current && prevStatusSignatureRef.current !== currentSig) {
+      prevStatusSignatureRef.current = currentSig;
+      setIsStatusRecentlyUpdated(true);
+      if (updateTimerRef.current) clearTimeout(updateTimerRef.current);
+      updateTimerRef.current = setTimeout(() => {
+        setIsStatusRecentlyUpdated(false);
+      }, 10000);
+    } else {
+      prevStatusSignatureRef.current = currentSig;
+    }
+    return () => {
+      if (updateTimerRef.current) clearTimeout(updateTimerRef.current);
+    };
+  }, [order.status, order.statusType, order.stepIndex, order.rawStatus]);
+
+  // 监听全局订单更新事件，若与当前卡片匹配且状态变更，立即唤起脉冲指示
+  useEffect(() => {
+    const handleGlobalOrdersUpdated = (e: any) => {
+      const list = e?.detail;
+      if (!Array.isArray(list)) return;
+      const cleanNo = String(order.orderNo || order.id || '').replace(/^#/, '');
+      const match = list.find((item: any) => {
+        const itemNo = String(item.orderNo || item.id || '').replace(/^#/, '');
+        return itemNo === cleanNo;
+      });
+      if (match) {
+        const matchSig = `${match.status || ''}_${match.statusType || ''}_${match.stepIndex ?? ''}`;
+        if (prevStatusSignatureRef.current && prevStatusSignatureRef.current !== matchSig) {
+          prevStatusSignatureRef.current = matchSig;
+          setIsStatusRecentlyUpdated(true);
+          if (updateTimerRef.current) clearTimeout(updateTimerRef.current);
+          updateTimerRef.current = setTimeout(() => {
+            setIsStatusRecentlyUpdated(false);
+          }, 10000);
+        }
+      }
+    };
+    window.addEventListener('obsidian_orders_updated', handleGlobalOrdersUpdated);
+    return () => {
+      window.removeEventListener('obsidian_orders_updated', handleGlobalOrdersUpdated);
+    };
+  }, [order.orderNo, order.id]);
 
   return (
-    <motion.div
+    <div
+      ref={elementRef as any}
       key={`cust-ord-${order.id || order.orderNo || idx}-${idx}`}
-      layout="position"
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95, y: -10 }}
-      transition={{ duration: 0.24, ease: 'easeOut', delay: idx * 0.04 }}
-      className="bg-white rounded-2xl border border-[#e8e8e3] shadow-[0_2px_10px_rgba(0,0,0,0.03),0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] transition-all duration-300 w-full divide-y divide-[#f2f2ee] mt-2.5 relative overflow-hidden group/card"
+      data-reveal="hidden-down"
+      className="organic-card-reveal bg-white rounded-2xl border border-[#e8e8e3] shadow-[0_2px_10px_rgba(0,0,0,0.03),0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] transition-shadow duration-300 w-full divide-y divide-[#f2f2ee] mt-2.5 relative overflow-hidden group/card"
     >
       {/* 顶部履约渠道专属微光渐变色条 */}
       <div
@@ -245,7 +317,7 @@ export const RealTimeOrderCard: React.FC<RealTimeOrderCardProps> = ({
               <button
                 type="button"
                 onClick={handleToggleMenu}
-                className={`inline-flex items-center whitespace-nowrap bg-[#f4f4f2] hover:bg-[#eaeae6] active:scale-98 text-[#4b4b44] text-[11px] font-mono px-2 py-0.5 rounded-custom border transition-all cursor-pointer select-none group ${
+                className={`inline-flex items-center whitespace-nowrap bg-[#f4f4f2] hover:bg-[#eaeae6] active:scale-98 text-[#4b4b44] text-[11px] tabular-nums px-2 py-0.5 rounded-custom border transition-all cursor-pointer select-none group ${
                   isOrderNoMenuOpen ? 'border-black ring-1 ring-black/10 bg-white text-black shadow-2xs' : 'border-[#e5e7eb]'
                 }`}
                 title="悬停或点击展开完整订单号与链路凭证"
@@ -288,12 +360,12 @@ export const RealTimeOrderCard: React.FC<RealTimeOrderCardProps> = ({
                     <div className="py-2.5 space-y-1.5">
                       <div className="flex items-center justify-between text-[10px] text-[#787770] font-semibold">
                         <span>完整业务订单号</span>
-                        <span className="font-mono text-[9.5px] text-[#059669] bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                        <span className="tabular-nums text-[9.5px] text-[#059669] bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
                           可追溯
                         </span>
                       </div>
                       <div className="flex items-center justify-between gap-1.5 bg-[#f8f8f6] p-2 rounded-lg border border-[#e8e8e4]">
-                        <span className="font-mono text-xs font-bold text-obsidian select-all break-all leading-tight">
+                        <span className="tabular-nums text-xs font-bold text-obsidian select-all break-all leading-tight">
                           {fullOrderNo}
                         </span>
                         <button
@@ -322,7 +394,7 @@ export const RealTimeOrderCard: React.FC<RealTimeOrderCardProps> = ({
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-[#787770] shrink-0 font-medium">系统流水号:</span>
                         <div className="flex items-center gap-1 min-w-0">
-                          <span className="font-mono text-[10px] text-[#40403c] truncate max-w-[150px] select-all bg-[#fafaf8] px-1.5 py-0.5 rounded border border-[#ecece8]">
+                          <span className="tabular-nums text-[10px] text-[#40403c] truncate max-w-[150px] select-all bg-[#fafaf8] px-1.5 py-0.5 rounded border border-[#ecece8]">
                             {cloudTraceId}
                           </span>
                           <button
@@ -339,7 +411,7 @@ export const RealTimeOrderCard: React.FC<RealTimeOrderCardProps> = ({
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-[#787770] shrink-0 font-medium">食客 UID:</span>
                         <div className="flex items-center gap-1 min-w-0">
-                          <span className="font-mono text-[10px] text-emerald-800 truncate max-w-[150px] select-all bg-[#edfcf6] px-1.5 py-0.5 rounded border border-[#bbf7d0]">
+                          <span className="tabular-nums text-[10px] text-emerald-800 truncate max-w-[150px] select-all bg-[#edfcf6] px-1.5 py-0.5 rounded border border-[#bbf7d0]">
                             {fullUid}
                           </span>
                           <button
@@ -356,11 +428,11 @@ export const RealTimeOrderCard: React.FC<RealTimeOrderCardProps> = ({
                       <div className="flex items-center justify-between text-[10px] text-[#8a8a82] pt-0.5">
                         <span>下单时间: {order.createdTime || '12:20:15'}</span>
                         {order.tableCode ? (
-                          <span className="font-mono font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
+                          <span className="tabular-nums font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
                             台位: {order.tableCode}桌
                           </span>
                         ) : order.pickupCode ? (
-                          <span className="font-mono font-bold text-teal-700 bg-teal-50 px-1.5 py-0.2 rounded border border-teal-200">
+                          <span className="tabular-nums font-bold text-teal-700 bg-teal-50 px-1.5 py-0.2 rounded border border-teal-200">
                             取餐码: #{order.pickupCode}
                           </span>
                         ) : (
@@ -415,7 +487,7 @@ export const RealTimeOrderCard: React.FC<RealTimeOrderCardProps> = ({
             <button
               type="button"
               onClick={() => copyToClipboard(fullUid, 'uid_badge', '食客 UID')}
-              className="inline-flex items-center whitespace-nowrap bg-[#f0fdf4] hover:bg-[#dcfce7] active:scale-95 text-[#15803d] text-[10.5px] font-mono px-2 py-0.5 rounded-custom border border-[#bbf7d0] transition-all cursor-pointer select-none shadow-2xs"
+              className="inline-flex items-center whitespace-nowrap bg-[#f0fdf4] hover:bg-[#dcfce7] active:scale-95 text-[#15803d] text-[10.5px] tabular-nums px-2 py-0.5 rounded-custom border border-[#bbf7d0] transition-all cursor-pointer select-none shadow-2xs"
               title={`点击快速复制完整 UID: ${fullUid}`}
             >
               <span className="text-[#16a34a] mr-1 font-semibold">UID</span>
@@ -428,7 +500,7 @@ export const RealTimeOrderCard: React.FC<RealTimeOrderCardProps> = ({
 
           <div className="flex items-center gap-1.5 shrink-0">
             {order.channel === 'dine_in' && order.tableCode && (
-              <span className="inline-flex items-center whitespace-nowrap bg-[#fef3c7] text-[#92400e] text-[10.5px] font-mono px-2 py-0.5 rounded-custom border border-[#fde68a] font-bold shadow-2xs">
+              <span className="inline-flex items-center whitespace-nowrap bg-[#fef3c7] text-[#92400e] text-[10.5px] tabular-nums px-2 py-0.5 rounded-custom border border-[#fde68a] font-bold shadow-2xs">
                 {order.tableCode}桌
               </span>
             )}
@@ -436,7 +508,7 @@ export const RealTimeOrderCard: React.FC<RealTimeOrderCardProps> = ({
               <button
                 type="button"
                 onClick={togglePickupQr}
-                className="inline-flex items-center gap-1 whitespace-nowrap bg-[#f0fdfa] hover:bg-[#ccfbf1] active:scale-95 text-[#0f766e] text-[10.5px] font-mono px-2 py-0.5 rounded-custom border border-[#99f6e4] font-bold shadow-2xs transition-all cursor-pointer"
+                className="inline-flex items-center gap-1 whitespace-nowrap bg-[#f0fdfa] hover:bg-[#ccfbf1] active:scale-95 text-[#0f766e] text-[10.5px] tabular-nums px-2 py-0.5 rounded-custom border border-[#99f6e4] font-bold shadow-2xs transition-all cursor-pointer"
                 title="点击下拉展示真实取餐核销二维码小组件"
               >
                 <QrCode className="w-3 h-3 text-[#0d9488]" />
@@ -478,10 +550,46 @@ export const RealTimeOrderCard: React.FC<RealTimeOrderCardProps> = ({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {/* 状态徽章 */}
-            <span className="inline-flex items-center gap-1 bg-[#fffaf5] text-[#ea580c] border border-[#fed7aa] font-bold px-2 py-0.5 rounded-full text-[10.5px] shrink-0 whitespace-nowrap shadow-2xs">
-              <Clock className="w-3 h-3 text-[#ea580c]" />
-              {order.status || (order as any).statusConfig?.shortLabel || '餐车已接单'}
+            {/* 状态徽章 (含刚刚更新微脉冲指示器 animate-pulse-dot) */}
+            <span
+              className={`inline-flex items-center gap-1.5 font-bold px-2.5 py-0.5 rounded-full text-[10.5px] shrink-0 whitespace-nowrap shadow-2xs transition-all duration-300 ${
+                isStatusRecentlyUpdated
+                  ? 'bg-emerald-50 text-emerald-900 border border-emerald-300 ring-2 ring-emerald-400/50 shadow-xs'
+                  : isDelivered
+                  ? 'bg-emerald-50/80 text-emerald-800 border border-emerald-200'
+                  : isRefunded
+                  ? 'bg-rose-50 text-rose-800 border border-rose-200'
+                  : isEnRoute
+                  ? 'bg-sky-50 text-sky-800 border border-sky-200'
+                  : 'bg-[#fffaf5] text-[#ea580c] border border-[#fed7aa]'
+              }`}
+              title={isStatusRecentlyUpdated ? '订单状态刚刚更新 · 实时同步中' : undefined}
+            >
+              {/* Subtle animated pulse indicator (similar to animate-pulse-dot in index.css) */}
+              {isStatusRecentlyUpdated ? (
+                <span className="relative flex h-2 w-2 shrink-0 items-center justify-center">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500 animate-pulse-dot" />
+                </span>
+              ) : (
+                <Clock
+                  className={`w-3 h-3 ${
+                    isDelivered
+                      ? 'text-emerald-700'
+                      : isRefunded
+                      ? 'text-rose-600'
+                      : isEnRoute
+                      ? 'text-sky-600'
+                      : 'text-[#ea580c]'
+                  }`}
+                />
+              )}
+              <span>{order.status || (order as any).statusConfig?.shortLabel || '餐车已接单'}</span>
+              {isStatusRecentlyUpdated && (
+                <span className="text-[9px] font-black text-emerald-700 bg-emerald-100/90 px-1 py-0.2 rounded-full leading-none animate-pulse">
+                  刚刚更新
+                </span>
+              )}
             </span>
 
             {/* 高质感金额微胶囊 */}
@@ -526,7 +634,7 @@ export const RealTimeOrderCard: React.FC<RealTimeOrderCardProps> = ({
           <button
             type="button"
             onClick={() => setIsKitchenLogOpen(true)}
-            className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-[#059669] bg-[#ecfdf5] border border-[#a7f3d0] px-2 py-0.5 rounded-custom hover:bg-[#d1fae5] transition-colors cursor-pointer shrink-0"
+            className="inline-flex items-center gap-1 text-[10px] tabular-nums font-bold text-[#059669] bg-[#ecfdf5] border border-[#a7f3d0] px-2 py-0.5 rounded-custom hover:bg-[#d1fae5] transition-colors cursor-pointer shrink-0"
             title="查看完整流转时序与出餐日志"
           >
             <Clock className="w-2.5 h-2.5 text-[#059669]" />
@@ -564,7 +672,7 @@ export const RealTimeOrderCard: React.FC<RealTimeOrderCardProps> = ({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-obsidian">工单主厨确认接单</span>
-                      <span className="text-[10px] text-[#888880] font-mono">12:20:15</span>
+                      <span className="text-[10px] text-[#888880] tabular-nums">12:20:15</span>
                     </div>
                     <p className="text-[#787770] text-[10.5px]">餐车智能中枢分配至炭火炙烤与冷饮档口</p>
                   </div>
@@ -575,7 +683,7 @@ export const RealTimeOrderCard: React.FC<RealTimeOrderCardProps> = ({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-[#c2410c]">炭火现制进行中 (当前节点)</span>
-                      <span className="text-[10px] text-[#ea580c] font-mono font-bold">12:23:40</span>
+                      <span className="text-[10px] text-[#ea580c] tabular-nums font-bold">12:23:40</span>
                     </div>
                     <p className="text-[#787770] text-[10.5px]">和牛小汉堡果木炙烤定型 (进度 75%)，冷萃黑金茉莉提拉米苏装盘中</p>
                   </div>
@@ -586,7 +694,7 @@ export const RealTimeOrderCard: React.FC<RealTimeOrderCardProps> = ({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between">
                       <span>{order.channel === 'dine_in' ? '核验上桌' : order.channel === 'pickup' ? '入柜保温待取' : '极速骑手揽送'}</span>
-                      <span className="text-[10px] font-mono">待触发</span>
+                      <span className="text-[10px] tabular-nums">待触发</span>
                     </div>
                   </div>
                 </div>
@@ -603,7 +711,7 @@ export const RealTimeOrderCard: React.FC<RealTimeOrderCardProps> = ({
                 <Clock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
                 <span>退单申请审核中 (已在节点 {order.refundPassedStep ?? order.stepIndex ?? 1} 提交反馈)</span>
               </span>
-              <span className="text-[10px] font-mono text-amber-800">{order.refundAppliedAt || '处理中'}</span>
+              <span className="text-[10px] tabular-nums text-amber-800">{order.refundAppliedAt || '处理中'}</span>
             </div>
             <p className="text-[11px] text-amber-800">
               <strong>退单原因：</strong>{order.refundReason || '临时有事 / 行程变更'} {order.refundFeedback ? `· ${order.refundFeedback}` : ''}
@@ -678,7 +786,7 @@ export const RealTimeOrderCard: React.FC<RealTimeOrderCardProps> = ({
               <span>{servedCount > 0 ? `${servedCount}已上桌` : ''}{cookingCount > 0 ? ` ${cookingCount}现制` : ' 齐备'}</span>
             </span>
 
-            <span className="text-[10.5px] text-[#888880] font-mono whitespace-nowrap hidden sm:inline">
+            <span className="text-[10.5px] text-[#888880] tabular-nums whitespace-nowrap hidden sm:inline">
               共 {order.itemsCount || dishItems.length} 道
             </span>
           </div>
@@ -751,7 +859,7 @@ export const RealTimeOrderCard: React.FC<RealTimeOrderCardProps> = ({
                           >
                             {dishItem.name}
                           </h4>
-                          <span className="text-[10.5px] font-mono font-bold text-[#888880] bg-[#f5f5f4] px-1 py-0.2 rounded">
+                          <span className="text-[10.5px] tabular-nums font-bold text-[#888880] bg-[#f5f5f4] px-1 py-0.2 rounded">
                             x{dishItem.quantity || 1}
                           </span>
                           {isStruck && (
@@ -1040,7 +1148,7 @@ export const RealTimeOrderCard: React.FC<RealTimeOrderCardProps> = ({
                 {isGeneratingOrderQr || !orderQrDataUrl ? (
                   <div className="w-36 h-36 sm:w-40 sm:h-40 flex flex-col items-center justify-center gap-2 text-neutral-400">
                     <RefreshCw className="w-6 h-6 animate-spin text-neutral-500" />
-                    <span className="text-[10.5px] font-mono">生成真实取餐二维码中...</span>
+                    <span className="text-[10.5px] tabular-nums">生成真实取餐二维码中...</span>
                   </div>
                 ) : (
                   <div className="relative">
@@ -1064,7 +1172,7 @@ export const RealTimeOrderCard: React.FC<RealTimeOrderCardProps> = ({
                 </div>
 
                 <div className="flex items-center justify-center gap-2 pt-0.5">
-                  <span className="font-mono font-black text-base tracking-widest text-black select-all">
+                  <span className="tabular-nums font-black text-base tracking-widest text-black select-all">
                     取餐码 #{order.pickupCode || cleanOrderNo.slice(-4) || '8806'}
                   </span>
                   <button
@@ -1106,6 +1214,6 @@ export const RealTimeOrderCard: React.FC<RealTimeOrderCardProps> = ({
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 };

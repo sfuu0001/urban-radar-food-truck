@@ -32,6 +32,20 @@ export const CANONICAL_TRUCK_REGISTRY: Record<string, StandardTruckInfo> = {
     stationName: '静安摩天轮站',
     standardLabel: '03号·潮玩站车 (静安摩天轮站)',
     fullLabel: '03号·潮玩站车 (静安摩天轮站 · truck-03)'
+  },
+  'truck-04': {
+    truckId: 'truck-04',
+    shortLabel: '04号·外滩滨江车',
+    stationName: '黄浦滨江观景区',
+    standardLabel: '04号·外滩滨江车 (黄浦滨江观景区)',
+    fullLabel: '04号·外滩滨江车 (黄浦滨江观景区 · truck-04)'
+  },
+  'truck-05': {
+    truckId: 'truck-05',
+    shortLabel: '05号·后备机动车',
+    stationName: '中央总厨机动基地',
+    standardLabel: '05号·后备机动车 (中央总厨机动基地)',
+    fullLabel: '05号·后备机动车 (中央总厨机动基地 · truck-05)'
   }
 };
 
@@ -77,6 +91,14 @@ export function getUnifiedTruckName(
     }
     if (fallbackName.includes('03') || fallbackName.includes('潮玩')) {
       const info = CANONICAL_TRUCK_REGISTRY['truck-03'];
+      return format === 'short' ? info.shortLabel : format === 'full' ? info.fullLabel : info.standardLabel;
+    }
+    if (fallbackName.includes('04') || fallbackName.includes('外滩') || fallbackName.includes('滨江')) {
+      const info = CANONICAL_TRUCK_REGISTRY['truck-04'];
+      return format === 'short' ? info.shortLabel : format === 'full' ? info.fullLabel : info.standardLabel;
+    }
+    if (fallbackName.includes('05') || fallbackName.includes('后备') || fallbackName.includes('机动') || fallbackName.includes('总厨')) {
+      const info = CANONICAL_TRUCK_REGISTRY['truck-05'];
       return format === 'short' ? info.shortLabel : format === 'full' ? info.fullLabel : info.standardLabel;
     }
 

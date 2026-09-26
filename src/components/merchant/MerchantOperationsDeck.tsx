@@ -490,109 +490,110 @@ export const MerchantOperationsDeck: React.FC<MerchantOperationsDeckProps> = ({
 
       {/* Main Workspace Content */}
       <main className="max-w-[1780px] mx-auto p-3 sm:p-5 space-y-4">
-        {/* 2. 5 Core KPI Telemetry Cards */}
-        <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
-          {/* KPI 1: Stations Network */}
-          <div className="bg-white border border-[#e5e5e0] rounded-[3px] p-3 flex flex-col justify-between hover:border-[#1a1c1b] transition-colors shadow-sm">
-            <div className="flex items-center justify-between text-[#767670]">
-              <span className="text-[11px] font-mono uppercase tracking-wider font-semibold">
-                网点在编
-              </span>
-              <Share2 className="w-4 h-4 text-[#2563eb]" />
+        {/* 2. 5大核心遥测平铺表单栏 (Flat Form Telemetry Bar) */}
+        <section className="bg-white border border-[#e5e5e0] rounded-[3px] p-3 shadow-2xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 mb-2.5 border-b border-[#f0f0eb] gap-2">
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-3 bg-[#15803d] shrink-0" />
+              <span className="font-heading font-bold text-[13px] text-[#111110]">餐车运营遥测大盘</span>
+              <span className="text-[10px] text-[#767670] font-mono">OPERATIONS TELEMETRY</span>
             </div>
-            <div className="my-1.5 flex items-baseline gap-1.5">
-              <span className="text-2xl sm:text-3xl font-heading font-bold font-mono text-[#111110]">
-                05
-              </span>
-              <span className="text-[11px] text-[#767670] whitespace-nowrap">台全编巡测</span>
-            </div>
-            <div className="flex items-center justify-between pt-1 border-t border-[#f0f0eb] text-[11px]">
-              <span className="text-[#767670] flex items-center gap-1 truncate">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#15803d]" /> 4 营运 / 1 备
-              </span>
-              <span className="font-mono text-[#15803d] font-bold shrink-0 ml-1">MESH 100%</span>
-            </div>
-          </div>
-
-          {/* KPI 2: Prep Intake */}
-          <div className="bg-white border border-[#e5e5e0] rounded-[3px] p-3 flex flex-col justify-between hover:border-[#1a1c1b] transition-colors shadow-sm">
-            <div className="flex items-center justify-between text-[#767670]">
-              <span className="text-[11px] font-mono uppercase tracking-wider font-semibold">
-                实时进单吞吐
-              </span>
-              <Zap className="w-4 h-4 text-[#d97706]" />
-            </div>
-            <div className="my-1.5 flex items-baseline gap-1.5">
-              <span className="text-2xl sm:text-3xl font-heading font-bold font-mono text-[#111110]">
-                142
-              </span>
-              <span className="text-[11px] text-[#767670] whitespace-nowrap">单 / 小时</span>
-            </div>
-            <div className="flex items-center justify-between pt-1 border-t border-[#f0f0eb] text-[11px]">
-              <span className="text-[#767670]">均出餐耗时</span>
-              <span className="font-mono text-[#111110] font-bold">04m 12s</span>
-            </div>
-          </div>
-
-          {/* KPI 3: Pickup Cabin */}
-          <div className="bg-white border border-[#e5e5e0] rounded-[3px] p-3 flex flex-col justify-between hover:border-[#1a1c1b] transition-colors shadow-sm">
-            <div className="flex items-center justify-between text-[#767670]">
-              <span className="text-[11px] font-mono uppercase tracking-wider font-semibold">
-                智能保温柜
-              </span>
-              <Lock className="w-4 h-4 text-[#15803d]" />
-            </div>
-            <div className="my-1.5 flex items-baseline gap-1.5">
-              <span className="text-2xl sm:text-3xl font-heading font-bold font-mono text-[#111110]">
-                14
-              </span>
-              <span className="text-[11px] text-[#767670] whitespace-nowrap">格待取 (58%负荷)</span>
-            </div>
-            <div className="flex items-center justify-between pt-1 border-t border-[#f0f0eb] text-[11px]">
-              <span className="text-[#767670]">主舱温控</span>
-              <span className="font-mono text-[#15803d] font-bold">62.4°C 恒定</span>
-            </div>
-          </div>
-
-          {/* KPI 4: Dine-In Occupancy */}
-          <div className="bg-white border border-[#e5e5e0] rounded-[3px] p-3 flex flex-col justify-between hover:border-[#1a1c1b] transition-colors shadow-sm">
-            <div className="flex items-center justify-between text-[#767670]">
-              <span className="text-[11px] font-mono uppercase tracking-wider font-semibold">
-                堂食在席率
-              </span>
-              <UtensilsCrossed className="w-4 h-4 text-[#2563eb]" />
-            </div>
-            <div className="my-1.5 flex items-baseline gap-1.5">
-              <span className="text-2xl sm:text-3xl font-heading font-bold font-mono text-[#111110]">
-                92.4%
-              </span>
-              <span className="text-[11px] text-[#767670] whitespace-nowrap">翻台 3.4次</span>
-            </div>
-            <div className="flex items-center justify-between pt-1 border-t border-[#f0f0eb] text-[11px]">
-              <span className="text-[#767670]">席位状态</span>
-              <span className="font-mono text-[#dc2626] font-bold whitespace-nowrap">
-                7在席 · 等位3组
+            <div className="flex items-center gap-2 text-[11px] text-[#767670]">
+              <span className="text-[10px] bg-[#f9f9f7] px-2 py-0.5 rounded-[2px] border border-[#e5e5e0] font-mono">
+                5 台全编组在线巡航
               </span>
             </div>
           </div>
 
-          {/* KPI 5: Delivery SLA */}
-          <div className="col-span-2 sm:col-span-1 bg-white border border-[#e5e5e0] rounded-[3px] p-3 flex flex-col justify-between hover:border-[#1a1c1b] transition-colors shadow-sm">
-            <div className="flex items-center justify-between text-[#767670]">
-              <span className="text-[11px] font-mono uppercase tracking-wider font-semibold">
-                外卖履约SLA
-              </span>
-              <Bike className="w-4 h-4 text-[#2563eb]" />
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
+            {/* Field 1: Stations Network */}
+            <div className="bg-[#fafaf8] border border-[#e5e5e0] rounded-[2px] p-2.5 flex flex-col justify-between hover:border-[#111110] transition-colors">
+              <div className="flex items-center justify-between text-[#767670] pb-1 border-b border-[#f0f0eb]">
+                <span className="text-[11px] font-medium text-[#111110]">网点在编</span>
+                <Share2 className="w-3.5 h-3.5 text-[#2563eb]" />
+              </div>
+              <div className="my-1.5 flex items-baseline gap-1">
+                <span style={{ fontFamily: '"Space Grotesk", sans-serif' }} className="text-xl sm:text-2xl font-bold text-[#111110]">
+                  05
+                </span>
+                <span className="text-[10px] text-[#767670]">台巡测</span>
+              </div>
+              <div className="pt-1 border-t border-[#f0f0eb] flex items-center justify-between text-[10px] text-[#767670]">
+                <span>4营运 / 1备</span>
+                <span className="font-bold text-[#15803d]">MESH 100%</span>
+              </div>
             </div>
-            <div className="my-1.5 flex items-baseline gap-1.5">
-              <span className="text-2xl sm:text-3xl font-heading font-bold font-mono text-[#111110]">
-                16.8
-              </span>
-              <span className="text-[11px] text-[#767670] whitespace-nowrap">min 全程平均</span>
+
+            {/* Field 2: Prep Intake */}
+            <div className="bg-[#fafaf8] border border-[#e5e5e0] rounded-[2px] p-2.5 flex flex-col justify-between hover:border-[#111110] transition-colors">
+              <div className="flex items-center justify-between text-[#767670] pb-1 border-b border-[#f0f0eb]">
+                <span className="text-[11px] font-medium text-[#111110]">进单吞吐</span>
+                <Zap className="w-3.5 h-3.5 text-[#d97706]" />
+              </div>
+              <div className="my-1.5 flex items-baseline gap-1">
+                <span style={{ fontFamily: '"Space Grotesk", sans-serif' }} className="text-xl sm:text-2xl font-bold text-[#111110]">
+                  142
+                </span>
+                <span className="text-[10px] text-[#767670]">单 / 小时</span>
+              </div>
+              <div className="pt-1 border-t border-[#f0f0eb] flex items-center justify-between text-[10px] text-[#767670]">
+                <span>均出餐耗时</span>
+                <span className="font-medium text-[#111110]">04m 12s</span>
+              </div>
             </div>
-            <div className="flex items-center justify-between pt-1 border-t border-[#f0f0eb] text-[11px]">
-              <span className="text-[#767670]">双平台直连</span>
-              <span className="font-mono text-[#2563eb] font-bold">12单全速配送</span>
+
+            {/* Field 3: Pickup Cabin */}
+            <div className="bg-[#fafaf8] border border-[#e5e5e0] rounded-[2px] p-2.5 flex flex-col justify-between hover:border-[#111110] transition-colors">
+              <div className="flex items-center justify-between text-[#767670] pb-1 border-b border-[#f0f0eb]">
+                <span className="text-[11px] font-medium text-[#111110]">保温柜负荷</span>
+                <Lock className="w-3.5 h-3.5 text-[#15803d]" />
+              </div>
+              <div className="my-1.5 flex items-baseline gap-1">
+                <span style={{ fontFamily: '"Space Grotesk", sans-serif' }} className="text-xl sm:text-2xl font-bold text-[#111110]">
+                  14
+                </span>
+                <span className="text-[10px] text-[#767670]">格待取 (58%)</span>
+              </div>
+              <div className="pt-1 border-t border-[#f0f0eb] flex items-center justify-between text-[10px] text-[#767670]">
+                <span>主舱温控</span>
+                <span className="font-medium text-[#15803d]">62.4°C 恒定</span>
+              </div>
+            </div>
+
+            {/* Field 4: Dine-In Occupancy */}
+            <div className="bg-[#fafaf8] border border-[#e5e5e0] rounded-[2px] p-2.5 flex flex-col justify-between hover:border-[#111110] transition-colors">
+              <div className="flex items-center justify-between text-[#767670] pb-1 border-b border-[#f0f0eb]">
+                <span className="text-[11px] font-medium text-[#111110]">堂食翻台</span>
+                <UtensilsCrossed className="w-3.5 h-3.5 text-[#2563eb]" />
+              </div>
+              <div className="my-1.5 flex items-baseline gap-1">
+                <span style={{ fontFamily: '"Space Grotesk", sans-serif' }} className="text-xl sm:text-2xl font-bold text-[#111110]">
+                  92.4%
+                </span>
+                <span className="text-[10px] text-[#767670]">3.4次/日</span>
+              </div>
+              <div className="pt-1 border-t border-[#f0f0eb] flex items-center justify-between text-[10px] text-[#767670]">
+                <span>7在席</span>
+                <span className="font-medium text-rose-600">等位3组</span>
+              </div>
+            </div>
+
+            {/* Field 5: Delivery SLA */}
+            <div className="col-span-2 sm:col-span-1 bg-[#fafaf8] border border-[#e5e5e0] rounded-[2px] p-2.5 flex flex-col justify-between hover:border-[#111110] transition-colors">
+              <div className="flex items-center justify-between text-[#767670] pb-1 border-b border-[#f0f0eb]">
+                <span className="text-[11px] font-medium text-[#111110]">外卖履约</span>
+                <Bike className="w-3.5 h-3.5 text-[#2563eb]" />
+              </div>
+              <div className="my-1.5 flex items-baseline gap-1">
+                <span style={{ fontFamily: '"Space Grotesk", sans-serif' }} className="text-xl sm:text-2xl font-bold text-[#111110]">
+                  16.8
+                </span>
+                <span className="text-[10px] text-[#767670]">min 均时</span>
+              </div>
+              <div className="pt-1 border-t border-[#f0f0eb] flex items-center justify-between text-[10px] text-[#767670]">
+                <span>双平台直连</span>
+                <span className="font-medium text-[#2563eb]">12单全速中</span>
+              </div>
             </div>
           </div>
         </section>
@@ -637,23 +638,23 @@ export const MerchantOperationsDeck: React.FC<MerchantOperationsDeckProps> = ({
             {/* Column Body (Collapsible on PC & Mobile) */}
             {!foldedColumns['orders'] && (
               <div className="p-2.5 space-y-2 max-h-[640px] overflow-y-auto">
-                {/* Order Card 1: 制作中 (Foldable on PC & Mobile) */}
+                {/* Order Card 1: 制作中 (平铺表单样式 + 零药丸设计) */}
                 <div
-                  className="group bg-white border border-[#e5e5e0] hover:border-[#1a1c1b] rounded-[3px] p-2.5 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.02)] cursor-pointer"
+                  className="group bg-white border border-[#e5e5e0] hover:border-[#111110] rounded-[2px] p-2.5 transition-all shadow-2xs cursor-pointer"
                   onClick={() => setActiveModalId('ord-9821')}
                 >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-mono font-bold text-xs text-[#111110] bg-[#fafaf8] border border-[#d3d1cb] px-1.5 py-0.5 rounded-[2px] whitespace-nowrap">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-[#f0f0eb]">
+                    <div className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#15803d]" />
+                      <span className="font-bold text-xs text-[#111110]">
                         #UR-DIN-9821
                       </span>
-                      <span className="text-[11px] font-medium border border-[#2563eb]/40 text-[#2563eb] bg-[#2563eb]/5 px-1.5 py-0.5 rounded-[2px] whitespace-nowrap">
-                        堂食·A2桌
+                      <span className="text-[11px] text-[#2563eb] font-medium">
+                        堂食 · A2桌
                       </span>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0 ml-1">
-                      <span className="font-mono text-[11px] text-[#767670]">03m 14s</span>
-                      {/* Card-level Fold Trigger */}
+                    <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                      <span className="text-[11px] text-[#767670] font-mono">03m 14s</span>
                       <button
                         type="button"
                         onClick={(e) => toggleCardFold('ord-9821', e)}
@@ -682,66 +683,67 @@ export const MerchantOperationsDeck: React.FC<MerchantOperationsDeckProps> = ({
 
                   {/* Folded Compact Line vs Expanded Body */}
                   {isCardFolded('ord-9821') ? (
-                    <div className="text-[11px] font-mono text-[#767670] flex items-center justify-between pt-1 border-t border-[#f0f0eb]">
+                    <div className="text-[11px] text-[#767670] flex items-center justify-between pt-1.5">
                       <span className="truncate">黑松露和牛汉堡 x1、提灯串 x2</span>
-                      <span className="text-[#15803d] font-bold shrink-0 ml-1">制作中</span>
+                      <span className="text-[#15803d] font-medium shrink-0 ml-1">制作中</span>
                     </div>
                   ) : (
-                    <>
-                      <div className="space-y-1 text-xs">
+                    <div className="pt-2 space-y-1.5">
+                      <div className="space-y-1 text-xs bg-[#fafaf8] p-2 rounded-[2px] border border-[#f0f0eb]">
                         <div className="flex justify-between items-center text-[#111110]">
                           <span className="font-medium truncate pr-2">黑松露和牛汉堡堡排</span>
-                          <span className="font-mono font-bold text-[#111110]">x1</span>
+                          <span className="font-bold text-[#111110]">x1</span>
                         </div>
-                        <p className="text-[11px] text-[#767670] truncate">7分熟 / 减盐 / 手工洋葱圈</p>
-                        <div className="flex justify-between items-center text-[#111110]">
+                        <p className="text-[10px] text-[#767670] truncate">7分熟 / 减盐 / 手工洋葱圈</p>
+                        <div className="flex justify-between items-center text-[#111110] pt-1 border-t border-[#f0f0eb]">
                           <span className="font-medium truncate pr-2">炭烤提灯提浆串</span>
-                          <span className="font-mono font-bold text-[#111110]">x2</span>
+                          <span className="font-bold text-[#111110]">x2</span>
                         </div>
                       </div>
 
-                      <div className="mt-2 pt-2 border-t border-[#f0f0eb] flex items-center justify-between">
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#15803d]">
+                      <div className="pt-1 flex items-center justify-between">
+                        <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[#15803d]">
                           <span className="w-1.5 h-1.5 rounded-full bg-[#15803d] animate-ping" />
                           铁板炉台制作中
                         </span>
-                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"
                             onClick={() => showLocalToast('已发送后厨催单提醒')}
-                            className="h-6 px-2 bg-white border border-[#e5e5e0] hover:border-[#d3d1cb] hover:bg-[#f7f7f5] text-[#111110] text-[11px] font-medium rounded-[2px] transition-all shadow-[0_1px_1px_rgba(0,0,0,0.02)] cursor-pointer whitespace-nowrap"
+                            className="h-6 px-2 bg-white border border-[#e5e5e0] hover:border-[#111110] text-[#111110] text-[11px] font-medium rounded-[2px] transition-all cursor-pointer whitespace-nowrap"
                           >
                             催单
                           </button>
                           <button
                             type="button"
                             onClick={() => setActiveModalId('ord-9821')}
-                            className="h-6 px-2 bg-white border border-[#e5e5e0] hover:border-[#d3d1cb] hover:bg-[#f7f7f5] text-[#111110] text-[11px] font-semibold rounded-[2px] transition-all shadow-[0_1px_1px_rgba(0,0,0,0.02)] cursor-pointer whitespace-nowrap"
+                            className="h-6 px-2 bg-neutral-900 hover:bg-black text-white text-[11px] font-medium rounded-[2px] transition-all cursor-pointer whitespace-nowrap"
                           >
                             呼叫传菜
                           </button>
                         </div>
                       </div>
-                    </>
+                    </div>
                   )}
                 </div>
 
-                {/* Order Card 2: 待移入保温柜 */}
+                {/* Order Card 2: 待移入保温柜 (平铺表单样式 + 零药丸设计) */}
                 <div
-                  className="group bg-white border border-[#e5e5e0] hover:border-[#1a1c1b] rounded-[3px] p-2.5 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.02)] cursor-pointer"
+                  className="group bg-white border border-[#e5e5e0] hover:border-[#111110] rounded-[2px] p-2.5 transition-all shadow-2xs cursor-pointer"
                   onClick={() => setActiveModalId('ord-4029')}
                 >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-mono font-bold text-xs text-[#111110] bg-[#fafaf8] border border-[#d3d1cb] px-1.5 py-0.5 rounded-[2px] whitespace-nowrap">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-[#f0f0eb]">
+                    <div className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#d97706]" />
+                      <span className="font-bold text-xs text-[#111110]">
                         #UR-DEL-4029
                       </span>
-                      <span className="text-[11px] font-medium border border-[#d97706]/50 text-[#d97706] bg-[#d97706]/5 px-1.5 py-0.5 rounded-[2px] whitespace-nowrap">
+                      <span className="text-[11px] text-[#d97706] font-medium">
                         美团专送
                       </span>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0 ml-1">
-                      <span className="font-mono text-[11px] font-bold text-[#2563eb]">01m 02s</span>
+                    <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                      <span className="text-[11px] font-medium text-[#2563eb]">01m 02s</span>
                       <button
                         type="button"
                         onClick={(e) => toggleCardFold('ord-4029', e)}
@@ -764,25 +766,25 @@ export const MerchantOperationsDeck: React.FC<MerchantOperationsDeckProps> = ({
                   </div>
 
                   {isCardFolded('ord-4029') ? (
-                    <div className="text-[11px] font-mono text-[#767670] flex items-center justify-between pt-1 border-t border-[#f0f0eb]">
+                    <div className="text-[11px] text-[#767670] flex items-center justify-between pt-1.5">
                       <span className="truncate">照烧鸡肉便当 x2、特调柑橘冰萃 x1</span>
-                      <span className="text-[#2563eb] font-bold shrink-0 ml-1">已封签</span>
+                      <span className="text-[#2563eb] font-medium shrink-0 ml-1">已封签</span>
                     </div>
                   ) : (
-                    <>
-                      <div className="space-y-1 text-xs">
+                    <div className="pt-2 space-y-1.5">
+                      <div className="space-y-1 text-xs bg-[#fafaf8] p-2 rounded-[2px] border border-[#f0f0eb]">
                         <div className="flex justify-between items-center text-[#111110]">
                           <span className="font-medium truncate pr-2">日式极上照烧鸡肉便当</span>
-                          <span className="font-mono font-bold text-[#111110]">x2</span>
+                          <span className="font-bold text-[#111110]">x2</span>
                         </div>
-                        <div className="flex justify-between items-center text-[#111110]">
+                        <div className="flex justify-between items-center text-[#111110] pt-1 border-t border-[#f0f0eb]">
                           <span className="font-medium truncate pr-2">特调柑橘气泡冰萃</span>
-                          <span className="font-mono font-bold text-[#111110]">x1</span>
+                          <span className="font-bold text-[#111110]">x1</span>
                         </div>
                       </div>
 
-                      <div className="mt-2 pt-2 border-t border-[#f0f0eb] flex items-center justify-between">
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#2563eb]">
+                      <div className="pt-1 flex items-center justify-between">
+                        <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[#2563eb]">
                           <span className="w-1.5 h-1.5 rounded-full bg-[#2563eb]" />
                           打包封签完毕
                         </span>
@@ -790,32 +792,33 @@ export const MerchantOperationsDeck: React.FC<MerchantOperationsDeckProps> = ({
                           <button
                             type="button"
                             onClick={() => showLocalToast('已分配并开启 #04 号智能保温柜')}
-                            className="h-6 px-2 bg-white border border-[#e5e5e0] hover:border-[#d3d1cb] hover:bg-[#f7f7f5] text-[#111110] text-[11px] font-semibold rounded-[2px] transition-all shadow-[0_1px_1px_rgba(0,0,0,0.02)] cursor-pointer whitespace-nowrap"
+                            className="h-6 px-2 bg-neutral-900 hover:bg-black text-white text-[11px] font-medium rounded-[2px] transition-all cursor-pointer whitespace-nowrap"
                           >
                             移入保温柜
                           </button>
                         </div>
                       </div>
-                    </>
+                    </div>
                   )}
                 </div>
 
-                {/* Order Card 3: 刚进单待排产 */}
+                {/* Order Card 3: 刚进单待排产 (平铺表单样式 + 零药丸设计) */}
                 <div
-                  className="group bg-white border border-[#e5e5e0] hover:border-[#1a1c1b] rounded-[3px] p-2.5 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.02)] cursor-pointer"
+                  className="group bg-white border border-[#e5e5e0] hover:border-[#111110] rounded-[2px] p-2.5 transition-all shadow-2xs cursor-pointer"
                   onClick={() => setActiveModalId('ord-1088')}
                 >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-mono font-bold text-xs text-[#111110] bg-[#fafaf8] border border-[#d3d1cb] px-1.5 py-0.5 rounded-[2px] whitespace-nowrap">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-[#f0f0eb]">
+                    <div className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-neutral-400" />
+                      <span className="font-bold text-xs text-[#111110]">
                         #UR-PCK-1088
                       </span>
-                      <span className="text-[11px] font-medium border border-[#767670]/40 text-[#767670] bg-[#fafaf8] px-1.5 py-0.5 rounded-[2px] whitespace-nowrap">
+                      <span className="text-[11px] text-[#767670] font-medium">
                         自提待产
                       </span>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0 ml-1">
-                      <span className="font-mono text-[11px] text-[#767670]">00m 18s</span>
+                    <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                      <span className="text-[11px] text-[#767670] font-mono">00m 18s</span>
                       <button
                         type="button"
                         onClick={(e) => toggleCardFold('ord-1088', e)}
@@ -838,35 +841,35 @@ export const MerchantOperationsDeck: React.FC<MerchantOperationsDeckProps> = ({
                   </div>
 
                   {isCardFolded('ord-1088') ? (
-                    <div className="text-[11px] font-mono text-[#767670] flex items-center justify-between pt-1 border-t border-[#f0f0eb]">
+                    <div className="text-[11px] text-[#767670] flex items-center justify-between pt-1.5">
                       <span className="truncate">招牌手打柠檬茶 (加浓) x1</span>
-                      <span className="text-[#767670] font-bold shrink-0 ml-1">待产</span>
+                      <span className="text-[#767670] font-medium shrink-0 ml-1">待产</span>
                     </div>
                   ) : (
-                    <>
-                      <div className="text-xs">
+                    <div className="pt-2 space-y-1.5">
+                      <div className="text-xs bg-[#fafaf8] p-2 rounded-[2px] border border-[#f0f0eb]">
                         <div className="flex justify-between items-center text-[#111110]">
                           <span className="font-medium truncate pr-2">招牌手打柠檬茶 (加浓)</span>
-                          <span className="font-mono font-bold text-[#111110]">x1</span>
+                          <span className="font-bold text-[#111110]">x1</span>
                         </div>
-                        <p className="text-[11px] text-[#767670] mt-0.5">少冰 / 标准糖 / 取餐码待生成</p>
+                        <p className="text-[10px] text-[#767670] mt-0.5">少冰 / 标准糖 / 取餐码待生成</p>
                       </div>
 
-                      <div className="mt-2 pt-2 border-t border-[#f0f0eb] flex items-center justify-between">
-                        <span className="text-[11px] text-[#767670] font-mono whitespace-nowrap">
+                      <div className="pt-1 flex items-center justify-between">
+                        <span className="text-[11px] text-[#767670] whitespace-nowrap">
                           票据已自动打印
                         </span>
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"
                             onClick={() => showLocalToast('订单已接入产线排期')}
-                            className="h-6 px-2 bg-white border border-[#e5e5e0] hover:border-[#d3d1cb] hover:bg-[#f7f7f5] text-[#111110] text-[11px] font-semibold rounded-[2px] transition-all shadow-[0_1px_1px_rgba(0,0,0,0.02)] cursor-pointer whitespace-nowrap"
+                            className="h-6 px-2 bg-neutral-900 hover:bg-black text-white text-[11px] font-medium rounded-[2px] transition-all cursor-pointer whitespace-nowrap"
                           >
                             接单排产
                           </button>
                         </div>
                       </div>
-                    </>
+                    </div>
                   )}
                 </div>
               </div>
@@ -1077,26 +1080,27 @@ export const MerchantOperationsDeck: React.FC<MerchantOperationsDeckProps> = ({
 
             {!foldedColumns['tables'] && (
               <div className="p-2.5 space-y-2 max-h-[640px] overflow-y-auto">
-                {/* Table A1: 空台待客 */}
+                {/* Table A1: 空台待客 (平铺表单样式 + 零药丸) */}
                 <div
-                  className="group bg-white border border-[#e5e5e0] hover:border-[#1a1c1b] rounded-[3px] p-2.5 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.02)] cursor-pointer"
+                  className="group bg-white border border-[#e5e5e0] hover:border-[#111110] rounded-[2px] p-2.5 transition-all shadow-2xs cursor-pointer"
                   onClick={() => setActiveModalId('tbl-a1')}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-mono font-bold text-base text-[#111110]">A1</span>
-                      <span className="text-[11px] text-[#767670] bg-[#fafaf8] border border-[#e5e5e0] px-1.5 py-0.5 rounded-[2px] whitespace-nowrap">
+                  <div className="flex items-center justify-between pb-1 border-b border-[#f0f0eb]">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm text-[#111110]">A1</span>
+                      <span className="text-[11px] text-[#767670] font-medium">
                         外摆 · 2人
                       </span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <span className="font-mono text-[11px] text-[#15803d] border border-[#15803d]/30 bg-[#15803d]/5 px-1.5 py-0.5 rounded-[2px] font-medium whitespace-nowrap">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#15803d]" />
+                      <span className="text-[11px] text-[#15803d] font-medium">
                         空台就绪
                       </span>
                       <button
                         type="button"
                         onClick={(e) => toggleCardFold('tbl-a1', e)}
-                        className="w-5 h-5 border border-[#e5e5e0] hover:border-[#111110] rounded-[2px] flex items-center justify-center text-[#767670] hover:text-[#111110]"
+                        className="w-5 h-5 border border-[#e5e5e0] hover:border-[#111110] rounded-[2px] flex items-center justify-center text-[#767670] hover:text-[#111110] ml-1"
                       >
                         {isCardFolded('tbl-a1') ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
                       </button>
@@ -1104,35 +1108,35 @@ export const MerchantOperationsDeck: React.FC<MerchantOperationsDeckProps> = ({
                   </div>
 
                   {!isCardFolded('tbl-a1') && (
-                    <>
+                    <div className="pt-2">
                       <p className="text-[11px] text-[#767670] truncate mb-2">已消毒整备，可接纳下一位顾客</p>
                       <div className="pt-1.5 border-t border-[#f0f0eb] flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
                           onClick={() => showLocalToast('A1 台位已激活并分发点餐码')}
-                          className="h-6 px-2.5 bg-white border border-[#e5e5e0] hover:border-[#d3d1cb] hover:bg-[#f7f7f5] text-[#111110] text-[11px] font-semibold rounded-[2px] transition-all shadow-[0_1px_1px_rgba(0,0,0,0.02)] cursor-pointer whitespace-nowrap"
+                          className="h-6 px-2.5 bg-neutral-900 hover:bg-black text-white text-[11px] font-medium rounded-[2px] transition-all cursor-pointer whitespace-nowrap"
                         >
                           一键开台
                         </button>
                       </div>
-                    </>
+                    </div>
                   )}
                 </div>
 
-                {/* Table A2: 就餐中 (Progress 57%) */}
+                {/* Table A2: 就餐中 (平铺表单样式 + 零药丸) */}
                 <div
-                  className="group bg-white border border-[#e5e5e0] hover:border-[#1a1c1b] rounded-[3px] p-2.5 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.02)] cursor-pointer"
+                  className="group bg-white border border-[#e5e5e0] hover:border-[#111110] rounded-[2px] p-2.5 transition-all shadow-2xs cursor-pointer"
                   onClick={() => setActiveModalId('tbl-a2')}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-mono font-bold text-base text-[#111110]">A2</span>
-                      <span className="text-[11px] text-[#2563eb] border border-[#2563eb]/40 bg-[#2563eb]/5 px-1.5 py-0.5 rounded-[2px] font-medium whitespace-nowrap">
+                  <div className="flex items-center justify-between pb-1 border-b border-[#f0f0eb]">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm text-[#111110]">A2</span>
+                      <span className="text-[11px] text-[#2563eb] font-medium">
                         外摆 · 4人
                       </span>
                     </div>
-                    <div className="flex items-center gap-1 font-mono text-[11px] text-[#767670]">
-                      <Timer className="w-3 h-3" />
+                    <div className="flex items-center gap-1.5 text-[11px] text-[#767670]">
+                      <Timer className="w-3 h-3 text-[#2563eb]" />
                       <span>28m</span>
                       <button
                         type="button"
@@ -1155,16 +1159,16 @@ export const MerchantOperationsDeck: React.FC<MerchantOperationsDeckProps> = ({
                   </div>
 
                   {isCardFolded('tbl-a2') ? (
-                    <div className="text-[11px] font-mono text-[#767670] flex items-center justify-between pt-1 border-t border-[#f0f0eb]">
+                    <div className="text-[11px] text-[#767670] flex items-center justify-between pt-1.5">
                       <span>上菜 4/7 (57%) · 3人就座</span>
-                      <span className="text-[#2563eb] font-bold">¥198.00</span>
+                      <span style={{ fontFamily: '"Space Grotesk", sans-serif' }} className="text-[#2563eb] font-bold">¥198.00</span>
                     </div>
                   ) : (
-                    <>
-                      <div className="space-y-1 mb-2">
+                    <div className="pt-2">
+                      <div className="space-y-1 mb-2 bg-[#fafaf8] p-2 rounded-[2px] border border-[#f0f0eb]">
                         <div className="flex justify-between text-[11px]">
                           <span className="text-[#767670]">上菜进度: 4/7 样</span>
-                          <span className="font-mono font-bold text-[#111110]">57%</span>
+                          <span className="font-bold text-[#111110]">57%</span>
                         </div>
                         <div className="w-full h-1.5 bg-[#f0f0eb] rounded-[1px] overflow-hidden">
                           <div className="bg-[#2563eb] h-full w-[57%]" />
@@ -1172,27 +1176,28 @@ export const MerchantOperationsDeck: React.FC<MerchantOperationsDeckProps> = ({
                       </div>
 
                       <div className="pt-1.5 border-t border-[#f0f0eb] flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
-                        <span className="font-mono text-[10px] text-[#767670] truncate max-w-[90px]">
+                        <span className="text-[10px] text-[#767670] truncate max-w-[90px]">
                           #UR-DIN-9821
                         </span>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5">
+                          <span style={{ fontFamily: '"Space Grotesk", sans-serif' }} className="text-xs font-bold text-[#111110] mr-1">¥198.00</span>
                           <button
                             type="button"
-                            onClick={() => setActiveModalId('tbl-a2')}
-                            className="h-6 px-2 bg-white border border-[#e5e5e0] hover:border-[#d3d1cb] hover:bg-[#f7f7f5] text-[#111110] text-[11px] rounded-[2px] transition-all shadow-[0_1px_1px_rgba(0,0,0,0.02)] cursor-pointer whitespace-nowrap"
+                            onClick={() => showLocalToast('加菜二维码已推送至顾客桌台')}
+                            className="h-6 px-2 bg-white border border-[#e5e5e0] hover:border-[#111110] text-[#111110] text-[11px] font-medium rounded-[2px] transition-all cursor-pointer whitespace-nowrap"
                           >
-                            加菜
+                            加单
                           </button>
                           <button
                             type="button"
                             onClick={() => showLocalToast('A2 正在打印结账小票')}
-                            className="h-6 px-2 bg-white border border-[#e5e5e0] hover:border-[#d3d1cb] hover:bg-[#f7f7f5] text-[#111110] text-[11px] font-semibold rounded-[2px] transition-all shadow-[0_1px_1px_rgba(0,0,0,0.02)] cursor-pointer whitespace-nowrap"
+                            className="h-6 px-2 bg-neutral-900 hover:bg-black text-white text-[11px] font-medium rounded-[2px] transition-all cursor-pointer whitespace-nowrap"
                           >
                             结账翻台
                           </button>
                         </div>
                       </div>
-                    </>
+                    </div>
                   )}
                 </div>
 
@@ -1857,7 +1862,7 @@ export const MerchantOperationsDeck: React.FC<MerchantOperationsDeckProps> = ({
               {/* Quick Summary Pill */}
               <div className="bg-[#fbfbf9] border border-[#e5e5e0] p-3 rounded-[3px] space-y-1.5">
                 <p className="text-[#333330] leading-relaxed">
-                  本设计令牌系统规范了移动餐车全域运营甲板的视觉原子体系：包含白底黑字高对比工业色阶（Neutral 50–950）、全链路微倒角约束（3px 控制件 / 2px 徽章 / 4px 浮层）、JetBrains Mono 遥测等宽排版与 5 种 SLA 业务状态色。
+                  本设计令牌系统规范了移动餐车全域运营甲板的视觉原子体系：包含白底黑字高对比工业色阶（Neutral 50–950）、全链路微倒角约束（3px 控制件 / 2px 徽章 / 4px 浮层）、Space Grotesk 现代无衬线排版与 5 种 SLA 业务状态色。
                 </p>
                 <div className="flex items-center gap-2 pt-1 border-t border-[#f0f0eb] font-mono text-[11px] text-[#767670]">
                   <span>已注入至: operationsDeckTokens.json</span>

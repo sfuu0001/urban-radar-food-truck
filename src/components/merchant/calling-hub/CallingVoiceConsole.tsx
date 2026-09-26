@@ -12,6 +12,7 @@ import {
   LayoutGrid,
   type LucideIcon
 } from 'lucide-react';
+import { DynamicAudioWave } from '../../common/DynamicIcons';
 
 /* ============================================================================
  * ③ REAL-AUDIO BROADCASTING CONSOLE & ACOUSTIC ROUTER — 真人母带叫号广播台 [RAD OPS]
@@ -98,7 +99,7 @@ export const CallingVoiceConsole: React.FC<CallingVoiceConsoleProps> = ({
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 bg-rad-inset border border-rad-line p-2 rounded-rad">
         <div className="flex items-center gap-2.5 flex-wrap">
           <div className="flex items-center gap-1.5 bg-rad-dark text-white px-2.5 py-1 rounded-rad">
-            <AudioLines className="w-[17px] h-[17px] text-amber-300 animate-pulse" strokeWidth={2} />
+            <DynamicAudioWave active={true} />
             <span className="font-display text-[13px] font-bold">真人母带原声引擎 · 无机械电音</span>
           </div>
 
@@ -107,7 +108,7 @@ export const CallingVoiceConsole: React.FC<CallingVoiceConsoleProps> = ({
             <span className="text-rad-text-main">
               播报员：<strong className="font-semibold">{personaName}</strong> ({personaGenderLabel})
             </span>
-            <span className="font-mono text-[10px] text-rad-text-muted">
+            <span className="text-[11px] font-medium text-rad-text-muted">
               | 语速: {speedLabel} | {toneLabel}
             </span>
           </div>

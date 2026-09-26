@@ -255,7 +255,7 @@ export const UserCouponsModal: React.FC<UserCouponsModalProps> = ({
                 <h3 className="text-sm sm:text-base font-black tracking-tight text-white">
                   优惠券管理中心
                 </h3>
-                <span className="text-[9.5px] bg-amber-400 text-black px-1.5 py-0.2 rounded-full font-mono font-bold">
+                <span className="text-[9.5px] bg-amber-400 text-black px-1.5 py-0.2 rounded-full tabular-nums font-bold">
                   {availableCoupons.length} 张可用
                 </span>
               </div>
@@ -286,7 +286,7 @@ export const UserCouponsModal: React.FC<UserCouponsModalProps> = ({
               placeholder="输入优惠券兑换码 (如：UR-VIP5、UR-LUNCH10、UR-DRINK88)..."
               value={couponInput}
               onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-              className="flex-1 text-xs bg-transparent outline-none font-mono uppercase px-1.5 text-black placeholder:text-neutral-400"
+              className="flex-1 text-xs bg-transparent outline-none tabular-nums uppercase px-1.5 text-black placeholder:text-neutral-400"
             />
             <button
               type="submit"
@@ -309,7 +309,7 @@ export const UserCouponsModal: React.FC<UserCouponsModalProps> = ({
             }`}
           >
             <span>可使用</span>
-            <span className="text-[9.5px] font-mono opacity-80">{availableCoupons.length}</span>
+            <span className="text-[9.5px] tabular-nums opacity-80">{availableCoupons.length}</span>
           </button>
 
           <button
@@ -335,7 +335,7 @@ export const UserCouponsModal: React.FC<UserCouponsModalProps> = ({
             }`}
           >
             <span>已使用</span>
-            <span className="text-[9.5px] font-mono opacity-80">{usedCoupons.length}</span>
+            <span className="text-[9.5px] tabular-nums opacity-80">{usedCoupons.length}</span>
           </button>
 
           <button
@@ -348,7 +348,7 @@ export const UserCouponsModal: React.FC<UserCouponsModalProps> = ({
             }`}
           >
             <span>已过期</span>
-            <span className="text-[9.5px] font-mono opacity-80">{expiredCoupons.length}</span>
+            <span className="text-[9.5px] tabular-nums opacity-80">{expiredCoupons.length}</span>
           </button>
         </div>
 
@@ -374,13 +374,13 @@ export const UserCouponsModal: React.FC<UserCouponsModalProps> = ({
                       <div className="flex items-center gap-2.5">
                         <div className="w-12 h-12 rounded-lg bg-black text-white flex flex-col items-center justify-center shrink-0">
                           {coupon.couponType === 'discount_percent' ? (
-                            <span className="text-sm font-black text-amber-400 font-mono">
+                            <span className="text-sm font-black text-amber-400 tabular-nums">
                               {(coupon.discountValue * 10).toFixed(1)}折
                             </span>
                           ) : coupon.couponType === 'delivery_free' ? (
                             <span className="text-[11px] font-black text-sky-400">免运费</span>
                           ) : (
-                            <span className="text-sm font-black text-amber-400 font-mono">
+                            <span className="text-sm font-black text-amber-400 tabular-nums">
                               ¥{coupon.discountValue}
                             </span>
                           )}
@@ -393,7 +393,7 @@ export const UserCouponsModal: React.FC<UserCouponsModalProps> = ({
                           <div className="flex items-center gap-1.5">
                             <h4 className="text-xs font-bold text-black">{coupon.title}</h4>
                             {coupon.badgeText && (
-                              <span className="text-[8px] bg-black text-amber-300 px-1 py-0.2 rounded font-mono font-bold">
+                              <span className="text-[8px] bg-black text-amber-300 px-1 py-0.2 rounded tabular-nums font-bold">
                                 {coupon.badgeText}
                               </span>
                             )}
@@ -448,13 +448,13 @@ export const UserCouponsModal: React.FC<UserCouponsModalProps> = ({
                         }`}
                       >
                         {coupon.couponType === 'discount_percent' ? (
-                          <span className="text-sm font-black text-amber-400 font-mono">
+                          <span className="text-sm font-black text-amber-400 tabular-nums">
                             {(coupon.discountValue * 10).toFixed(1)}折
                           </span>
                         ) : coupon.couponType === 'delivery_free' ? (
                           <span className="text-[11px] font-black text-sky-400">免运费</span>
                         ) : (
-                          <span className="text-sm font-black text-amber-400 font-mono">
+                          <span className="text-sm font-black text-amber-400 tabular-nums">
                             ¥{coupon.discountValue}
                           </span>
                         )}
@@ -468,7 +468,7 @@ export const UserCouponsModal: React.FC<UserCouponsModalProps> = ({
                         <div className="flex items-center gap-1.5">
                           <h4 className="text-xs font-bold text-black">{coupon.title}</h4>
                           {coupon.badgeText && (
-                            <span className="text-[8px] bg-black text-amber-300 px-1 py-0.2 rounded font-mono font-bold">
+                            <span className="text-[8px] bg-black text-amber-300 px-1 py-0.2 rounded tabular-nums font-bold">
                               {coupon.badgeText}
                             </span>
                           )}
@@ -477,7 +477,7 @@ export const UserCouponsModal: React.FC<UserCouponsModalProps> = ({
                         
                         {/* Complete tags */}
                         <div className="flex flex-wrap items-center gap-1 text-[9px]">
-                          <span className="font-mono font-bold bg-[#f4f4f2] text-[#444] px-1 py-0.2 rounded border border-[#e2e3e1]">
+                          <span className="tabular-nums font-bold bg-[#f4f4f2] text-[#444] px-1 py-0.2 rounded border border-[#e2e3e1]">
                             {coupon.code}
                           </span>
                           <span className="text-neutral-500 bg-[#f7f7f5] px-1 py-0.2 rounded border border-[#e8e8e4]">

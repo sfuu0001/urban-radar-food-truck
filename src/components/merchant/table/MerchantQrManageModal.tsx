@@ -7,7 +7,7 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Eye, EyeOff, QrCode, Trash2 } from 'lucide-react';
+import { Eye, EyeOff, QrCode, Trash2, Camera } from 'lucide-react';
 import {
   ensureAllTableQr,
   ensureTableQr,
@@ -19,6 +19,7 @@ import {
 import { getMerchantTables, saveMerchantTables } from '../../../utils/tableStorage';
 import { softDeleteToRecycleBin } from '../../../utils/recycleBinEngine';
 import type { TableItem } from '../../../types';
+import { MobileCameraScannerModal } from '../../common/MobileCameraScannerModal';
 
 interface MerchantQrManageModalProps {
   open: boolean;

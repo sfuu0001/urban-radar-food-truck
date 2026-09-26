@@ -47,7 +47,7 @@
     "fontFamily": {
       "heading": { "$value": "Space Grotesk, system-ui, sans-serif", "$type": "fontFamily" },
       "body": { "$value": "Hanken Grotesk, -apple-system, sans-serif", "$type": "fontFamily" },
-      "mono": { "$value": "JetBrains Mono, Menlo, monospace", "$type": "fontFamily" }
+      "mono": { "$value": "Space Grotesk, -apple-system, sans-serif", "$type": "fontFamily" }
     },
     "fontSize": {
       "micro": { "$value": "10px", "$type": "dimension" },

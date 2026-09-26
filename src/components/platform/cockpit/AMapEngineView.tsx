@@ -514,7 +514,7 @@ export const AMapEngineView: React.FC<AMapEngineViewProps> = ({
                   ● ${store.status === 'open' ? '营业中' : store.status === 'paused' ? '暂停' : '异常'}
                 </span>
               </div>
-              <div style="display: flex; align-items: center; gap: 5px; font-size: 9px; color: #474741; font-family: monospace;">
+              <div style="display: flex; align-items: center; gap: 5px; font-size: 9px; color: #474741; font-family: 'Space Grotesk', sans-serif;">
                 <span style="color: #006d36; font-weight: 700;">¥${store.revenue.toLocaleString()}</span>
                 <span style="color: #d5d5d0;">|</span>
                 <span>${store.todayOrders}单</span>
@@ -599,7 +599,7 @@ export const AMapEngineView: React.FC<AMapEngineViewProps> = ({
             <div style="margin-top: 3px; padding: 2px 7px; border-radius: 5px; background: rgba(255, 255, 255, 0.96); border: 1px solid ${isFault ? '#ba1a1a' : '#006d36'}; font-size: 9px; font-weight: 700; color: #1a1c1b; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.08); display: flex; align-items: center; gap: 4px;">
               <span style="color: ${isOpen ? '#006d36' : '#787770'};">●</span>
               <span>${truck.name}</span>
-              <span style="font-size: 8px; padding: 0.5px 3px; border-radius: 3px; background: ${isFault ? '#ffebee' : '#f0fdf4'}; color: ${isFault ? '#ba1a1a' : '#006d36'}; font-family: monospace;">
+              <span style="font-size: 8px; padding: 0.5px 3px; border-radius: 3px; background: ${isFault ? '#ffebee' : '#f0fdf4'}; color: ${isFault ? '#ba1a1a' : '#006d36'}; font-family: 'Space Grotesk', sans-serif;">
                 ${truck.pendingQueue > 0 ? `${truck.pendingQueue}单排队` : '在岗出餐'}
               </span>
             </div>
@@ -647,10 +647,10 @@ export const AMapEngineView: React.FC<AMapEngineViewProps> = ({
               <div style="position: absolute; top: -7px; left: -7px; width: 40px; height: 40px; border-radius: 50%; border: 2px dashed #d97706; animation: spin 4s linear infinite; pointer-events: none;"></div>
             ` : ''}
             <div style="position: relative; width: ${isSelected ? '28px' : '26px'}; height: ${isSelected ? '28px' : '26px'}; border-radius: 50%; background: ${isSelected ? '#d97706' : '#1a1c1b'}; border: 2.5px solid #ffffff; display: flex; align-items: center; justify-content: center; box-shadow: ${isSelected ? '0 0 16px rgba(217, 119, 6, 0.6)' : '0 4px 12px rgba(0,0,0,0.22)'};">
-              <span style="font-family: monospace; font-size: 9px; font-weight: 800; color: #ffffff;">${rider.code.replace('RD-', '')}</span>
+              <span style="font-family: 'Space Grotesk', sans-serif; font-size: 9px; font-weight: 800; color: #ffffff;">${rider.code.replace('RD-', '')}</span>
               ${hasOrders ? `<span style="position: absolute; top: -2px; right: -2px; width: 8px; height: 8px; border-radius: 50%; background: #006d36; border: 1.5px solid #ffffff;"></span>` : ''}
             </div>
-            <div style="margin-top: 2px; padding: 1px 6px; border-radius: 4px; background: ${isSelected ? '#d97706' : '#1a1c1b'}; color: #ffffff; font-size: 8.5px; font-family: monospace; font-weight: 700; white-space: nowrap; display: flex; align-items: center; gap: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
+            <div style="margin-top: 2px; padding: 1px 6px; border-radius: 4px; background: ${isSelected ? '#d97706' : '#1a1c1b'}; color: #ffffff; font-size: 8.5px; font-family: 'Space Grotesk', sans-serif; font-weight: 700; white-space: nowrap; display: flex; align-items: center; gap: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
               <span>${rider.name}</span>
               <span style="color: ${isSelected ? '#fef3c7' : '#4ade80'};">${rider.speedKmh}km/h</span>
               ${isSelected ? `<span style="background: #ffffff; color: #d97706; font-size: 7.5px; padding: 0 3px; border-radius: 2px;">追踪中</span>` : ''}

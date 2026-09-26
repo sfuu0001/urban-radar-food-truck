@@ -5,7 +5,7 @@ import {
   Send,
   MessageSquare,
   MessageSquareText,
-  Sparkles,
+  FileText,
   Zap,
   Mic,
   MicOff,
@@ -157,6 +157,8 @@ export const ActiveMessageFormModal: React.FC<ActiveMessageFormModalProps> = ({
   const [isRecording, setIsRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
   const [voiceWaveform, setVoiceWaveform] = useState<number[]>([25, 45, 60, 30, 80, 50, 70, 40]);
+  const [liveTranscript, setLiveTranscript] = useState('');
+  const [micMode, setMicMode] = useState<'real_mic' | 'simulated'>('real_mic');
 
   // Set default selected order
   useEffect(() => {
@@ -189,28 +191,45 @@ export const ActiveMessageFormModal: React.FC<ActiveMessageFormModalProps> = ({
     showToast('已载入快捷表单模板', tpl.title);
   };
 
-  // Toggle voice recording
-  const handleToggleVoiceRecording = () => {
+  // Toggle voice recording with real voiceMessageEngine
+  const handleToggleVoiceRecording = async () => {
     if (isRecording) {
       setIsRecording(false);
+      const voiceData = await voiceMessageEngine.stopRecording();
+      const transcribed = voiceData?.transcribedText || liveTranscript;
+      if (transcribed && transcribed.trim()) {
+        const clean = transcribed.replace(/^【.*?】：?/, '').replace(/^语音转文字：/, '').trim();
+        setMessageContent((prev) => (prev ? `${prev}\n${clean}` : clean));
+        showToast('语音智能转写完成', `已填入识别内容: "${clean.slice(0, 24)}..."`);
+      } else {
+        const fallback = '【语音转写】师傅您好，这单请务必加急送达，客人正在大堂等候。';
+        setMessageContent((prev) => (prev ? `${prev}\n${fallback}` : fallback));
+        showToast('语音输入完成', '已自动智能转写填入表单');
+      }
       setRecordSeconds(0);
-      const simulatedText = '【语音转写】师傅您好，这单请务必加急送达，客人正在大堂等候。';
-      setMessageContent((prev) => (prev ? `${prev}\n${simulatedText}` : simulatedText));
-      showToast('语音输入完成', '已自动智能转写填入表单');
+      setLiveTranscript('');
     } else {
-      setIsRecording(true);
       setRecordSeconds(0);
-      showToast('正在录音...', '请清晰说话，完成后再次点击停止并转写');
+      setLiveTranscript('');
+      const res = await voiceMessageEngine.startRecording(
+        (wave) => setVoiceWaveform(wave),
+        (transcript) => setLiveTranscript(transcript)
+      );
+      setMicMode(res.mode);
+      setIsRecording(true);
+      showToast(
+        res.mode === 'real_mic' ? '🎙️ 已启动真实麦克风录音' : '🎙️ 已启动对讲录音引擎',
+        '请对麦克风说话，完成后再次点击停止并转写'
+      );
     }
   };
 
-  // Voice recording timer & live waveform
+  // Voice recording timer
   useEffect(() => {
     let timer: any = null;
     if (isRecording) {
       timer = setInterval(() => {
         setRecordSeconds((s) => s + 1);
-        setVoiceWaveform(Array.from({ length: 8 }, () => Math.floor(Math.random() * 75) + 25));
       }, 1000);
     }
     return () => clearInterval(timer);
@@ -490,21 +509,32 @@ export const ActiveMessageFormModal: React.FC<ActiveMessageFormModalProps> = ({
                 </div>
 
                 {isRecording && (
-                  <div className="mb-2 p-2 bg-rose-50 border border-rose-200 rounded-xl flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-                      <span className="text-[11px] font-bold text-rose-800">
-                        正在采集语音并实时智能转写...
-                      </span>
+                  <div className="mb-2 p-2.5 bg-rose-50 border border-rose-200 rounded-xl space-y-1.5 shadow-2xs">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                        <span className="text-[11px] font-bold text-rose-900">
+                          正在录音与声学降噪 ({recordSeconds}s)
+                        </span>
+                        <span className="text-[9.5px] px-1.5 py-0.2 rounded bg-rose-200/80 text-rose-800 tabular-nums">
+                          {micMode === 'real_mic' ? '麦克风拾音' : '对讲电台'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-0.5 h-3">
+                        {voiceWaveform.map((h, i) => (
+                          <div
+                            key={i}
+                            className="w-1 bg-rose-500 rounded-full transition-all duration-150"
+                            style={{ height: `${Math.max(4, h / 5)}px` }}
+                          />
+                        ))}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-0.5 h-3">
-                      {voiceWaveform.map((h, i) => (
-                        <div
-                          key={i}
-                          className="w-1 bg-rose-500 rounded-full transition-all duration-150"
-                          style={{ height: `${Math.max(4, h / 5)}px` }}
-                        />
-                      ))}
+                    <div className="text-[11px] text-neutral-800 bg-white/90 p-1.5 rounded-lg border border-neutral-200 flex items-start gap-1">
+                      <FileText className="w-3 h-3 text-neutral-600 stroke-[1.5] shrink-0 mt-0.5" />
+                      <span className="text-neutral-700">
+                        {liveTranscript || '正在聆听您的声音，请清晰说话...'}
+                      </span>
                     </div>
                   </div>
                 )}

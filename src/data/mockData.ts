@@ -10,6 +10,8 @@ export const INITIAL_TRUCK_INFO: TruckInfo = {
   status: 'roaming',
   statusText: '动态巡游中',
   distanceKm: 0.65,
+  latitude: 31.2435,
+  longitude: 121.4690,
   walkingTimeMin: 8,
   currentLocationName: '西藏北路曲阜路交叉口 · 大悦城南广场',
   nextStopName: '苏河湾万象天地西里停靠点',

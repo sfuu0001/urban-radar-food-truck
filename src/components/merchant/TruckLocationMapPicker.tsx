@@ -53,6 +53,16 @@ function buildDynamicRadarMarkerIcon(
   isCurrent: boolean,
   isLocked: boolean
 ) {
+  // 当主控餐车处于未锁定（编辑定点）状态时，地图上的图钉完全隐匿，由屏幕中心的绝对动态准星接管，防止双重重影或位移分叉
+  if (isCurrent && !isLocked) {
+    return L.divIcon({
+      className: 'dynamic-radar-leaflet-node-hidden',
+      html: '<div style="display:none;"></div>',
+      iconSize: [0, 0],
+      iconAnchor: [0, 0]
+    });
+  }
+
   const theme = getTruckTheme(truck.id);
   const displayName = truck.name.replace(/黑曜石\s*/, '').replace(/流动餐车/, '');
 
@@ -97,7 +107,7 @@ function buildDynamicRadarMarkerIcon(
       <div style="position: absolute; left: 0; top: -20px; transform: translate(-50%, -100%); pointer-events: auto; white-space: nowrap; cursor: pointer;">
         <div style="padding: 2.5px 8px; border-radius: 8px; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(6px); border: 1.5px solid ${isCurrent ? theme.color : 'rgba(255,255,255,0.2)'}; box-shadow: 0 4px 14px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 5px;">
           <span style="display: inline-block; width: 6.5px; height: 6.5px; border-radius: 50%; background: ${theme.color}; box-shadow: 0 0 8px ${theme.color};"></span>
-          <span style="font-size: 10.5px; font-weight: 800; color: #ffffff; font-family: monospace; letter-spacing: -0.02em;">${theme.num}号车</span>
+          <span style="font-size: 10.5px; font-weight: 800; color: #ffffff; font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.02em;">${theme.num}号车</span>
           <span style="font-size: 9.5px; color: ${theme.color}; font-weight: 700;">${displayName}</span>
           ${isCurrent ? `<span style="font-size: 9px; padding: 0.5px 4px; border-radius: 4px; background: ${theme.color}25; color: ${theme.color}; font-weight: 700;">主控</span>` : ''}
         </div>
@@ -332,8 +342,15 @@ export const TruckLocationMapPicker: React.FC<TruckLocationMapPickerProps> = ({
         interactive: false
       }).addTo(map);
 
-      // 地图拖动监听 (编辑模式同步候选坐标)
+      // 地图拖动监听 (编辑模式同步候选坐标与雷达圈实时跟随)
       let settleTimer: number | null = null;
+      map.on('move', () => {
+        if (lockedRef.current) return;
+        const c = map.getCenter();
+        if (radiusRef.current) {
+          radiusRef.current.setLatLng(c);
+        }
+      });
       map.on('moveend', () => {
         const c = map.getCenter();
         if (lockedRef.current) return;
@@ -344,7 +361,10 @@ export const TruckLocationMapPicker: React.FC<TruckLocationMapPickerProps> = ({
       });
 
       map.on('click', (e: any) => {
-        if (lockedRef.current) return;
+        if (lockedRef.current) {
+          triggerToast('🔒 当前位置已锁定（防误触保护），请点击右上角挂锁解锁后拖动或选点');
+          return;
+        }
         map.panTo(e.latlng, { animate: true, duration: 0.35 });
       });
 
@@ -414,6 +434,44 @@ export const TruckLocationMapPicker: React.FC<TruckLocationMapPickerProps> = ({
     }
   }, [truckId, radiusKm, currentTheme, truckName, locked, lat, lng, isFleetOverviewActive, allTrucks, refreshFleetLayers]);
 
+  // 600ms 平滑缓动过渡标记点 (Cubic-Bezier 缓动插值)
+  const animateMarkerTransition = (toLat: number, toLng: number, duration = 600) => {
+    if (!truckMarkerRef.current) return;
+    const currentLatLng = truckMarkerRef.current.getLatLng();
+    const fromLat = currentLatLng ? currentLatLng.lat : lat;
+    const fromLng = currentLatLng ? currentLatLng.lng : lng;
+
+    if (Math.abs(fromLat - toLat) < 0.00001 && Math.abs(fromLng - toLng) < 0.00001) {
+      truckMarkerRef.current.setLatLng([toLat, toLng]);
+      if (radiusRef.current) radiusRef.current.setLatLng([toLat, toLng]);
+      return;
+    }
+
+    const startTime = performance.now();
+    const step = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // easeInOutCubic 曲线
+      const ease = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+      const curLat = fromLat + (toLat - fromLat) * ease;
+      const curLng = fromLng + (toLng - fromLng) * ease;
+
+      try {
+        if (truckMarkerRef.current) {
+          truckMarkerRef.current.setLatLng([curLat, curLng]);
+        }
+        if (radiusRef.current) {
+          radiusRef.current.setLatLng([curLat, curLng]);
+        }
+      } catch {}
+
+      if (progress < 1) {
+        requestAnimationFrame(step);
+      }
+    };
+    requestAnimationFrame(step);
+  };
+
   // 外部目标平滑飞达 (如切换餐车、搜索或选择快捷商圈)
   useEffect(() => {
     if (!flyToTarget || !mapRef.current) return;
@@ -422,21 +480,17 @@ export const TruckLocationMapPicker: React.FC<TruckLocationMapPickerProps> = ({
     try {
       mapRef.current.flyTo([flyToTarget.lat, flyToTarget.lng], 16, {
         animate: true,
-        duration: 0.7
+        duration: 0.6
       });
     } catch {}
+
+    animateMarkerTransition(flyToTarget.lat, flyToTarget.lng, 600);
 
     if (!lockedRef.current) {
       syncCandidate(flyToTarget.lat, flyToTarget.lng);
     } else {
       setLat(flyToTarget.lat);
       setLng(flyToTarget.lng);
-      if (radiusRef.current) {
-        radiusRef.current.setLatLng([flyToTarget.lat, flyToTarget.lng]);
-      }
-      if (truckMarkerRef.current) {
-        truckMarkerRef.current.setLatLng([flyToTarget.lat, flyToTarget.lng]);
-      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flyToTarget?.seq]);
@@ -555,6 +609,12 @@ export const TruckLocationMapPicker: React.FC<TruckLocationMapPickerProps> = ({
           <span>{radiusKm.toFixed(1)}km 雷达</span>
           <span className="text-slate-400">({coverageMetrics.areaKm2}km²)</span>
         </div>
+
+        {/* GPS 卫星/基准收敛微标 */}
+        <div className="bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-xs rounded-full px-2 py-1 text-[10px] text-slate-700 flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span>静安大悦城基准 (±15m)</span>
+        </div>
       </div>
 
       {/* 4. 右上方缩放与全览操作栏 (纯图标按钮) */}
@@ -617,11 +677,11 @@ export const TruckLocationMapPicker: React.FC<TruckLocationMapPickerProps> = ({
        * ============================================================ */}
       {!locked && (
         <div className="absolute top-1/2 left-1/2 pointer-events-none z-[450]">
-          {/* 准星中心同轴动态雷达扫波与声呐圈 (以 0,0 居中) */}
-          <div className="absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none">
+          {/* 准星中心同轴动态雷达扫波与声呐圈 (以 0,0 为绝对原点，所有层级绝对同轴居中) */}
+          <div className="absolute top-0 left-0 pointer-events-none">
             {/* 360° 雷达扫光 */}
             <div
-              className="radar-sweep-beam rounded-full pointer-events-none"
+              className="radar-sweep-beam absolute -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
               style={{
                 width: '120px',
                 height: '120px',
@@ -644,21 +704,27 @@ export const TruckLocationMapPicker: React.FC<TruckLocationMapPickerProps> = ({
 
             {/* 声呐扩散波 */}
             <div
-              className="radar-sonar-wave-1 absolute rounded-full pointer-events-none"
+              className="radar-sonar-wave-1 absolute -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
               style={{ width: '90px', height: '90px', border: `1.5px solid ${currentTheme.color}` }}
             />
             <div
-              className="radar-sonar-wave-2 absolute rounded-full pointer-events-none"
+              className="radar-sonar-wave-2 absolute -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
               style={{ width: '90px', height: '90px', border: `1.5px solid ${currentTheme.color}` }}
             />
 
             {/* 中心极坐标刻度线 */}
-            <div className="absolute w-8 h-[1px]" style={{ backgroundColor: `${currentTheme.color}90` }} />
-            <div className="absolute h-8 w-[1px]" style={{ backgroundColor: `${currentTheme.color}90` }} />
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2 w-8 h-[1.5px] pointer-events-none"
+              style={{ backgroundColor: `${currentTheme.color}` }}
+            />
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2 h-8 w-[1.5px] pointer-events-none"
+              style={{ backgroundColor: `${currentTheme.color}` }}
+            />
 
             {/* 物理中心精准水滴准星核心 */}
             <div
-              className="radar-core-ping w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center shadow-2xl border-2 border-white"
+              className="radar-core-ping absolute -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center shadow-2xl border-2 pointer-events-none"
               style={{ borderColor: currentTheme.color, boxShadow: `0 0 16px ${currentTheme.glowColor}` }}
             >
               <Crosshair className="w-4 h-4 text-white" />
@@ -717,7 +783,17 @@ export const TruckLocationMapPicker: React.FC<TruckLocationMapPickerProps> = ({
         </div>
       )}
 
-      {/* 6. 操作提示 Toast 浮层 */}
+      {/* 6. 锁定模式悬浮保护徽标 */}
+      {locked && (
+        <div className="absolute bottom-3 left-3 z-[400] pointer-events-none">
+          <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700/80 text-amber-300 text-[10.5px] px-2.5 py-1 rounded-full shadow-lg flex items-center gap-1.5 font-medium">
+            <Lock className="w-3 h-3 text-amber-400" />
+            <span>位置锁定保护中 · 轻触右上角挂锁解锁微调</span>
+          </div>
+        </div>
+      )}
+
+      {/* 7. 操作提示 Toast 浮层 */}
       {toastMessage && (
         <div className="absolute top-14 left-1/2 -translate-x-1/2 z-[500] pointer-events-none transition-all duration-300">
           <div className="px-3.5 py-1.5 bg-slate-900/95 backdrop-blur-md text-white text-[11px] font-bold rounded-full shadow-float border border-slate-700/80 flex items-center gap-2">

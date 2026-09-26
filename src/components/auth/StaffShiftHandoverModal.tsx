@@ -76,7 +76,7 @@ export const StaffShiftHandoverModal: React.FC<StaffShiftHandoverModalProps> = (
           {/* Header */}
           <div className="bg-[#1a1a17] text-white p-4 sm:p-5 flex items-start justify-between">
             <div>
-              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-[10px] font-mono text-amber-300 mb-2">
+              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-[10px] tabular-nums text-amber-300 mb-2">
                 <ArrowRightLeft className="w-3 h-3 text-amber-400" />
                 <span>FOOD TRUCK SHIFT HANDOVER MATRIX</span>
               </div>
@@ -130,14 +130,14 @@ export const StaffShiftHandoverModal: React.FC<StaffShiftHandoverModalProps> = (
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-bold text-[#1a1a17]">{staff.name}</span>
-                          <span className="text-[10px] font-mono text-neutral-500 px-1.5 py-0.2 rounded bg-neutral-100 border border-neutral-200">
+                          <span className="text-[10px] tabular-nums text-neutral-500 px-1.5 py-0.2 rounded bg-neutral-100 border border-neutral-200">
                             {staff.staffNo}
                           </span>
                           <span className={`text-[10px] font-medium px-1.5 py-0.2 rounded border ${roleMeta.badgeColor}`}>
                             {staff.roleTitle}
                           </span>
                         </div>
-                        <p className="text-xs text-neutral-500 mt-1 font-mono">
+                        <p className="text-xs text-neutral-500 mt-1 tabular-nums">
                           手机号: {maskPhoneNumber(staff.phone)} · {staff.tag}
                         </p>
                         <p className="text-[11px] text-neutral-400 mt-0.5">

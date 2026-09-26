@@ -52,6 +52,7 @@ import {
   createPaymentVoucher,
   broadcastPaymentVoiceReceipt
 } from '../utils/paymentSecurityEngine';
+import { getActiveTruckConfig } from '../utils/truckLocationEngine';
 
 export interface CheckoutPageViewProps {
   items: CartItem[];
@@ -389,7 +390,7 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
          ======================================================== */}
       <header className="shrink-0 z-30 bg-[#f9f9f7]/95 backdrop-blur-md px-4 pt-3 pb-0 border-b border-[#e2e2dc]">
           {/* 系统状态条 */}
-          <div className="flex justify-between items-center text-[10px] text-[#787770] font-mono pb-2">
+          <div className="flex justify-between items-center text-[10px] text-[#787770] tabular-nums pb-2">
             <span>09:41</span>
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1 text-[#059669] font-medium">
@@ -531,7 +532,7 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                           </span>
                         </div>
                         <p className="text-xs text-[#787770]">
-                          李先生 (先锋食客) <span className="font-mono ml-1">138****9201</span>
+                          李先生 (先锋食客) <span className="tabular-nums ml-1">138****9201</span>
                         </p>
                       </div>
                       <button
@@ -626,10 +627,20 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                 <div className="p-3">
                   <div className="flex justify-between items-center text-xs pb-2 border-b border-[#f0f0eb] mb-2.5">
                     <span className="font-bold text-[#1a1a17] flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#059669]" />
-                      黑曜石餐车 · 主厨现制订单
+                      {(() => {
+                        const trk = getActiveTruckConfig();
+                        const logo = trk?.logo || trk?.image;
+                        return logo ? (
+                          <span className="w-4 h-4 rounded-xs overflow-hidden border border-emerald-500/50 inline-block shrink-0">
+                            <img src={logo} alt="Logo" className="w-full h-full object-cover" />
+                          </span>
+                        ) : (
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#059669]" />
+                        );
+                      })()}
+                      {getActiveTruckConfig()?.name || '黑曜石餐车'} · 主厨现制订单
                     </span>
-                    <span className="font-mono text-[#787770] text-[11px]">ORD-89214</span>
+                    <span className="tabular-nums text-[#787770] text-[11px]">ORD-89214</span>
                   </div>
 
                   {/* 餐品列表 */}
@@ -651,7 +662,7 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                               <h4 className="font-bold text-xs text-[#1a1a17] truncate">
                                 {item.dish?.name}
                               </h4>
-                              <span className="font-mono font-bold text-xs text-[#1a1a17] ml-2 shrink-0">
+                              <span className="tabular-nums font-bold text-xs text-[#1a1a17] ml-2 shrink-0">
                                 ¥{item.calculatedPrice.toFixed(2)}
                               </span>
                             </div>
@@ -680,7 +691,7 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                                 >
                                   {item.quantity <= 1 ? <Trash2 className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
                                 </button>
-                                <span className="font-mono font-bold text-xs px-1 text-[#1a1a17]">
+                                <span className="tabular-nums font-bold text-xs px-1 text-[#1a1a17]">
                                   {item.quantity}
                                 </span>
                                 <button
@@ -755,7 +766,7 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                       <Gift className="w-3.5 h-3.5 text-[#787770]" />
                       <span>渠道直减 & 阶梯满减</span>
                     </span>
-                    <span className="font-mono text-[#059669] font-semibold">
+                    <span className="tabular-nums text-[#059669] font-semibold">
                       -¥{(channelDiscount + vipDiscount).toFixed(2)}
                     </span>
                   </div>
@@ -963,7 +974,7 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                       {currentMethod.name} · 官方安全收银
                     </span>
                   </div>
-                  <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-mono backdrop-blur-xs flex items-center gap-1">
+                  <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full tabular-nums backdrop-blur-xs flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                     实时回查中
                   </span>
@@ -973,7 +984,7 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                   <span className="text-[11px] opacity-90 block">
                     向商户「黑曜石流动餐车（大悦城站）」付款
                   </span>
-                  <div className="text-3xl font-black font-mono tracking-tight mt-0.5 flex items-baseline gap-1">
+                  <div className="text-3xl font-black tabular-nums tracking-tight mt-0.5 flex items-baseline gap-1">
                     <span className="text-xl">¥</span>
                     <span>{finalAmount.toFixed(2)}</span>
                   </div>
@@ -1069,7 +1080,7 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                   </svg>
 
                   {/* 倒计时刷新胶囊 */}
-                  <div className="absolute bottom-1 right-1 bg-[#f4f4f2] text-[#787770] font-mono text-[9px] px-1.5 py-0.5 rounded-[5px] border border-[#e2e2dc] flex items-center gap-1">
+                  <div className="absolute bottom-1 right-1 bg-[#f4f4f2] text-[#787770] tabular-nums text-[9px] px-1.5 py-0.5 rounded-[5px] border border-[#e2e2dc] flex items-center gap-1">
                     <RefreshCw className="w-2.5 h-2.5 animate-spin" />
                     <span>{qrCountdown}s 自动更新</span>
                   </div>
@@ -1077,7 +1088,7 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
 
                 {/* 订单防伪校验码 */}
                 <div className="space-y-1">
-                  <div className="font-mono text-[10.5px] text-[#787770]">
+                  <div className="tabular-nums text-[10.5px] text-[#787770]">
                     TX-20250519-89214732948-WXPAY
                   </div>
                   <div className="flex items-center justify-center gap-1.5 text-xs text-[#059669] bg-[#eafaf1] py-1.5 px-3 rounded-[5px] font-medium border border-[#bbf0d4]">
@@ -1189,7 +1200,7 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                   </h3>
                   <p className="text-xs text-[#787770]">
                     实付 ¥{finalAmount.toFixed(2)} · 厨房已接收订单，取餐号{' '}
-                    <span className="font-mono font-bold text-[#1a1a17]">
+                    <span className="tabular-nums font-bold text-[#1a1a17]">
                       #{createdOrderNo ? createdOrderNo.slice(-4) : 'A082'}
                     </span>
                   </p>
@@ -1199,7 +1210,7 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                 <div className="p-2 bg-[#f9f9f7] rounded-[5px] border border-[#e2e2dc] text-left text-[11px] space-y-1">
                   <div className="flex justify-between text-[#787770]">
                     <span>订单流水</span>
-                    <span className="font-mono text-[#1a1a17]">{createdOrderNo || 'ORD-89214'}</span>
+                    <span className="tabular-nums text-[#1a1a17]">{createdOrderNo || 'ORD-89214'}</span>
                   </div>
                   <div className="flex justify-between text-[#787770]">
                     <span>支付渠道</span>
@@ -1266,7 +1277,7 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                     value={customCouponInput}
                     onChange={(e) => setCustomCouponInput(e.target.value.toUpperCase())}
                     placeholder="输入券码如 OBSIDIAN10"
-                    className="flex-1 text-xs px-2.5 py-1.5 border border-[#e2e2dc] rounded-[5px] uppercase font-mono focus:outline-none focus:border-[#1a1a17]"
+                    className="flex-1 text-xs px-2.5 py-1.5 border border-[#e2e2dc] rounded-[5px] uppercase tabular-nums focus:outline-none focus:border-[#1a1a17]"
                   />
                   <button
                     type="button"
@@ -1310,7 +1321,7 @@ export const CheckoutPageView: React.FC<CheckoutPageViewProps> = ({
                             <p className="text-[10px] text-[#787770]">满 ¥{item.coupon.minSpend} 可用</p>
                           </div>
                           <div className="text-right">
-                            <span className="font-mono font-bold text-sm text-[#059669]">
+                            <span className="tabular-nums font-bold text-sm text-[#059669]">
                               ¥{item.coupon.discountValue}
                             </span>
                           </div>

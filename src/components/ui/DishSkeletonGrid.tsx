@@ -1,25 +1,96 @@
 import React from 'react';
+import { motion } from 'motion/react';
 import { ChefHat, Flame, Clock } from 'lucide-react';
 import { ViewMode } from '../../types';
+
+/**
+ * 4 维生机微动：左侧锚定向右穿透展开动画变体 (Left-Anchored Organic Rightward Penetration)
+ *
+ * 核心特征：
+ * 1. transformOrigin: 'left center'（严格锁定在左侧边缘）
+ * 2. scaleX 穿透: [0.22, 1.045, 0.99, 1.0] (向右爆发刺出，微过冲后平稳吸附)
+ * 3. scaleY 体积呼吸: [0.96, 0.95, 1.02, 1.0] (冲刺期上下紧绷收窄 5%，到位回弹释放)
+ * 4. rotateZ 甩尾微晃: [0, -1.4, 0.6, 0] (惯性下垂 -> 反翘 -> 水平复位)
+ * 5. 纵向瀑布流阶梯错峰: delay = index * 0.045s
+ */
+export const organicPenetrationVariants = {
+  initial: {
+    scaleX: 0.22,
+    scaleY: 0.96,
+    rotateZ: 0,
+    opacity: 0.25,
+    transformOrigin: 'left center',
+  },
+  animate: (index: number) => ({
+    scaleX: [0.22, 1.045, 0.99, 1.0],
+    scaleY: [0.96, 0.95, 1.02, 1.0],
+    rotateZ: [0, -1.4, 0.6, 0],
+    opacity: [0.25, 0.92, 1, 1],
+    transition: {
+      delay: index * 0.045,
+      duration: 0.44,
+      times: [0, 0.52, 0.78, 1],
+      ease: [0.22, 1, 0.36, 1],
+    },
+  }),
+};
+
+/**
+ * 内部骨架元素视差滞后（Liquid Parallax Lag）
+ * 比外壳滞后约 65ms 启动，从 -22px 向右滑移就位，产生外壳先至破风、内容注水流动的视差感
+ */
+export const interiorParallaxVariants = {
+  initial: {
+    x: -24,
+    opacity: 0.3,
+  },
+  animate: (index: number) => ({
+    x: 0,
+    opacity: 1,
+    transition: {
+      delay: index * 0.045 + 0.065,
+      duration: 0.35,
+      ease: [0.16, 1, 0.3, 1],
+    },
+  }),
+};
 
 interface DishSkeletonGridProps {
   count?: number;
   viewMode?: ViewMode;
+  /** 是否开启从左向右微动入场动画（默认 true） */
+  animate?: boolean;
 }
 
 /**
- * 单张卡片加载态 - 骨架屏版 (1:1 对齐 DishCard 的视觉几何与暗调黑曜石设计规范)
+ * 单张卡片加载态 - 骨架屏版（左锚向右穿透 + 4维微动）
  */
-export const DishCardSkeleton: React.FC<{ index?: number }> = ({ index = 0 }) => {
+export const DishCardSkeleton: React.FC<{ index?: number; animate?: boolean }> = ({
+  index = 0,
+  animate = true,
+}) => {
   return (
-    <div
-      className="bg-white rounded-xl overflow-hidden shadow-xs border border-[#e2e3e1] flex flex-col relative select-none animate-skeleton"
-      style={{ animationDelay: `${index * 80}ms` }}
+    <motion.div
+      custom={index}
+      initial={animate ? 'initial' : false}
+      animate={animate ? 'animate' : undefined}
+      variants={organicPenetrationVariants}
+      className="bg-white rounded-xl overflow-hidden shadow-xs border border-[#e2e3e1] flex flex-col relative select-none will-change-transform origin-left"
     >
+      {/* 穿透光刃（向右冲刺时前端产生的高亮拖尾光晕） */}
+      {animate && (
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: [0, 0.85, 0], x: [0, 15, 0] }}
+          transition={{ delay: index * 0.045 + 0.08, duration: 0.42 }}
+          className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-r from-transparent via-amber-400/25 to-amber-500/50 pointer-events-none z-30"
+        />
+      )}
+
       {/* 顶部 1:1 / 142px 黑曜石暗调机位图片骨架槽 */}
       <div className="relative h-[130px] sm:h-[142px] w-full bg-[#161616] overflow-hidden">
-        {/* Shimmer 光影流动层 */}
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.08] to-transparent -translate-x-full animate-shimmer" />
+        {/* Shimmer 光影流动层（从左至右 90deg 顺向流动） */}
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.09] to-transparent -translate-x-full animate-shimmer" />
 
         {/* 居中主厨图腾水印 */}
         <div className="absolute inset-0 flex items-center justify-center opacity-25">
@@ -55,8 +126,14 @@ export const DishCardSkeleton: React.FC<{ index?: number }> = ({ index = 0 }) =>
         </div>
       </div>
 
-      {/* 底部信息区骨架 */}
-      <div className="p-2 sm:p-2.5 flex flex-col flex-grow justify-between bg-white">
+      {/* 底部信息区骨架（内部视差延迟滑入） */}
+      <motion.div
+        custom={index}
+        initial={animate ? 'initial' : false}
+        animate={animate ? 'animate' : undefined}
+        variants={interiorParallaxVariants}
+        className="p-2 sm:p-2.5 flex flex-col flex-grow justify-between bg-white"
+      >
         <div>
           {/* 中文菜品标题骨架 */}
           <div className="flex items-center justify-between gap-2">
@@ -82,28 +159,44 @@ export const DishCardSkeleton: React.FC<{ index?: number }> = ({ index = 0 }) =>
           </div>
 
           {/* 加购按钮骨架 */}
-          <div className="h-6 sm:h-6.5 w-14 bg-black rounded-lg flex items-center justify-center gap-1 px-1.5">
+          <div className="h-6 sm:h-6.5 w-14 bg-black rounded-lg flex items-center justify-center gap-1 px-1.5 shadow-2xs">
             <div className="w-2 h-2 rounded-full bg-white/50" />
             <div className="h-2 w-6 bg-white/70 rounded" />
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 
 /**
- * 列表单行加载态 - 骨架屏版 (对齐 DishListRow 的布局体系)
+ * 列表单行加载态 - 骨架屏版（左锚向右穿透 + 4维微动）
  */
-export const DishListRowSkeleton: React.FC<{ index?: number }> = ({ index = 0 }) => {
+export const DishListRowSkeleton: React.FC<{ index?: number; animate?: boolean }> = ({
+  index = 0,
+  animate = true,
+}) => {
   return (
-    <div
-      className="bg-white rounded-xl overflow-hidden shadow-xs border border-[#e2e3e1] flex flex-row items-stretch relative select-none animate-skeleton"
-      style={{ animationDelay: `${index * 80}ms` }}
+    <motion.div
+      custom={index}
+      initial={animate ? 'initial' : false}
+      animate={animate ? 'animate' : undefined}
+      variants={organicPenetrationVariants}
+      className="bg-white rounded-xl overflow-hidden shadow-xs border border-[#e2e3e1] flex flex-row items-stretch relative select-none will-change-transform origin-left"
     >
-      {/* 缩略图骨架槽 */}
+      {/* 穿透光刃（向右冲刺时前端产生的高亮拖尾光晕） */}
+      {animate && (
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: [0, 0.85, 0], x: [0, 15, 0] }}
+          transition={{ delay: index * 0.045 + 0.08, duration: 0.42 }}
+          className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-r from-transparent via-amber-400/25 to-amber-500/50 pointer-events-none z-30"
+        />
+      )}
+
+      {/* 左侧固定缩略图骨架槽（作为最先落桩的稳固基点） */}
       <div className="relative w-24 sm:w-32 min-h-[90px] sm:min-h-[100px] bg-[#161616] overflow-hidden shrink-0">
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.08] to-transparent -translate-x-full animate-shimmer" />
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.09] to-transparent -translate-x-full animate-shimmer" />
         <div className="absolute inset-0 flex items-center justify-center opacity-25">
           <ChefHat className="w-6 h-6 text-neutral-400" />
         </div>
@@ -115,8 +208,14 @@ export const DishListRowSkeleton: React.FC<{ index?: number }> = ({ index = 0 })
         </div>
       </div>
 
-      {/* 右侧信息骨架 */}
-      <div className="p-2 sm:p-2.5 flex-1 min-w-0 flex flex-col justify-between">
+      {/* 右侧信息骨架（随外壳向右拉伸时产生视差滞后滑入） */}
+      <motion.div
+        custom={index}
+        initial={animate ? 'initial' : false}
+        animate={animate ? 'animate' : undefined}
+        variants={interiorParallaxVariants}
+        className="p-2 sm:p-2.5 flex-1 min-w-0 flex flex-col justify-between"
+      >
         <div>
           <div className="flex items-center justify-between gap-2">
             <div className="h-3.5 sm:h-4 bg-neutral-200 rounded w-2/3" />
@@ -131,13 +230,13 @@ export const DishListRowSkeleton: React.FC<{ index?: number }> = ({ index = 0 })
             <div className="h-4 sm:h-5 bg-neutral-800 rounded w-14" />
             <div className="h-2.5 bg-neutral-200 rounded w-8 hidden sm:block" />
           </div>
-          <div className="h-6 w-14 bg-black rounded-lg flex items-center justify-center gap-1">
+          <div className="h-6 w-14 bg-black rounded-lg flex items-center justify-center gap-1 shadow-2xs">
             <div className="w-2 h-2 rounded-full bg-white/50" />
             <div className="h-2 w-6 bg-white/70 rounded" />
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 
@@ -145,16 +244,17 @@ export const DishListRowSkeleton: React.FC<{ index?: number }> = ({ index = 0 })
  * 完整骨架屏网格组件 - 支持视图模式与数量自定义
  */
 export const DishSkeletonGrid: React.FC<DishSkeletonGridProps> = ({
-  count = 8,
-  viewMode = 'grid'
+  count = 6,
+  viewMode = 'list',
+  animate = true,
 }) => {
   const items = Array.from({ length: count }, (_, i) => i);
 
   if (viewMode === 'list') {
     return (
-      <div className="space-y-1.5 pt-0">
+      <div className="space-y-2 pt-0 w-full overflow-hidden">
         {items.map((i) => (
-          <DishListRowSkeleton key={i} index={i} />
+          <DishListRowSkeleton key={i} index={i} animate={animate} />
         ))}
       </div>
     );
@@ -162,18 +262,18 @@ export const DishSkeletonGrid: React.FC<DishSkeletonGridProps> = ({
 
   if (viewMode === 'grid2') {
     return (
-      <div className="grid grid-cols-2 gap-x-1.5 sm:gap-x-2.5 gap-y-1.5 sm:gap-y-2 pt-0">
+      <div className="grid grid-cols-2 gap-x-2 sm:gap-x-2.5 gap-y-2 sm:gap-y-2.5 pt-0 w-full overflow-hidden">
         {items.map((i) => (
-          <DishCardSkeleton key={i} index={i} />
+          <DishCardSkeleton key={i} index={i} animate={animate} />
         ))}
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-1.5 sm:gap-x-2.5 gap-y-1.5 sm:gap-y-2 pt-0">
+    <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-2 sm:gap-x-2.5 gap-y-2 sm:gap-y-2.5 pt-0 w-full overflow-hidden">
       {items.map((i) => (
-        <DishCardSkeleton key={i} index={i} />
+        <DishCardSkeleton key={i} index={i} animate={animate} />
       ))}
     </div>
   );

@@ -263,7 +263,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
               <span className="truncate">官方防伪取餐凭据</span>
               <span className="text-neutral-500">|</span>
-              <span className="font-mono text-neutral-300 shrink-0">
+              <span className="font-sans text-neutral-300 shrink-0">
                 {currentTime.timeStr}:{currentTime.msStr}
               </span>
             </div>
@@ -297,13 +297,13 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
             <div className="space-y-2 min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <span className="text-[10.5px] text-neutral-400 font-medium">您的专属自提叫号码</span>
-                <span className="text-[9.5px] px-1.5 py-0.2 bg-emerald-950/80 text-emerald-300 border border-emerald-500/30 rounded-xs font-mono whitespace-nowrap">
+                <span className="text-[9.5px] px-1.5 py-0.2 bg-emerald-950/80 text-emerald-300 border border-emerald-500/30 rounded-xs font-sans whitespace-nowrap">
                   ● 65℃恒温锁鲜
                 </span>
               </div>
 
               {/* 大字取餐码 (单行大号突出) */}
-              <div className="font-mono text-3xl sm:text-4xl font-black tracking-widest text-emerald-400 drop-shadow-md select-all leading-none py-0.5">
+              <div className="font-sans text-3xl sm:text-4xl font-black tracking-widest text-emerald-400 drop-shadow-md select-all leading-none py-0.5">
                 #{pickupCode}
               </div>
 
@@ -381,7 +381,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
               </div>
             </div>
 
-            <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-full shrink-0 flex items-center gap-1">
+            <span className="text-[10px] font-sans text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-full shrink-0 flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               <span>恒温锁鲜中</span>
             </span>
@@ -391,7 +391,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
           <div className="flex items-center gap-2">
             {lockerDoorState === 'open' ? (
               <div className="flex items-center justify-between gap-2 w-full">
-                <span className="text-xs text-emerald-400 font-mono font-bold flex items-center gap-1.5 animate-pulse">
+                <span className="text-xs text-emerald-400 font-sans font-bold flex items-center gap-1.5 animate-pulse">
                   <Unlock className="w-4 h-4" />
                   <span>柜门已弹开 ({doorCountDown}s)</span>
                 </span>
@@ -451,7 +451,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
               <PackageCheck className="w-4 h-4 text-emerald-600" />
               <span>自提出餐打包与制作进展</span>
             </span>
-            <span className="font-mono font-bold text-xs text-emerald-700">
+            <span className="font-sans font-bold text-xs text-emerald-700">
               {isCompleted ? '已全部提取 (100%)' : isReady ? '出餐就绪 (100%)' : '炭火备料制作中 (60%)'}
             </span>
           </div>
@@ -492,7 +492,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
                       规格: {dish.options}
                     </p>
                   )}
-                  <div className="flex items-center gap-2 mt-1 text-[10px] font-mono text-[#787774]">
+                  <div className="flex items-center gap-2 mt-1 text-[10px] font-sans text-[#787774]">
                     <span>单价 ¥{dish.price.toFixed(2)}</span>
                     <span>·</span>
                     <span className="font-bold text-[#1a1c1b]">x{dish.quantity} 份</span>
@@ -509,7 +509,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
                   <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                   <span>{isCompleted ? '已提取' : '已入柜保温'}</span>
                 </span>
-                <p className="text-[9px] font-mono text-neutral-400">{dish.station || '01号智能格'}</p>
+                <p className="text-[9px] font-sans text-neutral-400">{dish.station || '01号智能格'}</p>
               </div>
             </div>
           ))}
@@ -581,7 +581,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
                   {isStepCompleted ? (
                     <CheckCircle2 className="w-4 h-4 text-white" />
                   ) : (
-                    <span className="font-mono text-xs font-bold">{idx + 1}</span>
+                    <span className="font-sans text-xs font-bold">{idx + 1}</span>
                   )}
                 </div>
 
@@ -598,7 +598,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
                     <span className={`font-bold ${isCurrent ? 'text-emerald-800' : 'text-[#1a1c1b]'}`}>
                       {step.title}
                     </span>
-                    <span className="text-[10px] font-mono text-[#787774]">
+                    <span className="text-[10px] font-sans text-[#787774]">
                       {step.defaultTime}
                     </span>
                   </div>
@@ -626,7 +626,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
           <button
             type="button"
             onClick={handleNavigateToTruck}
-            className="font-mono text-[10px] text-blue-600 hover:text-blue-800 font-bold flex items-center gap-0.5 underline cursor-pointer"
+            className="font-sans text-[10px] text-blue-600 hover:text-blue-800 font-bold flex items-center gap-0.5 underline cursor-pointer"
           >
             <span>高德测距约 280m (步行 3 分钟)</span>
             <ChevronRight className="w-3 h-3" />
@@ -686,7 +686,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
 
               {/* 大字取餐码 */}
               <div className="py-2">
-                <span className="font-mono text-5xl font-black text-black tracking-widest">
+                <span className="font-sans text-5xl font-black text-black tracking-widest">
                   #{pickupCode}
                 </span>
                 <p className="text-xs text-neutral-500 font-medium mt-1">
@@ -708,7 +708,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
                     );
                   })}
                 </div>
-                <span className="font-mono text-xs text-neutral-700 font-bold tracking-widest mt-2">
+                <span className="font-sans text-xs text-neutral-700 font-bold tracking-widest mt-2">
                   * {pickupCode} - SMART - LOCKER *
                 </span>
               </div>
@@ -758,7 +758,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsShareModalOpen(false)}
-                  className="text-neutral-500 hover:text-black font-mono text-sm cursor-pointer"
+                  className="text-neutral-500 hover:text-black font-sans text-sm cursor-pointer"
                 >
                   ✕
                 </button>
@@ -767,7 +767,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
               <div className="bg-neutral-50 p-3.5 border border-neutral-200 space-y-2 text-xs">
                 <div className="flex items-baseline justify-between border-b border-neutral-200 pb-2">
                   <span className="text-neutral-500">取餐校验码</span>
-                  <span className="font-mono text-2xl font-black text-emerald-700">#{pickupCode}</span>
+                  <span className="font-sans text-2xl font-black text-emerald-700">#{pickupCode}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-neutral-500">保温格位:</span>
@@ -779,7 +779,7 @@ export const PickupTrackingSection: React.FC<PickupTrackingSectionProps> = ({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-neutral-500">餐品数量:</span>
-                  <span className="font-mono font-bold text-neutral-800">{pickupDishes.length} 份</span>
+                  <span className="font-sans font-bold text-neutral-800">{pickupDishes.length} 份</span>
                 </div>
               </div>
 

@@ -276,15 +276,15 @@ export const TableDishProgressView: React.FC<TableDishProgressViewProps> = ({
     : dishes.filter((d) => d.station === filterStation);
 
   return (
-    <div className={`bg-[#f9f9f7] ${isEmbedded ? 'h-full flex-1' : 'min-h-[82vh] rounded-[4px] border border-[#e6e6e4]'} flex flex-col font-sans text-xs overflow-hidden`}>
+    <div className={`bg-neutral-100/50 ${isEmbedded ? 'h-full flex-1' : 'min-h-[82vh] rounded-lg border border-neutral-200'} flex flex-col font-sans text-xs overflow-hidden`}>
       {/* Top Header Bar (Fixed at top) */}
-      <div className={`bg-white border-b border-[#e6e6e4] ${isEmbedded ? 'p-2.5' : 'p-3 sm:p-4'} flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0 z-20 shadow-2xs`}>
+      <div className={`bg-white border-b border-neutral-200 ${isEmbedded ? 'p-2.5' : 'p-3 sm:p-4'} flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0 z-20 shadow-2xs`}>
         <div className="flex items-center gap-2 min-w-0">
           {!isEmbedded && (
             <button
               type="button"
               onClick={onBack}
-              className="p-1.5 hover:bg-[#f7f7f5] rounded-[2px] text-[#37352f] transition-colors cursor-pointer border border-[#e6e6e4] shrink-0"
+              className="p-1.5 hover:bg-neutral-100 rounded-md text-neutral-700 transition-colors cursor-pointer border border-neutral-200 shrink-0"
               title="返回桌台大厅"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -293,37 +293,37 @@ export const TableDishProgressView: React.FC<TableDishProgressViewProps> = ({
 
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-mono font-semibold text-xs sm:text-sm px-1.5 py-0.5 bg-[#37352f] text-white rounded-[2px] shrink-0 leading-none">
+              <span className="font-mono font-black text-xs sm:text-sm px-2 py-0.5 bg-neutral-900 text-white rounded-md shrink-0 leading-none">
                 {table.code}
               </span>
-              <h2 className="text-xs sm:text-sm font-semibold text-[#1a1c1b] tracking-tight truncate">
+              <h2 className="text-xs sm:text-sm font-black text-neutral-900 tracking-tight truncate">
                 {table.name}
               </h2>
-              <span className="text-[9.5px] font-medium px-1.5 py-0.2 rounded-[2px] bg-[#f7f7f5] text-[#787774] border border-[#e6e6e4] shrink-0">
+              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-neutral-100 text-neutral-600 border border-neutral-200 shrink-0">
                 {table.zoneLabel}
               </span>
-              <span className="text-[9.5px] font-medium px-1.5 py-0.2 rounded-[2px] bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc] flex items-center gap-1 shrink-0">
+              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-neutral-100 text-neutral-700 border border-neutral-200 flex items-center gap-1 shrink-0">
                 <Users className="w-2.5 h-2.5" />
                 <span>{table.currentGuests || table.capacity}人</span>
               </span>
             </div>
 
             {/* Order No Pill & Meta */}
-            <div className="flex items-center gap-1.5 mt-1 text-[10.5px] text-[#787774] flex-wrap">
+            <div className="flex items-center gap-1.5 mt-1 text-[10.5px] text-neutral-500 flex-wrap">
               <span className="font-medium shrink-0">单号:</span>
               <div
                 onClick={handleCopyOrderNo}
-                className="font-mono font-medium text-[#1a1c1b] bg-[#f7f7f5] hover:bg-[#e6e6e4] px-1.5 py-0.2 rounded-[2px] border border-[#e6e6e4] flex items-center gap-1 cursor-pointer transition-colors shrink-0"
+                className="font-mono font-bold text-neutral-900 bg-neutral-100 hover:bg-neutral-200 px-1.5 py-0.2 rounded-md border border-neutral-200 flex items-center gap-1 cursor-pointer transition-colors shrink-0"
                 title="点击复制订单号"
               >
                 <span className="truncate max-w-[130px] sm:max-w-none">{orderNo}</span>
-                <Copy className="w-2.5 h-2.5 text-[#787774] shrink-0" />
-                {copiedOrderNo && <span className="text-[9px] text-[#2b593f] font-medium">已复制</span>}
+                <Copy className="w-2.5 h-2.5 text-neutral-400 shrink-0" />
+                {copiedOrderNo && <span className="text-[9px] text-neutral-900 font-bold">已复制</span>}
               </div>
 
-              <span className="text-[#e6e6e4]">|</span>
+              <span className="text-neutral-300">|</span>
               <span className="flex items-center gap-1 shrink-0">
-                <Clock className="w-2.5 h-2.5 text-[#787774]" />
+                <Clock className="w-2.5 h-2.5 text-neutral-400" />
                 <span>开台 {table.elapsedMinutes || 0}m</span>
               </span>
             </div>
@@ -335,10 +335,10 @@ export const TableDishProgressView: React.FC<TableDishProgressViewProps> = ({
           <button
             type="button"
             onClick={handleUrgeEntireTable}
-            className="px-2 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-[2px] font-medium text-xs flex items-center gap-1 cursor-pointer transition-colors shadow-2xs whitespace-nowrap"
+            className="px-2.5 py-1.5 bg-neutral-100 hover:bg-neutral-200 border border-neutral-300 text-neutral-900 rounded-md font-bold text-xs flex items-center gap-1 cursor-pointer transition-colors shadow-2xs whitespace-nowrap"
             title="向后厨下发全桌加急催菜指令"
           >
-            <Flame className="w-3.5 h-3.5 text-rose-600 fill-current shrink-0" />
+            <Flame className="w-3.5 h-3.5 text-neutral-900 shrink-0" />
             <span className="hidden sm:inline">全桌加急催菜</span>
             <span className="inline sm:hidden text-[11px]">催全桌</span>
           </button>
@@ -349,10 +349,10 @@ export const TableDishProgressView: React.FC<TableDishProgressViewProps> = ({
               speakText(`当前${table.code}桌，共${dishes.length}项菜品，已出餐${servedDishCount}道，烹饪中${cookingDishCount}道。`, { persona: 'steady_male' });
               showToast(`已播报桌台 ${table.code} 菜品状态`);
             }}
-            className="px-2 py-1.5 bg-white hover:bg-[#f7f7f5] border border-[#e6e6e4] text-[#37352f] rounded-[2px] font-medium text-xs flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+            className="px-2.5 py-1.5 bg-white hover:bg-neutral-100 border border-neutral-200 text-neutral-700 rounded-md font-bold text-xs flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
             title="语音播报出餐进度"
           >
-            <BellRing className="w-3.5 h-3.5 text-[#d9730d]" />
+            <BellRing className="w-3.5 h-3.5 text-neutral-600" />
             <span className="hidden md:inline">语音状态播报</span>
             <span className="inline md:hidden text-[11px]">播报</span>
           </button>
@@ -361,10 +361,10 @@ export const TableDishProgressView: React.FC<TableDishProgressViewProps> = ({
             <button
               type="button"
               onClick={() => onVoidOrder(table)}
-              className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-[2px] font-medium text-xs flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
+              className="px-2.5 py-1.5 bg-white hover:bg-neutral-100 border border-neutral-200 text-neutral-700 rounded-md font-bold text-xs flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap shadow-2xs"
               title="作废此桌订单并释放台位"
             >
-              <Ban className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+              <Ban className="w-3.5 h-3.5 text-neutral-600 shrink-0" />
               <span>作废本单</span>
             </button>
           )}
@@ -373,7 +373,7 @@ export const TableDishProgressView: React.FC<TableDishProgressViewProps> = ({
             <button
               type="button"
               onClick={() => onOpenBillModal(table)}
-              className="px-2.5 sm:px-3 py-1.5 bg-[#2b593f] hover:bg-[#204430] text-white rounded-[2px] font-medium text-xs flex items-center gap-1 cursor-pointer transition-colors shadow-2xs whitespace-nowrap"
+              className="px-3 sm:px-3.5 py-1.5 bg-neutral-900 hover:bg-black text-white rounded-md font-black text-xs flex items-center gap-1 cursor-pointer transition-all shadow-[0_2px_0_#404040] active:translate-y-0.5 active:shadow-none whitespace-nowrap"
             >
               <ReceiptText className="w-3.5 h-3.5 shrink-0" />
               <span>结账 (¥{(table.totalAmount || 0).toFixed(2)})</span>
@@ -382,108 +382,108 @@ export const TableDishProgressView: React.FC<TableDishProgressViewProps> = ({
         </div>
       </div>
 
-      {/* Main Content Area: Smooth Independent Scrollable Container (解决窄屏无法向下滚动的核心) */}
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 sm:p-4 space-y-3.5 sm:space-y-4 touch-pan-y">
-        {/* Overview Stats Bar (Responsive 2-col for split/narrow screen to prevent squishing) */}
+      {/* Main Content Area */}
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 sm:p-4 space-y-3.5 sm:space-y-4 touch-pan-y custom-scrollbar">
+        {/* Overview Stats Bar */}
         <div className={`grid ${isEmbedded ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-4'} gap-2`}>
-          <div className="bg-white p-2.5 rounded-[4px] border border-[#e6e6e4] shadow-2xs flex items-center justify-between">
+          <div className="bg-white p-2.5 rounded-lg border border-neutral-200 shadow-2xs flex items-center justify-between">
             <div className="min-w-0">
-              <span className="text-[10.5px] text-[#787774] block truncate">点单菜品总数</span>
-              <span className="font-mono font-semibold text-xs sm:text-sm text-[#1a1c1b] block mt-0.5 truncate">
+              <span className="text-[10.5px] text-neutral-500 font-medium block truncate">点单菜品总数</span>
+              <span className="font-mono font-black text-xs sm:text-sm text-neutral-900 block mt-0.5 truncate">
                 {dishes.length} 项 ({totalDishCount} 件)
               </span>
             </div>
-            <UtensilsCrossed className="w-4 h-4 text-[#787774] shrink-0 ml-1" />
+            <UtensilsCrossed className="w-4 h-4 text-neutral-400 shrink-0 ml-1" />
           </div>
 
-          <div className="bg-[#edf3ec] p-2.5 rounded-[4px] border border-[#c4dcbc] shadow-2xs flex items-center justify-between">
+          <div className="bg-white p-2.5 rounded-lg border border-neutral-200 shadow-2xs flex items-center justify-between">
             <div className="min-w-0">
-              <span className="text-[10.5px] text-[#2b593f] block truncate">已出餐上桌</span>
-              <span className="font-mono font-semibold text-xs sm:text-sm text-[#2b593f] block mt-0.5 truncate">
+              <span className="text-[10.5px] text-neutral-500 font-medium block truncate">已出餐上桌</span>
+              <span className="font-mono font-black text-xs sm:text-sm text-neutral-900 block mt-0.5 truncate">
                 {servedDishCount} / {totalDishCount} 件
               </span>
             </div>
-            <CheckCircle2 className="w-4 h-4 text-[#2b593f] shrink-0 ml-1" />
+            <CheckCircle2 className="w-4 h-4 text-neutral-900 shrink-0 ml-1" />
           </div>
 
-          <div className="bg-[#fbf3db] p-2.5 rounded-[4px] border border-[#ecd9a8] shadow-2xs flex items-center justify-between">
+          <div className="bg-white p-2.5 rounded-lg border border-neutral-200 shadow-2xs flex items-center justify-between">
             <div className="min-w-0">
-              <span className="text-[10.5px] text-[#8f6412] block truncate">炉火制作中</span>
-              <span className="font-mono font-semibold text-xs sm:text-sm text-[#8f6412] block mt-0.5 truncate">
+              <span className="text-[10.5px] text-neutral-500 font-medium block truncate">炉火制作中</span>
+              <span className="font-mono font-black text-xs sm:text-sm text-neutral-900 block mt-0.5 truncate">
                 {cookingDishCount} 件
               </span>
             </div>
-            <Flame className="w-4 h-4 text-[#d9730d] shrink-0 ml-1" />
+            <Flame className="w-4 h-4 text-neutral-600 shrink-0 ml-1" />
           </div>
 
-          <div className="bg-[#fdf2f2] p-2.5 rounded-[4px] border border-[#fbd0d0] shadow-2xs flex items-center justify-between">
+          <div className="bg-white p-2.5 rounded-lg border border-neutral-200 shadow-2xs flex items-center justify-between">
             <div className="min-w-0">
-              <span className="text-[10.5px] text-[#a82a2a] block truncate">加急催菜项</span>
-              <span className="font-mono font-semibold text-xs sm:text-sm text-[#a82a2a] block mt-0.5 truncate">
+              <span className="text-[10.5px] text-neutral-500 font-medium block truncate">加急催菜项</span>
+              <span className="font-mono font-black text-xs sm:text-sm text-neutral-900 block mt-0.5 truncate">
                 {urgedDishCount} 件
               </span>
             </div>
-            <AlertCircle className={`w-4 h-4 text-[#a82a2a] shrink-0 ml-1 ${urgedDishCount > 0 ? 'animate-bounce' : ''}`} />
+            <AlertCircle className={`w-4 h-4 text-neutral-700 shrink-0 ml-1 ${urgedDishCount > 0 ? 'animate-bounce' : ''}`} />
           </div>
         </div>
 
-        {/* Section: Status Flow Nodes (堂食履约状态流转节点 - 防止窄屏挤扁) */}
-        <div className="bg-white rounded-[4px] border border-[#e6e6e4] p-3 sm:p-3.5 shadow-2xs">
+        {/* Section: Status Flow Nodes */}
+        <div className="bg-white rounded-lg border border-neutral-200 p-3 sm:p-3.5 shadow-2xs">
           <div className="flex items-center justify-between mb-2.5 flex-wrap gap-1.5">
             <div className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-[#37352f]" />
-              <h3 className="font-semibold text-xs text-[#1a1c1b]">堂食履约流转阶段</h3>
+              <Layers className="w-4 h-4 text-neutral-900" />
+              <h3 className="font-black text-xs text-neutral-900">堂食履约流转阶段</h3>
             </div>
-            <span className="text-[10px] font-mono text-[#787774] bg-[#f7f7f5] px-2 py-0.5 rounded-[2px] border border-[#e6e6e4]">
+            <span className="text-[10px] font-mono font-bold text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-md border border-neutral-200">
               当前: {flowNodes.find((n) => n.status === 'current')?.title || '出餐上桌中'}
             </span>
           </div>
 
-          {/* Stepper Grid: In embedded or narrow mode, use 2-col / 3-col grid with ample card width */}
+          {/* Stepper Grid */}
           <div className={`grid ${isEmbedded ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-3 xl:grid-cols-6'} gap-2`}>
             {flowNodes.map((node, idx) => {
               const isDone = node.status === 'completed';
               const isCurrent = node.status === 'current';
               const isPending = node.status === 'pending';
 
-              let cardBg = 'bg-[#fbfbfa] border-[#e6e6e4] text-[#787774]';
-              let badgeColor = 'bg-[#e6e6e4] text-[#787774]';
+              let cardBg = 'bg-neutral-50 border-neutral-200 text-neutral-600';
+              let badgeColor = 'bg-neutral-200 text-neutral-600';
 
               if (isDone) {
-                cardBg = 'bg-[#edf3ec] border-[#c4dcbc] text-[#2b593f]';
-                badgeColor = 'bg-[#2b593f] text-white';
+                cardBg = 'bg-white border-neutral-300 text-neutral-900';
+                badgeColor = 'bg-neutral-900 text-white font-bold';
               } else if (isCurrent) {
-                cardBg = 'bg-white border-[#37352f] ring-1 ring-[#37352f]/20 shadow-2xs text-[#1a1c1b]';
-                badgeColor = 'bg-[#37352f] text-white animate-pulse';
+                cardBg = 'bg-white border-neutral-900 ring-2 ring-neutral-900/10 shadow-xs text-neutral-900';
+                badgeColor = 'bg-neutral-900 text-white font-black animate-pulse';
               }
 
               return (
                 <div
                   key={node.id || idx}
                   onClick={() => handleAdvanceFlowNode(node.nodeKey)}
-                  className={`p-2 sm:p-2.5 rounded-[2px] border ${cardBg} flex flex-col justify-between transition-all cursor-pointer hover:border-[#37352f] group min-h-[72px]`}
+                  className={`p-2 sm:p-2.5 rounded-lg border ${cardBg} flex flex-col justify-between transition-all cursor-pointer hover:border-neutral-900 group min-h-[72px]`}
                   title="点击切换为此流转节点"
                 >
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className={`text-[9.5px] font-mono font-medium px-1.5 py-0.2 rounded-[2px] ${badgeColor}`}>
+                      <span className={`text-[9.5px] font-mono font-bold px-1.5 py-0.2 rounded-md ${badgeColor}`}>
                         阶段 {idx + 1}
                       </span>
-                      {isDone && <CheckCircle2 className="w-3.5 h-3.5 text-[#2b593f] shrink-0" />}
-                      {isCurrent && <span className="w-2 h-2 rounded-full bg-[#d9730d] animate-ping shrink-0" />}
+                      {isDone && <CheckCircle2 className="w-3.5 h-3.5 text-neutral-900 shrink-0" />}
+                      {isCurrent && <span className="w-2 h-2 rounded-full bg-neutral-900 animate-ping shrink-0" />}
                     </div>
 
-                    <h4 className="font-medium text-xs mt-1 group-hover:text-[#37352f] truncate">
+                    <h4 className="font-bold text-xs mt-1 group-hover:text-neutral-900 truncate">
                       {node.title}
                     </h4>
-                    <p className="text-[10px] leading-snug opacity-80 line-clamp-2">
+                    <p className="text-[10px] leading-snug text-neutral-500 line-clamp-2">
                       {node.description}
                     </p>
                   </div>
 
-                  <div className="pt-1.5 mt-1.5 border-t border-black/5 flex items-center justify-between text-[9.5px] font-mono opacity-80">
+                  <div className="pt-1.5 mt-1.5 border-t border-neutral-100 flex items-center justify-between text-[9.5px] font-mono text-neutral-400">
                     <span>{node.time || '--:--'}</span>
-                    <span className="font-medium">{isDone ? '已核验' : isCurrent ? '进行中' : '待流转'}</span>
+                    <span className="font-bold text-neutral-600">{isDone ? '已核验' : isCurrent ? '进行中' : '待流转'}</span>
                   </div>
                 </div>
               );
@@ -491,29 +491,29 @@ export const TableDishProgressView: React.FC<TableDishProgressViewProps> = ({
           </div>
         </div>
 
-        {/* Section: Dishes Preparation & Serving Status (菜品制作与传菜情况清单) */}
-        <div className="bg-white rounded-[4px] border border-[#e6e6e4] overflow-hidden shadow-2xs">
+        {/* Section: Dishes Preparation & Serving Status */}
+        <div className="bg-white rounded-lg border border-neutral-200 overflow-hidden shadow-2xs">
           {/* List Header & Station Filter */}
-          <div className="p-3 border-b border-[#e6e6e4] flex items-center justify-between gap-2 flex-wrap bg-[#fbfbfa]">
+          <div className="p-3 border-b border-neutral-200 flex items-center justify-between gap-2 flex-wrap bg-neutral-50">
             <div className="flex items-center gap-2">
-              <ChefHat className="w-4 h-4 text-[#37352f]" />
-              <h3 className="font-semibold text-xs text-[#1a1c1b]">
+              <ChefHat className="w-4 h-4 text-neutral-900" />
+              <h3 className="font-black text-xs text-neutral-900">
                 菜品出餐与上桌清单 ({dishes.length}道菜品)
               </h3>
             </div>
 
-            {/* Station Filter Pills (Scrollable horizontally in narrow screen) */}
+            {/* Station Filter Pills */}
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 max-w-full">
-              <span className="text-[11px] text-[#787774] shrink-0">档口:</span>
+              <span className="text-[11px] text-neutral-500 font-bold shrink-0">档口:</span>
               {stations.map((st) => (
                 <button
                   key={st}
                   type="button"
                   onClick={() => setFilterStation(st)}
-                  className={`px-2 py-0.5 rounded-[2px] text-[10.5px] font-medium transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
+                  className={`px-2 py-0.5 rounded-md text-[10.5px] font-bold transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
                     filterStation === st
-                      ? 'bg-[#37352f] text-white font-medium'
-                      : 'bg-white border border-[#e6e6e4] text-[#37352f] hover:bg-[#f7f7f5]'
+                      ? 'bg-neutral-900 text-white'
+                      : 'bg-white border border-neutral-200 text-neutral-700 hover:bg-neutral-100'
                   }`}
                 >
                   {st === 'all' ? '全部档口' : st}
@@ -522,11 +522,11 @@ export const TableDishProgressView: React.FC<TableDishProgressViewProps> = ({
             </div>
           </div>
 
-          {/* Dishes List: Self-contained items with comfortable top-down cards on narrow views */}
-          <div className="divide-y divide-[#efefed]">
+          {/* Dishes List */}
+          <div className="divide-y divide-neutral-100">
             {filteredDishes.length === 0 ? (
-              <div className="p-8 text-center text-[#787774] space-y-2">
-                <UtensilsCrossed className="w-8 h-8 mx-auto text-[#d3d1cb]" />
+              <div className="p-8 text-center text-neutral-400 space-y-2">
+                <UtensilsCrossed className="w-8 h-8 mx-auto text-neutral-300" />
                 <p>暂无符合筛选档口的菜品</p>
               </div>
             ) : (
@@ -543,62 +543,56 @@ export const TableDishProgressView: React.FC<TableDishProgressViewProps> = ({
                   <div
                     key={dish.id || idx}
                     className={`p-3 transition-colors flex flex-col gap-2.5 ${
-                      isUrged ? 'bg-[#fdf2f2]/60' : isServed ? 'bg-[#fafbfa]' : 'hover:bg-[#fbfbfa]'
+                      isUrged ? 'bg-neutral-100/80' : isServed ? 'bg-neutral-50/50' : 'hover:bg-neutral-50'
                     }`}
                   >
                     {/* Top Row: Index + Title + Price + Tags */}
                     <div className="flex items-start gap-2.5">
-                      <div className="w-5 h-5 rounded-[2px] bg-[#f7f7f5] border border-[#e6e6e4] flex items-center justify-center shrink-0 font-mono font-medium text-xs text-[#37352f]">
+                      <div className="w-5 h-5 rounded-md bg-neutral-100 border border-neutral-200 flex items-center justify-center shrink-0 font-mono font-bold text-xs text-neutral-700">
                         {idx + 1}
                       </div>
 
                       <div className="flex-1 min-w-0 space-y-1">
                         <div className="flex items-center justify-between gap-1.5">
                           <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                            <span className="font-medium text-xs sm:text-sm text-[#1a1c1b] truncate">
+                            <span className="font-bold text-xs sm:text-sm text-neutral-900 truncate">
                               {dish.name}
                             </span>
-                            <span className="font-mono font-medium text-xs text-[#787774] shrink-0">
+                            <span className="font-mono font-bold text-xs text-neutral-400 shrink-0">
                               x{dish.quantity}
                             </span>
                             {dish.station && (
-                              <span className="text-[9.5px] font-medium px-1.5 py-0.2 rounded-[2px] bg-[#f7f7f5] text-[#787774] border border-[#e6e6e4] shrink-0">
+                              <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-md bg-neutral-100 text-neutral-600 border border-neutral-200 shrink-0">
                                 {dish.station}
                               </span>
                             )}
                             {dish.isChefSpecial && (
-                              <span className="text-[9px] font-medium px-1.5 py-0.2 rounded-[2px] bg-[#fbf3db] text-[#8f6412] border border-[#ecd9a8] shrink-0">
+                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-md bg-neutral-900 text-white shrink-0">
                                 招牌现制
                               </span>
                             )}
                           </div>
 
-                          <span className="font-mono text-xs sm:text-sm text-[#2b593f] font-semibold shrink-0">
+                          <span className="font-mono text-xs sm:text-sm text-neutral-900 font-black shrink-0">
                             ¥{(dish.price * dish.quantity).toFixed(2)}
                           </span>
                         </div>
 
                         {dish.options && (
-                          <p className="text-[11px] text-[#787774] truncate">
-                            规格要求: <span className="text-[#37352f]">{dish.options}</span>
+                          <p className="text-[11px] text-neutral-500 truncate">
+                            规格要求: <span className="text-neutral-700 font-medium">{dish.options}</span>
                           </p>
                         )}
 
                         {/* Progress Bar */}
                         <div className="pt-0.5 space-y-1">
                           <div className="flex items-center justify-between text-[10px]">
-                            <span className="text-[#787774]">制作出餐进度:</span>
-                            <span className="font-mono font-medium text-[#37352f]">{progress}%</span>
+                            <span className="text-neutral-400">制作出餐进度:</span>
+                            <span className="font-mono font-bold text-neutral-900">{progress}%</span>
                           </div>
-                          <div className="h-1.5 w-full bg-[#e6e6e4] rounded-[1px] overflow-hidden">
+                          <div className="h-1.5 w-full bg-neutral-100 rounded-full overflow-hidden border border-neutral-200">
                             <div
-                              className={`h-full transition-all duration-500 rounded-[1px] ${
-                                isServed
-                                  ? 'bg-[#2b593f]'
-                                  : isUrged
-                                  ? 'bg-[#e03e3e] animate-pulse'
-                                  : 'bg-[#37352f]'
-                              }`}
+                              className="h-full bg-neutral-900 transition-all duration-500 rounded-full"
                               style={{ width: `${progress}%` }}
                             />
                           </div>
@@ -606,34 +600,34 @@ export const TableDishProgressView: React.FC<TableDishProgressViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Bottom Row: Status Badge & Interactive Action Buttons (Clean & un-squeezed) */}
-                    <div className="pt-2 border-t border-[#efefed] flex items-center justify-between gap-2 flex-wrap">
+                    {/* Bottom Row: Status Badge & Interactive Action Buttons */}
+                    <div className="pt-2 border-t border-neutral-100 flex items-center justify-between gap-2 flex-wrap">
                       {/* Left: Status Badge */}
                       <div className="min-w-0">
                         {isServed && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] bg-[#edf3ec] text-[#2b593f] border border-[#c4dcbc] font-medium text-xs">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-neutral-900 text-white font-bold text-xs">
                             <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                             <span>已上桌</span>
-                            {dish.serveTime && <span className="font-mono font-normal text-[10px]">({dish.serveTime})</span>}
+                            {dish.serveTime && <span className="font-mono font-normal text-[10px] text-neutral-300">({dish.serveTime})</span>}
                           </span>
                         )}
 
                         {isCooking && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] bg-[#fbf3db] text-[#8f6412] border border-[#ecd9a8] font-medium text-xs">
-                            <Flame className="w-3.5 h-3.5 text-[#d9730d] shrink-0" />
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-700 border border-neutral-200 font-bold text-xs">
+                            <Flame className="w-3.5 h-3.5 text-neutral-700 shrink-0" />
                             <span>烹饪制作中</span>
                           </span>
                         )}
 
                         {isReady && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] bg-[#edf3f8] text-[#1c5598] border border-[#c4d6ec] font-medium text-xs">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-800 border border-neutral-200 font-bold text-xs">
                             <Sparkles className="w-3.5 h-3.5 shrink-0" />
                             <span>待出餐上桌</span>
                           </span>
                         )}
 
                         {isUrged && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] bg-[#fdf2f2] text-[#e03e3e] border border-[#fbd0d0] font-medium text-xs animate-pulse">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-neutral-900 text-white font-bold text-xs animate-pulse">
                             <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                             <span>催单加急中</span>
                           </span>
@@ -646,10 +640,10 @@ export const TableDishProgressView: React.FC<TableDishProgressViewProps> = ({
                         <button
                           type="button"
                           onClick={() => handleToggleDishStatus(originalIndex)}
-                          className={`px-2.5 sm:px-3 py-1.5 rounded-[2px] font-medium text-xs flex items-center gap-1 transition-colors cursor-pointer shadow-2xs whitespace-nowrap ${
+                          className={`px-3 py-1.5 rounded-md font-bold text-xs flex items-center gap-1 transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
                             isServed
-                              ? 'bg-white text-[#787774] hover:bg-[#f7f7f5] border border-[#e6e6e4]'
-                              : 'bg-[#2b593f] text-white hover:bg-[#204430]'
+                              ? 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+                              : 'bg-neutral-900 text-white hover:bg-black shadow-[0_2px_0_#404040] active:translate-y-0.5 active:shadow-none'
                           }`}
                           title={isServed ? '点击撤回为烹饪制作状态' : '点击确认该菜品已送至桌台'}
                         >
@@ -662,7 +656,7 @@ export const TableDishProgressView: React.FC<TableDishProgressViewProps> = ({
                           <button
                             type="button"
                             onClick={(e) => handleUrgeDish(originalIndex, e)}
-                            className="px-2 sm:px-2.5 py-1.5 bg-[#fdf2f2] hover:bg-[#fbe4e4] border border-[#fbd0d0] text-[#e03e3e] rounded-[2px] font-medium text-xs flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap"
+                            className="px-2.5 py-1.5 bg-white hover:bg-neutral-100 border border-neutral-200 text-neutral-700 rounded-md font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap shadow-2xs"
                             title="向后厨发送加急出餐催促"
                           >
                             <AlertCircle className="w-3.5 h-3.5 shrink-0" />
@@ -679,18 +673,18 @@ export const TableDishProgressView: React.FC<TableDishProgressViewProps> = ({
         </div>
       </div>
 
-      {/* Bottom Fixed Action Footer (Fixed at bottom with auto-wrapping grid) */}
-      <div className="bg-white border-t border-[#e6e6e4] p-2.5 sm:p-3 flex flex-col gap-2 shrink-0 z-20 shadow-xs">
-        <div className="flex items-center justify-between text-xs text-[#787774]">
+      {/* Bottom Fixed Action Footer */}
+      <div className="bg-white border-t border-neutral-200 p-2.5 sm:p-3 flex flex-col gap-2 shrink-0 z-20 shadow-xs">
+        <div className="flex items-center justify-between text-xs text-neutral-500">
           <div className="flex items-center gap-1.5">
-            <Info className="w-3.5 h-3.5 text-[#37352f] shrink-0" />
+            <Info className="w-3.5 h-3.5 text-neutral-700 shrink-0" />
             <span>
-              目前出餐完成率: <strong className="text-[#1a1c1b]">{totalDishCount > 0 ? Math.round((servedDishCount / totalDishCount) * 100) : 0}%</strong> ({servedDishCount}/{totalDishCount} 件)
+              目前出餐完成率: <strong className="text-neutral-900 font-bold">{totalDishCount > 0 ? Math.round((servedDishCount / totalDishCount) * 100) : 0}%</strong> ({servedDishCount}/{totalDishCount} 件)
             </span>
           </div>
-          <div className="w-24 sm:w-32 bg-[#e6e6e4] h-1.5 rounded-[1px] overflow-hidden">
+          <div className="w-24 sm:w-32 bg-neutral-100 h-1.5 rounded-full overflow-hidden border border-neutral-200">
             <div
-              className="bg-[#2b593f] h-full rounded-[1px] transition-all duration-300"
+              className="bg-neutral-900 h-full rounded-full transition-all duration-300"
               style={{ width: `${totalDishCount > 0 ? (servedDishCount / totalDishCount) * 100 : 0}%` }}
             />
           </div>
@@ -701,10 +695,10 @@ export const TableDishProgressView: React.FC<TableDishProgressViewProps> = ({
             type="button"
             onClick={handleMarkAllServed}
             disabled={servedDishCount === totalDishCount}
-            className="px-2 py-1.5 sm:py-2 bg-[#37352f] hover:bg-[#201f1d] disabled:opacity-50 text-white rounded-[2px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-2xs whitespace-nowrap truncate"
+            className="px-2 py-1.5 sm:py-2 bg-neutral-900 hover:bg-black disabled:opacity-40 text-white rounded-md font-black text-xs flex items-center justify-center gap-1 cursor-pointer transition-all shadow-[0_2px_0_#404040] active:translate-y-0.5 active:shadow-none whitespace-nowrap truncate"
             title="一键将全部菜品更新为已出齐上桌"
           >
-            <CheckCircle2 className="w-3.5 h-3.5 text-[#4dab63] shrink-0" />
+            <CheckCircle2 className="w-3.5 h-3.5 text-white shrink-0" />
             <span className="truncate">一键全上齐</span>
           </button>
 
@@ -717,17 +711,17 @@ export const TableDishProgressView: React.FC<TableDishProgressViewProps> = ({
               });
               showToast(`全单催菜广播已发送至餐车后厨KDS！`);
             }}
-            className="px-2 py-1.5 sm:py-2 bg-white hover:bg-[#f7f7f5] text-[#d9730d] border border-[#ecd9a8] rounded-[2px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors whitespace-nowrap truncate shadow-2xs"
+            className="px-2 py-1.5 sm:py-2 bg-white hover:bg-neutral-100 text-neutral-800 border border-neutral-200 rounded-md font-bold text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors whitespace-nowrap truncate shadow-2xs"
             title="通过车载语音和屏幕广播全单催促后厨出餐"
           >
-            <BellRing className="w-3.5 h-3.5 shrink-0" />
+            <BellRing className="w-3.5 h-3.5 text-neutral-600 shrink-0" />
             <span className="truncate">全单催菜</span>
           </button>
 
           <button
             type="button"
             onClick={onBack}
-            className="px-2 py-1.5 sm:py-2 bg-white hover:bg-[#f7f7f5] text-[#37352f] border border-[#e6e6e4] rounded-[2px] font-medium text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors whitespace-nowrap truncate shadow-2xs"
+            className="px-2 py-1.5 sm:py-2 bg-white hover:bg-neutral-100 text-neutral-700 border border-neutral-200 rounded-md font-bold text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors whitespace-nowrap truncate shadow-2xs"
             title="返回桌台看板主厅"
           >
             <span className="truncate">返回大厅</span>

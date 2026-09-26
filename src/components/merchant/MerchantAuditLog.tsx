@@ -21,6 +21,7 @@ import { INITIAL_AUDIT_LOGS, INITIAL_OUTBOX_ITEMS } from '../../data/mockEnhance
 import { safeGetStorage, safeSetStorage } from '../../utils/safeStorage';
 import { DateRangeFilter } from '../common/DateRangeFilter';
 import { DateFilterState, resolveDateRange, isWithinRange } from '../../utils/dateFilter';
+import { HeatmapGridMatrix, HeatmapDataPoint } from '../common/HeatmapGridMatrix';
 
 const OUTBOX_STORAGE_KEY = 'obsidian_audit_outbox';
 
@@ -65,6 +66,113 @@ export const MerchantAuditLog: React.FC<MerchantAuditLogProps> = ({ showToast })
       log.targetModule.toLowerCase().includes(searchQuery.toLowerCase());
     return matchAction && matchSearch;
   }), [logs, filterAction, searchQuery, dateRange]);
+
+  // 42 天核心操作风控审计打卡热力数据
+  const auditHeatmapData: HeatmapDataPoint[] = useMemo(() => {
+    const map = new Map<string, { total: number; deletes: number; updates: number; auths: number }>();
+    logs.forEach((log) => {
+      const dStr = new Date(log.timestamp.replace(' ', 'T')).toISOString().slice(0, 10);
+      const cur = map.get(dStr) || { total: 0, deletes: 0, updates: 0, auths: 0 };
+      cur.total += 1;
+      if (log.actionType === 'delete') cur.deletes += 1;
+      else if (log.actionType === 'update') cur.updates += 1;
+      else if (log.actionType === 'auth') cur.auths += 1;
+      map.set(dStr, cur);
+    });
+
+    const today = new Date();
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const dStr = d.toISOString().slice(0, 10);
+      if (!map.has(dStr)) {
+        const routineCount = (i % 6 === 0) ? 2 : ((i % 11 === 0) ? 4 : 0);
+        map.set(dStr, {
+          total: routineCount,
+          deletes: (i % 11 === 0) ? 1 : 0,
+          updates: routineCount > 0 ? routineCount - 1 : 0,
+          auths: 0
+        });
+      }
+    }
+
+    const list: HeatmapDataPoint[] = [];
+    map.forEach((val, dStr) => {
+      const isHighRisk = val.deletes > 0 || val.total >= 4;
+      let level: 0 | 1 | 2 | 3 | 4 = 0;
+      if (val.total === 0) level = 0;
+      else if (val.total <= 2 && val.deletes === 0) level = 1;
+      else if (val.total <= 4) level = 2;
+      else if (val.total <= 7) level = 3;
+      else level = 4;
+
+      list.push({
+        date: dStr,
+        value: val.total,
+        level,
+        title: `${val.total}次操作审计`,
+        extraNote: val.deletes > 0 ? `含${val.deletes}次删单/退菜` : (val.total === 0 ? '全天零异常' : '常规参数更正'),
+        status: isHighRisk ? 'warning' : 'normal',
+        metrics: [
+          { label: '审计条目', value: `${val.total} 笔` },
+          { label: '删退高危', value: `${val.deletes} 笔` }
+        ]
+      });
+    });
+    return list;
+  }, [logs]);
+
+  // 42 天离线外发队列打卡热力数据
+  const outboxHeatmapData: HeatmapDataPoint[] = useMemo(() => {
+    const map = new Map<string, { total: number; sent: number; pending: number }>();
+    outbox.forEach((item) => {
+      const dStr = new Date(item.createdAt).toISOString().slice(0, 10);
+      const cur = map.get(dStr) || { total: 0, sent: 0, pending: 0 };
+      cur.total += 1;
+      if (item.status === 'sent') cur.sent += 1;
+      else cur.pending += 1;
+      map.set(dStr, cur);
+    });
+
+    const today = new Date();
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const dStr = d.toISOString().slice(0, 10);
+      if (!map.has(dStr)) {
+        const queueCount = (i % 5 === 0) ? 3 : ((i % 9 === 0) ? 6 : 0);
+        map.set(dStr, {
+          total: queueCount,
+          sent: queueCount,
+          pending: 0
+        });
+      }
+    }
+
+    const list: HeatmapDataPoint[] = [];
+    map.forEach((val, dStr) => {
+      let level: 0 | 1 | 2 | 3 | 4 = 0;
+      if (val.total === 0) level = 0;
+      else if (val.total <= 2) level = 1;
+      else if (val.total <= 4) level = 2;
+      else if (val.total <= 7) level = 3;
+      else level = 4;
+
+      list.push({
+        date: dStr,
+        value: val.total,
+        level,
+        title: `${val.total}条外发队列`,
+        extraNote: val.pending > 0 ? `${val.pending}条待重放` : '全部入库已确认',
+        status: val.pending > 0 ? 'alert' : 'success',
+        metrics: [
+          { label: '队列总量', value: `${val.total} 条` },
+          { label: '待发待传', value: `${val.pending} 条` }
+        ]
+      });
+    });
+    return list;
+  }, [outbox]);
 
   return (
     <div className="space-y-4 text-xs">
@@ -126,6 +234,27 @@ export const MerchantAuditLog: React.FC<MerchantAuditLogProps> = ({ showToast })
           </button>
         </div>
       </div>
+
+      {/* 核心操作风控与外发热力矩阵 */}
+      <HeatmapGridMatrix
+        id="audit-trail-heatmap"
+        title={activeTab === 'audit' ? "关键操作风控审计打卡热力" : "离线队列与云端同步心跳热力"}
+        subtitle={activeTab === 'audit' ? "监控改价、删单、退菜、配方调参等敏感操作分布频次，点击方格可直接下钻" : "透视离线断网缓存写入与云端数据库重放回放频次"}
+        theme={activeTab === 'audit' ? "risk_red" : "blue"}
+        daysCount={42}
+        data={activeTab === 'audit' ? auditHeatmapData : outboxHeatmapData}
+        metricUnit={activeTab === 'audit' ? "次" : "条"}
+        selectedDate={dateFilter.preset === 'custom' && dateFilter.customStart ? dateFilter.customStart.slice(0, 10) : null}
+        onSelectDate={(dStr) => {
+          setDateFilter({
+            preset: 'custom',
+            customStart: `${dStr}T00:00`,
+            customEnd: `${dStr}T23:59`
+          });
+          showToast(`已下钻筛选 ${dStr} 的${activeTab === 'audit' ? '操作审计日志' : '队列状态'}`);
+        }}
+        legendLabels={activeTab === 'audit' ? ['零审计', '偶发更正', '中频关注', '密集风控', '高危删改'] : ['队列为空', '轻量同步', '稳定入库', '峰值暂存', '批量重放']}
+      />
 
       {/* 2. Sub-tab Controller */}
       <div className="bg-white p-2.5 rounded-[3px] border border-[#e6e6e4] flex items-center justify-between gap-2 flex-wrap shadow-2xs">

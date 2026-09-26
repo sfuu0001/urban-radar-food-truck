@@ -10,6 +10,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { HeldOrder } from '../../types';
+import { DynamicEmergencyStrobe } from '../common/DynamicIcons';
 
 interface MerchantHeldOrdersProps {
   heldOrders: HeldOrder[];
@@ -43,8 +44,9 @@ export const MerchantHeldOrders: React.FC<MerchantHeldOrdersProps> = ({
             <div className="flex items-center gap-2">
               <h4 className="font-semibold text-sm text-[#37352f]">未结算账单与逃单风控中心</h4>
               {highRiskCount > 0 && (
-                <span className="text-[10px] font-medium bg-[#eb5757] text-white px-2 py-0.2 rounded-[2px] animate-pulse">
-                  {highRiskCount} 单高危超时
+                <span className="text-[11px] font-bold bg-[#eb5757] text-white px-2 py-0.5 rounded-[2px] inline-flex items-center gap-1 shadow-2xs">
+                  <DynamicEmergencyStrobe size={12} active={true} />
+                  <span>{highRiskCount} 单高危超时</span>
                 </span>
               )}
             </div>
@@ -56,7 +58,7 @@ export const MerchantHeldOrders: React.FC<MerchantHeldOrdersProps> = ({
 
         <div className="text-right">
           <span className="text-[10px] text-[#787774] font-normal block">挂账资金池风险总额:</span>
-          <span className="text-lg font-mono font-semibold text-[#2b593f]">
+          <span className="text-lg font-bold text-[#2b593f]">
             ¥{totalHeldAmount.toFixed(2)}
           </span>
         </div>
@@ -117,14 +119,14 @@ export const MerchantHeldOrders: React.FC<MerchantHeldOrdersProps> = ({
                       {order.items.map((it, idx) => (
                         <div key={idx} className="flex justify-between text-[11px]">
                           <span className="text-[#37352f] font-normal">{it.name}</span>
-                          <span className="font-mono text-[#787774] font-normal">x{it.quantity}</span>
+                          <span className="text-[#787774] font-medium">x{it.quantity}</span>
                         </div>
                       ))}
                     </div>
 
                     <div className="flex items-center justify-between pt-1">
                       <span className="text-[11px] text-[#787774] font-normal">未结账应收总额:</span>
-                      <span className="font-mono font-semibold text-base text-[#2b593f]">
+                      <span className="font-bold text-base text-[#2b593f]">
                         ¥{order.totalAmount.toFixed(2)}
                       </span>
                     </div>

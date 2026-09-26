@@ -36,7 +36,7 @@ export const TrackingHeader: React.FC<TrackingHeaderProps> = ({
               <ArrowLeft className="w-3.5 h-3.5 stroke-[2.2]" />
             </button>
           )}
-          <span className="bg-[#f0f0ee] text-[#2c2d2a] font-bold px-2 py-0.5 text-[11.5px] font-mono rounded-none border border-[#e5e5df] shrink-0">
+          <span className="bg-[#f0f0ee] text-[#2c2d2a] font-bold px-2 py-0.5 text-[11.5px] font-sans rounded-none border border-[#e5e5df] shrink-0">
             {orderId}
           </span>
           <span className="text-[#888880] text-[11px] shrink-0">{orderTime}</span>

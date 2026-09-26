@@ -33,6 +33,9 @@ import { UserProfile, Order } from '../types';
 import { safeGetStorage, safeSetStorage } from '../utils/safeStorage';
 import { useDevSimulation } from '../context/DevSimulationContext';
 import { useToast } from './ui/ToastContext';
+import { ACTIVE_BUILD_VERSION, manualForceCloudPurgeAndReload } from '../utils/versionPurgeGateway';
+import { purgeUserSessionAndLogout } from '../utils/cloudUserSync';
+import { OrganicCardReveal } from '../utils/useCardScrollReveal';
 
 interface ProfilePageViewProps {
   onOpenRadar?: () => void;
@@ -173,9 +176,23 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
     }
   };
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    await purgeUserSessionAndLogout();
     setIsSignedOut(true);
-    toast.info('已安全退出登录', '已切换为访客模式');
+    toast.info('已安全退出登录', '已清空本地用户文件与凭据残留，切换至纯净访客模式');
+    if (onProfileUpdated) {
+      onProfileUpdated({
+        uid: 'guest',
+        nickname: '访客食客',
+        phone: '',
+        membershipTier: 'standard',
+        points: 0,
+        balance: 0,
+        couponsCount: 0,
+        addresses: [],
+        favoriteDishIds: []
+      } as any);
+    }
   };
 
   const handleOpenAuth = (mode: 'sms' | 'password' | 'register' | 'auto' | 'presets' | 'login' = 'sms') => {
@@ -257,7 +274,8 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
         {/* END: HeaderSection */}
 
         {/* BEGIN: UserProfileBar */}
-        <section className="bg-white rounded-xl p-3 border border-brand-border shadow-card flex items-center justify-between" data-purpose="user-profile-summary">
+        <OrganicCardReveal className="w-full">
+          <section className="bg-white rounded-xl p-3 border border-brand-border shadow-card flex items-center justify-between" data-purpose="user-profile-summary">
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
             {/* Avatar with verified check badge */}
             <div className="relative flex-shrink-0">
@@ -285,12 +303,12 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
                 <span className="text-xs font-bold text-neutral-900 tracking-tight truncate">
                   {isSignedOut ? '访客食客 (未登录)' : userProfile.nickname || '黑曜石先锋食客 #7F72E5'}
                 </span>
-                <span className="text-[10px] bg-neutral-100 text-neutral-500 font-mono px-1.5 py-0.2 rounded border border-neutral-200">
+                <span className="text-[10px] bg-neutral-100 text-neutral-500 font-medium px-1.5 py-0.2 rounded border border-neutral-200">
                   UID: {isSignedOut ? 'GUEST' : userProfile.uid ? userProfile.uid.slice(-4) : '72e5'}
                 </span>
               </div>
               <div className="flex items-center gap-1 text-[11px] text-neutral-500 mt-1">
-                <span className="font-mono">{isSignedOut ? '未绑定手机号' : userProfile.phone || '138-0000-6357'}</span>
+                <span className="font-medium">{isSignedOut ? '未绑定手机号' : userProfile.phone || '138-0000-6357'}</span>
                 <span className="text-neutral-300">·</span>
                 <span className="inline-flex items-center gap-0.5 text-brand-emerald font-medium">
                   <Cloud className="w-3 h-3" />
@@ -318,6 +336,7 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
             </button>
           </div>
         </section>
+        </OrganicCardReveal>
         {/* END: UserProfileBar */}
 
         {/* BEGIN: ObsidianVipCard */}
@@ -333,7 +352,7 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
           onTouchEnd={handleTouchEnd}
           className={`card-perspective-container cursor-pointer select-none ${isActiveTilt ? 'is-active' : ''}`}
           style={{
-            transform: `perspective(1000px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
+            transform: `rotateX(${tilt.x}deg) rotateY(${isCardFlipped ? -tilt.y : tilt.y}deg)`,
             transition: isActiveTilt ? 'transform 0.1s ease-out' : 'transform 0.4s ease-out'
           }}
         >
@@ -345,7 +364,13 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
             }`}
           >
             {/* CARD FRONT */}
-            <div className="card-front absolute inset-0 obsidian-mesh rounded-xl p-4 text-white border border-neutral-700/70 overflow-hidden flex flex-col justify-between select-none">
+            <div
+              className="card-front absolute inset-0 obsidian-mesh rounded-xl p-4 text-white border border-neutral-700/70 flex flex-col justify-between select-none"
+              style={{
+                backfaceVisibility: 'hidden',
+                WebkitBackfaceVisibility: 'hidden'
+              }}
+            >
               <div className="glare-overlay absolute inset-0 rounded-xl pointer-events-none" />
 
               {/* Top Row: Microchip, Status, Flip Trigger */}
@@ -356,7 +381,7 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
                     <div className="w-full h-0.5 bg-black/25 rounded" />
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-[9px] font-mono tracking-widest text-amber-300/90 uppercase font-semibold leading-tight">
+                    <span className="text-[9px] tracking-widest text-amber-300/90 uppercase font-semibold leading-tight">
                       STATUS
                     </span>
                     <span className="text-[11px] font-bold text-white tracking-tight flex items-center gap-1 leading-tight">
@@ -369,7 +394,7 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
                 <button
                   type="button"
                   onClick={(e) => toggleCardFlip(e)}
-                  className="flip-trigger inline-flex items-center gap-1 text-[11px] font-medium text-neutral-300 hover:text-white bg-white/10 hover:bg-white/20 border border-white/15 px-2 py-1 rounded-md backdrop-blur-sm transition active:scale-95 cursor-pointer"
+                  className="flip-trigger inline-flex items-center gap-1 text-[11px] font-medium text-neutral-300 hover:text-white bg-white/10 hover:bg-white/20 border border-white/15 px-2 py-1 rounded-md transition active:scale-95 cursor-pointer"
                 >
                   <RotateCw className="w-3 h-3 text-amber-300" />
                   <span className="leading-none">点击翻面</span>
@@ -385,7 +410,7 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
                   <Sparkles className="w-4 h-4 text-brand-emeraldLight flex-shrink-0" />
                 </div>
 
-                <div className="mt-1.5 w-full max-w-[260px] bg-black/40 border border-neutral-700/80 rounded px-2.5 py-1.5 flex flex-col items-center justify-center">
+                <div className="mt-1.5 w-full max-w-[260px] bg-neutral-950/90 border border-neutral-700/80 rounded px-2.5 py-1.5 flex flex-col items-center justify-center">
                   <div className="h-5 w-full flex items-center justify-center gap-[3px] overflow-hidden opacity-90">
                     <div className="w-[2px] h-full bg-white" />
                     <div className="w-[3px] h-full bg-white" />
@@ -408,7 +433,7 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
                     <div className="w-[4px] h-full bg-white" />
                     <div className="w-[2px] h-full bg-white" />
                   </div>
-                  <span className="mt-1 text-[10px] font-mono tracking-widest text-neutral-300 font-bold leading-none">
+                  <span className="mt-1 text-[10px] tracking-widest text-neutral-300 font-bold leading-none">
                     VIP · {userProfile.uid ? userProfile.uid.slice(-4).toUpperCase() : '7F72'} · E500 · 8892
                   </span>
                 </div>
@@ -416,7 +441,7 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
 
               {/* Bottom Row: Points to Next Tier & Emerald Bar */}
               <div className="relative z-10 pt-1">
-                <div className="flex justify-between items-end text-[10px] font-mono tracking-tight text-neutral-400 mb-1">
+                <div className="flex justify-between items-end text-[10px] tracking-tight text-neutral-400 mb-1">
                   <span className="uppercase font-semibold">POINTS TO NEXT TIER</span>
                   <span className="text-neutral-300 font-medium">
                     <strong className="text-white font-bold">{isSignedOut ? 0 : userProfile.points || 1000}</strong> / 5,000
@@ -434,15 +459,21 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
             </div>
 
             {/* CARD BACK */}
-            <div className="card-back absolute inset-0 obsidian-mesh rounded-xl p-4 text-white border border-neutral-700/70 overflow-hidden flex flex-col justify-between select-none">
+            <div
+              className="card-back absolute inset-0 obsidian-mesh rounded-xl p-4 text-white border border-neutral-700/70 flex flex-col justify-between select-none"
+              style={{
+                backfaceVisibility: 'hidden',
+                WebkitBackfaceVisibility: 'hidden'
+              }}
+            >
               <div className="glare-overlay absolute inset-0 rounded-xl pointer-events-none" />
 
               <div className="relative z-10 flex items-center justify-between border-b border-neutral-700/60 pb-2">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-mono tracking-wider text-neutral-400 uppercase font-bold">
+                  <span className="text-[10px] tracking-wider text-neutral-400 uppercase font-bold">
                     BLACK OBSIDIAN PRIVILEGE
                   </span>
-                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono">
+                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold">
                     L3 ACTIVE
                   </span>
                 </div>
@@ -450,7 +481,7 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
                 <button
                   type="button"
                   onClick={(e) => toggleCardFlip(e)}
-                  className="flip-trigger inline-flex items-center gap-1 text-[11px] font-medium text-neutral-300 hover:text-white bg-white/10 hover:bg-white/20 border border-white/15 px-2 py-1 rounded-md backdrop-blur-sm transition active:scale-95 cursor-pointer"
+                  className="flip-trigger inline-flex items-center gap-1 text-[11px] font-medium text-neutral-300 hover:text-white bg-white/10 hover:bg-white/20 border border-white/15 px-2 py-1 rounded-md transition active:scale-95 cursor-pointer"
                 >
                   <RotateCw className="w-3 h-3 text-amber-300" />
                   <span className="leading-none">翻回正面</span>
@@ -460,8 +491,8 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
               <div className="relative z-10 flex items-center justify-between gap-3 my-1">
                 <div className="flex flex-col gap-1 text-left">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono text-neutral-400">食客身份</span>
-                    <span className="text-xs font-bold text-amber-400 font-mono">
+                    <span className="text-[10px] text-neutral-400">食客身份</span>
+                    <span className="text-xs font-bold text-amber-400">
                       #{userProfile.uid ? userProfile.uid.slice(-6).toUpperCase() : '7F72E5'}
                     </span>
                   </div>
@@ -476,7 +507,7 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
                 </div>
               </div>
 
-              <div className="pt-2 relative z-10 border-t border-neutral-800/80 flex items-center justify-between text-[10px] font-mono text-neutral-400">
+              <div className="pt-2 relative z-10 border-t border-neutral-800/80 flex items-center justify-between text-[10px] text-neutral-400">
                 <div>
                   VALID THRU <span className="text-amber-300 font-bold">2026/12/31</span>
                 </div>
@@ -488,6 +519,7 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
         {/* END: ObsidianVipCard */}
 
         {/* BEGIN: AccountAndSecurity */}
+        <OrganicCardReveal className="w-full">
         <section data-purpose="account-and-security">
           <h3 className="text-base font-black tracking-tight text-neutral-900 mb-2">Account &amp; Security</h3>
           <div className="bg-white rounded-xl border border-brand-border shadow-card divide-y divide-neutral-100 overflow-hidden">
@@ -600,7 +632,7 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
                 <div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-bold text-neutral-900">账号注册、登录与身份切换</span>
-                    <span className="text-[9px] font-bold px-1.5 py-0.2 bg-brand-emerald text-white rounded font-mono">
+                    <span className="text-[9px] font-bold px-1.5 py-0.2 bg-brand-emerald text-white rounded">
                       AUTH
                     </span>
                   </div>
@@ -703,8 +735,41 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
                 <ChevronRight className="w-3 h-3 text-neutral-400 stroke-[2.5]" />
               </div>
             </div>
+
+            {/* Version & Cloud Sync Governance Row */}
+            <div className="p-3 hover:bg-neutral-50 transition flex items-center justify-between border-t border-neutral-100">
+              <div className="flex items-start gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center flex-shrink-0 mt-0.5 border border-emerald-200">
+                  <Cloud className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-neutral-900 block">云端实时拉取与版本自愈</span>
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/70 px-1.5 py-0.2 rounded">
+                      {ACTIVE_BUILD_VERSION}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-neutral-400 mt-0.5 leading-tight">
+                    数据源直连腾讯云开发，换版自动清理残留并实时同步
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  toast.info('正在清理残留并从云端全量拉取...');
+                  manualForceCloudPurgeAndReload();
+                }}
+                className="flex-shrink-0 ml-2 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 px-2.5 py-1 rounded-lg transition active:scale-95 cursor-pointer"
+                title="清空本地所有旧版本缓存并从云端拉取最新数据"
+              >
+                <RotateCw className="w-3 h-3" />
+                <span>云端强刷</span>
+              </button>
+            </div>
           </div>
         </section>
+        </OrganicCardReveal>
         {/* END: AccountAndSecurity */}
 
         {/* BEGIN: FooterActionButtons */}

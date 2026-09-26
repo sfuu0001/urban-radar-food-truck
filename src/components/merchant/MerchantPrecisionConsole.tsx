@@ -20,7 +20,11 @@ import {
   ChevronRight,
   History,
   Trash2,
-  BarChart3
+  BarChart3,
+  Filter,
+  Search,
+  ChevronUp,
+  Maximize2
 } from 'lucide-react';
 import {
   getAllTruckBusinessStatuses,
@@ -70,6 +74,93 @@ const INITIAL_STATIONS: Record<number, StationChannelState> = {
   3: { master: true, dine: true, delivery: false, pickup: true },
   4: { master: false, dine: false, delivery: false, pickup: false },
   5: { master: true, dine: false, delivery: true, pickup: true }
+};
+
+/** 堂食台位/卡座图标 (匹配工控主控设计) */
+const DineIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M4 17h16" />
+    <path d="M5 17v3" />
+    <path d="M19 17v3" />
+    <path d="M7 17v-6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v6" />
+    <path d="M4 11h16" />
+  </svg>
+);
+
+/** 外卖餐盒图标 (匹配工控主控设计) */
+const DeliveryIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M4 10h16l-1.8 9.5a2 2 0 0 1-2 1.5H7.8a2 2 0 0 1-2-1.5L4 10z" />
+    <path d="M8 10V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v4" />
+    <line x1="9" y1="14" x2="15" y2="14" />
+  </svg>
+);
+
+/** 自提扫码/取餐柜图标 (匹配工控主控设计) */
+const PickupIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <rect x="3" y="3" width="7" height="7" rx="1" />
+    <rect x="14" y="3" width="7" height="7" rx="1" />
+    <rect x="3" y="14" width="7" height="7" rx="1" />
+    <circle cx="17.5" cy="17.5" r="1.5" />
+    <path d="M14 14h2v2h-2z" />
+    <path d="M19 14v2h2" />
+    <path d="M14 19v2h2" />
+    <path d="M19 19h2v2h-2z" />
+  </svg>
+);
+
+/** 仿原生触控无极滑动开关组件 (匹配蓝底白点/灰底白点新主控样式) */
+const ToggleSwitch: React.FC<{
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  disabled?: boolean;
+}> = ({ checked, onChange, disabled }) => {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (!disabled) onChange(!checked);
+      }}
+      className={`w-9 h-5 rounded-full p-0.5 transition-colors duration-200 ease-in-out focus:outline-none cursor-pointer shrink-0 relative ${
+        checked ? 'bg-[#0284c7]' : 'bg-[#d1d5db]'
+      } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+    >
+      <span
+        className={`w-4 h-4 rounded-full bg-white shadow-xs block transform transition-transform duration-200 ease-in-out ${
+          checked ? 'translate-x-4' : 'translate-x-0'
+        }`}
+      />
+    </button>
+  );
 };
 
 interface MerchantPrecisionConsoleProps {
@@ -174,10 +265,18 @@ export const MerchantPrecisionConsole: React.FC<MerchantPrecisionConsoleProps> =
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
-  // 3. KPI Expand State
+  // 3. KPI Expand State & Filter/Search
   const [expandedKpis, setExpandedKpis] = useState<Record<string, boolean>>({});
   const toggleKpi = (kpiKey: string) => {
     setExpandedKpis((prev) => ({ ...prev, [kpiKey]: !prev[kpiKey] }));
+  };
+
+  // 表单平铺视图过滤与检索状态
+  const [statusFilter, setStatusFilter] = useState<'all' | 'online' | 'throttled' | 'halted'>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [expandedStationDetails, setExpandedStationDetails] = useState<Record<number, boolean>>({});
+  const toggleStationDetail = (stId: number) => {
+    setExpandedStationDetails((prev) => ({ ...prev, [stId]: !prev[stId] }));
   };
 
   // 4. Bottom Drawer State
@@ -583,490 +682,559 @@ export const MerchantPrecisionConsole: React.FC<MerchantPrecisionConsoleProps> =
               <SlidersHorizontal className="w-3.5 h-3.5 text-console-text" />
               <span className="font-semibold text-console-text">批处理总线:</span>
             </div>
-            <div className="grid grid-cols-3 sm:flex sm:flex-wrap items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
+            <div className="flex items-center gap-1.5 w-full sm:w-auto">
               <button
                 type="button"
                 onClick={() => batchSetAll(true)}
-                className="px-2.5 sm:px-3 py-2 sm:py-1.5 bg-console-dark hover:bg-black text-white font-mono text-[11px] font-semibold tracking-wider rounded-c border border-black flex items-center justify-center gap-1 transition-all duration-200 active:scale-95 shadow-sm cursor-pointer"
+                title="全网接单：开启全网所有餐车各渠道"
+                className="h-7 w-7 sm:h-8 sm:w-8 bg-neutral-900 hover:bg-black text-emerald-400 rounded-c border border-neutral-900 flex items-center justify-center transition-all duration-150 active:scale-95 cursor-pointer shadow-2xs"
               >
-                <Zap className="w-3.5 h-3.5 text-console-accent animate-pulse" />
-                <span className="truncate">全网接单</span>
+                <Zap className="w-3.5 h-3.5" />
               </button>
               <button
                 type="button"
                 onClick={() => batchSetAll(false)}
-                className="px-2.5 sm:px-3 py-2 sm:py-1.5 bg-console-card hover:bg-[#F3F4F6] text-console-text font-mono text-[11px] font-semibold tracking-wider rounded-c border border-console-borderDark transition-all duration-200 active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
+                title="全线打烊：关闭全网所有餐车站台渠道"
+                className="h-7 w-7 sm:h-8 sm:w-8 bg-white hover:bg-neutral-100 text-neutral-600 rounded-c border border-neutral-300 transition-all duration-150 active:scale-95 flex items-center justify-center cursor-pointer shadow-2xs"
               >
-                <Moon className="w-3.5 h-3.5 text-console-muted" />
-                <span className="truncate">全线打样</span>
+                <Moon className="w-3.5 h-3.5" />
               </button>
               <button
                 type="button"
                 onClick={emergencyShutdown}
-                className="px-2.5 sm:px-3 py-2 sm:py-1.5 bg-console-danger hover:bg-red-700 text-white font-mono text-[11px] font-semibold tracking-wider rounded-c border border-red-700 transition-all duration-200 active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
+                title="气象熔断：紧急关停所有餐车供售通道"
+                className="h-7 w-7 sm:h-8 sm:w-8 bg-rose-600 hover:bg-rose-700 text-white rounded-c border border-rose-700 transition-all duration-150 active:scale-95 flex items-center justify-center cursor-pointer shadow-2xs"
               >
                 <AlertTriangle className="w-3.5 h-3.5" />
-                <span className="truncate">气象熔断</span>
               </button>
             </div>
           </div>
         </header>
 
-        {/* 2. 4宫格遥测 KPI 指标带 */}
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
-          {/* Card 1: Stations Network */}
-          <div
-            onClick={() => toggleKpi('stations')}
-            className={`bg-console-card p-2.5 rounded-c border border-console-borderDark/60 shadow-sm flex flex-col justify-between transition-all duration-300 hover:border-console-primary group cursor-pointer active:scale-[0.99] ${
-              expandedKpis['stations'] ? 'ring-1 ring-console-primary' : ''
-            }`}
-          >
-            <div className="flex items-center justify-between text-console-muted font-mono text-[10px] pb-1 border-b border-console-border">
-              <span className="font-bold tracking-tight text-console-text flex items-center gap-1 truncate">
-                <span className="w-1.5 h-1.5 bg-console-dark rounded-none shrink-0" />
-                <span className="truncate">STATIONS // 餐车站网</span>
+        {/* 2. 平铺表单式遥测数据总览栏 (Flat Form Telemetry Bar) */}
+        <section className="bg-white border border-console-borderDark/70 rounded-c shadow-sm p-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2.5 mb-2.5 border-b border-console-border gap-2">
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-3 bg-console-primary shrink-0" />
+              <span className="font-bold text-[12px] sm:text-[13px] text-console-text">实时运营遥测指标</span>
+              <span className="font-mono text-[10px] text-console-muted">TELEMETRY GRID</span>
+            </div>
+            <div className="flex items-center gap-2 text-[11px] text-console-muted">
+              <span className="text-[10px] bg-[#f4f4f2] px-2 py-0.5 rounded-c border border-console-border font-mono">
+                {activeStationRatio}% 站点全网活跃
               </span>
-              <div className="flex items-center gap-1 shrink-0">
-                <span className="font-mono text-[10px] font-bold text-console-primary bg-console-primaryLight px-1 py-0.5 rounded-c border border-console-primary/20">
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            {/* Field 1: Stations Network */}
+            <div className="flex flex-col justify-between p-2 rounded-c bg-[#fafaf9] border border-console-border/70 hover:border-console-primary/50 transition-colors">
+              <div className="flex items-center justify-between text-console-muted text-[11px] pb-1 border-b border-console-border/50">
+                <span className="font-medium text-console-text flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 bg-console-dark shrink-0" />
+                  <span>餐车站网</span>
+                </span>
+                <span className="font-mono text-[10px] text-console-primary font-bold">
                   {activeStationRatio}% 活跃
                 </span>
-                <ChevronDown
-                  className={`w-3.5 h-3.5 text-console-muted group-hover:text-console-primary transition-transform duration-200 ${
-                    expandedKpis['stations'] ? 'rotate-180' : ''
-                  }`}
-                />
               </div>
-            </div>
-            <div className="flex items-baseline justify-between mt-2">
-              <div className="flex items-baseline gap-1">
-                <span className="font-mono text-[18px] sm:text-[20px] font-bold tracking-tight text-console-text leading-none">
-                  {activeStationCount}
-                </span>
-                <span className="font-mono text-[10px] text-console-muted truncate">/5台在线</span>
-              </div>
-              <div className="flex items-center gap-0.5 w-12 sm:w-16">
-                {[1, 2, 3, 4, 5].map((id) => (
-                  <div
-                    key={id}
-                    className={`h-1 flex-1 rounded-none transition-colors duration-300 ${
-                      stations[id]?.master ? 'bg-console-primary' : 'bg-console-borderDark'
-                    }`}
-                    title={`0${id}号 ${stations[id]?.master ? '在线' : '停运'}`}
-                  />
-                ))}
-              </div>
-            </div>
-            {expandedKpis['stations'] && (
-              <div className="mt-2 pt-1.5 border-t border-console-border flex flex-col gap-1 text-[10px] font-mono text-console-muted">
-                <div className="flex justify-between">
-                  <span>在网电压:</span>
-                  <span className="text-console-text font-bold">380V // OK</span>
+              <div className="flex items-baseline justify-between mt-2">
+                <div className="flex items-baseline gap-1">
+                  <span style={{ fontFamily: '"Space Grotesk", sans-serif' }} className="text-xl sm:text-2xl font-bold tracking-tight text-console-text">
+                    {activeStationCount}
+                  </span>
+                  <span className="text-[11px] text-console-muted">/5台在线</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>基带信噪比:</span>
-                  <span className="text-console-primary font-bold">42dB SNR</span>
+                <div className="flex items-center gap-0.5 w-12">
+                  {[1, 2, 3, 4, 5].map((id) => (
+                    <div
+                      key={id}
+                      className={`h-1 flex-1 transition-colors duration-300 ${
+                        stations[id]?.master ? 'bg-console-primary' : 'bg-console-borderDark/40'
+                      }`}
+                      title={`0${id}号 ${stations[id]?.master ? '在线' : '停运'}`}
+                    />
+                  ))}
                 </div>
               </div>
-            )}
-          </div>
+              <div className="mt-1.5 pt-1.5 border-t border-console-border/40 flex items-center justify-between text-[10px] text-console-muted">
+                <span>网压: 380V 常态</span>
+                <span className="text-console-text font-medium">信噪比 42dB</span>
+              </div>
+            </div>
 
-          {/* Card 2: Dine-in Occupancy */}
-          <div
-            onClick={() => toggleKpi('dinein')}
-            className={`bg-console-card p-2.5 rounded-c border border-console-borderDark/60 shadow-sm flex flex-col justify-between transition-all duration-300 hover:border-console-primary group cursor-pointer active:scale-[0.99] ${
-              expandedKpis['dinein'] ? 'ring-1 ring-console-primary' : ''
-            }`}
-          >
-            <div className="flex items-center justify-between text-console-muted font-mono text-[10px] pb-1 border-b border-console-border">
-              <span className="font-bold tracking-tight text-console-text flex items-center gap-1 truncate">
-                <span className="w-1.5 h-1.5 bg-console-primary rounded-none shrink-0" />
-                <span className="truncate">DINE-IN // 堂食翻台</span>
-              </span>
-              <div className="flex items-center gap-1 shrink-0">
-                <span className="font-mono text-[10px] font-bold text-console-primary bg-console-primaryLight px-1 py-0.5 rounded-c border border-console-primary/20">
-                  4.2次/日
+            {/* Field 2: Dine-in Occupancy */}
+            <div className="flex flex-col justify-between p-2 rounded-c bg-[#fafaf9] border border-console-border/70 hover:border-console-primary/50 transition-colors">
+              <div className="flex items-center justify-between text-console-muted text-[11px] pb-1 border-b border-console-border/50">
+                <span className="font-medium text-console-text flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 bg-console-primary shrink-0" />
+                  <span>堂食在席</span>
                 </span>
-                <ChevronDown
-                  className={`w-3.5 h-3.5 text-console-muted group-hover:text-console-primary transition-transform duration-200 ${
-                    expandedKpis['dinein'] ? 'rotate-180' : ''
-                  }`}
-                />
-              </div>
-            </div>
-            <div className="flex items-baseline justify-between mt-2">
-              <div className="flex items-baseline gap-1">
-                <span className="font-mono text-[18px] sm:text-[20px] font-bold tracking-tight text-console-primary leading-none">
-                  92.4%
+                <span className="font-mono text-[10px] text-console-primary font-bold">
+                  翻台 4.2次/日
                 </span>
-                <span className="font-mono text-[10px] text-console-muted">座位周转</span>
               </div>
-              <div className="w-12 sm:w-16 bg-[#EAEAE8] h-1 rounded-none overflow-hidden">
-                <div className="bg-console-primary h-full transition-all duration-500" style={{ width: '92.4%' }} />
-              </div>
-            </div>
-            {expandedKpis['dinein'] && (
-              <div className="mt-2 pt-1.5 border-t border-console-border flex flex-col gap-1 text-[10px] font-mono text-console-muted">
-                <div className="flex justify-between">
-                  <span>在席等待:</span>
-                  <span className="text-console-text font-bold">18 位</span>
+              <div className="flex items-baseline justify-between mt-2">
+                <div className="flex items-baseline gap-1">
+                  <span style={{ fontFamily: '"Space Grotesk", sans-serif' }} className="text-xl sm:text-2xl font-bold tracking-tight text-console-primary">
+                    92.4%
+                  </span>
+                  <span className="text-[11px] text-console-muted">周转率</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>平均驻留:</span>
-                  <span className="text-console-primary font-bold">23.5 min</span>
+                <div className="w-12 bg-[#EAEAE8] h-1 overflow-hidden">
+                  <div className="bg-console-primary h-full" style={{ width: '92.4%' }} />
                 </div>
               </div>
-            )}
-          </div>
+              <div className="mt-1.5 pt-1.5 border-t border-console-border/40 flex items-center justify-between text-[10px] text-console-muted">
+                <span>在席等待: 18位</span>
+                <span className="text-console-text font-medium">驻留 23.5m</span>
+              </div>
+            </div>
 
-          {/* Card 3: Delivery SLA */}
-          <div
-            onClick={() => toggleKpi('delivery')}
-            className={`bg-console-card p-2.5 rounded-c border border-console-borderDark/60 shadow-sm flex flex-col justify-between transition-all duration-300 hover:border-console-primary group cursor-pointer active:scale-[0.99] ${
-              expandedKpis['delivery'] ? 'ring-1 ring-console-primary' : ''
-            }`}
-          >
-            <div className="flex items-center justify-between text-console-muted font-mono text-[10px] pb-1 border-b border-console-border">
-              <span className="font-bold tracking-tight text-console-text flex items-center gap-1 truncate">
-                <span className="w-1.5 h-1.5 bg-console-dark rounded-none shrink-0" />
-                <span className="truncate">DELIVERY // 外卖履约</span>
-              </span>
-              <div className="flex items-center gap-1 shrink-0">
-                <span className="font-mono text-[10px] font-bold text-console-primary bg-[#F0F6F9] px-1 py-0.5 rounded-c border border-console-primary/20">
-                  ▲ 2.1m
+            {/* Field 3: Delivery SLA */}
+            <div className="flex flex-col justify-between p-2 rounded-c bg-[#fafaf9] border border-console-border/70 hover:border-console-primary/50 transition-colors">
+              <div className="flex items-center justify-between text-console-muted text-[11px] pb-1 border-b border-console-border/50">
+                <span className="font-medium text-console-text flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 bg-console-dark shrink-0" />
+                  <span>外卖履约</span>
                 </span>
-                <ChevronDown
-                  className={`w-3.5 h-3.5 text-console-muted group-hover:text-console-primary transition-transform duration-200 ${
-                    expandedKpis['delivery'] ? 'rotate-180' : ''
-                  }`}
-                />
-              </div>
-            </div>
-            <div className="flex items-baseline justify-between mt-2">
-              <div className="flex items-baseline gap-1">
-                <span className="font-mono text-[18px] sm:text-[20px] font-bold tracking-tight text-console-text leading-none">
-                  16.8
+                <span className="font-mono text-[10px] text-console-primary font-bold">
+                  ▲ 2.1m 加速
                 </span>
-                <span className="font-mono text-[10px] font-semibold text-console-text">min</span>
               </div>
-              <div className="w-12 sm:w-16 bg-[#EAEAE8] h-1 rounded-none overflow-hidden">
-                <div className="bg-console-dark h-full transition-all duration-500" style={{ width: '82%' }} />
-              </div>
-            </div>
-            {expandedKpis['delivery'] && (
-              <div className="mt-2 pt-1.5 border-t border-console-border flex flex-col gap-1 text-[10px] font-mono text-console-muted">
-                <div className="flex justify-between">
-                  <span>骑手响应:</span>
-                  <span className="text-console-text font-bold">1.4 min</span>
+              <div className="flex items-baseline justify-between mt-2">
+                <div className="flex items-baseline gap-1">
+                  <span style={{ fontFamily: '"Space Grotesk", sans-serif' }} className="text-xl sm:text-2xl font-bold tracking-tight text-console-text">
+                    16.8
+                  </span>
+                  <span className="text-[11px] text-console-muted">min 均时</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>延误报警:</span>
-                  <span className="text-console-primary font-bold">25.0 min</span>
+                <div className="w-12 bg-[#EAEAE8] h-1 overflow-hidden">
+                  <div className="bg-console-dark h-full" style={{ width: '82%' }} />
                 </div>
               </div>
-            )}
-          </div>
+              <div className="mt-1.5 pt-1.5 border-t border-console-border/40 flex items-center justify-between text-[10px] text-console-muted">
+                <span>骑手响应: 1.4m</span>
+                <span className="text-console-text font-medium">延误预警: 0件</span>
+              </div>
+            </div>
 
-          {/* Card 4: Pickup Cabin */}
-          <div
-            onClick={() => toggleKpi('cabin')}
-            className={`bg-console-card p-2.5 rounded-c border border-console-borderDark/60 shadow-sm flex flex-col justify-between transition-all duration-300 hover:border-console-warning group cursor-pointer active:scale-[0.99] ${
-              expandedKpis['cabin'] ? 'ring-1 ring-console-warning' : ''
-            }`}
-          >
-            <div className="flex items-center justify-between text-console-muted font-mono text-[10px] pb-1 border-b border-console-border">
-              <span className="font-bold tracking-tight text-console-text flex items-center gap-1 truncate">
-                <span className="w-1.5 h-1.5 bg-console-warning rounded-none shrink-0" />
-                <span className="truncate">CABIN // 智能取餐柜</span>
-              </span>
-              <div className="flex items-center gap-1 shrink-0">
-                <span className="font-mono text-[10px] font-bold text-console-warning bg-console-warningLight px-1 py-0.5 rounded-c border border-console-warning/20">
-                  10格空闲
+            {/* Field 4: Pickup Cabin */}
+            <div className="flex flex-col justify-between p-2 rounded-c bg-[#fafaf9] border border-console-border/70 hover:border-console-warning/50 transition-colors">
+              <div className="flex items-center justify-between text-console-muted text-[11px] pb-1 border-b border-console-border/50">
+                <span className="font-medium text-console-text flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 bg-console-warning shrink-0" />
+                  <span>智能保温柜</span>
                 </span>
-                <ChevronDown
-                  className={`w-3.5 h-3.5 text-console-muted group-hover:text-console-warning transition-transform duration-200 ${
-                    expandedKpis['cabin'] ? 'rotate-180' : ''
-                  }`}
-                />
-              </div>
-            </div>
-            <div className="flex items-baseline justify-between mt-2">
-              <div className="flex items-baseline gap-1">
-                <span className="font-mono text-[18px] sm:text-[20px] font-bold tracking-tight text-console-warning leading-none">
-                  14
+                <span className="font-mono text-[10px] text-console-warning font-bold">
+                  10格待命
                 </span>
-                <span className="font-mono text-[10px] text-console-muted">格待取 (58%)</span>
               </div>
-              <div className="w-12 sm:w-16 bg-[#EAEAE8] h-1 rounded-none overflow-hidden">
-                <div className="bg-console-warning h-full transition-all duration-500" style={{ width: '58%' }} />
-              </div>
-            </div>
-            {expandedKpis['cabin'] && (
-              <div className="mt-2 pt-1.5 border-t border-console-border flex flex-col gap-1 text-[10px] font-mono text-console-muted">
-                <div className="flex justify-between">
-                  <span>取件峰值:</span>
-                  <span className="text-console-text font-bold">12:15 - 12:45</span>
+              <div className="flex items-baseline justify-between mt-2">
+                <div className="flex items-baseline gap-1">
+                  <span style={{ fontFamily: '"Space Grotesk", sans-serif' }} className="text-xl sm:text-2xl font-bold tracking-tight text-console-warning">
+                    14
+                  </span>
+                  <span className="text-[11px] text-console-muted">格在柜 (58%)</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>滞留超期:</span>
-                  <span className="text-console-warning font-bold">0 件</span>
+                <div className="w-12 bg-[#EAEAE8] h-1 overflow-hidden">
+                  <div className="bg-console-warning h-full" style={{ width: '58%' }} />
                 </div>
               </div>
-            )}
+              <div className="mt-1.5 pt-1.5 border-t border-console-border/40 flex items-center justify-between text-[10px] text-console-muted">
+                <span>主舱: 62.4°C</span>
+                <span className="text-console-text font-medium">滞留超期: 0件</span>
+              </div>
+            </div>
           </div>
         </section>
 
-        {/* 3. 核心控制矩阵表 (MATRIX // 5 站点 x 3 渠道精密开关矩阵) */}
-        <section className="bg-console-card border border-console-borderDark/70 rounded-c shadow-sm overflow-hidden">
-          {/* Matrix Header */}
-          <div className="px-3 sm:px-4 py-2.5 bg-console-card border-b border-console-border flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
+        {/* 3. 核心控制矩阵表 (MATRIX // 平铺表单工整架构 + 状态过滤 + 搜索收拢) */}
+        <section className="bg-white border border-console-borderDark/70 rounded-c shadow-sm overflow-hidden">
+          {/* Form Toolbar Header */}
+          <div className="px-3 sm:px-4 py-2.5 bg-[#fbfbf9] border-b border-console-border flex flex-col md:flex-row md:items-center justify-between gap-2.5">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 bg-console-primary rounded-none" />
+              <span className="w-1.5 h-3 bg-console-primary shrink-0" />
               <h2
                 style={{ fontFamily: '"Space Grotesk", sans-serif' }}
                 className="text-[13px] sm:text-[14px] font-bold tracking-tight text-console-text"
               >
-                流动餐车供售渠道主控矩阵
+                流动餐车供售渠道平铺矩阵
               </h2>
               <span className="font-mono text-[10px] text-console-muted px-1.5 py-0.5 bg-[#F0F0EE] border border-console-borderDark/40 rounded-c">
-                01-05 UNITS
+                5 站点实体
               </span>
             </div>
-            <div className="flex items-center gap-3 font-mono text-[10px] text-console-muted">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 bg-console-accent rounded-none" />
-                <span className="text-console-text font-medium">营业中 (ONLINE)</span>
+
+            {/* Filter and Search Form Controls */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Search input */}
+              <div className="relative flex items-center">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 text-console-muted pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="搜索餐车/点位/关键词..."
+                  className="h-7 pl-7 pr-2.5 bg-white border border-console-border hover:border-console-borderDark focus:border-console-primary rounded-c text-[11px] font-sans text-console-text outline-none transition-all w-36 sm:w-48"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 text-console-muted hover:text-console-text text-xs"
+                  >
+                    ×
+                  </button>
+                )}
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 bg-[#E2E2DF] rounded-none" />
-                <span className="text-console-muted">休市 (HALTED)</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 bg-console-warning rounded-none" />
-                <span className="text-console-text font-medium">限流 (THROTTLED)</span>
-              </div>
-            </div>
-          </div>
 
-          {/* Column Structure Header (Desktop Only) */}
-          <div className="hidden lg:grid bg-[#F6F6F4] px-4 py-2.5 border-b border-console-borderDark/60 grid-cols-12 gap-3 font-mono text-[11px] font-bold text-console-muted uppercase tracking-wider items-center">
-            <div className="col-span-4 flex items-center gap-1.5 text-console-text">
-              <LayoutList className="w-4 h-4" />
-              <span>餐车站号 / 实体点位 / 空间遥测</span>
-            </div>
-            <div className="col-span-3 flex items-center gap-1.5 text-console-text">
-              <Power className="w-4 h-4" />
-              <span>【总开关】KILLSWITCH</span>
-            </div>
-            <div className="col-span-5 flex items-center justify-between text-console-text">
-              <div className="flex items-center gap-1.5">
-                <LayoutGrid className="w-4 h-4" />
-                <span>【堂食 / 外卖 / 自提 3个独立按钮】CHANNELS</span>
-              </div>
-              <span className="text-[10px] text-console-muted font-normal lowercase">独立微动效</span>
-            </div>
-          </div>
-
-          {/* Rows Container */}
-          <div className="divide-y divide-console-border">
-            {[1, 2, 3, 4, 5].map((stationId) => {
-              const s = stations[stationId] || INITIAL_STATIONS[stationId];
-              const meta = stationMetadata[stationId];
-              const allActive = s.dine && s.delivery && s.pickup;
-              const anyActive = s.dine || s.delivery || s.pickup;
-
-              let masterLabel = '全渠道营业';
-              let masterCode = `ONLINE 0x0${stationId}`;
-              let statusTag = '营业中';
-              let statusTagClass = 'bg-console-primary text-white';
-              let mobileIndicator = 'ONLINE';
-              let mobileIndicatorClass = 'text-console-primary';
-              let masterBtnClass = 'bg-console-dark text-white hover:bg-black border-black';
-              let masterIconColor = 'text-console-accent';
-              let indicatorClass = 'bg-console-accent indicator-active';
-              let badgeBg = 'bg-console-dark text-white';
-
-              if (allActive) {
-                masterLabel = stationId === 1 ? '全渠道营业' : stationId === 5 ? '全渠道备餐' : '全渠道在线';
-                masterCode = `ONLINE 0x0${stationId}`;
-                statusTag = '营业中';
-                statusTagClass = 'bg-console-primary text-white';
-                mobileIndicator = 'ONLINE';
-                mobileIndicatorClass = 'text-console-primary';
-                masterBtnClass = 'bg-console-dark text-white hover:bg-black border-black';
-                masterIconColor = 'text-console-accent';
-                indicatorClass = 'bg-console-accent indicator-active';
-                badgeBg = 'bg-console-dark text-white';
-              } else if (anyActive) {
-                masterLabel = stationId === 2 ? '部分限流' : stationId === 3 ? '晚市备料' : '部分营业';
-                masterCode = stationId === 3 ? 'PREP // 0x03' : 'THROTTLED';
-                statusTag = stationId === 2 ? '部分限流' : stationId === 3 ? '备料打单' : '待命接驳';
-                statusTagClass = stationId === 2 ? 'bg-console-warning text-white' : 'bg-console-primaryLight text-console-primary border border-console-primary/30';
-                mobileIndicator = 'THROTTLED';
-                mobileIndicatorClass = 'text-console-warning';
-                masterBtnClass = 'bg-console-card text-console-text hover:bg-[#F3F4F6] border-console-borderDark';
-                masterIconColor = 'text-console-primary';
-                indicatorClass = 'bg-console-warning indicator-warning';
-                badgeBg = 'bg-[#ECECE9] text-console-text';
-              } else {
-                masterLabel = '全线休市打样';
-                masterCode = 'HALTED 0x00';
-                statusTag = '已打样';
-                statusTagClass = 'bg-[#ECECE9] text-console-muted';
-                mobileIndicator = 'HALTED';
-                mobileIndicatorClass = 'text-console-muted';
-                masterBtnClass = 'bg-console-card text-console-muted hover:bg-[#F3F4F6] border-console-borderDark opacity-60';
-                masterIconColor = 'text-console-muted';
-                indicatorClass = 'bg-[#A8A29E] indicator-inactive';
-                badgeBg = 'bg-[#ECECE9] text-console-muted';
-              }
-
-              return (
-                <div
-                  key={stationId}
-                  className={`p-3 sm:p-4 lg:py-3.5 grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-3 items-center transition-colors duration-200 ${
-                    selectedStationId === stationId ? 'bg-cyan-50/20' : 'hover:bg-[#FBFBFA]'
-                  }`}
+              {/* Status Select Filter */}
+              <div className="flex items-center gap-1 bg-white border border-console-border rounded-c px-1.5 py-0.5">
+                <Filter className="w-3 h-3 text-console-muted shrink-0" />
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as any)}
+                  className="bg-transparent text-[11px] text-console-text outline-none cursor-pointer pr-1"
                 >
-                  {/* Col 1: Station Identity */}
-                  <div className="lg:col-span-4 flex flex-col justify-center">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-none shrink-0 ${indicatorClass}`} />
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className={`font-mono text-[10px] font-bold px-1 py-0.5 rounded-c ${badgeBg}`}>
-                          0{stationId} UNIT
-                        </span>
-                        <h3 className="font-bold text-[13px] sm:text-[14px] text-console-text">
-                          {meta.title}
-                        </h3>
-                      </div>
-                      <span className={`lg:hidden font-mono text-[9px] px-1.5 py-0.5 font-semibold rounded-c shrink-0 ml-auto ${statusTagClass}`}>
-                        {statusTag}
-                      </span>
-                    </div>
-                    <div className="mt-1 font-mono text-[10px] sm:text-[11px] text-console-muted pl-4 truncate">
-                      {meta.location}
-                    </div>
-                  </div>
+                  <option value="all">全部状态</option>
+                  <option value="online">全渠道营业</option>
+                  <option value="throttled">部分限流/备料</option>
+                  <option value="halted">全线打烊</option>
+                </select>
+              </div>
 
-                  {/* Col 2: Master Switch */}
-                  <div className="lg:col-span-3 flex items-center">
-                    <button
-                      type="button"
-                      onClick={() => toggleMasterSwitch(stationId)}
-                      className={`w-full py-2 px-3 border rounded-c font-mono text-[11px] flex items-center justify-between transition-all duration-200 active:scale-[0.98] group cursor-pointer ${masterBtnClass}`}
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Power className={`w-4 h-4 group-hover:scale-110 transition-transform duration-200 ${masterIconColor}`} />
-                        <div className="flex flex-col text-left truncate">
-                          <span className="font-bold text-[11px] sm:text-[12px] truncate leading-tight">
+              {/* Status Legend indicators */}
+              <div className="hidden xl:flex items-center gap-2.5 text-[10px] text-console-muted pl-2 border-l border-console-border">
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  <span>营业中</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+                  <span>部分受限</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-neutral-300" />
+                  <span>已打烊</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* New Master Control Card Container (Direct Replica from Design Spec) */}
+          <div className="divide-y divide-neutral-200/80 bg-white">
+            {[1, 2, 3, 4, 5]
+              .filter((stationId) => {
+                const s = stations[stationId] || INITIAL_STATIONS[stationId];
+                const meta = stationMetadata[stationId];
+                const allActive = s.dine && s.delivery && s.pickup && s.master;
+                const anyActive = (s.dine || s.delivery || s.pickup) && s.master;
+
+                // Status Filter
+                if (statusFilter === 'online' && !allActive) return false;
+                if (statusFilter === 'throttled' && (!anyActive || allActive)) return false;
+                if (statusFilter === 'halted' && anyActive) return false;
+
+                // Search Filter
+                if (searchQuery.trim()) {
+                  const q = searchQuery.toLowerCase();
+                  const matchName = meta.title.toLowerCase().includes(q);
+                  const matchLoc = meta.location.toLowerCase().includes(q);
+                  const matchCode = `0${stationId}`.includes(q);
+                  if (!matchName && !matchLoc && !matchCode) return false;
+                }
+                return true;
+              })
+              .map((stationId) => {
+                const s = stations[stationId] || INITIAL_STATIONS[stationId];
+                const meta = stationMetadata[stationId];
+                const allActive = s.dine && s.delivery && s.pickup && s.master;
+                const anyActive = (s.dine || s.delivery || s.pickup) && s.master;
+
+                let masterLabel = '全渠道营业';
+                let masterCode = `ONLINE 0x0${stationId}`;
+                let statusBadge = '营业中';
+                let statusText = 'ONLINE';
+                let badgeColor = 'bg-[#0284c7] text-white';
+                let numBadgeBg = 'bg-[#0c192c] text-white';
+                let powerBtnStyle = 'bg-[#081a2e] text-[#38bdf8] shadow-sm';
+                let powerDot: string | null = 'bg-[#38bdf8]';
+
+                if (allActive) {
+                  masterLabel = stationId === 1 ? '全渠道营业' : stationId === 5 ? '全渠道备餐' : '全渠道在线';
+                  masterCode = `ONLINE 0x0${stationId}`;
+                  statusBadge = '营业中';
+                  statusText = 'ONLINE';
+                  badgeColor = 'bg-[#0284c7] text-white';
+                  numBadgeBg = 'bg-[#0c192c] text-white';
+                  powerBtnStyle = 'bg-[#081a2e] text-[#38bdf8] shadow-sm';
+                  powerDot = 'bg-[#38bdf8]';
+                } else if (anyActive) {
+                  masterLabel = stationId === 2 ? '部分限流' : stationId === 3 ? '晚市备料' : '部分营业';
+                  masterCode = stationId === 3 ? 'PREP // 0x03' : 'THROTTLED';
+                  statusBadge = stationId === 2 ? '部分限流' : stationId === 3 ? '晚市备料' : '部分营业';
+                  statusText = stationId === 3 ? 'PREP' : 'THROTTLED';
+                  badgeColor = 'bg-[#fef3c7] text-[#b45309] border border-[#fde68a]';
+                  numBadgeBg = 'bg-[#eef0f3] border border-neutral-200/80 text-neutral-800';
+                  powerBtnStyle = 'bg-white border border-neutral-200/90 text-[#b45309] shadow-2xs';
+                  powerDot = 'bg-[#f59e0b]';
+                } else {
+                  masterLabel = '全线休市打样';
+                  masterCode = 'HALTED 0x00';
+                  statusBadge = '全线打烊';
+                  statusText = 'HALTED';
+                  badgeColor = 'bg-neutral-100 text-neutral-500 border border-neutral-200';
+                  numBadgeBg = 'bg-[#eef0f3] border border-neutral-200/80 text-neutral-400';
+                  powerBtnStyle = 'bg-neutral-100 border border-neutral-200 text-neutral-400';
+                  powerDot = null;
+                }
+
+                const isSelected = selectedStationId === stationId;
+
+                return (
+                  <article
+                    key={stationId}
+                    onClick={() => {
+                      setSelectedStationId(stationId);
+                      onStationSelect?.(stationId);
+                    }}
+                    className={`p-4 sm:p-5 transition-colors cursor-default ${
+                      isSelected ? 'bg-sky-50/15' : 'bg-white hover:bg-neutral-50/40'
+                    }`}
+                  >
+                    {/* 1. 顶部标头：编号微标 + 站点全称与状态徽记 + 位置与客流客况 + 右侧英文状态 */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {/* 实体餐车编号微标 */}
+                        <div
+                          style={{ fontFamily: '"Space Grotesk", sans-serif' }}
+                          className={`w-11 h-10 rounded-md flex items-center justify-center font-bold text-base tracking-tight shrink-0 ${numBadgeBg}`}
+                        >
+                          0{stationId}
+                        </div>
+
+                        {/* 餐车名与状态 */}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3
+                              style={{ fontFamily: '"Space Grotesk", sans-serif' }}
+                              className="font-bold text-[15px] sm:text-base text-neutral-900 truncate"
+                            >
+                              {meta.title}
+                            </h3>
+                            <span className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 ${badgeColor}`}>
+                              {statusBadge}
+                            </span>
+                          </div>
+                          <p className="text-xs text-neutral-500 mt-0.5 truncate">
+                            {meta.location}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* 右侧英文工况状态 */}
+                      <div
+                        style={{ fontFamily: '"Space Grotesk", sans-serif' }}
+                        className={`font-bold text-sm tracking-wider uppercase shrink-0 pt-0.5 ${
+                          allActive ? 'text-[#0284c7]' : anyActive ? 'text-[#b45309]' : 'text-neutral-400'
+                        }`}
+                      >
+                        {statusText}
+                      </div>
+                    </div>
+
+                    {/* 分隔线 */}
+                    <div className="my-3.5 border-b border-neutral-100" />
+
+                    {/* 2. 中层总控行：Power 动作键 + 状态主文案与代码 + 总控 KILLSWITCH */}
+                    <div className="flex items-center justify-between py-1">
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleMasterSwitch(stationId);
+                          }}
+                          className={`w-11 h-11 rounded-lg flex items-center justify-center relative cursor-pointer transition-all active:scale-95 shrink-0 ${powerBtnStyle}`}
+                          title={`总控开关: 点击${s.master ? '全线打烊' : '一键恢复全渠道营业'}`}
+                        >
+                          <Power className="w-5 h-5" />
+                          {powerDot && (
+                            <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full ${powerDot} ring-2 ring-white`} />
+                          )}
+                        </button>
+                        <div className="flex flex-col text-left">
+                          <span className="text-[15px] font-bold text-neutral-900 leading-tight">
                             {masterLabel}
                           </span>
-                          <span className="text-[9px] opacity-70 tracking-wider font-normal truncate">
+                          <span
+                            style={{ fontFamily: '"Space Grotesk", sans-serif' }}
+                            className={`text-xs font-bold tracking-tight mt-0.5 ${
+                              allActive ? 'text-[#0284c7]' : anyActive ? 'text-[#b45309]' : 'text-neutral-400'
+                            }`}
+                          >
                             {masterCode}
                           </span>
                         </div>
                       </div>
-                      <div className="hidden sm:flex flex-col items-end shrink-0 ml-2">
-                        <span className="text-[10px] font-bold">
-                          {s.master ? 'ON' : 'OFF'}
-                        </span>
-                        <span className="text-[8px] opacity-60">MASTER</span>
-                      </div>
-                    </button>
-                  </div>
 
-                  {/* Col 3: 3 Independent Channel Buttons */}
-                  <div className="lg:col-span-5 grid grid-cols-3 gap-1.5 sm:gap-2">
-                    {/* Dine Button */}
-                    <button
-                      type="button"
-                      onClick={() => toggleChannel(stationId, 'dine')}
-                      className={`p-2 min-h-[58px] sm:min-h-[64px] border rounded-c transition-all duration-300 ease-out text-left flex flex-col justify-between active:scale-[0.96] group relative overflow-hidden cursor-pointer ${
-                        s.dine ? 'channel-card-active' : 'channel-card-halted'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between w-full">
-                        <span className={`font-mono text-[11px] font-bold flex items-center gap-1 ${s.dine ? 'text-console-text' : 'text-console-muted'}`}>
-                          <UtensilsCrossed className={`w-3.5 h-3.5 ${s.dine ? 'text-console-primary' : 'text-console-muted'}`} />
-                          堂食
-                        </span>
-                        <div className={`w-6 h-3.5 rounded-full flex items-center px-0.5 transition-colors duration-300 ${
-                          s.dine ? 'bg-console-primaryLight border border-console-primary/40' : 'bg-[#E4E4E0] border border-console-borderDark/60'
-                        }`}>
-                          <div className={`w-2.5 h-2.5 rounded-full switch-knob ${s.dine ? 'is-active indicator-active' : 'is-inactive indicator-inactive'}`} />
+                      <div className="text-right">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleMasterSwitch(stationId);
+                          }}
+                          style={{ fontFamily: '"Space Grotesk", sans-serif' }}
+                          className="text-xs text-neutral-400 font-semibold tracking-wider uppercase hover:text-neutral-600 transition-colors cursor-pointer"
+                          title="点击执行总控断路/复位"
+                        >
+                          总控 KILLSWITCH
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 分隔线 */}
+                    <div className="my-3.5 border-b border-neutral-100" />
+
+                    {/* 3. 底层三渠道独立卡片网格 (堂食 / 外卖 / 自提) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-0.5">
+                      {/* 堂食 */}
+                      <div
+                        className={`rounded-xl p-3 flex flex-col justify-between transition-all ${
+                          s.dine && s.master
+                            ? 'border border-[#bae6fd] bg-[#f8fbff]'
+                            : 'border border-neutral-200 bg-white'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div
+                            className={`flex items-center gap-1.5 font-bold text-[13px] ${
+                              s.dine && s.master ? 'text-[#0284c7]' : 'text-neutral-400'
+                            }`}
+                          >
+                            <DineIcon className="w-4 h-4 shrink-0" />
+                            <span>堂食</span>
+                          </div>
+                          <ToggleSwitch
+                            checked={s.dine && s.master}
+                            onChange={() => toggleChannel(stationId, 'dine')}
+                          />
+                        </div>
+                        <div className="mt-3">
+                          <div
+                            className={`text-sm font-bold leading-none ${
+                              s.dine && s.master ? 'text-[#0284c7]' : 'text-neutral-400'
+                            }`}
+                          >
+                            {s.dine && s.master ? '开启中' : '已打烊'}
+                          </div>
+                          <div
+                            className={`text-xs mt-1 truncate ${
+                              s.dine && s.master ? 'text-neutral-500' : 'text-neutral-400'
+                            }`}
+                          >
+                            {s.dine && s.master
+                              ? meta.descDine
+                              : stationId === 2
+                              ? '满座限流'
+                              : '暂停堂食'}
+                          </div>
                         </div>
                       </div>
-                      <div className="mt-1 flex flex-col">
-                        <span className={`font-mono text-[11px] font-bold ${s.dine ? 'text-console-primary' : 'text-console-muted'}`}>
-                          {s.dine ? '开启中' : '已打烊'}
-                        </span>
-                        <span className="font-mono text-[9px] sm:text-[10px] text-console-muted truncate">
-                          {meta.descDine}
-                        </span>
-                      </div>
-                    </button>
 
-                    {/* Delivery Button */}
-                    <button
-                      type="button"
-                      onClick={() => toggleChannel(stationId, 'delivery')}
-                      className={`p-2 min-h-[58px] sm:min-h-[64px] border rounded-c transition-all duration-300 ease-out text-left flex flex-col justify-between active:scale-[0.96] group relative overflow-hidden cursor-pointer ${
-                        s.delivery ? 'channel-card-active' : 'channel-card-halted'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between w-full">
-                        <span className={`font-mono text-[11px] font-bold flex items-center gap-1 ${s.delivery ? 'text-console-text' : 'text-console-muted'}`}>
-                          <Bike className={`w-3.5 h-3.5 ${s.delivery ? 'text-console-primary' : 'text-console-muted'}`} />
-                          外卖
-                        </span>
-                        <div className={`w-6 h-3.5 rounded-full flex items-center px-0.5 transition-colors duration-300 ${
-                          s.delivery ? 'bg-console-primaryLight border border-console-primary/40' : 'bg-[#E4E4E0] border border-console-borderDark/60'
-                        }`}>
-                          <div className={`w-2.5 h-2.5 rounded-full switch-knob ${s.delivery ? 'is-active indicator-active' : 'is-inactive indicator-inactive'}`} />
+                      {/* 外卖 */}
+                      <div
+                        className={`rounded-xl p-3 flex flex-col justify-between transition-all ${
+                          s.delivery && s.master
+                            ? 'border border-[#bae6fd] bg-[#f8fbff]'
+                            : 'border border-neutral-200 bg-white'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div
+                            className={`flex items-center gap-1.5 font-bold text-[13px] ${
+                              s.delivery && s.master ? 'text-[#0284c7]' : 'text-neutral-400'
+                            }`}
+                          >
+                            <DeliveryIcon className="w-4 h-4 shrink-0" />
+                            <span>外卖</span>
+                          </div>
+                          <ToggleSwitch
+                            checked={s.delivery && s.master}
+                            onChange={() => toggleChannel(stationId, 'delivery')}
+                          />
+                        </div>
+                        <div className="mt-3">
+                          <div
+                            className={`text-sm font-bold leading-none ${
+                              s.delivery && s.master ? 'text-[#0284c7]' : 'text-neutral-400'
+                            }`}
+                          >
+                            {s.delivery && s.master ? '开启中' : '已打烊'}
+                          </div>
+                          <div
+                            className={`text-xs mt-1 truncate ${
+                              s.delivery && s.master ? 'text-neutral-500' : 'text-neutral-400'
+                            }`}
+                          >
+                            {s.delivery && s.master
+                              ? meta.descDelivery
+                              : stationId === 3
+                              ? '外送接单中'
+                              : '暂停外送'}
+                          </div>
                         </div>
                       </div>
-                      <div className="mt-1 flex flex-col">
-                        <span className={`font-mono text-[11px] font-bold ${s.delivery ? 'text-console-primary' : 'text-console-muted'}`}>
-                          {s.delivery ? '开启中' : '已打烊'}
-                        </span>
-                        <span className="font-mono text-[9px] sm:text-[10px] text-console-muted truncate">
-                          {meta.descDelivery}
-                        </span>
-                      </div>
-                    </button>
 
-                    {/* Pickup Button */}
-                    <button
-                      type="button"
-                      onClick={() => toggleChannel(stationId, 'pickup')}
-                      className={`p-2 min-h-[58px] sm:min-h-[64px] border rounded-c transition-all duration-300 ease-out text-left flex flex-col justify-between active:scale-[0.96] group relative overflow-hidden cursor-pointer ${
-                        s.pickup ? 'channel-card-active' : 'channel-card-halted'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between w-full">
-                        <span className={`font-mono text-[11px] font-bold flex items-center gap-1 ${s.pickup ? 'text-console-text' : 'text-console-muted'}`}>
-                          <QrCode className={`w-3.5 h-3.5 ${s.pickup ? 'text-console-primary' : 'text-console-muted'}`} />
-                          自提
-                        </span>
-                        <div className={`w-6 h-3.5 rounded-full flex items-center px-0.5 transition-colors duration-300 ${
-                          s.pickup ? 'bg-console-primaryLight border border-console-primary/40' : 'bg-[#E4E4E0] border border-console-borderDark/60'
-                        }`}>
-                          <div className={`w-2.5 h-2.5 rounded-full switch-knob ${s.pickup ? 'is-active indicator-active' : 'is-inactive indicator-inactive'}`} />
+                      {/* 自提 */}
+                      <div
+                        className={`rounded-xl p-3 flex flex-col justify-between transition-all ${
+                          s.pickup && s.master
+                            ? 'border border-[#bae6fd] bg-[#f8fbff]'
+                            : 'border border-neutral-200 bg-white'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div
+                            className={`flex items-center gap-1.5 font-bold text-[13px] ${
+                              s.pickup && s.master ? 'text-[#0284c7]' : 'text-neutral-400'
+                            }`}
+                          >
+                            <PickupIcon className="w-4 h-4 shrink-0" />
+                            <span>自提</span>
+                          </div>
+                          <ToggleSwitch
+                            checked={s.pickup && s.master}
+                            onChange={() => toggleChannel(stationId, 'pickup')}
+                          />
+                        </div>
+                        <div className="mt-3">
+                          <div
+                            className={`text-sm font-bold leading-none ${
+                              s.pickup && s.master ? 'text-[#0284c7]' : 'text-neutral-400'
+                            }`}
+                          >
+                            {s.pickup && s.master ? '开启中' : '已打烊'}
+                          </div>
+                          <div
+                            className={`text-xs mt-1 truncate ${
+                              s.pickup && s.master ? 'text-neutral-500' : 'text-neutral-400'
+                            }`}
+                          >
+                            {s.pickup && s.master
+                              ? meta.descPickup
+                              : stationId === 4
+                              ? '自检锁定'
+                              : '柜门已锁'}
+                          </div>
                         </div>
                       </div>
-                      <div className="mt-1 flex flex-col">
-                        <span className={`font-mono text-[11px] font-bold ${s.pickup ? 'text-console-primary' : 'text-console-muted'}`}>
-                          {s.pickup ? '开启中' : '已打烊'}
-                        </span>
-                        <span className="font-mono text-[9px] sm:text-[10px] text-console-muted truncate">
-                          {meta.descPickup}
-                        </span>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+                    </div>
+                  </article>
+                );
+              })}
           </div>
         </section>
 

@@ -12,14 +12,16 @@ import {
   ShieldCheck,
   Zap,
   Clock,
-  Sparkles,
+  FileText,
   Volume2,
   VolumeX,
   CheckCheck,
   RefreshCw,
   Gift,
   Flame,
-  AlertCircle
+  AlertCircle,
+  Mic,
+  MicOff
 } from 'lucide-react';
 import { Order } from '../../types';
 import {
@@ -32,6 +34,7 @@ import {
   formatRelativeTime,
   calculateChatSLAResponse
 } from '../../utils/chatHub';
+import { voiceMessageEngine } from '../../utils/voiceMessageEngine';
 
 export interface EmbeddedOrderChatProps {
   order: Order;
@@ -58,7 +61,20 @@ export const EmbeddedOrderChat: React.FC<EmbeddedOrderChatProps> = ({
   const [inputText, setInputText] = useState('');
   const [filterRole, setFilterRole] = useState<'all' | 'rider' | 'merchant' | 'platform'>('all');
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
+  const voicePlayerRef = useRef<{ stop: () => void } | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordSeconds, setRecordSeconds] = useState(0);
+  const [liveTranscript, setLiveTranscript] = useState('');
+  const [liveWaveform, setLiveWaveform] = useState<number[]>([20, 50, 80, 40, 70, 30]);
+  const recordingTimerRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      voicePlayerRef.current?.stop();
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    };
+  }, []);
 
   const normalizedRole: ChatRole =
     viewerRole === 'customer' || viewerRole === 'user'
@@ -160,15 +176,86 @@ export const EmbeddedOrderChat: React.FC<EmbeddedOrderChatProps> = ({
     return messages;
   }, [messages, filterRole]);
 
-  // Play/Pause mock voice
-  const togglePlayVoice = (msgId: string) => {
-    if (playingVoiceId === msgId) {
+  // Play/Pause real voice
+  const togglePlayVoice = (msg: ChatMessageItem) => {
+    if (playingVoiceId === msg.id) {
+      voicePlayerRef.current?.stop();
+      voicePlayerRef.current = null;
       setPlayingVoiceId(null);
-    } else {
-      setPlayingVoiceId(msgId);
-      setTimeout(() => {
+      return;
+    }
+
+    voicePlayerRef.current?.stop();
+    setPlayingVoiceId(msg.id);
+
+    voicePlayerRef.current = voiceMessageEngine.playVoice(
+      msg.voiceAudioBase64 || msg.voiceAudioUrl,
+      msg.voiceTranscribed || msg.text || '语音协同消息',
+      msg.voiceDuration || 4,
+      () => {
         setPlayingVoiceId(null);
-      }, 4000);
+        voicePlayerRef.current = null;
+      }
+    );
+  };
+
+  // Start real recording
+  const handleStartRecording = async () => {
+    if (isRecording) return;
+    setRecordSeconds(0);
+    setLiveTranscript('');
+    setLiveWaveform([20, 50, 80, 40, 70, 30]);
+
+    const res = await voiceMessageEngine.startRecording(
+      (wave) => setLiveWaveform(wave),
+      (transcript) => setLiveTranscript(transcript)
+    );
+
+    setIsRecording(true);
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    recordingTimerRef.current = setInterval(() => {
+      setRecordSeconds((s) => {
+        if (s >= 60) {
+          handleStopAndSendVoice();
+          return 60;
+        }
+        return s + 1;
+      });
+    }, 1000);
+
+    showToast?.(
+      res.mode === 'real_mic' ? '🎙️ 已启动麦克风录音' : '🎙️ 已启动对讲录音',
+      '请对麦克风说话，完成后点击停止发送'
+    );
+  };
+
+  // Stop and send real voice message
+  const handleStopAndSendVoice = async () => {
+    if (!isRecording) return;
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    setIsRecording(false);
+
+    const voiceData = await voiceMessageEngine.stopRecording();
+    if (voiceData) {
+      const finalTranscribed =
+        voiceData.transcribedText || liveTranscript || '【语音协同消息】';
+
+      sendOrderChatMessage(cleanOrderNo, {
+        senderRole: normalizedRole,
+        senderName: roleSenderName,
+        type: 'voice',
+        voiceDuration: Math.max(1, voiceData.duration),
+        voiceAudioUrl: voiceData.audioUrl,
+        voiceAudioBase64: voiceData.audioBase64,
+        voiceTranscribed: finalTranscribed,
+        voiceWaveform:
+          voiceData.waveform && voiceData.waveform.length > 0
+            ? voiceData.waveform
+            : [20, 50, 80, 40, 70, 30],
+        text: finalTranscribed
+      });
+
+      showToast?.(`🎙️ ${Math.max(1, voiceData.duration)}秒 语音已送达`, '点击气泡可原声回放');
     }
   };
 
@@ -184,7 +271,7 @@ export const EmbeddedOrderChat: React.FC<EmbeddedOrderChatProps> = ({
           <span className="font-bold text-[11px] sm:text-xs text-neutral-100 truncate">
             在线协同通讯 · 订单 #{cleanOrderNo}
           </span>
-          <span className="hidden xs:inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono border border-emerald-400/30 shrink-0">
+          <span className="hidden xs:inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] tabular-nums border border-emerald-400/30 shrink-0">
             <ShieldCheck className="w-2.5 h-2.5" />
             三端加密
           </span>
@@ -244,7 +331,7 @@ export const EmbeddedOrderChat: React.FC<EmbeddedOrderChatProps> = ({
         <div className="flex items-center gap-1.5 text-[10px] text-neutral-600">
           <Clock className="w-3 h-3 text-neutral-600" />
           <span>响应评级:</span>
-          <span className="font-bold font-mono text-emerald-800 bg-emerald-100 px-1 rounded">
+          <span className="font-bold tabular-nums text-emerald-800 bg-emerald-100 px-1 rounded">
             {slaStatus.slaTier}级 ({slaStatus.responseRatePercent}%)
           </span>
         </div>
@@ -285,7 +372,7 @@ export const EmbeddedOrderChat: React.FC<EmbeddedOrderChatProps> = ({
                         {msg.statusChangeInfo.title}
                       </span>
                     </div>
-                    <span className="text-[9.5px] font-mono text-amber-700">
+                    <span className="text-[9.5px] tabular-nums text-amber-700">
                       {msg.time}
                     </span>
                   </div>
@@ -331,7 +418,7 @@ export const EmbeddedOrderChat: React.FC<EmbeddedOrderChatProps> = ({
                     <span className="text-[10px] text-neutral-600 font-medium">
                       {msg.senderName}
                     </span>
-                    <span className="text-[9px] text-neutral-600 font-mono">
+                    <span className="text-[9px] text-neutral-600 tabular-nums">
                       {msg.time}
                     </span>
                   </div>
@@ -339,7 +426,7 @@ export const EmbeddedOrderChat: React.FC<EmbeddedOrderChatProps> = ({
                   {msg.type === 'voice' ? (
                     <button
                       type="button"
-                      onClick={() => togglePlayVoice(msg.id)}
+                      onClick={() => togglePlayVoice(msg)}
                       className={`p-2.5 rounded-2xl flex items-center gap-2 cursor-pointer transition-all ${
                         isMe
                           ? 'bg-neutral-900 text-white rounded-tr-xs'
@@ -369,7 +456,7 @@ export const EmbeddedOrderChat: React.FC<EmbeddedOrderChatProps> = ({
                           />
                         ))}
                       </div>
-                      <span className="text-[10px] font-mono">{msg.voiceDuration || 5}"</span>
+                      <span className="text-[10px] tabular-nums">{msg.voiceDuration || 5}"</span>
                     </button>
                   ) : (
                     <div
@@ -414,8 +501,64 @@ export const EmbeddedOrderChat: React.FC<EmbeddedOrderChatProps> = ({
         ))}
       </div>
 
+      {/* Voice Recording Status Dock */}
+      {isRecording && (
+        <div className="px-3 py-2 bg-rose-50 border-t border-rose-200 flex flex-col gap-1.5 animate-in fade-in duration-150">
+          <div className="flex items-center justify-between text-[11px] text-rose-900 font-bold">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+              <span>录音中 ({recordSeconds}s / 60s)</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+                setIsRecording(false);
+                voiceMessageEngine.stopRecording();
+              }}
+              className="text-rose-600 hover:text-rose-800 text-[10px] cursor-pointer"
+            >
+              取消
+            </button>
+          </div>
+          <div className="flex items-center gap-1 h-3">
+            {liveWaveform.map((h, i) => (
+              <div
+                key={i}
+                className="w-1 bg-rose-500 rounded-full transition-all duration-75"
+                style={{ height: `${Math.max(4, h / 5)}px` }}
+              />
+            ))}
+          </div>
+          <div className="text-[10.5px] text-neutral-700 bg-white/90 p-1.5 rounded-lg border border-neutral-200 flex items-center gap-1">
+            <FileText className="w-3 h-3 text-neutral-600 stroke-[1.5] shrink-0" />
+            <span className="truncate">{liveTranscript || '正在采集您的语音输入...'}</span>
+          </div>
+        </div>
+      )}
+
       {/* 5. Message Input Bar */}
       <div className="p-2 bg-white border-t border-neutral-200 flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => {
+            if (isRecording) {
+              handleStopAndSendVoice();
+            } else {
+              handleStartRecording();
+            }
+          }}
+          className={`p-1.5 sm:px-2 sm:py-1.5 rounded-xl border transition-all cursor-pointer shrink-0 flex items-center gap-1 ${
+            isRecording
+              ? 'bg-rose-600 text-white border-rose-700 animate-pulse'
+              : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border-neutral-300'
+          }`}
+          title={isRecording ? '点击停止并发送语音' : '点击录制语音消息'}
+        >
+          {isRecording ? <MicOff className="w-3.5 h-3.5 text-white" /> : <Mic className="w-3.5 h-3.5" />}
+          {isRecording && <span className="text-[10px] font-bold">停止并发送</span>}
+        </button>
+
         <input
           type="text"
           value={inputText}

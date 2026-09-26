@@ -23,7 +23,8 @@ import {
   RefreshCw,
   Package,
   Layers,
-  KeyRound
+  KeyRound,
+  Camera
 } from 'lucide-react';
 import { DishItem, Order, TableItem } from '../../types';
 import { getOrGeneratePickupCode } from '../../utils/pickupCodeEngine';
@@ -41,6 +42,7 @@ import {
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { useDevSimulation } from '../../context/DevSimulationContext';
 import { SimulationProbe } from '../dev/SimulationProbe';
+import { MobileCameraScannerModal } from '../common/MobileCameraScannerModal';
 
 interface MerchantScannerConsoleProps {
   dishes: DishItem[];
@@ -63,6 +65,7 @@ export const MerchantScannerConsole: React.FC<MerchantScannerConsoleProps> = ({
   const [lastScannedResult, setLastScannedResult] = useState<ScanResult | null>(null);
   const [history, setHistory] = useState<ScanResult[]>([]);
   const [searchSkuQuery, setSearchSkuQuery] = useState('');
+  const [isCameraScannerOpen, setIsCameraScannerOpen] = useState(false);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   // Load history on mount
@@ -149,7 +152,16 @@ export const MerchantScannerConsole: React.FC<MerchantScannerConsoleProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
+        <div className="flex items-center gap-2 self-start md:self-auto shrink-0 flex-wrap sm:flex-nowrap">
+          <button
+            type="button"
+            onClick={() => setIsCameraScannerOpen(true)}
+            className="px-3 py-1.5 bg-[#edf6f1] hover:bg-[#d8eedf] text-[#2b593f] border border-[#cbe4d7] rounded-[2px] text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+            title="开启手机后置相机快捷扫码"
+          >
+            <Camera className="w-3.5 h-3.5 text-[#2b593f]" />
+            <span>手机相机扫码</span>
+          </button>
           <button
             type="button"
             onClick={() => {
@@ -730,6 +742,24 @@ export const MerchantScannerConsole: React.FC<MerchantScannerConsoleProps> = ({
           )}
         </div>
       </div>
+
+      {/* 手机端相机快捷扫码模态弹窗 */}
+      <MobileCameraScannerModal
+        isOpen={isCameraScannerOpen}
+        onClose={() => setIsCameraScannerOpen(false)}
+        title="扫码枪控制台 · 手机相机扫码"
+        hint="对准商品条形码、自提码或优惠券码即可即时识读"
+        showToast={showToast}
+        onScanSuccess={(code, res) => {
+          if (res) {
+            setLastScannedResult(res);
+            setHistory(getScanHistory());
+            if (res.type === 'dish' && res.matchedData && onDishScanned) {
+              onDishScanned(res.matchedData);
+            }
+          }
+        }}
+      />
     </div>
   );
 };

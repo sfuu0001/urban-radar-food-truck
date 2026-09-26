@@ -175,7 +175,9 @@ export const BusinessStatusModal: React.FC<BusinessStatusModalProps> = ({
           {(allTrucks.length > 0 ? allTrucks : [
             { truckId: 'truck-01', truckName: getUnifiedTruckName('truck-01', 'short') },
             { truckId: 'truck-02', truckName: getUnifiedTruckName('truck-02', 'short') },
-            { truckId: 'truck-03', truckName: getUnifiedTruckName('truck-03', 'short') }
+            { truckId: 'truck-03', truckName: getUnifiedTruckName('truck-03', 'short') },
+            { truckId: 'truck-04', truckName: getUnifiedTruckName('truck-04', 'short') },
+            { truckId: 'truck-05', truckName: getUnifiedTruckName('truck-05', 'short') }
           ]).map((t) => {
             const isTabActive = t.truckId === selectedTid;
             const truckSt = getTruckBusinessStatus(t.truckId);

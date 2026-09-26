@@ -352,7 +352,7 @@ export const CloudbaseStatusModal: React.FC<CloudbaseStatusModalProps> = ({
                   </span>
                 </div>
                 <p className="text-[11px] text-[#787770]">
-                  环境 ID: <span className="font-mono text-black font-semibold">{TCB_ENV_ID}</span> · 包含 16 大业务模块 · <span className="text-emerald-700 font-bold">{totalInventoryRecords} 条档案</span>
+                  环境 ID: <span className="tabular-nums text-black font-semibold">{TCB_ENV_ID}</span> · 包含 16 大业务模块 · <span className="text-emerald-700 font-bold">{totalInventoryRecords} 条档案</span>
                 </p>
               </div>
             </div>
@@ -463,10 +463,10 @@ export const CloudbaseStatusModal: React.FC<CloudbaseStatusModalProps> = ({
                     >
                       <div className="space-y-0.5 min-w-0">
                         <div className="font-bold text-neutral-900 text-xs truncate flex items-center gap-1.5">
-                          <span className="text-[10px] font-mono text-neutral-400">#{idx + 1}</span>
+                          <span className="text-[10px] tabular-nums text-neutral-400">#{idx + 1}</span>
                           <span>{item.name}</span>
                         </div>
-                        <div className="text-[10px] font-mono text-neutral-500 truncate">
+                        <div className="text-[10px] tabular-nums text-neutral-500 truncate">
                           {item.collectionName}
                         </div>
                       </div>
@@ -500,7 +500,7 @@ export const CloudbaseStatusModal: React.FC<CloudbaseStatusModalProps> = ({
                     type="text"
                     readOnly
                     value={TCB_ENV_ID}
-                    className="bg-transparent flex-1 font-mono text-[11px] text-black font-semibold outline-none select-all"
+                    className="bg-transparent flex-1 tabular-nums text-[11px] text-black font-semibold outline-none select-all"
                   />
                   <button
                     type="button"
@@ -604,7 +604,7 @@ export const CloudbaseStatusModal: React.FC<CloudbaseStatusModalProps> = ({
           {/* Tab 3: 5层架构 (Topology) */}
           {activeTab === 'topology' && (
             <div className="space-y-3 text-xs">
-              <div className="p-3 bg-neutral-900 text-white rounded-2xl space-y-2 font-mono">
+              <div className="p-3 bg-neutral-900 text-white rounded-2xl space-y-2 tabular-nums">
                 <div className="flex items-center justify-between text-[11px] border-b border-neutral-800 pb-1.5 text-neutral-400">
                   <span>5-TIER DATA SYNC PIPELINE</span>
                   <span className="text-emerald-400">● REAL-TIME ACTIVE</span>
@@ -750,7 +750,7 @@ export const CloudbaseStatusModal: React.FC<CloudbaseStatusModalProps> = ({
                   <Database className="w-4 h-4 text-sky-600" />
                   <span>已配置的 16 大腾讯云开发集合映射</span>
                 </div>
-                <div className="space-y-1 text-[11px] font-mono max-h-[220px] overflow-y-auto pr-1">
+                <div className="space-y-1 text-[11px] tabular-nums max-h-[220px] overflow-y-auto pr-1">
                   {Object.entries(TCB_COLLECTIONS).map(([key, val]) => (
                     <div key={key} className="flex justify-between items-center py-1 border-b border-[#e8e8e4]">
                       <span className="text-neutral-800 font-bold">{val}</span>

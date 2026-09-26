@@ -489,7 +489,7 @@ export function addFoodSafetyStampToCanvas(
   ctx.textAlign = 'left';
   ctx.fillText(`🛡️ URBAN RADAR 食品安全溯源存根 | ${ingredient.name}`, 14, h - barHeight + fontSize + 8);
 
-  ctx.font = `normal ${Math.max(10, fontSize - 2)}px monospace`;
+  ctx.font = `normal ${Math.max(10, fontSize - 2)}px "Space Grotesk", sans-serif`;
   ctx.fillStyle = '#c8c7be';
   ctx.fillText(
     `品牌: ${ingredient.brand || '直供'} | 条码: ${ingredient.barcode || '无'} | 储位: ${ingredient.freezerLocation || '车载冷库'}`,

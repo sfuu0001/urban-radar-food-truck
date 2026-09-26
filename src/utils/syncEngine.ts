@@ -42,6 +42,11 @@ import {
   syncUserProfileToCloud,
   fetchDishesFromCloud, 
   fetchOrdersFromCloud,
+  fetchTruckLocationsFromCloud,
+  fetchTruckInfoFromCloud,
+  fetchTruckExpandConfigFromCloud,
+  fetchBusinessStatusesFromCloud,
+  fetchFranchiseTenantFromCloud,
   watchCloudOrders,
   syncAllEnterpriseDataToCloud,
   EnterpriseSyncReport
@@ -456,7 +461,12 @@ class DataSyncEngine {
     try {
       const [orderRes, dishRes] = await Promise.allSettled([
         fetchOrdersFromCloud(),
-        fetchDishesFromCloud()
+        fetchDishesFromCloud(),
+        fetchTruckLocationsFromCloud(),
+        fetchTruckInfoFromCloud(),
+        fetchTruckExpandConfigFromCloud(),
+        fetchBusinessStatusesFromCloud(),
+        fetchFranchiseTenantFromCloud()
       ]);
 
       if (orderRes.status === 'fulfilled' && orderRes.value.orders) {

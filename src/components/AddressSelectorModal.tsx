@@ -491,7 +491,7 @@ export const AddressSelectorModal: React.FC<AddressSelectorModalProps> = ({
               </h3>
               <p className="text-[11px] text-[#787770] truncate">
                 【{truckConfig.name}】专送半径{' '}
-                <span className="font-bold text-emerald-700 font-mono">
+                <span className="font-bold text-emerald-700 tabular-nums">
                   {truckConfig.deliveryRadiusKm.toFixed(1)} km
                 </span>{' '}
                 · 共 {addresses.length} 个地址
@@ -552,7 +552,7 @@ export const AddressSelectorModal: React.FC<AddressSelectorModalProps> = ({
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-xs font-black text-black">{formState.title || '定位锚点'}</span>
                         {formState.source === 'gps' && (
-                          <span className="text-[9px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-200 px-1 py-0.2 rounded font-mono">
+                          <span className="text-[9px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-200 px-1 py-0.2 rounded tabular-nums">
                             GPS ±{formState.accuracy ? Math.round(formState.accuracy) : 10}m
                           </span>
                         )}
@@ -601,7 +601,7 @@ export const AddressSelectorModal: React.FC<AddressSelectorModalProps> = ({
                       距餐车 {formEvaluation.distanceKm.toFixed(2)}km · 专送覆盖中
                     </span>
                   )}
-                  <span className="text-[#9a937f] font-mono text-[9px] truncate">
+                  <span className="text-[#9a937f] tabular-nums text-[9px] truncate">
                     {formState.latitude.toFixed(4)}, {formState.longitude.toFixed(4)}
                   </span>
                 </div>
@@ -658,7 +658,7 @@ export const AddressSelectorModal: React.FC<AddressSelectorModalProps> = ({
                         key={ex}
                         type="button"
                         onClick={() => setFormState({ ...formState, houseNumber: ex })}
-                        className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-mono transition-colors cursor-pointer"
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 tabular-nums transition-colors cursor-pointer"
                       >
                         {ex}
                       </button>
@@ -719,7 +719,7 @@ export const AddressSelectorModal: React.FC<AddressSelectorModalProps> = ({
                       value={formState.receiverPhone}
                       onChange={(e) => setFormState({ ...formState, receiverPhone: e.target.value })}
                       placeholder="例：138-8888-9201"
-                      className="w-full px-3 py-2 text-xs border border-neutral-300 rounded-xl bg-white focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none font-medium font-mono"
+                      className="w-full px-3 py-2 text-xs border border-neutral-300 rounded-xl bg-white focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none font-medium tabular-nums"
                     />
                   </div>
                 </div>
@@ -893,7 +893,7 @@ export const AddressSelectorModal: React.FC<AddressSelectorModalProps> = ({
                             <span className="block text-xs font-bold text-[#37352f] truncate">{s.title}</span>
                             <span className="block text-[10.5px] text-[#787774] truncate">{s.detail}</span>
                           </span>
-                          <span className="ml-auto shrink-0 text-[9px] font-mono px-1 py-0.5 rounded bg-neutral-100 text-neutral-500 self-center">
+                          <span className="ml-auto shrink-0 text-[9px] tabular-nums px-1 py-0.5 rounded bg-neutral-100 text-neutral-500 self-center">
                             {s.source === 'amap' ? '高德' : 'OSM'}
                           </span>
                         </button>

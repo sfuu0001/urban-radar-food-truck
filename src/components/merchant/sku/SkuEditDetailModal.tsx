@@ -143,7 +143,7 @@ export const SkuEditDetailModal: React.FC<SkuEditDetailModalProps> = ({
                   const rects = bars
                     .map((w, idx) => `<rect x="${idx * 7 + 4}" y="2" width="${w}" height="30" fill="#0f172a" />`)
                     .join('');
-                  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="130" height="34" viewBox="0 0 130 34"><rect width="130" height="34" fill="#ffffff"/>${rects}<text x="65" y="32" font-family="monospace" font-size="9" font-weight="bold" fill="#0f172a" text-anchor="middle" letter-spacing="2">${formData.sku}</text></svg>`;
+                  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="130" height="34" viewBox="0 0 130 34"><rect width="130" height="34" fill="#ffffff"/>${rects}<text x="65" y="32" font-family="'Space Grotesk', sans-serif" font-size="9" font-weight="bold" fill="#0f172a" text-anchor="middle" letter-spacing="2">${formData.sku}</text></svg>`;
                   const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8;' });
                   const url = URL.createObjectURL(blob);
                   const link = document.createElement('a');

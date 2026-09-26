@@ -126,7 +126,7 @@ export const DEFAULT_TENANT_CONTEXT: FranchiseTenantContext = {
   currentRole: 'hq_admin',
   currentFranchiseeId: 'HQ',
   currentTruckId: 'truck-01',
-  accessibleTruckIds: ['truck-01', 'truck-02', 'truck-03'],
+  accessibleTruckIds: ['truck-01', 'truck-02', 'truck-03', 'truck-04', 'truck-05'],
   isHqUser: true,
   operatorName: '黑曜石品牌管理总部 (HQ-001)'
 };

@@ -36,6 +36,7 @@ import {
 import { Order, DishItem } from '../../types';
 import { exportToCsv, exportSystemBackup, importSystemBackup } from '../../utils/dataExportEngine';
 import { merchantBackupEngine } from '../../utils/merchantBackupEngine';
+import { HeatmapGridMatrix, HeatmapDataPoint } from '../common/HeatmapGridMatrix';
 
 interface MerchantAnalyticsProps {
   orders: Order[];
@@ -439,6 +440,41 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
   const prevCount = prevRangeOrders.length;
   const salesDelta = prevBaseSales > 0 ? ((totalSales - prevBaseSales) / prevBaseSales) * 100 : null;
   const countDelta = prevCount > 0 ? ((totalOrdersCount - prevCount) / prevCount) * 100 : null;
+
+  // 60 天营收与客流打卡热力矩阵数据源
+  const salesHeatmapData: HeatmapDataPoint[] = useMemo(() => {
+    const map = new Map<string, { revenue: number; count: number }>();
+    processedOrders.forEach((o) => {
+      const dStr = new Date(orderTs(o)).toISOString().slice(0, 10);
+      const cur = map.get(dStr) || { revenue: 0, count: 0 };
+      cur.revenue += o.totalAmount;
+      cur.count += 1;
+      map.set(dStr, cur);
+    });
+
+    customAdjustments.forEach((a) => {
+      if (a.dateStr) {
+        const cur = map.get(a.dateStr) || { revenue: 0, count: 0 };
+        cur.revenue += a.amount;
+        map.set(a.dateStr, cur);
+      }
+    });
+
+    const list: HeatmapDataPoint[] = [];
+    map.forEach((val, dStr) => {
+      list.push({
+        date: dStr,
+        value: Math.max(0, Math.round(val.revenue)),
+        title: `¥${val.revenue.toFixed(2)} · ${val.count}单`,
+        extraNote: `${val.count} 笔成交流水`,
+        metrics: [
+          { label: '实收营收', value: `¥${val.revenue.toFixed(2)}` },
+          { label: '订单流水', value: `${val.count} 单` }
+        ]
+      });
+    });
+    return list;
+  }, [processedOrders, customAdjustments]);
 
   // 渠道构成
   const storeSideCount = currentRangeOrders.filter(
@@ -885,6 +921,24 @@ export const MerchantAnalytics: React.FC<MerchantAnalyticsProps> = ({
           </div>
         </div>
       </div>
+
+      {/* 营收与客流打卡热力格子矩阵 */}
+      <HeatmapGridMatrix
+        id="analytics-sales-heatmap"
+        title="餐车经营打卡与营收热力矩阵"
+        subtitle="直观透视每日营业 GMV 达成走势，点击任意方格可瞬时切换查看该日流水报表"
+        theme="emerald"
+        daysCount={42}
+        data={salesHeatmapData}
+        metricUnit="元"
+        selectedDate={dateMode === 'specific_day' ? selectedDateStr : (dateMode === 'today' ? getTodayStr() : null)}
+        onSelectDate={(dStr) => {
+          setDateMode('specific_day');
+          setSelectedDateStr(dStr);
+          showToast(`已切换查看 ${dStr} 的营业大屏与订单流水`);
+        }}
+        legendLabels={['无营收', '起步 <500', '常规 <1500', '良好 <3000', '爆单 >3000']}
+      />
 
       {/* 4 项 KPI 指标概览卡片 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

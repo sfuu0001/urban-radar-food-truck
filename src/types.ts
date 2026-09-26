@@ -298,6 +298,16 @@ export interface RiderRejectionRecord {
   bountyBump?: number;
 }
 
+export interface TruckLocationSnapshot {
+  truckId: string;
+  truckName: string;
+  latitude: number;
+  longitude: number;
+  locationName: string;
+  deliveryRadiusKm: number;
+  snapshotAt: string;
+}
+
 export interface OrderAuditLogRecord {
   time: string;
   operator: string;
@@ -339,6 +349,7 @@ export interface Order {
     | 'cancelled';
   statusText: string;
   createdTime: string;
+  updatedAt?: string;
   estimatedDeliveryTime: string;
   etaMinutes: number;
   courierName?: string;
@@ -382,6 +393,7 @@ export interface Order {
   dinerCount?: number; // 堂食就餐人数
   truckLocation?: string; // 餐车停泊位置说明
   remark?: string; // 订单备注信息
+  truckLocationSnapshot?: TruckLocationSnapshot; // 订单履约级停靠点与围栏快照 (隔离后续站台漂移客诉)
 }
 
 export interface BoundTableInfo {
@@ -1058,28 +1070,48 @@ export interface DeliverySettings {
 
 // ---- Printing & Station Types ----
 export type PrinterStationType = 'grill' | 'bar' | 'fry' | 'cashier' | 'pass';
+export type PrinterConnectionType = 'bluetooth' | 'usb' | 'network' | 'wifi';
 
 export interface PrinterStation {
   id: string;
   name: string;
   stationType: PrinterStationType;
+  connectionType?: PrinterConnectionType; // 蓝牙 / USB / 网口 / WiFi
   deviceIp: string;
+  port?: number; // 默认 9100
+  macAddress?: string;
+  usbVendorId?: string;
+  usbProductId?: string;
+  modelBrand?: string;
   paperWidth: '58mm' | '80mm';
   copies: number;
   autoPrintOnNewOrder: boolean;
   categoriesHandled: string[]; // e.g. ['skewers', 'western', 'drinks', 'snacks']
   status: 'online' | 'offline' | 'warning';
   lastPrintedAt?: string;
+  pingLatencyMs?: number;
+  batteryLevel?: number;
+  sensorStatus?: {
+    paperOut?: boolean;
+    coverOpen?: boolean;
+    overheated?: boolean;
+  };
 }
 
 export interface BluetoothPrinterDevice {
   id: string;
   name: string;
+  connectionType?: PrinterConnectionType;
   macAddress?: string;
+  ipAddress?: string;
+  port?: number;
+  usbVendorId?: string;
+  usbProductId?: string;
   paperWidth: '58mm' | '80mm';
   status: 'connected' | 'disconnected' | 'connecting';
   batteryLevel?: number; // e.g. 85
   signalRssi?: number; // e.g. -58 dBm
+  pingLatencyMs?: number;
   isDefault?: boolean;
   autoPrintNewOrders?: boolean;
   lastPrintedAt?: string;
@@ -1088,10 +1120,27 @@ export interface BluetoothPrinterDevice {
   copies?: number;
 }
 
+export interface DetectedPrinterDevice {
+  id: string;
+  name: string;
+  connectionType: PrinterConnectionType;
+  modelBrand: string;
+  identifier: string; // MAC or IP:Port or USB VID:PID
+  paperWidth: '58mm' | '80mm';
+  status: 'online' | 'offline' | 'warning' | 'paper_out' | 'cover_open';
+  pingLatencyMs?: number;
+  rssi?: number;
+  batteryLevel?: number;
+  rawDeviceRef?: any;
+  lastDetectedAt: string;
+  suggestedStation?: PrinterStationType;
+}
+
 export interface BluetoothPrintTaskLog {
   id: string;
   timestamp: string;
   printerName: string;
+  connectionType?: PrinterConnectionType;
   orderNo: string;
   bytesCount: number;
   status: 'success' | 'failed' | 'transmitting';
@@ -1114,6 +1163,23 @@ export interface ReceiptTemplateConfig {
   footerNotes: string;
   customerCopyText: string;
   kitchenCopyText: string;
+  // 三大就餐场景专属配置 (堂食、自提、外卖)
+  activePreviewChannel?: 'auto' | 'dine_in' | 'pickup' | 'delivery';
+  // 堂食 (Dine-in)
+  dineInTitle?: string;
+  showDineInTableBig?: boolean; // 桌号大号字体 size('large')
+  showDineInGuests?: boolean; // 就餐人数 (如 4位)
+  dineInZoneNotice?: string; // 外摆区提示
+  // 自提 (Self-Pickup)
+  pickupTitle?: string;
+  showPickupCodeBig?: boolean; // 取餐码大号字体框线
+  showPickupShelf?: boolean; // 保温格/自提柜位置
+  pickupLockerCode?: string; // 默认自提格
+  // 外卖 (Delivery)
+  deliveryTitle?: string;
+  showDeliveryAddressBig?: boolean; // 配送地址大号字体 size('large')
+  showDeliveryRiderNotes?: boolean; // 骑手联络/备注
+  showFoodSafetySeal?: boolean; // 食安封签
 }
 
 // ---- Member CRM & Loyalty Types ----

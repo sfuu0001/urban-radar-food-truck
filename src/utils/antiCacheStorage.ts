@@ -11,6 +11,8 @@
  * 以及云端硬件指纹匹配库中瞬间无感重构恢复！
  */
 
+import { ACTIVE_BUILD_VERSION, STORAGE_VERSION_KEY } from './versionPurgeGateway';
+
 const DB_NAME = 'obsidian_identity_vault';
 const DB_VERSION = 1;
 const STORE_NAME = 'user_vault';
@@ -179,6 +181,15 @@ export async function persistVaultIdentity(key: string, data: any): Promise<void
  * 多重容灾恢复: 当 LocalStorage 被清空时，从 IndexedDB、Cookie 或 Session 自动拉起并自愈
  */
 export async function recoverVaultIdentity<T = any>(key: string): Promise<T | null> {
+  // 版本保护检查：若当前未完成版本验证或正处于版本更新过渡期，不盲目从离线保险箱回填旧版本残留
+  try {
+    const currentVer = localStorage.getItem(STORAGE_VERSION_KEY);
+    if (currentVer && currentVer !== ACTIVE_BUILD_VERSION) {
+      console.info(`[AntiCache] 检测到版本跨代更新 [${currentVer} -> ${ACTIVE_BUILD_VERSION}]，跳过旧保险箱复活，交由云端权威拉取.`);
+      return null;
+    }
+  } catch {}
+
   // 1. 尝试 LocalStorage
   try {
     const val = localStorage.getItem(key);

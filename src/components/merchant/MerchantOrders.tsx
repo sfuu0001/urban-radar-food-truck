@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Store,
   Printer,
@@ -34,7 +35,8 @@ import {
   Megaphone,
   Trash2,
   CalendarDays,
-  Filter
+  Filter,
+  Camera
 } from 'lucide-react';
 import { Order } from '../../types';
 import { UnifiedOmniChatModal } from '../chat/UnifiedOmniChatModal';
@@ -48,13 +50,20 @@ import { voiceAlerts, unlockAudioContext } from '../../utils/voiceAlertEngine';
 import { AccountAuditDrawer } from './AccountAuditDrawer';
 import { globalScannerEngine, playScannerBeep } from '../../utils/barcodeScannerEngine';
 import { businessTransactionEngine } from '../../utils/businessTransactionEngine';
+import { UiverseSonarBeacon, UiverseFlameTag } from './uiverse/UiverseDynamicComponents';
 import { merchantBackupEngine } from '../../utils/merchantBackupEngine';
 import { MerchantStrikeOffCompensationModal } from './MerchantStrikeOffCompensationModal';
 import { MerchantOrderEditModal } from './MerchantOrderEditModal';
 import { Edit3, RotateCcw } from 'lucide-react';
+import { AnimatePresence } from 'motion/react';
+import { OrderMetaDrawerCard } from './OrderMetaDrawerCard';
 import { OrdersColumnsPref, loadLocalPrefs, ordersColumnsClass } from '../../utils/workspacePreferences';
+import { printLayoutViaBridge, probeLocalBridge } from '../../utils/localPrintBridge';
+import { buildOrderReceiptLayoutLines } from '../../utils/escpos';
+import { getSavedReceiptTemplate } from '../../utils/autoPrintDispatcherEngine';
 import { getUnifiedTruckName } from '../../utils/truckNaming';
 import { AutoScrollButtonRow } from './AutoScrollButtonRow';
+import { MobileCameraScannerModal } from '../common/MobileCameraScannerModal';
 
 // Helper to extract exact YYYY-MM-DD from order
 export function resolveOrderDay(order: Order): string {
@@ -119,6 +128,21 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
   const [channelFilter, setChannelFilter] = useState<'all' | 'delivery' | 'dine_in' | 'pickup'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
+  const [activeMobileDropdown, setActiveMobileDropdown] = useState<'status' | 'channel' | 'actions' | null>(null);
+  const [dropdownCoords, setDropdownCoords] = useState<{ top: number; left?: number; right?: number }>({ top: 0 });
+  const [isMobileSearchActive, setIsMobileSearchActive] = useState(false);
+  
+  // 监听页面滚动与窗口尺寸变化，自动收起移动端悬浮菜单
+  useEffect(() => {
+    if (!activeMobileDropdown) return;
+    const handleDismiss = () => setActiveMobileDropdown(null);
+    window.addEventListener('scroll', handleDismiss, { passive: true });
+    window.addEventListener('resize', handleDismiss);
+    return () => {
+      window.removeEventListener('scroll', handleDismiss);
+      window.removeEventListener('resize', handleDismiss);
+    };
+  }, [activeMobileDropdown]);
   
   // Date filtering state（批次4：换用共享 DateRangeFilter，预设档+自定义起止精确到分钟；归日粒度行为不变）
   const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'all' });
@@ -153,6 +177,8 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
 
   // Modals
   const [receiptOrder, setReceiptOrder] = useState<Order | null>(null);
+  const [receiptPrinting, setReceiptPrinting] = useState(false);
+  const [batchPrinting, setBatchPrinting] = useState(false);
   const [chatOrder, setChatOrder] = useState<Order | null>(null);
   const [verifyTargetOrder, setVerifyTargetOrder] = useState<Order | null>(null);
   const [auditConvertTargetOrder, setAuditConvertTargetOrder] = useState<Order | null>(null);
@@ -170,6 +196,31 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
     isOpen: boolean;
     order: Order | null;
   }>({ isOpen: false, order: null });
+
+  // 悬停抽屉信息卡状态（支持鼠标悬停与点击常驻固定）
+  const [hoveredDrawerOrderNo, setHoveredDrawerOrderNo] = useState<string | null>(null);
+  const [pinnedDrawerOrderNo, setPinnedDrawerOrderNo] = useState<string | null>(null);
+  const drawerTimerRef = React.useRef<any>(null);
+
+  const handleMetaMouseEnter = (orderNo: string) => {
+    if (drawerTimerRef.current) clearTimeout(drawerTimerRef.current);
+    setHoveredDrawerOrderNo(orderNo);
+  };
+
+  const handleMetaMouseLeave = () => {
+    if (drawerTimerRef.current) clearTimeout(drawerTimerRef.current);
+    drawerTimerRef.current = setTimeout(() => {
+      setHoveredDrawerOrderNo(null);
+    }, 220);
+  };
+
+  const handleDrawerMouseEnter = () => {
+    if (drawerTimerRef.current) clearTimeout(drawerTimerRef.current);
+  };
+
+  const handleTogglePinDrawer = (orderNo: string) => {
+    setPinnedDrawerOrderNo((prev) => (prev === orderNo ? null : orderNo));
+  };
 
   // 划菜操作处理函数
   const handleConfirmStrikeOff = (
@@ -278,6 +329,7 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
   // 扫码枪与极速核销面板状态
   const [isScannerBarOpen, setIsScannerBarOpen] = useState(false);
   const [quickScanInput, setQuickScanInput] = useState('');
+  const [isOrderCameraScannerOpen, setIsOrderCameraScannerOpen] = useState(false);
 
   // FIX(审计P1): "刷新同步"真实化——从本地权威键重读订单，若有变化派发事件让全端刷新（取代"仅提示已同步"假实现）
   const handleRefreshSync = () => {
@@ -582,14 +634,65 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
     setRefundRejectTarget(null);
   };
 
-  const handleBatchPrint = () => {
-    showToast(`正在批量向热敏打印机发送 ${filteredOrders.length} 张备餐小票...`);
+  const handleBatchPrint = async () => {
+    if (batchPrinting) return;
+    if (!filteredOrders.length) {
+      showToast('当前筛选条件下没有可打印的订单');
+      return;
+    }
+    const bridgeOnline = await probeLocalBridge();
+    if (!bridgeOnline) {
+      showToast('本地打印桥未运行，请先在收银机双击 start-bridge.cmd 启动');
+      return;
+    }
+    setBatchPrinting(true);
+    showToast(`正在批量出票: ${filteredOrders.length} 张顾客联 (含价格)...`);
+    const template = getSavedReceiptTemplate();
+    let okCount = 0;
+    const failedNos: string[] = [];
+    for (const o of filteredOrders) {
+      try {
+        const res = await printLayoutViaBridge(
+          buildOrderReceiptLayoutLines(o, template, '80mm'),
+          template.headerTitle
+        );
+        if (res.ok) okCount++;
+        else failedNos.push(o.orderNo);
+      } catch {
+        failedNos.push(o.orderNo);
+      }
+    }
+    setBatchPrinting(false);
+    showToast(
+      failedNos.length === 0
+        ? `批量出票完成: ${okCount}/${filteredOrders.length} 张已送入打印队列`
+        : `出票完成 ${okCount}/${filteredOrders.length}，失败单号: ${failedNos.slice(0, 3).join(', ')}${failedNos.length > 3 ? ' 等' : ''}`
+    );
   };
 
   // Calculate daily turnover total
   const todayRevenue = orders
     .filter(o => o.status !== 'refunded' && o.status !== 'cancelled')
     .reduce((acc, curr) => acc + curr.totalAmount, 0);
+
+  const statusOptions = useMemo(() => [
+    { key: 'all' as const, label: '全部订单', count: orders.length, dotColor: 'bg-neutral-900' },
+    { key: 'pending' as const, label: '待接单确认', count: pendingOrders.length, dotColor: 'bg-amber-500' },
+    { key: 'cooking' as const, label: '制作中 (KDS)', count: cookingOrders.length, dotColor: 'bg-orange-500' },
+    { key: 'delivering' as const, label: '待取/专送中', count: deliveringOrders.length, dotColor: 'bg-sky-500' },
+    { key: 'refund' as const, label: '退单申请审核', count: refundApplicationOrders.length, dotColor: 'bg-rose-500' },
+    { key: 'completed' as const, label: '已完成/已退款', count: completedOrders.length, dotColor: 'bg-emerald-500' },
+  ], [orders.length, pendingOrders.length, cookingOrders.length, deliveringOrders.length, refundApplicationOrders.length, completedOrders.length]);
+
+  const channelOptions = useMemo(() => [
+    { key: 'all' as const, label: '全渠道总控', count: orders.length },
+    { key: 'dine_in' as const, label: '堂食外摆', count: dineInCount },
+    { key: 'delivery' as const, label: '外卖专送', count: deliveryCount },
+    { key: 'pickup' as const, label: '到车自提', count: pickupCount },
+  ], [orders.length, dineInCount, deliveryCount, pickupCount]);
+
+  const currentStatusOpt = statusOptions.find(o => o.key === activeStatusTab) || statusOptions[0];
+  const currentChannelOpt = channelOptions.find(o => o.key === channelFilter) || channelOptions[0];
 
   return (
     <div className="w-full flex flex-col font-sans selection:bg-emerald-800 selection:text-white pb-6 rounded-none">
@@ -608,22 +711,334 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
       {/* BEGIN: ControlAndFilterBar (纯直角硬朗工业控制栏)                           */}
       {/* ========================================================================= */}
       <section className="bg-white border-b border-[#e6e6e4] px-3 sm:px-4 shrink-0 py-2.5 rounded-none shadow-2xs" data-purpose="order-filter-panel">
-        {/* Row 1: Status Badges & Search & Automation Switches */}
-        <div className="flex flex-wrap items-center justify-between gap-2.5 mb-2">
-          {/* Status Buttons */}
+        {/* ========================================================================= */}
+        {/* 手机端单排极简控制中枢 (Mobile Unified Single-Row Bar: Strictly Single Row, No Wrap) */}
+        {/* ========================================================================= */}
+        <div className="sm:hidden flex items-center gap-1.5 overflow-x-auto scrollbar-none flex-nowrap shrink-0 py-1 w-full border-b border-neutral-100 pb-2 mb-1">
+          {/* 1. 美化订单状态下拉菜单 (Custom Beautiful Status Popover) */}
+          <div className="shrink-0">
+            <button
+              type="button"
+              id="mobile-status-dropdown-trigger"
+              onClick={(e) => {
+                if (activeMobileDropdown === 'status') {
+                  setActiveMobileDropdown(null);
+                } else {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setDropdownCoords({
+                    top: rect.bottom + 6,
+                    left: Math.max(8, Math.min(rect.left, window.innerWidth - 240)),
+                  });
+                  setActiveMobileDropdown('status');
+                }
+              }}
+              className="h-8 px-2.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-full text-xs font-bold flex items-center gap-1.5 shrink-0 whitespace-nowrap shadow-xs active:scale-95 transition-all cursor-pointer"
+            >
+              <span>{currentStatusOpt.label}</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white font-medium">
+                {currentStatusOpt.count}
+              </span>
+              <ChevronDown className={`w-3.5 h-3.5 text-white/70 transition-transform ${activeMobileDropdown === 'status' ? 'rotate-180 text-white' : ''}`} />
+            </button>
+          </div>
+
+          {/* 2. 美化分流渠道下拉菜单 (Custom Beautiful Channel Popover) */}
+          <div className="shrink-0">
+            <button
+              type="button"
+              id="mobile-channel-dropdown-trigger"
+              onClick={(e) => {
+                if (activeMobileDropdown === 'channel') {
+                  setActiveMobileDropdown(null);
+                } else {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setDropdownCoords({
+                    top: rect.bottom + 6,
+                    left: Math.max(8, Math.min(rect.left, window.innerWidth - 210)),
+                  });
+                  setActiveMobileDropdown('channel');
+                }
+              }}
+              className="h-8 px-2.5 bg-white hover:bg-neutral-50 text-neutral-900 border border-neutral-200 hover:border-neutral-900 rounded-full text-xs font-bold flex items-center gap-1.5 shrink-0 whitespace-nowrap shadow-2xs active:scale-95 transition-all cursor-pointer"
+            >
+              <span className="text-neutral-500 font-normal">渠道:</span>
+              <span>{currentChannelOpt.label}</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-neutral-100 text-neutral-700 font-medium">
+                {currentChannelOpt.count}
+              </span>
+              <ChevronDown className={`w-3.5 h-3.5 text-neutral-400 transition-transform ${activeMobileDropdown === 'channel' ? 'rotate-180 text-neutral-900' : ''}`} />
+            </button>
+          </div>
+
+          {/* 3. 搜索展开胶囊 (Search Pill) */}
+          <div className="shrink-0">
+            {isMobileSearchActive || searchQuery ? (
+              <div className="flex items-center h-8 bg-white border border-neutral-900 rounded-full px-2.5 shrink-0 shadow-xs">
+                <Search className="w-3.5 h-3.5 text-neutral-400 mr-1.5 shrink-0" />
+                <input
+                  type="text"
+                  autoFocus
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="搜索单号/手机..."
+                  className="w-24 text-xs outline-none bg-transparent font-normal text-neutral-900 placeholder:text-neutral-400"
+                />
+                {searchQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="text-neutral-400 hover:text-neutral-900 ml-1 p-0.5 cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsMobileSearchActive(false)}
+                    className="text-neutral-400 hover:text-neutral-900 ml-1 p-0.5 cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsMobileSearchActive(true)}
+                className="h-8 px-2.5 bg-white hover:bg-neutral-50 text-neutral-700 border border-neutral-200 rounded-full text-xs font-bold flex items-center gap-1 shrink-0 whitespace-nowrap shadow-2xs cursor-pointer"
+                title="搜索订单"
+              >
+                <Search className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
+                <span className="whitespace-nowrap">搜索</span>
+              </button>
+            )}
+          </div>
+
+          {/* 4. 接单开关胶囊 */}
+          <button
+            type="button"
+            onClick={() => {
+              const next = !isAutoAccept;
+              setIsAutoAccept(next);
+              showToast(next ? '已开启极速自动接单（新单自动流入后厨制作）' : '已关闭自动接单（新订单将进入待接单列表）');
+            }}
+            className={`h-8 px-2.5 text-xs font-bold flex items-center gap-1 transition-colors border rounded-full cursor-pointer whitespace-nowrap shrink-0 shadow-2xs ${
+              isAutoAccept
+                ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
+                : 'bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-300'
+            }`}
+            title={isAutoAccept ? '自动接单运行中，点击关闭' : '自动接单已关闭，点击开启'}
+          >
+            <Power className={`w-3.5 h-3.5 ${isAutoAccept ? 'text-emerald-600' : 'text-rose-600'} shrink-0`} />
+            <span className="whitespace-nowrap">接单: {isAutoAccept ? '开' : '关'}</span>
+          </button>
+
+          {/* 5. 更多操作下拉菜单 (Mobile Actions Popover) */}
+          <div className="shrink-0">
+            <button
+              type="button"
+              id="mobile-order-actions-trigger"
+              onClick={(e) => {
+                if (activeMobileDropdown === 'actions') {
+                  setActiveMobileDropdown(null);
+                } else {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setDropdownCoords({
+                    top: rect.bottom + 6,
+                    right: Math.max(8, window.innerWidth - rect.right),
+                  });
+                  setActiveMobileDropdown('actions');
+                }
+              }}
+              className="h-8 px-2.5 bg-white hover:bg-neutral-50 text-neutral-900 border border-neutral-200 text-xs font-bold rounded-full flex items-center gap-1 cursor-pointer whitespace-nowrap shadow-2xs active:scale-95 transition-all"
+              aria-label="订单更多操作菜单"
+              aria-expanded={activeMobileDropdown === 'actions'}
+            >
+              <span className="whitespace-nowrap">操作</span>
+              <ChevronDown className={`w-3.5 h-3.5 text-neutral-400 transition-transform ${activeMobileDropdown === 'actions' ? 'rotate-180 text-neutral-900' : ''}`} />
+            </button>
+          </div>
+
+          {/* 6. 视图切换 */}
+          <button
+            type="button"
+            onClick={() => setViewMode((v) => (v === 'card' ? 'list' : 'card'))}
+            className="h-8 px-2 bg-white hover:bg-neutral-50 text-neutral-700 border border-neutral-200 rounded-full flex items-center justify-center shrink-0 shadow-2xs cursor-pointer"
+            title="切换卡片/列表"
+          >
+            {viewMode === 'card' ? <List className="w-3.5 h-3.5" /> : <LayoutGrid className="w-3.5 h-3.5" />}
+          </button>
+        </div>
+
+        {/* 手机端全局悬浮菜单 (使用 Portal 挂载到 body，彻底规避 overflow-x-auto 剪裁遮挡) */}
+        {typeof document !== 'undefined' && activeMobileDropdown && createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[9998] bg-black/25 backdrop-blur-[0.5px]"
+              onClick={() => setActiveMobileDropdown(null)}
+            />
+
+            {activeMobileDropdown === 'status' && (
+              <div
+                className="fixed z-[9999] w-56 bg-white border border-neutral-200 rounded-xl shadow-2xl p-1.5 animate-in fade-in zoom-in-95 duration-150 space-y-0.5 max-h-[80vh] overflow-y-auto"
+                style={{
+                  top: `${dropdownCoords.top}px`,
+                  left: `${dropdownCoords.left}px`,
+                }}
+              >
+                <div className="px-2.5 py-1 text-[10px] font-bold text-neutral-400 uppercase tracking-wider border-b border-neutral-100 mb-1">
+                  筛选订单状态
+                </div>
+                {statusOptions.map((opt) => {
+                  const isSelected = activeStatusTab === opt.key;
+                  return (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => {
+                        setActiveStatusTab(opt.key);
+                        setActiveMobileDropdown(null);
+                      }}
+                      className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center justify-between transition-colors cursor-pointer text-left ${
+                        isSelected ? 'bg-neutral-900 text-white' : 'text-neutral-700 hover:bg-neutral-100'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${opt.dotColor}`} />
+                        <span className="whitespace-nowrap">{opt.label}</span>
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-medium ${isSelected ? 'bg-white/20 text-white' : 'bg-neutral-100 text-neutral-600'}`}>
+                          {opt.count}
+                        </span>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-white shrink-0" />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {activeMobileDropdown === 'channel' && (
+              <div
+                className="fixed z-[9999] w-48 bg-white border border-neutral-200 rounded-xl shadow-2xl p-1.5 animate-in fade-in zoom-in-95 duration-150 space-y-0.5 max-h-[80vh] overflow-y-auto"
+                style={{
+                  top: `${dropdownCoords.top}px`,
+                  left: `${dropdownCoords.left}px`,
+                }}
+              >
+                <div className="px-2.5 py-1 text-[10px] font-bold text-neutral-400 uppercase tracking-wider border-b border-neutral-100 mb-1">
+                  选择分流渠道
+                </div>
+                {channelOptions.map((opt) => {
+                  const isSelected = channelFilter === opt.key;
+                  return (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => {
+                        setChannelFilter(opt.key);
+                        setActiveMobileDropdown(null);
+                      }}
+                      className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center justify-between transition-colors cursor-pointer text-left ${
+                        isSelected ? 'bg-neutral-900 text-white' : 'text-neutral-700 hover:bg-neutral-100'
+                      }`}
+                    >
+                      <span className="whitespace-nowrap">{opt.label}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-medium ${isSelected ? 'bg-white/20 text-white' : 'bg-neutral-100 text-neutral-600'}`}>
+                          {opt.count}
+                        </span>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-white shrink-0" />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {activeMobileDropdown === 'actions' && (
+              <div
+                className="fixed z-[9999] w-52 bg-white border border-neutral-200 rounded-xl shadow-2xl p-1.5 text-xs space-y-1 animate-in fade-in zoom-in-95 duration-150 max-h-[80vh] overflow-y-auto"
+                style={{
+                  top: `${dropdownCoords.top}px`,
+                  right: `${dropdownCoords.right}px`,
+                }}
+              >
+                <div className="px-2.5 py-1 text-[10px] font-bold text-neutral-400 uppercase tracking-wider border-b border-neutral-100 mb-0.5">
+                  快捷操作工具
+                </div>
+                {/* 语音播报开关 */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveMobileDropdown(null);
+                    setIsVoiceBroadcast((v) => !v);
+                    showToast(isVoiceBroadcast ? '已关闭语音播报' : '已开启新订单语音播报');
+                  }}
+                  className="w-full px-2.5 py-2 rounded-lg text-left hover:bg-neutral-100 text-neutral-800 flex items-center justify-between cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    {isVoiceBroadcast ? <Volume2 className="w-3.5 h-3.5 text-amber-600 shrink-0" /> : <VolumeX className="w-3.5 h-3.5 text-neutral-400 shrink-0" />}
+                    <span className="font-bold">语音播报</span>
+                  </span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-medium ${isVoiceBroadcast ? 'bg-amber-100 text-amber-800' : 'bg-neutral-100 text-neutral-600'}`}>
+                    {isVoiceBroadcast ? '开启' : '静音'}
+                  </span>
+                </button>
+
+                {/* 扫码核销中枢 */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveMobileDropdown(null);
+                    setIsScannerBarOpen((v) => !v);
+                  }}
+                  className="w-full px-2.5 py-2 rounded-lg text-left hover:bg-neutral-100 text-neutral-800 flex items-center justify-between cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <Scan className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                    <span className="font-bold">扫码核销快捷条</span>
+                  </span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-medium ${isScannerBarOpen ? 'bg-indigo-100 text-indigo-800' : 'bg-neutral-100 text-neutral-600'}`}>
+                    {isScannerBarOpen ? '开' : '关'}
+                  </span>
+                </button>
+
+                {/* 批量打印 */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveMobileDropdown(null);
+                    handleBatchPrint();
+                  }}
+                  className="w-full px-2.5 py-2 rounded-lg text-left hover:bg-neutral-100 text-neutral-800 flex items-center gap-2 cursor-pointer font-bold"
+                >
+                  <Printer className="w-3.5 h-3.5 text-neutral-600 shrink-0" />
+                  <span>批量打印小票</span>
+                </button>
+              </div>
+            )}
+          </>,
+          document.body
+        )}
+
+        {/* Row 1: Status Badges & Search & Automation Switches (Desktop) */}
+        <div className="hidden sm:flex flex-wrap items-center justify-between gap-2.5 mb-2">
+          {/* 桌面端/平板端状态标签组 (Desktop Status Buttons) */}
           <div className="flex items-center gap-1.5 overflow-x-auto select-none pb-1 sm:pb-0 scrollbar-none">
             {/* 全部订单 */}
             <button
               type="button"
               onClick={() => setActiveStatusTab('all')}
-              className={`px-3 py-1 text-xs border flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer rounded-full bg-white ${
+              className={`px-2.5 py-1 text-xs border flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer rounded-full bg-white ${
                 activeStatusTab === 'all'
                   ? 'text-zinc-900 border-zinc-900 font-medium shadow-2xs'
                   : 'hover:bg-slate-50 text-[#787774] border-[#e6e6e4] font-normal'
               }`}
             >
-              <span>全部订单</span>
-              <span className={`font-mono px-1.5 py-0.2 text-[10px] rounded-full ${
+              <span className="whitespace-nowrap">全部订单</span>
+              <span className={`px-1.5 py-0.2 text-[10px] rounded-full shrink-0 font-medium ${
                 activeStatusTab === 'all' ? 'bg-zinc-900 text-white' : 'bg-[#f7f7f5] text-[#787774] border border-[#e6e6e4]'
               }`}>
                 {orders.length}
@@ -634,15 +1049,15 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
             <button
               type="button"
               onClick={() => setActiveStatusTab('pending')}
-              className={`px-2.5 py-1 text-xs border flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer rounded-full bg-white ${
+              className={`px-2.5 py-1 text-xs border flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer rounded-full bg-white ${
                 activeStatusTab === 'pending'
                   ? 'text-[#b45309] border-[#f59e0b] font-medium shadow-2xs'
                   : 'hover:bg-slate-50 text-[#787774] border-[#e6e6e4] font-normal'
               }`}
             >
-              <span className="w-1.5 h-1.5 bg-amber-500 inline-block rounded-full"></span>
-              <span>待接单确认</span>
-              <span className={`font-mono px-1.5 py-0.2 text-[10px] rounded-full ${
+              <span className="w-1.5 h-1.5 bg-amber-500 inline-block rounded-full shrink-0"></span>
+              <span className="whitespace-nowrap">待接单确认</span>
+              <span className={`px-1.5 py-0.2 text-[10px] rounded-full shrink-0 font-medium ${
                 activeStatusTab === 'pending' ? 'bg-amber-100 text-[#b45309] border border-amber-200' : 'bg-[#f7f7f5] text-[#787774] border border-[#e6e6e4]'
               }`}>
                 {pendingOrders.length}
@@ -653,15 +1068,15 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
             <button
               type="button"
               onClick={() => setActiveStatusTab('cooking')}
-              className={`px-2.5 py-1 text-xs border flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer rounded-full bg-white ${
+              className={`px-2.5 py-1 text-xs border flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer rounded-full bg-white ${
                 activeStatusTab === 'cooking'
                   ? 'text-[#c2410c] border-[#ea580c] font-medium shadow-2xs'
                   : 'hover:bg-slate-50 text-[#787774] border-[#e6e6e4] font-normal'
               }`}
             >
-              <span className="w-1.5 h-1.5 bg-amber-600 inline-block rounded-full"></span>
-              <span>制作中 (KDS)</span>
-              <span className={`font-mono px-1.5 py-0.2 text-[10px] rounded-full ${
+              <span className="w-1.5 h-1.5 bg-amber-600 inline-block rounded-full shrink-0"></span>
+              <span className="whitespace-nowrap">制作中 (KDS)</span>
+              <span className={`px-1.5 py-0.2 text-[10px] rounded-full shrink-0 font-medium ${
                 activeStatusTab === 'cooking' ? 'bg-orange-100 text-[#c2410c] border border-orange-200' : 'bg-[#f7f7f5] text-[#787774] border border-[#e6e6e4]'
               }`}>
                 {cookingOrders.length}
@@ -672,15 +1087,15 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
             <button
               type="button"
               onClick={() => setActiveStatusTab('delivering')}
-              className={`px-2.5 py-1 text-xs border flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer rounded-full bg-white ${
+              className={`px-2.5 py-1 text-xs border flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer rounded-full bg-white ${
                 activeStatusTab === 'delivering'
                   ? 'text-[#0369a1] border-[#0284c7] font-medium shadow-2xs'
                   : 'hover:bg-slate-50 text-[#787774] border-[#e6e6e4] font-normal'
               }`}
             >
-              <span className="w-1.5 h-1.5 bg-sky-600 inline-block rounded-full"></span>
-              <span>待取/专送中</span>
-              <span className={`font-mono px-1.5 py-0.2 text-[10px] rounded-full ${
+              <span className="w-1.5 h-1.5 bg-sky-600 inline-block rounded-full shrink-0"></span>
+              <span className="whitespace-nowrap">待取/专送中</span>
+              <span className={`px-1.5 py-0.2 text-[10px] rounded-full shrink-0 font-medium ${
                 activeStatusTab === 'delivering' ? 'bg-sky-100 text-[#0369a1] border border-sky-200' : 'bg-[#f7f7f5] text-[#787774] border border-[#e6e6e4]'
               }`}>
                 {deliveringOrders.length}
@@ -691,15 +1106,15 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
             <button
               type="button"
               onClick={() => setActiveStatusTab('refund')}
-              className={`px-2.5 py-1 text-xs border flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer rounded-full bg-white ${
+              className={`px-2.5 py-1 text-xs border flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer rounded-full bg-white ${
                 activeStatusTab === 'refund'
                   ? 'text-rose-700 border-rose-400 font-medium shadow-2xs'
                   : 'hover:bg-rose-50/50 text-[#787774] border-[#e6e6e4] font-normal'
               }`}
             >
-              <span className="w-1.5 h-1.5 bg-rose-500 inline-block rounded-full"></span>
-              <span>退单申请审核</span>
-              <span className={`font-mono px-1.5 py-0.2 text-[10px] border rounded-full ${
+              <span className="w-1.5 h-1.5 bg-rose-500 inline-block rounded-full shrink-0"></span>
+              <span className="whitespace-nowrap">退单申请审核</span>
+              <span className={`px-1.5 py-0.2 text-[10px] border rounded-full shrink-0 font-medium ${
                 activeStatusTab === 'refund' ? 'bg-rose-100 text-rose-700 border-rose-200' : 'bg-rose-50 text-rose-600 border-rose-100'
               }`}>
                 {refundApplicationOrders.length}
@@ -710,15 +1125,15 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
             <button
               type="button"
               onClick={() => setActiveStatusTab('completed')}
-              className={`px-2.5 py-1 text-xs border flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer rounded-full bg-white ${
+              className={`px-2.5 py-1 text-xs border flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer rounded-full bg-white ${
                 activeStatusTab === 'completed'
                   ? 'text-[#047857] border-[#059669] font-medium shadow-2xs'
                   : 'hover:bg-slate-50 text-[#787774] border-[#e6e6e4] font-normal'
               }`}
             >
-              <span className="w-1.5 h-1.5 bg-emerald-600 inline-block rounded-full"></span>
-              <span>已完成/已退款</span>
-              <span className={`font-mono px-1.5 py-0.2 text-[10px] rounded-full ${
+              <span className="w-1.5 h-1.5 bg-emerald-600 inline-block rounded-full shrink-0"></span>
+              <span className="whitespace-nowrap">已完成/已退款</span>
+              <span className={`px-1.5 py-0.2 text-[10px] rounded-full shrink-0 font-medium ${
                 activeStatusTab === 'completed' ? 'bg-emerald-100 text-[#047857] border border-emerald-200' : 'bg-[#f7f7f5] text-[#787774] border border-[#e6e6e4]'
               }`}>
                 {completedOrders.length}
@@ -726,7 +1141,7 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
             </button>
           </div>
 
-          {/* Search and Action Group */}
+          {/* Search and Action Group (Desktop) */}
           <div className="flex items-center gap-2 w-full lg:w-auto flex-1 justify-end">
             <div className="relative w-full max-w-xs">
               <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
@@ -750,7 +1165,7 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
               )}
             </div>
 
-            {/* Action Tools */}
+            {/* 桌面端平铺操作工具栏 */}
             <div className="flex items-center space-x-1 shrink-0">
               {/* 自动接单开关 */}
               <button
@@ -760,15 +1175,15 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                   setIsAutoAccept(next);
                   showToast(next ? '已开启极速自动接单（新单自动流入后厨制作）' : '已关闭自动接单（新订单将进入待接单列表）');
                 }}
-                className={`px-2 py-1 text-xs font-normal flex items-center gap-1 transition-colors border rounded-[3px] cursor-pointer ${
+                className={`px-2 py-1 text-xs font-normal flex items-center gap-1 transition-colors border rounded-[3px] cursor-pointer whitespace-nowrap ${
                   isAutoAccept
                     ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
                     : 'bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-200'
                 }`}
                 title={isAutoAccept ? '自动接单运行中，点击关闭' : '自动接单已关闭，点击开启'}
               >
-                <Power className={`w-3 h-3 ${isAutoAccept ? 'text-emerald-600' : 'text-rose-600'}`} />
-                <span>接单: {isAutoAccept ? '开' : '关'}</span>
+                <Power className={`w-3 h-3 ${isAutoAccept ? 'text-emerald-600' : 'text-rose-600'} shrink-0`} />
+                <span className="whitespace-nowrap">接单: {isAutoAccept ? '开' : '关'}</span>
               </button>
 
               {/* 语音播报开关 */}
@@ -778,41 +1193,42 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                   setIsVoiceBroadcast((v) => !v);
                   showToast(isVoiceBroadcast ? '已关闭语音播报' : '已开启新订单语音播报');
                 }}
-                className={`px-2 py-1 text-xs font-normal flex items-center gap-1 transition-colors border rounded-[3px] cursor-pointer ${
+                className={`px-2 py-1 text-xs font-normal flex items-center gap-1 transition-colors border rounded-[3px] cursor-pointer whitespace-nowrap ${
                   isVoiceBroadcast
                     ? 'bg-[#fffbeb] hover:bg-amber-100 text-amber-800 border-[#fde68a]'
                     : 'bg-white hover:bg-slate-50 text-[#787774] border-[#e6e6e4]'
                 }`}
                 title={isVoiceBroadcast ? '语音播报已开启' : '语音播报已静音'}
               >
-                {isVoiceBroadcast ? <Volume2 className="w-3 h-3 text-amber-600" /> : <VolumeX className="w-3 h-3 text-slate-400" />}
-                <span className="hidden sm:inline">语音</span>
+                {isVoiceBroadcast ? <Volume2 className="w-3 h-3 text-amber-600 shrink-0" /> : <VolumeX className="w-3 h-3 text-slate-400 shrink-0" />}
+                <span className="hidden sm:inline whitespace-nowrap">语音</span>
               </button>
 
               {/* 扫码核销中枢 */}
               <button
                 type="button"
                 onClick={() => setIsScannerBarOpen((v) => !v)}
-                className={`px-2 py-1 text-xs font-normal flex items-center gap-1 transition-colors border rounded-[3px] cursor-pointer ${
+                className={`px-2 py-1 text-xs font-normal flex items-center gap-1 transition-colors border rounded-[3px] cursor-pointer whitespace-nowrap ${
                   isScannerBarOpen
                     ? 'bg-[#f5f3ff] text-[#6d28d9] border-[#ddd6fe]'
                     : 'bg-white hover:bg-slate-50 text-[#787774] border-[#e6e6e4]'
                 }`}
                 title="开启/关闭扫码核销快捷条（已实时接入条码扫码枪）"
               >
-                <Scan className="w-3 h-3 text-indigo-600" />
-                <span>扫码核销</span>
+                <Scan className="w-3 h-3 text-indigo-600 shrink-0" />
+                <span className="whitespace-nowrap">扫码核销</span>
               </button>
 
               {/* 批量打印 */}
               <button
                 type="button"
                 onClick={handleBatchPrint}
-                className="bg-white hover:bg-slate-50 text-[#787774] border border-[#e6e6e4] px-2 py-1 text-xs font-normal flex items-center gap-1 transition-colors rounded-[3px] cursor-pointer"
-                title="批量打印当前筛选列表的制作小票"
+                disabled={batchPrinting}
+                className="bg-white hover:bg-slate-50 text-[#787774] border border-[#e6e6e4] px-2 py-1 text-xs font-normal flex items-center gap-1 transition-colors rounded-[3px] cursor-pointer whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
+                title="批量打印当前筛选列表的顾客联小票 (含价格)"
               >
-                <Printer className="w-3 h-3 text-slate-500" />
-                <span>批量打印</span>
+                <Printer className="w-3 h-3 text-slate-500 shrink-0" />
+                <span className="whitespace-nowrap">{batchPrinting ? '出票中...' : '批量打印'}</span>
               </button>
             </div>
           </div>
@@ -831,78 +1247,120 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
               </span>
             </div>
 
-            <form onSubmit={handleQuickManualVerify} className="flex items-center gap-2">
-              <input
-                type="text"
-                value={quickScanInput}
-                onChange={(e) => setQuickScanInput(e.target.value)}
-                placeholder="输入自提码/订单号并回车..."
-                className="px-2.5 py-1 text-xs bg-white border border-[#d3d1cb] text-[#0f172a] placeholder:text-[#9b9a97] focus:outline-none focus:border-[#37352f] w-52 font-mono rounded-[3px]"
-                autoFocus
-              />
+            <div className="flex items-center gap-2 flex-wrap">
               <button
-                type="submit"
-                className="px-3 py-1 bg-slate-900 hover:bg-black text-white font-medium text-xs rounded-[3px] cursor-pointer transition-colors"
+                type="button"
+                onClick={() => setIsOrderCameraScannerOpen(true)}
+                className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-xs rounded-[3px] flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                title="打开手机后置相机快捷扫码核销"
               >
-                立即核销
+                <Camera className="w-3.5 h-3.5 text-emerald-600" />
+                <span>相机扫码</span>
               </button>
-            </form>
+
+              <form onSubmit={handleQuickManualVerify} className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={quickScanInput}
+                  onChange={(e) => setQuickScanInput(e.target.value)}
+                  placeholder="输入自提码/订单号并回车..."
+                  className="px-2.5 py-1 text-xs bg-white border border-[#d3d1cb] text-[#0f172a] placeholder:text-[#9b9a97] focus:outline-none focus:border-[#37352f] w-52 rounded-[3px]"
+                  autoFocus
+                />
+                <button
+                  type="submit"
+                  className="px-3 py-1 bg-slate-900 hover:bg-black text-white font-medium text-xs rounded-[3px] cursor-pointer transition-colors"
+                >
+                  立即核销
+                </button>
+              </form>
+            </div>
           </div>
         )}
 
-        {/* Row 2: Channel Segmentation & View Toggle */}
-        <div className="flex flex-wrap items-center justify-between text-xs text-slate-600 pt-1.5 border-t border-[#e6e6e4] gap-2">
-          {/* Channel Filters */}
-          <div className="flex flex-wrap items-center gap-1.5 font-normal">
-            <span className="text-[#9b9a97] mr-1 text-[11px]">分流渠道:</span>
+        {/* Row 2: Channel Segmentation & View Toggle (Desktop) */}
+        <div className="hidden sm:flex flex-wrap items-center justify-between text-xs pt-2 border-t border-neutral-200 gap-2">
+          {/* 桌面端分流渠道平铺标签 */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-neutral-500 text-xs font-medium mr-0.5 whitespace-nowrap shrink-0">分流渠道:</span>
             
-            <button
-              type="button"
-              onClick={() => setChannelFilter('all')}
-              className={`px-2.5 py-0.5 text-[11px] border transition-colors rounded-full cursor-pointer bg-white ${
-                channelFilter === 'all'
-                  ? 'text-zinc-900 border-zinc-900 font-medium shadow-2xs'
-                  : 'text-[#787774] hover:text-[#0f172a] hover:bg-slate-50 border-[#e6e6e4] font-normal'
-              }`}
-            >
-              全渠道 ({orders.length})
-            </button>
+            <div className="inline-flex p-1 bg-neutral-100 rounded-lg border border-neutral-200 gap-1 shrink-0">
+              {/* All Channels */}
+              <button
+                type="button"
+                onClick={() => setChannelFilter('all')}
+                className={`px-3 py-1.5 text-xs transition-all rounded-md cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                  channelFilter === 'all'
+                    ? 'bg-white text-neutral-900 font-bold shadow-xs border border-neutral-200/80'
+                    : 'text-neutral-600 hover:text-neutral-900 hover:bg-white/60 font-medium border border-transparent'
+                }`}
+              >
+                <LayoutGrid className="w-3.5 h-3.5 text-neutral-600 shrink-0" />
+                <span className="whitespace-nowrap">全渠道总控</span>
+                <span className={`text-[11px] px-1.5 py-0.2 rounded font-bold shrink-0 ${
+                  channelFilter === 'all' ? 'bg-neutral-900 text-white' : 'bg-neutral-200/70 text-neutral-600'
+                }`}>
+                  {orders.length}
+                </span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setChannelFilter('dine_in')}
-              className={`px-2.5 py-0.5 text-[11px] border transition-colors rounded-full cursor-pointer flex items-center gap-1 bg-white ${
-                channelFilter === 'dine_in'
-                  ? 'text-[#b45309] border-[#f59e0b] font-medium shadow-2xs'
-                  : 'text-[#787774] hover:text-[#0f172a] hover:bg-slate-50 border-[#e6e6e4] font-normal'
-              }`}
-            >
-              <span>🍽️ 堂食 ({dineInCount})</span>
-            </button>
+              {/* Dine-In */}
+              <button
+                type="button"
+                onClick={() => setChannelFilter('dine_in')}
+                className={`px-3 py-1.5 text-xs transition-all rounded-md cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                  channelFilter === 'dine_in'
+                    ? 'bg-white text-neutral-900 font-bold shadow-xs border border-neutral-200/80'
+                    : 'text-neutral-600 hover:text-neutral-900 hover:bg-white/60 font-medium border border-transparent'
+                }`}
+              >
+                <Utensils className="w-3.5 h-3.5 text-neutral-600 shrink-0" />
+                <span className="whitespace-nowrap">堂食外摆</span>
+                <span className={`text-[11px] px-1.5 py-0.2 rounded font-bold shrink-0 ${
+                  channelFilter === 'dine_in' ? 'bg-neutral-900 text-white' : 'bg-neutral-200/70 text-neutral-600'
+                }`}>
+                  {dineInCount}
+                </span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setChannelFilter('delivery')}
-              className={`px-2.5 py-0.5 text-[11px] border transition-colors rounded-full cursor-pointer flex items-center gap-1 bg-white ${
-                channelFilter === 'delivery'
-                  ? 'text-[#047857] border-[#059669] font-medium shadow-2xs'
-                  : 'text-[#787774] hover:text-[#0f172a] hover:bg-slate-50 border-[#e6e6e4] font-normal'
-              }`}
-            >
-              <span>🛵 专送 ({deliveryCount})</span>
-            </button>
+              {/* Delivery */}
+              <button
+                type="button"
+                onClick={() => setChannelFilter('delivery')}
+                className={`px-3 py-1.5 text-xs transition-all rounded-md cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                  channelFilter === 'delivery'
+                    ? 'bg-white text-neutral-900 font-bold shadow-xs border border-neutral-200/80'
+                    : 'text-neutral-600 hover:text-neutral-900 hover:bg-white/60 font-medium border border-transparent'
+                }`}
+              >
+                <Bike className="w-3.5 h-3.5 text-neutral-600 shrink-0" />
+                <span className="whitespace-nowrap">外卖专送</span>
+                <span className={`text-[11px] px-1.5 py-0.2 rounded font-bold shrink-0 ${
+                  channelFilter === 'delivery' ? 'bg-neutral-900 text-white' : 'bg-neutral-200/70 text-neutral-600'
+                }`}>
+                  {deliveryCount}
+                </span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setChannelFilter('pickup')}
-              className={`px-2.5 py-0.5 text-[11px] border transition-colors rounded-full cursor-pointer flex items-center gap-1 bg-white ${
-                channelFilter === 'pickup'
-                  ? 'text-[#0369a1] border-[#0284c7] font-medium shadow-2xs'
-                  : 'text-[#787774] hover:text-[#0f172a] hover:bg-slate-50 border-[#e6e6e4] font-normal'
-              }`}
-            >
-              <span>🛍️ 自提 ({pickupCount})</span>
-            </button>
+              {/* Pickup */}
+              <button
+                type="button"
+                onClick={() => setChannelFilter('pickup')}
+                className={`px-3 py-1.5 text-xs transition-all rounded-md cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                  channelFilter === 'pickup'
+                    ? 'bg-white text-neutral-900 font-bold shadow-xs border border-neutral-200/80'
+                    : 'text-neutral-600 hover:text-neutral-900 hover:bg-white/60 font-medium border border-transparent'
+                }`}
+              >
+                <ShoppingBag className="w-3.5 h-3.5 text-neutral-600 shrink-0" />
+                <span className="whitespace-nowrap">到车自提</span>
+                <span className={`text-[11px] px-1.5 py-0.2 rounded font-bold shrink-0 ${
+                  channelFilter === 'pickup' ? 'bg-neutral-900 text-white' : 'bg-neutral-200/70 text-neutral-600'
+                }`}>
+                  {pickupCount}
+                </span>
+              </button>
+            </div>
           </div>
 
           {/* Right Tools: View Mode Toggle & Prompt Notice */}
@@ -910,42 +1368,42 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
             <button
               type="button"
               onClick={() => setViewMode(v => v === 'card' ? 'list' : 'card')}
-              className="px-2.5 py-1 text-[11px] font-normal bg-white hover:bg-slate-50 text-[#37352f] border border-[#e6e6e4] flex items-center gap-1.5 shadow-2xs transition-colors rounded-[3px] cursor-pointer"
+              className="px-2.5 py-1 text-xs font-medium bg-white hover:bg-neutral-50 text-neutral-800 border border-neutral-200 flex items-center gap-1.5 shadow-2xs transition-colors rounded-md cursor-pointer"
               title="切换卡片网格与紧凑列表视图"
             >
               {viewMode === 'card' ? (
                 <>
-                  <List className="w-3 h-3 text-emerald-600" />
+                  <List className="w-3.5 h-3.5 text-neutral-600" />
                   <span>列表视图</span>
                 </>
               ) : (
                 <>
-                  <LayoutGrid className="w-3 h-3 text-emerald-600" />
+                  <LayoutGrid className="w-3.5 h-3.5 text-neutral-600" />
                   <span>卡片视图</span>
                 </>
               )}
             </button>
 
-            <div className="hidden md:flex items-center space-x-1.5 text-[#b45309] font-normal text-[11px]">
-              <span className="w-1.5 h-1.5 bg-amber-500 inline-block rounded-full"></span>
+            <div className="hidden md:flex items-center space-x-1.5 text-neutral-500 font-normal text-xs">
+              <span className="w-1.5 h-1.5 bg-neutral-400 inline-block rounded-full"></span>
               <span>堂食订单默认不入骑手池，需转送请点击卡片【审核转外卖专送】</span>
             </div>
           </div>
         </div>
 
         {/* Row 3: Date Filter (批次4：共享 DateRangeFilter 胶囊条，预设档+自定义起止精确到分钟) */}
-        <div className="flex flex-wrap items-center justify-between text-xs text-slate-700 pt-1.5 mt-1 border-t border-dashed border-[#e6e6e4] gap-2 bg-[#fbfbfa] -mx-3 sm:-mx-4 px-3 sm:px-4 py-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1 font-normal text-[#787774]">
-              <CalendarDays className="w-3.5 h-3.5 text-slate-500" />
-              <span className="text-[11px]">日期筛选:</span>
+        <div className="flex items-center justify-between text-xs text-slate-700 pt-1.5 mt-1 border-t border-dashed border-[#e6e6e4] gap-2 bg-[#fbfbfa] -mx-3 sm:-mx-4 px-3 sm:px-4 py-1 overflow-x-auto scrollbar-none flex-nowrap shrink-0">
+          <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
+            <div className="flex items-center gap-1 font-normal text-[#787774] shrink-0">
+              <CalendarDays className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+              <span className="text-[11px] whitespace-nowrap">日期筛选:</span>
             </div>
             <DateRangeFilter value={dateFilter} onChange={setDateFilter} />
           </div>
 
           {/* Date Filter Status / Summary */}
-          <div className="flex items-center gap-2 font-mono text-[11px]">
-            <span className="text-[#9b9a97] font-normal">
+          <div className="flex items-center gap-2 text-[11px] shrink-0 whitespace-nowrap">
+            <span className="text-[#9b9a97] font-normal whitespace-nowrap">
               {dateRange ? (
                 <>已筛选: <span className="font-medium text-slate-800">{dateRange.label}</span></>
               ) : (
@@ -953,12 +1411,12 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
               )}
             </span>
             <span className="text-[#e6e6e4]">|</span>
-            <span className="text-slate-600 font-normal">
+            <span className="text-slate-600 font-normal whitespace-nowrap">
               筛选出 <span className="text-slate-900 font-semibold">{filteredOrders.length}</span> 笔
             </span>
             <span className="text-[#e6e6e4]">|</span>
-            <span className="text-slate-600 font-normal">
-              流水 ¥<span className="font-bold text-slate-900">{filteredTotalAmount.toFixed(2)}</span>
+            <span className="text-slate-600 font-normal whitespace-nowrap">
+              流水 <span className="font-amount font-bold text-slate-900">¥{filteredTotalAmount.toFixed(2)}</span>
             </span>
           </div>
         </div>
@@ -1017,199 +1475,261 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                 ? `${getUnifiedTruckName(order.truckId || 'truck-01', 'short')}自提点 (${order.truckLocation || '大悦城北广场侧面'})`
                 : (order.deliveryAddress || '西藏北路 166 号大悦城商务座 1204 室');
 
+              const isDrawerOpen = pinnedDrawerOrderNo === order.orderNo || hoveredDrawerOrderNo === order.orderNo;
+
               return (
                 <article
                   key={`ord-card-${order.id || order.orderNo || idx}`}
-                  className="bg-white border border-[#e6e6e4] hover:border-[#d3d1cb] transition-all flex flex-col shadow-2xs h-full justify-between rounded-[4px]"
+                  className={`bg-white border transition-all flex flex-col h-full justify-between rounded-lg overflow-hidden shadow-2xs relative ${
+                    isDrawerOpen
+                      ? 'z-30 border-neutral-400 shadow-md ring-1 ring-neutral-300'
+                      : 'z-10 border-neutral-200 hover:border-neutral-400 hover:shadow-xs'
+                  }`}
                   data-purpose={`order-card-${order.orderNo}`}
                 >
-                  {/* 头部：单号与场景标签 */}
-                  <div className="bg-[#fbfbfa] px-3.5 py-2 border-b border-[#e6e6e4] flex items-center justify-between flex-wrap gap-2 rounded-t-[4px]">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-semibold bg-slate-900 text-white px-2 py-0.5 text-xs rounded-[2px]">
+                  {/* 头部：单号、渠道与流转状态一体化收拢 */}
+                  <div className="px-3.5 py-2.5 border-b border-neutral-200 bg-neutral-50/80 flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap min-w-0 flex-1">
+                      <span className="font-black text-neutral-900 text-xs bg-neutral-200/80 px-2 py-0.5 rounded whitespace-nowrap shrink-0">
                         #{order.orderNo.replace(/^#/, '')}
                       </span>
-                      <span className="inline-flex items-center gap-1 text-[11px] font-normal text-[#787774] bg-white border border-[#e6e6e4] px-2 py-0.5 rounded-[2px]">
-                        <Store className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>{getUnifiedTruckName(order.truckId || order.truckName, 'short')}</span>
-                      </span>
+
+                      {isDineIn ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-bold text-neutral-800 bg-white border border-neutral-200 px-2 py-0.5 rounded shadow-2xs whitespace-nowrap shrink-0">
+                          <Utensils className="w-3 h-3 text-neutral-600 shrink-0" />
+                          <span className="whitespace-nowrap">堂食 · {order.tableCode ? `${order.tableCode}桌` : 'A2桌'}</span>
+                        </span>
+                      ) : isPickup ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded shadow-2xs whitespace-nowrap shrink-0">
+                          <ShoppingBag className="w-3 h-3 text-amber-700 shrink-0" />
+                          <span className="whitespace-nowrap">自提 · #{pickupCode}</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-900 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded shadow-2xs whitespace-nowrap shrink-0">
+                          <Bike className="w-3 h-3 text-emerald-700 shrink-0" />
+                          <span className="whitespace-nowrap">专送 · GPS</span>
+                        </span>
+                      )}
                     </div>
 
-                    {isDineIn ? (
-                      <span className="bg-[#fffbeb] text-[#b45309] border border-[#fde68a] font-normal px-2 py-0.5 flex items-center gap-1 text-[11px] rounded-[2px]">
-                        <span>🍽️ 堂食就餐 · {order.tableCode ? `${order.tableCode} 号桌` : 'A2 号桌'}</span>
-                      </span>
-                    ) : isPickup ? (
-                      <span className="bg-[#f0f9ff] text-[#0369a1] border border-[#bae6fd] font-normal px-2 py-0.5 flex items-center gap-1 text-[11px] rounded-[2px]">
-                        <span>🛍️ 到店自提</span>
-                      </span>
-                    ) : (
-                      <span className="bg-[#ecfdf5] text-[#047857] border border-[#a7f3d0] font-normal px-2 py-0.5 flex items-center gap-1 text-[11px] rounded-[2px]">
-                        <span>🛵 先锋食客 · {order.customerName ? order.customerName.replace(/^先锋食客\s*[·•]?\s*/, '') : '墨客'} · 专送</span>
-                      </span>
-                    )}
+                    {/* 头部右侧：当前状态流转标签 */}
+                    <div className="flex items-center gap-1.5 text-xs shrink-0 whitespace-nowrap">
+                      {isPending ? (
+                        <span className="inline-flex items-center gap-1 text-amber-800 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200 whitespace-nowrap shrink-0">
+                          <Clock className="w-3 h-3 text-amber-600 shrink-0" />
+                          <span className="whitespace-nowrap">待商家接单</span>
+                        </span>
+                      ) : isCooking && !isRefundPending ? (
+                        <span className="inline-flex items-center gap-1 text-amber-800 font-bold bg-amber-50/70 px-2 py-0.5 rounded border border-amber-200 whitespace-nowrap shrink-0">
+                          <Flame className="w-3 h-3 text-amber-600 animate-pulse shrink-0" />
+                          <span className="whitespace-nowrap">后厨现制中</span>
+                        </span>
+                      ) : isDelivering && !isRefundPending ? (
+                        <span className="inline-flex items-center gap-1 text-neutral-800 font-bold bg-white px-2 py-0.5 rounded border border-neutral-200 shadow-2xs whitespace-nowrap shrink-0">
+                          {isDelivery ? (
+                            <>
+                              <Bike className="w-3 h-3 text-emerald-600 shrink-0" />
+                              <span className="whitespace-nowrap">专送中 (约{order.etaMinutes || 6}m)</span>
+                            </>
+                          ) : isPickup ? (
+                            <>
+                              <ShoppingBag className="w-3 h-3 text-amber-600 shrink-0" />
+                              <span className="whitespace-nowrap">保温柜待自提</span>
+                            </>
+                          ) : (
+                            <>
+                              <Utensils className="w-3 h-3 text-neutral-700 shrink-0" />
+                              <span className="whitespace-nowrap">传菜上桌中</span>
+                            </>
+                          )}
+                        </span>
+                      ) : isCompleted ? (
+                        <span className="inline-flex items-center gap-1 text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 whitespace-nowrap shrink-0">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                          <span className="whitespace-nowrap">已妥投交付</span>
+                        </span>
+                      ) : isRefundPending ? (
+                        <span className="inline-flex items-center gap-1 text-rose-800 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-200 animate-pulse whitespace-nowrap shrink-0">
+                          <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
+                          <span className="whitespace-nowrap">退单待审核</span>
+                        </span>
+                      ) : isRefunded ? (
+                        <span className="inline-flex items-center gap-1 text-neutral-500 font-medium bg-neutral-100 px-2 py-0.5 rounded whitespace-nowrap shrink-0">
+                          <Ban className="w-3 h-3 text-neutral-400 shrink-0" />
+                          <span className="whitespace-nowrap">已退款作废</span>
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
 
-                  {/* 属性元数据栏 */}
-                  <div className="p-3 text-xs text-[#787774] space-y-1.5 border-b border-dashed border-[#e6e6e4] bg-[#fbfbfa]/50">
-                    {/* UID and Order Time & Refund Lock */}
-                    <div className="flex items-center justify-between gap-2 flex-wrap text-[11px]">
-                      <div className="flex items-center gap-2 font-mono font-normal">
-                        <span className="text-[#0369a1] bg-sky-50 px-1.5 py-0.2 border border-sky-100 rounded-[2px]">
-                          UID: {order.userId ? (order.userId.length > 12 ? `${order.userId.slice(0, 10)}...` : order.userId) : 'tcb_u_guest...'}
-                        </span>
-                        <span className="text-[#e6e6e4]">|</span>
-                        <span className="text-[#787774]">
-                          下单: <span className="font-mono text-[#0f172a] font-normal">{order.createdTime || '12:36:20'}</span>
-                        </span>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleToggleLock(order)}
-                        className={`border px-1.5 py-0.5 text-[10px] rounded-[2px] cursor-pointer transition-colors flex items-center gap-1 font-normal ${
-                          order.nonRefundable
-                            ? 'bg-rose-50 text-rose-700 border-rose-200'
-                            : 'text-[#787774] border-[#e6e6e4] bg-white hover:bg-slate-50'
-                        }`}
-                        title={order.nonRefundable ? '已锁定为不可退单，点击解锁' : '点击将此订单锁定为不可退单'}
-                      >
-                        {order.nonRefundable ? (
-                          <>
-                            <Lock className="w-2.5 h-2.5 text-rose-600" />
-                            <span>不可退单 (已锁定)</span>
-                          </>
-                        ) : (
-                          <>
-                            <Unlock className="w-2.5 h-2.5 text-slate-400" />
-                            <span>允许申请退单</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-
-                    {/* Table / Locker Info */}
-                    <div className="flex items-center justify-between gap-2 pt-0.5">
+                  {/* 属性元数据栏：支持悬停与点击触发展开完整信息抽屉卡片 */}
+                  <div
+                    className={`px-3.5 py-2.5 text-xs text-neutral-700 space-y-1.5 border-b border-neutral-200 transition-colors cursor-pointer select-none group/meta ${
+                      isDrawerOpen ? 'bg-neutral-100/90' : 'bg-white hover:bg-neutral-50/90'
+                    }`}
+                    onMouseEnter={() => handleMetaMouseEnter(order.orderNo)}
+                    onMouseLeave={handleMetaMouseLeave}
+                    onClick={() => handleTogglePinDrawer(order.orderNo)}
+                    title={isDrawerOpen ? '点击收起或取消常驻固定' : '悬停或点击展开完整履约与档案抽屉卡片'}
+                  >
+                    {/* 核心交付位置与履约人 */}
+                    <div className="flex items-center justify-between gap-2 text-xs">
                       {isDineIn ? (
                         <>
-                          <span className="inline-flex items-center gap-1 font-normal text-[#b45309] bg-[#fffbeb] px-2 py-0.5 text-[11px] border border-[#fde68a] rounded-[2px]">
-                            🍽️ 桌台: {order.tableCode ? `${order.tableCode}号` : 'A2号'} · {order.tableZone || '餐车外摆区'}
-                          </span>
-                          <span className="text-[#787774] text-[11px] bg-white border border-[#e6e6e4] px-1.5 py-0.5 font-mono rounded-[2px] font-normal">
-                            服务员: {order.serverName || '阿豪 (No.02)'}
-                          </span>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-neutral-500 text-xs whitespace-nowrap shrink-0">桌台区域:</span>
+                            <span className="font-bold text-neutral-900 truncate">
+                              {order.tableZone || '餐车外摆区'} · {order.tableCode ? `${order.tableCode}号` : 'A2号'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-neutral-500 text-[11px] whitespace-nowrap">
+                              服务员: <strong className="text-neutral-800 font-normal">{order.serverName || '阿豪 (No.02)'}</strong>
+                            </span>
+                            <span
+                              className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded border transition-colors ${
+                                isDrawerOpen
+                                  ? 'bg-neutral-900 text-white border-neutral-900 shadow-2xs'
+                                  : 'bg-neutral-100 text-neutral-600 border-neutral-200 group-hover/meta:bg-neutral-200 group-hover/meta:text-neutral-900'
+                              }`}
+                            >
+                              <span>{isDrawerOpen ? '收起' : '详情'}</span>
+                              <ChevronDown className={`w-2.5 h-2.5 transition-transform duration-200 ${isDrawerOpen ? 'rotate-180' : ''}`} />
+                            </span>
+                          </div>
                         </>
                       ) : isPickup ? (
                         <>
-                          <span className="inline-flex items-center gap-1 font-medium text-[#0369a1] bg-[#f0f9ff] px-2 py-0.5 text-xs font-mono border border-[#bae6fd] rounded-[2px]">
-                            🔑 自提码: #{pickupCode}
-                          </span>
-                          <span className="text-[#787774] text-[11px] bg-white border border-[#e6e6e4] px-1.5 py-0.5 font-mono rounded-[2px] font-normal">
-                            {shelfCode}
-                          </span>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-neutral-500 text-xs whitespace-nowrap shrink-0">存餐柜位:</span>
+                            <span className="font-bold text-neutral-900 truncate">{shelfCode}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-amber-800 text-[11px] shrink-0 font-bold whitespace-nowrap">
+                              自提码: #{pickupCode}
+                            </span>
+                            <span
+                              className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded border transition-colors ${
+                                isDrawerOpen
+                                  ? 'bg-neutral-900 text-white border-neutral-900 shadow-2xs'
+                                  : 'bg-neutral-100 text-neutral-600 border-neutral-200 group-hover/meta:bg-neutral-200 group-hover/meta:text-neutral-900'
+                              }`}
+                            >
+                              <span>{isDrawerOpen ? '收起' : '详情'}</span>
+                              <ChevronDown className={`w-2.5 h-2.5 transition-transform duration-200 ${isDrawerOpen ? 'rotate-180' : ''}`} />
+                            </span>
+                          </div>
                         </>
                       ) : (
                         <>
-                          <span className="inline-flex items-center gap-1 font-medium text-[#b45309] bg-[#fffbeb] px-2 py-0.5 text-xs font-mono border border-[#fde68a] rounded-[2px]">
-                            🔑 取件码: {pickupCode}
-                          </span>
-                          <span className="text-[#787774] text-[11px] bg-white border border-[#e6e6e4] px-1.5 py-0.5 font-mono rounded-[2px] font-normal">
-                            {shelfCode}
-                          </span>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-neutral-500 text-xs whitespace-nowrap shrink-0">配送履约:</span>
+                            <span className="font-bold text-neutral-900 truncate">
+                              骑手 {order.courierName || '陈志远 (专线 R-8821)'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-neutral-500 text-[11px] shrink-0 whitespace-nowrap">
+                              柜格: {shelfCode}
+                            </span>
+                            <span
+                              className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded border transition-colors ${
+                                isDrawerOpen
+                                  ? 'bg-neutral-900 text-white border-neutral-900 shadow-2xs'
+                                  : 'bg-neutral-100 text-neutral-600 border-neutral-200 group-hover/meta:bg-neutral-200 group-hover/meta:text-neutral-900'
+                              }`}
+                            >
+                              <span>{isDrawerOpen ? '收起' : '详情'}</span>
+                              <ChevronDown className={`w-2.5 h-2.5 transition-transform duration-200 ${isDrawerOpen ? 'rotate-180' : ''}`} />
+                            </span>
+                          </div>
                         </>
                       )}
                     </div>
 
-                    {/* Real-time Status Row */}
-                    {isPending ? (
-                      <div className="pt-0.5 flex items-center gap-1 text-[#b45309] font-medium text-xs">
-                        <Clock className="w-3.5 h-3.5 text-amber-500" />
-                        <span>待商家接单确认</span>
+                    {/* 次级元数据收拢：下单时间 · UID · 退单权限设置（纯净中性，不占用主要注意力） */}
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-neutral-100 text-[11px] text-neutral-500">
+                      <div className="flex items-center gap-2 truncate min-w-0">
+                        <span className="whitespace-nowrap shrink-0">下单 {order.createdTime || '12:36:20'}</span>
+                        <span className="text-neutral-300 shrink-0">·</span>
+                        <span className="truncate" title={`完整UID: ${order.userId || 'guest'} (点击展开完整信息)`}>
+                          UID: {order.userId ? `${order.userId.slice(0, 10)}...` : 'guest...'}
+                        </span>
+                        <span className="text-neutral-300 shrink-0">·</span>
+                        <span className="whitespace-nowrap shrink-0">{getUnifiedTruckName(order.truckId || order.truckName, 'short')}</span>
                       </div>
-                    ) : isCooking && !isRefundPending ? (
-                      <div className="pt-0.5 flex items-center justify-between gap-2 text-[#c2410c] font-medium text-xs">
-                        <div className="flex items-center gap-1">
-                          <Flame className="w-3.5 h-3.5 text-amber-500" />
-                          <span>后厨现制中 (已接单)</span>
-                        </div>
-                        {isDelivery && (
-                          <span className="text-[#787774] text-[11px] font-mono font-normal">专送骑手: 系统调度待取餐</span>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleLock(order);
+                        }}
+                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
+                          order.nonRefundable
+                            ? 'text-rose-700 hover:bg-rose-50'
+                            : 'text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100'
+                        }`}
+                        title={order.nonRefundable ? '已锁定退单，点击解锁允许退单' : '点击锁定退单'}
+                      >
+                        {order.nonRefundable ? (
+                          <>
+                            <Lock className="w-2.5 h-2.5 text-rose-600 shrink-0" />
+                            <span className="whitespace-nowrap">不可退单</span>
+                          </>
+                        ) : (
+                          <>
+                            <Unlock className="w-2.5 h-2.5 text-neutral-400 shrink-0" />
+                            <span className="whitespace-nowrap">允许退单</span>
+                          </>
                         )}
-                      </div>
-                    ) : isDelivering && !isRefundPending ? (
-                      <div className="pt-0.5 flex items-center justify-between gap-2 text-[#0369a1] font-medium text-xs">
-                        <div className="flex items-center gap-1">
-                          {isDelivery ? (
-                            <>
-                              <Bike className="w-3.5 h-3.5 text-sky-600" />
-                              <span>骑手专送中 (约{order.etaMinutes || 6}m送达)</span>
-                            </>
-                          ) : isPickup ? (
-                            <>
-                              <ShoppingBag className="w-3.5 h-3.5 text-sky-600" />
-                              <span>餐品已入保温柜待取</span>
-                            </>
-                          ) : (
-                            <>
-                              <Utensils className="w-3.5 h-3.5 text-amber-600" />
-                              <span>堂食陆续出餐上桌中</span>
-                            </>
-                          )}
-                        </div>
-                        <span className="text-[#787774] font-normal text-[11px] font-mono">
-                          {isDelivery ? (
-                            <>骑手: <span className="text-[#0f172a] font-normal">{order.courierName || '陈志远 (R-8821)'}</span></>
-                          ) : isPickup ? (
-                            '等待食客到店核销'
-                          ) : (
-                            '传菜员就位'
-                          )}
-                        </span>
-                      </div>
-                    ) : isCompleted ? (
-                      <div className="pt-0.5 flex items-center justify-between gap-2 text-[#047857] font-medium text-xs">
-                        <div className="flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>已妥投交付完成</span>
-                        </div>
-                        <span className="text-[#787774] font-normal text-[11px] font-mono">
-                          骑手: <span className="text-[#0f172a] font-normal">{order.courierName || '王凯 (专线骑手)'}</span>
-                        </span>
-                      </div>
-                    ) : isRefundPending ? (
-                      <div className="pt-0.5 flex items-center gap-1 text-rose-600 font-medium text-xs animate-pulse">
-                        <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
-                        <span>食客退单申请审核中</span>
-                      </div>
-                    ) : isRefunded ? (
-                      <div className="pt-0.5 flex items-center gap-1 text-[#787774] font-normal text-xs">
-                        <Ban className="w-3.5 h-3.5 text-slate-400" />
-                        <span>已全额退款取消</span>
-                      </div>
-                    ) : null}
+                      </button>
+                    </div>
                   </div>
+
+                  {/* 悬停抽屉信息卡：展示完整无截断的履约、身份、时间与策略档案 */}
+                  <AnimatePresence>
+                    {isDrawerOpen && (
+                      <div
+                        onMouseEnter={handleDrawerMouseEnter}
+                        onMouseLeave={handleMetaMouseLeave}
+                      >
+                        <OrderMetaDrawerCard
+                          order={order}
+                          isPinned={pinnedDrawerOrderNo === order.orderNo}
+                          onTogglePin={() => handleTogglePinDrawer(order.orderNo)}
+                          onClose={() => {
+                            setPinnedDrawerOrderNo(null);
+                            setHoveredDrawerOrderNo(null);
+                          }}
+                          onToggleLock={handleToggleLock}
+                          showToast={showToast}
+                        />
+                      </div>
+                    )}
+                  </AnimatePresence>
 
                   {/* 售后退款审核横幅 (若食客申请退款) */}
                   {isRefundPending && (
-                    <div className="p-3 bg-rose-50 border-b border-rose-200 text-xs space-y-2 rounded-none">
+                    <div className="p-3 bg-rose-50 border-b border-rose-200 text-xs space-y-2">
                       <div className="flex items-center justify-between font-bold text-rose-700">
                         <span className="flex items-center gap-1.5">
                           <ShieldAlert className="w-4 h-4" />
                           <span>食客提交售后退单申请 (需审核)</span>
                         </span>
-                        <span className="text-[11px] font-mono text-slate-500">
+                        <span className="text-[11px] text-neutral-500">
                           阶段: {order.refundPassedStep === 0 ? '待接单' : order.refundPassedStep === 1 ? '后厨制作中' : '配送中'}
                         </span>
                       </div>
-                      <div className="bg-white p-2 border border-rose-200 text-[11px] space-y-1">
+                      <div className="bg-white p-2.5 border border-rose-200 rounded-md text-[11px] space-y-1">
                         <div>
-                          <span className="text-slate-500">退单原因: </span>
-                          <strong className="text-slate-800">{order.refundReason || '食客点单信息变更'}</strong>
+                          <span className="text-neutral-500">退单原因: </span>
+                          <strong className="text-neutral-800">{order.refundReason || '食客点单信息变更'}</strong>
                         </div>
                         {order.refundFeedback && (
                           <div>
-                            <span className="text-slate-500">食客说明: </span>
-                            <span className="italic text-slate-700">"{order.refundFeedback}"</span>
+                            <span className="text-neutral-500">食客说明: </span>
+                            <span className="italic text-neutral-700">"{order.refundFeedback}"</span>
                           </div>
                         )}
                       </div>
@@ -1217,14 +1737,14 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                         <button
                           type="button"
                           onClick={() => setRefundRejectTarget(order)}
-                          className="px-2.5 py-1 bg-white hover:bg-rose-50 text-rose-700 border border-rose-300 text-xs font-semibold rounded-none cursor-pointer"
+                          className="px-3 py-1 bg-white hover:bg-rose-50 text-rose-700 border border-rose-300 text-xs font-bold rounded-md cursor-pointer"
                         >
                           驳回申请
                         </button>
                         <button
                           type="button"
                           onClick={() => handleApproveRefund(order)}
-                          className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-none cursor-pointer flex items-center gap-1"
+                          className="px-3.5 py-1 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-md cursor-pointer flex items-center gap-1 shadow-2xs"
                         >
                           <Check className="w-3 h-3" />
                           <span>同意退单并原路退款</span>
@@ -1234,32 +1754,32 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                   )}
 
                   {/* 菜品明细清单 (折叠抽屉) */}
-                  <div className="p-3 text-xs flex-1 bg-white flex flex-col justify-between border-t border-[#f0f0ee]">
+                  <div className="p-3 text-xs flex-1 bg-white flex flex-col justify-between border-t border-neutral-100">
                     <details className="group w-full select-none" open>
-                      <summary className="font-normal text-[#787774] text-[11px] pb-2 border-b border-[#e6e6e4] flex items-center justify-between cursor-pointer list-none">
-                        <span className="flex items-center gap-1.5 text-[#0f172a] font-medium">
+                      <summary className="font-medium text-neutral-700 text-[11px] pb-2 border-b border-neutral-200 flex items-center justify-between cursor-pointer list-none">
+                        <span className="flex items-center gap-1.5 text-neutral-900 font-bold">
                           {isDineIn ? (
-                            <Utensils className="w-3.5 h-3.5 text-[#9b9a97]" />
+                            <Utensils className="w-3.5 h-3.5 text-neutral-600" />
                           ) : (
-                            <Package className="w-3.5 h-3.5 text-[#9b9a97]" />
+                            <Package className="w-3.5 h-3.5 text-neutral-600" />
                           )}
                           <span>菜品清单 (共{itemCount}品{totalQty}件)</span>
                         </span>
                         <div className="flex items-center gap-1.5">
                           {isDineIn ? (
-                            <span className="text-[10px] text-[#047857] bg-emerald-50 border border-emerald-200 px-1 py-0.2 font-normal rounded-[2px]">
+                            <span className="text-[10px] text-neutral-800 bg-neutral-100 border border-neutral-200 px-1.5 py-0.5 font-medium rounded">
                               现制明细
                             </span>
                           ) : isPickup ? (
-                            <span className="text-[10px] text-[#0369a1] bg-sky-50 border border-sky-200 px-1 py-0.2 font-normal rounded-[2px]">
+                            <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 font-medium rounded">
                               自提取餐
                             </span>
                           ) : (
-                            <span className="text-[10px] text-[#047857] bg-emerald-50 border border-emerald-200 px-1 py-0.2 font-normal rounded-[2px]">
+                            <span className="text-[10px] text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 font-medium rounded">
                               专送配送
                             </span>
                           )}
-                          <span className="p-1 bg-[#f7f7f5] hover:bg-slate-200 text-[#787774] border border-[#e6e6e4] inline-flex items-center justify-center text-xs transition-transform group-open:rotate-180 rounded-[2px]">
+                          <span className="p-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-600 border border-neutral-200 inline-flex items-center justify-center text-xs transition-transform group-open:rotate-180 rounded">
                             <ChevronDown className="w-3 h-3 leading-none" />
                           </span>
                         </div>
@@ -1271,51 +1791,51 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                           return (
                             <div
                               key={itemIdx}
-                              className={`p-2 border transition-all text-xs rounded-[3px] ${
+                              className={`p-2.5 border transition-all text-xs rounded-md ${
                                 isStruck
                                   ? 'bg-rose-50/50 border-rose-200 text-rose-950'
                                   : it.isCompensatoryGift
-                                  ? 'bg-[#fffbeb] border-[#fde68a] text-[#b45309]'
-                                  : 'bg-[#fbfbfa] border-[#e6e6e4] text-[#37352f]'
+                                  ? 'bg-amber-50 border-amber-200 text-amber-900'
+                                  : 'bg-neutral-50/80 border-neutral-200 text-neutral-900'
                               }`}
                             >
                               <div className="flex justify-between items-start gap-2">
                                 <div className="min-w-0 flex-1">
                                   <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className={`font-medium ${isStruck ? 'line-through text-rose-500' : 'text-[#0f172a]'}`}>
+                                    <span className={`font-bold ${isStruck ? 'line-through text-neutral-400 font-normal' : 'text-neutral-900'}`}>
                                       {it.name}
                                     </span>
                                     {isStruck && (
-                                      <span className="text-[10px] font-normal px-1.5 py-0.2 bg-rose-600 text-white rounded-[2px]">
+                                      <span className="text-[10px] font-bold px-1.5 py-0.2 bg-rose-600 text-white rounded">
                                         已划菜作废
                                       </span>
                                     )}
                                     {it.isCompensatoryGift && (
-                                      <span className="text-[10px] font-normal px-1.5 py-0.2 bg-amber-500 text-white rounded-[2px]">
+                                      <span className="text-[10px] font-bold px-1.5 py-0.2 bg-amber-500 text-white rounded">
                                         致歉赠送 · ¥0
                                       </span>
                                     )}
                                     {it.addedBy && (
-                                      <span className="text-[10px] text-[#787774] bg-white px-1.5 py-0.2 border border-[#e6e6e4] rounded-[2px]">
+                                      <span className="text-[10px] text-neutral-600 bg-white px-1.5 py-0.2 border border-neutral-200 rounded">
                                         由 {it.addedBy} 点选
                                       </span>
                                     )}
                                   </div>
 
                                   {it.options && (
-                                    <div className="text-[11px] text-[#9b9a97] mt-0.5 font-normal">[{it.options}]</div>
+                                    <div className="text-[11px] text-neutral-500 mt-0.5 font-normal">[{it.options}]</div>
                                   )}
 
                                   {/* 划菜原因与客诉补偿方案展示 */}
                                   {isStruck && (
-                                    <div className="mt-1 text-[11px] space-y-0.5 bg-white/90 p-1.5 border border-rose-200 rounded-[2px]">
+                                    <div className="mt-1 text-[11px] space-y-0.5 bg-white/90 p-1.5 border border-rose-200 rounded">
                                       <div className="text-rose-700 font-normal">
-                                        <span className="font-medium">划菜原因：</span>
+                                        <span className="font-bold">划菜原因：</span>
                                         {it.struckOffReason || '后厨原料已沽清'}
                                       </div>
                                       {it.compensationDetail && (
-                                        <div className="text-[#047857] font-normal">
-                                          <span className="font-medium">补偿方案：</span>
+                                        <div className="text-emerald-700 font-normal">
+                                          <span className="font-bold">补偿方案：</span>
                                           {it.compensationDetail}
                                         </div>
                                       )}
@@ -1325,12 +1845,12 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
 
                                 {/* 右侧数量与划菜/撤销操作 */}
                                 <div className="flex flex-col items-end gap-1 shrink-0">
-                                  <span className="font-mono text-[#787774] font-medium">x{it.quantity}</span>
+                                  <span className="text-neutral-900 font-black text-xs">x{it.quantity}</span>
                                   {isStruck ? (
                                     <button
                                       type="button"
                                       onClick={() => handleRollbackStrikeOff(order.orderNo || order.id, itemIdx)}
-                                      className="px-2 py-0.5 text-[10px] font-normal bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 flex items-center gap-0.5 cursor-pointer rounded-[2px]"
+                                      className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 flex items-center gap-0.5 cursor-pointer rounded"
                                       title="一键撤销划菜并恢复原单"
                                     >
                                       <RotateCcw className="w-2.5 h-2.5" />
@@ -1346,7 +1866,7 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                                           itemIndex: itemIdx
                                         })
                                       }
-                                      className="px-2 py-0.5 text-[10px] font-normal bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 cursor-pointer rounded-[2px]"
+                                      className="px-2 py-0.5 text-[10px] font-bold bg-white hover:bg-rose-50 text-rose-600 border border-neutral-200 hover:border-rose-200 cursor-pointer rounded shadow-2xs"
                                       title="划除该菜品并执行客诉补偿"
                                     >
                                       划菜补偿
@@ -1361,39 +1881,39 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                     </details>
 
                     {/* 配送 / 就餐地理位置 */}
-                    <div className="flex items-center gap-1.5 text-xs text-rose-600 pt-2 border-t border-dashed border-[#e6e6e4] mt-2">
-                      <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                      <span className="font-normal truncate">{destinationText}</span>
+                    <div className="flex items-center gap-1.5 text-xs text-neutral-700 pt-2.5 border-t border-neutral-200 mt-2.5">
+                      <MapPin className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
+                      <span className="font-medium truncate">{destinationText}</span>
                     </div>
                   </div>
 
                   {/* 金额结算明细 */}
-                  <div className="bg-[#fbfbfa] px-3.5 py-2.5 border-t border-[#e6e6e4] flex items-center justify-between text-xs">
-                    <div className="text-[11px] text-[#787774] leading-tight font-normal">
+                  <div className="bg-neutral-50 px-3.5 py-2.5 border-t border-neutral-200 flex items-center justify-between text-xs">
+                    <div className="text-[11px] text-neutral-500 leading-tight font-normal">
                       <div>在线微信支付已清算</div>
-                      <div className="font-amount text-[#9b9a97] mt-0.5">
+                      <div className="font-amount text-neutral-400 mt-0.5">
                         骑手 ¥{riderFee.toFixed(1)} · 佣金 ¥{platformFee.toFixed(1)}
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-[11px] text-[#047857] font-normal font-amount">
-                        餐车净得: <span className="font-medium">¥{netPayout.toFixed(2)}</span>
+                      <div className="text-[11px] text-emerald-700 font-bold font-amount">
+                        餐车净得: <span>¥{netPayout.toFixed(2)}</span>
                       </div>
-                      <div className="text-xl font-bold text-[#0f172a] font-amount tracking-tight">
+                      <div className="text-xl font-black text-neutral-900 font-amount tracking-tight">
                         ¥{order.totalAmount.toFixed(2)}
                       </div>
                     </div>
                   </div>
 
-                  {/* 底部动作按钮组：分层布局 + 容器内左右滚动遮罩 + 自动缩小文字不允许转行 */}
-                  <div className="p-2 sm:p-2.5 bg-white border-t border-[#e6e6e4] space-y-2 rounded-b-[4px]">
+                  {/* 底部动作按钮组：分层布局 + 容器内左右滚动遮罩 */}
+                  <div className="p-2 sm:p-2.5 bg-white border-t border-neutral-200 space-y-2 rounded-b-lg">
                     {/* 上排通用工具组 */}
                     <AutoScrollButtonRow>
-                      {/* 气泡联络室 (深邃黑方块+绿脉冲对齐手机端) */}
+                      {/* 气泡联络室 */}
                       <button
                         type="button"
                         onClick={() => setChatOrder(order)}
-                        className="relative shrink-0 p-2 bg-slate-900 hover:bg-black text-white border border-slate-900 flex items-center justify-center transition-colors rounded-[2px] cursor-pointer"
+                        className="relative shrink-0 p-2 bg-neutral-900 hover:bg-black text-white border border-neutral-900 flex items-center justify-center transition-colors rounded-md cursor-pointer shadow-2xs"
                         title="气泡联络室 (三端互通)"
                       >
                         <MessageSquare className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
@@ -1404,7 +1924,7 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                       <button
                         type="button"
                         onClick={() => setReceiptOrder(order)}
-                        className="shrink-0 p-2 bg-[#fbfbfa] hover:bg-slate-100 text-[#787774] hover:text-[#0f172a] border border-[#e6e6e4] flex items-center justify-center transition-colors rounded-[2px] cursor-pointer"
+                        className="shrink-0 p-2 bg-white hover:bg-neutral-100 text-neutral-700 hover:text-neutral-900 border border-neutral-200 flex items-center justify-center transition-colors rounded-md cursor-pointer shadow-2xs"
                         title="小票预览打印"
                       >
                         <Printer className="w-3.5 h-3.5 shrink-0" />
@@ -1414,7 +1934,7 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                       <button
                         type="button"
                         onClick={() => setRejectOrderTarget(order)}
-                        className="shrink-0 p-2 bg-rose-50/50 hover:bg-rose-100/60 text-rose-600 border border-rose-200 flex items-center justify-center transition-colors rounded-[2px] cursor-pointer"
+                        className="shrink-0 p-2 bg-white hover:bg-rose-50 text-rose-600 border border-neutral-200 hover:border-rose-200 flex items-center justify-center transition-colors rounded-md cursor-pointer shadow-2xs"
                         title="商家主动退单与拒单"
                       >
                         <Ban className="w-3.5 h-3.5 shrink-0" />
@@ -1425,7 +1945,7 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                         <button
                           type="button"
                           onClick={() => setAuditConvertTargetOrder(order)}
-                          className="shrink-0 p-2 bg-purple-50/60 hover:bg-purple-100/70 text-purple-700 border border-purple-200 flex items-center justify-center transition-colors rounded-[2px] cursor-pointer"
+                          className="shrink-0 p-2 bg-white hover:bg-neutral-100 text-neutral-800 border border-neutral-200 flex items-center justify-center transition-colors rounded-md cursor-pointer shadow-2xs"
                           title="审核转为外卖专送"
                         >
                           <ArrowRightLeft className="w-3.5 h-3.5 shrink-0" />
@@ -1436,7 +1956,7 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                       <button
                         type="button"
                         onClick={() => setOrderEditModalState({ isOpen: true, order })}
-                        className="shrink-0 p-2 bg-sky-50/60 hover:bg-sky-100/70 text-[#0369a1] border border-sky-200 flex items-center justify-center transition-colors rounded-[2px] cursor-pointer"
+                        className="shrink-0 p-2 bg-white hover:bg-neutral-100 text-neutral-800 border border-neutral-200 flex items-center justify-center transition-colors rounded-md cursor-pointer shadow-2xs"
                         title="修改订单菜品与数量 (支持增减与加菜)"
                       >
                         <Edit3 className="w-3.5 h-3.5 shrink-0" />
@@ -1449,7 +1969,7 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                           setDeleteTargetOrder(order);
                           setDeleteReason('顾客误触/重复下单作废');
                         }}
-                        className="shrink-0 p-2 bg-[#fbfbfa] hover:bg-rose-50 text-[#9b9a97] hover:text-rose-600 border border-[#e6e6e4] hover:border-rose-200 flex items-center justify-center transition-colors rounded-[2px] cursor-pointer"
+                        className="shrink-0 p-2 bg-white hover:bg-rose-50 text-neutral-400 hover:text-rose-600 border border-neutral-200 hover:border-rose-200 flex items-center justify-center transition-colors rounded-md cursor-pointer shadow-2xs"
                         title="作废并删除此订单"
                       >
                         <Trash2 className="w-3.5 h-3.5 shrink-0" />
@@ -1462,7 +1982,7 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                         <button
                           type="button"
                           onClick={() => handleAcceptSingleOrder(order)}
-                          className="flex-1 shrink-0 whitespace-nowrap min-w-[120px] py-1.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-[11px] sm:text-xs flex items-center justify-center gap-1 border border-emerald-700 transition-colors rounded-[2px] cursor-pointer shadow-2xs leading-none"
+                          className="flex-1 shrink-0 whitespace-nowrap min-w-[120px] py-2 px-3 bg-neutral-900 hover:bg-black text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors rounded-md cursor-pointer shadow-xs leading-none"
                         >
                           <ChefHat className="w-3.5 h-3.5 shrink-0" />
                           <span>接单制作 (进入后厨)</span>
@@ -1479,27 +1999,27 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                               });
                               showToast(`堂食订单 #${order.orderNo.replace(/^#/, '')} 已制作完成，已通知传菜员送至 ${order.tableCode ? `${order.tableCode} 号桌` : '外摆区'}！`);
                             }}
-                            className="flex-1 shrink-0 whitespace-nowrap min-w-[120px] py-1.5 px-3 bg-[#b45309] hover:bg-[#92400e] text-white font-medium text-[11px] sm:text-xs flex items-center justify-center gap-1 border border-[#b45309] transition-colors rounded-[2px] cursor-pointer shadow-2xs leading-none"
+                            className="flex-1 shrink-0 whitespace-nowrap min-w-[120px] py-2 px-3 bg-neutral-900 hover:bg-black text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors rounded-md cursor-pointer shadow-xs leading-none"
                           >
                             <Utensils className="w-3.5 h-3.5 shrink-0" />
                             <span>制作完成 · 传菜上桌</span>
                           </button>
                         ) : isPickup ? (
                           <>
-                            {/* 方案 B：订单看板快捷叫号取餐广播 */}
+                            {/* 订单看板快捷叫号取餐广播 */}
                             <button
                               type="button"
                               onClick={() => handleQuickBroadcastCall(order)}
-                              className="shrink-0 whitespace-nowrap py-1.5 px-2 bg-sky-50 hover:bg-sky-100 text-[#0369a1] font-medium text-[10px] sm:text-[11px] flex items-center justify-center gap-1 border border-sky-200 transition-all rounded-[2px] cursor-pointer leading-none"
+                              className="shrink-0 whitespace-nowrap py-2 px-2.5 bg-white hover:bg-neutral-50 text-neutral-900 font-bold text-[11px] flex items-center justify-center gap-1 border border-neutral-200 transition-all rounded-md cursor-pointer leading-none shadow-2xs"
                               title="外放语音呼叫自提顾客到前台取餐"
                             >
-                              <Megaphone className="w-3 h-3 text-sky-600 shrink-0" />
+                              <Megaphone className="w-3 h-3 text-neutral-700 shrink-0" />
                               <span>叫号取餐{orderCallCounts[order.orderNo] ? ` (${orderCallCounts[order.orderNo]}次)` : ''}</span>
                             </button>
                             <button
                               type="button"
                               onClick={() => setVerifyTargetOrder(order)}
-                              className="flex-1 shrink-0 whitespace-nowrap min-w-[70px] py-1.5 px-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-[10.5px] sm:text-xs flex items-center justify-center gap-1 border border-emerald-700 transition-colors rounded-[2px] cursor-pointer shadow-2xs leading-none"
+                              className="flex-1 shrink-0 whitespace-nowrap min-w-[70px] py-2 px-2.5 bg-neutral-900 hover:bg-black text-white font-bold text-xs flex items-center justify-center gap-1 transition-colors rounded-md cursor-pointer shadow-xs leading-none"
                             >
                               <Scan className="w-3 h-3 shrink-0" />
                               <span>自提核销</span>
@@ -1515,7 +2035,7 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                                 voiceAlerts.smartLockerPickupGuidance(pickupCode, shelfCode || '03号保温格口');
                                 showToast(`自提订单 #${order.orderNo.replace(/^#/, '')} 制作完毕，已放入保温柜并触发语音取餐引导！`);
                               }}
-                              className="flex-1 shrink-0 whitespace-nowrap min-w-[70px] py-1.5 px-2.5 bg-[#0369a1] hover:bg-[#0284c7] text-white font-medium text-[10.5px] sm:text-xs flex items-center justify-center gap-1 border border-[#0369a1] transition-colors rounded-[2px] cursor-pointer shadow-2xs leading-none"
+                              className="flex-1 shrink-0 whitespace-nowrap min-w-[70px] py-2 px-2.5 bg-white hover:bg-neutral-50 text-neutral-900 font-bold text-xs flex items-center justify-center gap-1 border border-neutral-200 transition-colors rounded-md cursor-pointer shadow-2xs leading-none"
                             >
                               <ShoppingBag className="w-3 h-3 shrink-0" />
                               <span>出餐入柜</span>
@@ -1523,20 +2043,20 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                           </>
                         ) : (
                           <>
-                            {/* 方案 B：订单看板快捷呼叫骑手广播 */}
+                            {/* 订单看板快捷呼叫骑手广播 */}
                             <button
                               type="button"
                               onClick={() => handleQuickBroadcastCall(order)}
-                              className="shrink-0 whitespace-nowrap py-1.5 px-2 bg-amber-50 hover:bg-amber-100 text-[#b45309] font-medium text-[10px] sm:text-[11px] flex items-center justify-center gap-1 border border-amber-200 transition-all rounded-[2px] cursor-pointer leading-none"
+                              className="shrink-0 whitespace-nowrap py-2 px-2.5 bg-white hover:bg-neutral-50 text-neutral-900 font-bold text-[11px] flex items-center justify-center gap-1 border border-neutral-200 transition-all rounded-md cursor-pointer leading-none shadow-2xs"
                               title="外放语音呼叫外卖专送骑手到餐车站台取餐"
                             >
-                              <Megaphone className="w-3 h-3 text-amber-600 shrink-0" />
+                              <Megaphone className="w-3 h-3 text-neutral-700 shrink-0" />
                               <span>呼叫骑手{orderCallCounts[order.orderNo] ? ` (${orderCallCounts[order.orderNo]}次)` : ''}</span>
                             </button>
                             <button
                               type="button"
                               onClick={() => setVerifyTargetOrder(order)}
-                              className="flex-1 shrink-0 whitespace-nowrap min-w-[70px] py-1.5 px-2.5 bg-[#b45309] hover:bg-[#92400e] text-white font-medium text-[10.5px] sm:text-xs flex items-center justify-center gap-1 border border-[#b45309] transition-colors rounded-[2px] cursor-pointer shadow-2xs leading-none"
+                              className="flex-1 shrink-0 whitespace-nowrap min-w-[70px] py-2 px-2.5 bg-neutral-900 hover:bg-black text-white font-bold text-xs flex items-center justify-center gap-1 transition-colors rounded-md cursor-pointer shadow-xs leading-none"
                             >
                               <KeyRound className="w-3 h-3 shrink-0" />
                               <span>骑手核销</span>
@@ -1552,7 +2072,7 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                                 voiceAlerts.callRiderForOrder(order.orderNo);
                                 showToast(`外卖订单 #${order.orderNo.replace(/^#/, '')} 制作完成，已调度专线骑手并语音呼叫！`);
                               }}
-                              className="flex-1 shrink-0 whitespace-nowrap min-w-[70px] py-1.5 px-2.5 bg-slate-900 hover:bg-black text-white font-medium text-[10.5px] sm:text-xs flex items-center justify-center gap-1 border border-slate-900 transition-colors rounded-[2px] cursor-pointer shadow-2xs leading-none"
+                              className="flex-1 shrink-0 whitespace-nowrap min-w-[70px] py-2 px-2.5 bg-neutral-900 hover:bg-black text-white font-bold text-xs flex items-center justify-center gap-1 transition-colors rounded-md cursor-pointer shadow-xs leading-none"
                             >
                               <Bike className="w-3 h-3 shrink-0" />
                               <span>调度骑手</span>
@@ -1565,10 +2085,10 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                             <button
                               type="button"
                               onClick={() => handleQuickBroadcastCall(order)}
-                              className="shrink-0 whitespace-nowrap py-1.5 px-2 bg-emerald-50 hover:bg-emerald-100 text-[#047857] font-medium text-[10px] sm:text-[11px] flex items-center justify-center gap-1 border border-emerald-200 transition-all rounded-[2px] cursor-pointer leading-none"
+                              className="shrink-0 whitespace-nowrap py-2 px-2.5 bg-white hover:bg-neutral-50 text-neutral-900 font-bold text-[11px] flex items-center justify-center gap-1 border border-neutral-200 transition-all rounded-md cursor-pointer leading-none shadow-2xs"
                               title="外放广播通知传菜"
                             >
-                              <Megaphone className="w-3 h-3 text-emerald-600 shrink-0" />
+                              <Megaphone className="w-3 h-3 text-neutral-700 shrink-0" />
                               <span>呼叫传菜{orderCallCounts[order.orderNo] ? ` (${orderCallCounts[order.orderNo]}次)` : ''}</span>
                             </button>
                             <button
@@ -1581,7 +2101,7 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                                 });
                                 showToast(`堂食桌台 ${order.tableCode || 'A1'} 宾客就餐完毕，桌台已重置翻台！`);
                               }}
-                              className="flex-1 shrink-0 whitespace-nowrap min-w-[120px] py-1.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-[10.5px] sm:text-xs flex items-center justify-center gap-1 border border-emerald-700 transition-colors rounded-[2px] cursor-pointer shadow-2xs leading-none"
+                              className="flex-1 shrink-0 whitespace-nowrap min-w-[120px] py-2 px-3 bg-neutral-900 hover:bg-black text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors rounded-md cursor-pointer shadow-xs leading-none"
                             >
                               <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                               <span>餐品齐备 · 结账翻台</span>
@@ -1593,10 +2113,10 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                             <button
                               type="button"
                               onClick={() => handleQuickBroadcastCall(order)}
-                              className="shrink-0 whitespace-nowrap py-1.5 px-2 bg-sky-50 hover:bg-sky-100 text-[#0369a1] font-medium text-[10px] sm:text-[11px] flex items-center justify-center gap-1 border border-sky-200 transition-all rounded-[2px] cursor-pointer leading-none"
+                              className="shrink-0 whitespace-nowrap py-2 px-2.5 bg-white hover:bg-neutral-50 text-neutral-900 font-bold text-[11px] flex items-center justify-center gap-1 border border-neutral-200 transition-all rounded-md cursor-pointer leading-none shadow-2xs"
                               title="外放广播催促自提顾客尽快取餐"
                             >
-                              <Megaphone className="w-3 h-3 text-sky-600 shrink-0" />
+                              <Megaphone className="w-3 h-3 text-neutral-700 shrink-0" />
                               <span>催客取餐{orderCallCounts[order.orderNo] ? ` (${orderCallCounts[order.orderNo]}次)` : ''}</span>
                             </button>
                             <button
@@ -1609,7 +2129,7 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                                 });
                                 showToast(`自提订单 #${order.orderNo.replace(/^#/, '')} 顾客已提货，流程已结单！`);
                               }}
-                              className="flex-1 shrink-0 whitespace-nowrap min-w-[120px] py-1.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-[10.5px] sm:text-xs flex items-center justify-center gap-1 border border-emerald-700 transition-colors rounded-[2px] cursor-pointer shadow-2xs leading-none"
+                              className="flex-1 shrink-0 whitespace-nowrap min-w-[120px] py-2 px-3 bg-neutral-900 hover:bg-black text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors rounded-md cursor-pointer shadow-xs leading-none"
                             >
                               <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                               <span>核销完成 · 顾客已自提</span>
@@ -1621,10 +2141,10 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                             <button
                               type="button"
                               onClick={() => handleQuickBroadcastCall(order)}
-                              className="shrink-0 whitespace-nowrap py-1.5 px-2 bg-amber-50 hover:bg-amber-100 text-[#b45309] font-medium text-[10px] sm:text-[11px] flex items-center justify-center gap-1 border border-amber-200 transition-all rounded-[2px] cursor-pointer leading-none"
+                              className="shrink-0 whitespace-nowrap py-2 px-2.5 bg-white hover:bg-neutral-50 text-neutral-900 font-bold text-[11px] flex items-center justify-center gap-1 border border-neutral-200 transition-all rounded-md cursor-pointer leading-none shadow-2xs"
                               title="外放催骑手加速取送"
                             >
-                              <Megaphone className="w-3 h-3 text-amber-600 shrink-0" />
+                              <Megaphone className="w-3 h-3 text-neutral-700 shrink-0" />
                               <span>呼叫骑手{orderCallCounts[order.orderNo] ? ` (${orderCallCounts[order.orderNo]}次)` : ''}</span>
                             </button>
                             <button
@@ -1637,7 +2157,7 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                                 });
                                 showToast(`外卖订单 #${order.orderNo.replace(/^#/, '')} 骑手已妥投送达！`);
                               }}
-                              className="flex-1 shrink-0 whitespace-nowrap min-w-[100px] py-1.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-[10.5px] sm:text-xs flex items-center justify-center gap-1 border border-emerald-700 transition-colors rounded-[2px] cursor-pointer shadow-2xs leading-none"
+                              className="flex-1 shrink-0 whitespace-nowrap min-w-[100px] py-2 px-3 bg-neutral-900 hover:bg-black text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors rounded-md cursor-pointer shadow-xs leading-none"
                             >
                               <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                               <span>送达妥投</span>
@@ -1645,11 +2165,11 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                           </>
                         )
                       ) : isCompleted ? (
-                        <span className="text-[#047857] font-mono text-xs font-normal px-2 py-1 bg-emerald-50 border border-emerald-200 rounded-[2px] shrink-0 whitespace-nowrap">
+                        <span className="text-emerald-700 text-xs font-bold px-2.5 py-1 bg-emerald-50 border border-emerald-200 rounded-md shrink-0 whitespace-nowrap">
                           工单已归档结清
                         </span>
                       ) : isRefunded ? (
-                        <span className="text-[#787774] font-mono text-xs font-normal px-2 py-1 bg-[#fbfbfa] border border-[#e6e6e4] rounded-[2px] shrink-0 whitespace-nowrap">
+                        <span className="text-neutral-500 text-xs font-medium px-2.5 py-1 bg-neutral-100 border border-neutral-200 rounded-md shrink-0 whitespace-nowrap">
                           已退款全单取消
                         </span>
                       ) : null}
@@ -1661,78 +2181,111 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
           </div>
         ) : (
           /* List Table View Mode */
-          <div className="bg-white border border-[#e6e6e4] rounded-[4px] shadow-2xs overflow-x-auto">
+          <div className="bg-white border border-neutral-200 rounded-lg shadow-2xs overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-[#fbfbfa] border-b border-[#e6e6e4] text-[#787774] font-normal">
-                  <th className="p-2.5 font-medium">单号 / 渠道</th>
-                  <th className="p-2.5 font-medium">UID / 下单时间</th>
-                  <th className="p-2.5 font-medium">菜品明细</th>
-                  <th className="p-2.5 font-medium">桌位 / 取件 / 配送地址</th>
-                  <th className="p-2.5 font-medium">实付 / 净得</th>
-                  <th className="p-2.5 font-medium">当前进度状态</th>
-                  <th className="p-2.5 text-right font-medium">调度操作</th>
+                <tr className="bg-neutral-50 border-b border-neutral-200 text-neutral-700 font-bold">
+                  <th className="p-3">单号 / 渠道</th>
+                  <th className="p-3">UID / 下单时间</th>
+                  <th className="p-3">菜品明细</th>
+                  <th className="p-3">桌位 / 取件 / 配送地址</th>
+                  <th className="p-3">实付 / 净得</th>
+                  <th className="p-3">当前进度状态</th>
+                  <th className="p-3 text-right">调度操作</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#f0f0ee]">
+              <tbody className="divide-y divide-neutral-100">
                 {filteredOrders.map((order) => {
                   const oChannel = resolveOrderChannelType(order);
                   return (
-                    <tr key={order.orderNo} className="hover:bg-[#fbfbfa] transition-colors">
-                      <td className="p-2.5 font-mono">
-                        <div className="font-semibold text-[#0f172a]">#{order.orderNo.replace(/^#/, '')}</div>
-                        <div className="text-[11px] text-[#787774] font-normal">
+                    <tr key={order.orderNo} className="hover:bg-neutral-50/80 transition-colors">
+                      <td className="p-3">
+                        <div className="font-bold text-neutral-900 text-xs">#{order.orderNo.replace(/^#/, '')}</div>
+                        <div className="text-[11px] text-neutral-500 font-normal mt-0.5">
                           {oChannel === 'dine_in' ? '🍽️ 堂食就餐' : oChannel === 'pickup' ? '🛍️ 到店自提' : '🛵 外卖专送'}
                         </div>
                       </td>
-                      <td className="p-2.5 font-mono text-[#787774]">
-                        <div className="text-[#0369a1]">{order.userId ? `${order.userId.slice(0, 10)}...` : 'guest'}</div>
-                        <div className="text-[#9b9a97]">{order.createdTime}</div>
+                      <td
+                        className="p-3 text-neutral-600 relative group/listmeta cursor-pointer"
+                        onMouseEnter={() => handleMetaMouseEnter(order.orderNo)}
+                        onMouseLeave={handleMetaMouseLeave}
+                        onClick={() => handleTogglePinDrawer(order.orderNo)}
+                        title="悬停或点击查看完整工单履约档案抽屉卡片"
+                      >
+                        <div className="text-neutral-900 font-medium flex items-center gap-1">
+                          <span className="truncate max-w-[120px]" title={order.userId || ''}>
+                            {order.userId ? `${order.userId.slice(0, 10)}...` : 'guest'}
+                          </span>
+                          <span className="text-[10px] text-neutral-400 group-hover/listmeta:text-neutral-900 font-sans">▾</span>
+                        </div>
+                        <div className="text-neutral-400 text-[11px] mt-0.5">{order.createdTime}</div>
+
+                        <AnimatePresence>
+                          {(pinnedDrawerOrderNo === order.orderNo || hoveredDrawerOrderNo === order.orderNo) && (
+                            <div
+                              className="absolute left-0 top-12 z-50 w-84 font-sans"
+                              onMouseEnter={handleDrawerMouseEnter}
+                              onMouseLeave={handleMetaMouseLeave}
+                            >
+                              <OrderMetaDrawerCard
+                                order={order}
+                                isPinned={pinnedDrawerOrderNo === order.orderNo}
+                                onTogglePin={() => handleTogglePinDrawer(order.orderNo)}
+                                onClose={() => {
+                                  setPinnedDrawerOrderNo(null);
+                                  setHoveredDrawerOrderNo(null);
+                                }}
+                                onToggleLock={handleToggleLock}
+                                showToast={showToast}
+                              />
+                            </div>
+                          )}
+                        </AnimatePresence>
                       </td>
-                      <td className="p-2.5">
-                        <div className="font-normal text-[#0f172a] truncate max-w-xs">
+                      <td className="p-3">
+                        <div className="font-medium text-neutral-900 truncate max-w-xs">
                           {order.items.map(i => `${i.name} x${i.quantity}`).join('，')}
                         </div>
-                        <div className="text-[11px] text-[#9b9a97]">共 {order.items.length} 品</div>
+                        <div className="text-[11px] text-neutral-400 mt-0.5">共 {order.items.length} 品</div>
                       </td>
-                      <td className="p-2.5 text-[#37352f]">
+                      <td className="p-3 text-neutral-700">
                         {oChannel === 'dine_in' ? (
-                          <span className="font-normal text-[#b45309]">桌台: {order.tableCode || 'A2'}</span>
+                          <span className="font-bold text-neutral-900 bg-neutral-100 px-2 py-0.5 rounded text-[11px] border border-neutral-200">桌台: {order.tableCode || 'A2'}</span>
                         ) : oChannel === 'pickup' ? (
-                          <span className="font-mono text-[#0369a1] font-medium">自提码: #{getOrGeneratePickupCode(order.orderNo, order.pickupCode)}</span>
+                          <span className="text-amber-900 font-bold bg-amber-50 px-2 py-0.5 rounded text-[11px] border border-amber-200">自提码: #{getOrGeneratePickupCode(order.orderNo, order.pickupCode)}</span>
                         ) : (
-                          <span className="truncate block max-w-xs">{order.deliveryAddress}</span>
+                          <span className="truncate block max-w-xs text-neutral-800">{order.deliveryAddress}</span>
                         )}
                       </td>
-                      <td className="p-2.5 font-mono">
-                        <div className="font-semibold text-[#0f172a]">¥{order.totalAmount.toFixed(2)}</div>
-                        <div className="text-[10px] text-[#047857] font-normal">净得 ¥{(order.merchantNetPayout || order.totalAmount).toFixed(2)}</div>
+                      <td className="p-3">
+                        <div className="font-black text-neutral-900 font-amount">¥{order.totalAmount.toFixed(2)}</div>
+                        <div className="text-[10px] text-emerald-700 font-bold mt-0.5 font-amount">净得 ¥{(order.merchantNetPayout || order.totalAmount).toFixed(2)}</div>
                       </td>
-                      <td className="p-2.5">
-                        <span className={`px-2 py-0.5 text-[11px] font-normal border rounded-[2px] ${
+                      <td className="p-3">
+                        <span className={`px-2.5 py-1 text-[11px] font-bold border rounded-md ${
                           order.status === 'pending'
-                            ? 'bg-amber-50 text-[#b45309] border-amber-200'
+                            ? 'bg-amber-50 text-amber-900 border-amber-300'
                             : order.status === 'cooking'
-                            ? 'bg-amber-50/70 text-[#b45309] border-amber-200'
+                            ? 'bg-amber-50 text-amber-800 border-amber-200'
                             : order.status === 'delivering'
-                            ? 'bg-sky-50 text-[#0369a1] border-sky-200'
+                            ? 'bg-sky-50 text-sky-900 border-sky-200'
                             : order.status === 'completed'
-                            ? 'bg-emerald-50 text-[#047857] border-emerald-200'
+                            ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
                             : 'bg-rose-50 text-rose-800 border-rose-200'
                         }`}>
                           {order.statusText || order.status}
                         </span>
                       </td>
-                      <td className="p-2.5 text-right">
+                      <td className="p-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             type="button"
                             onClick={() => handleQuickBroadcastCall(order)}
-                            className="p-1.5 bg-[#fbfbfa] hover:bg-amber-50 text-[#787774] hover:text-[#b45309] border border-[#e6e6e4] rounded-[2px] cursor-pointer flex items-center gap-1 shadow-2xs font-normal"
+                            className="p-1.5 bg-white hover:bg-neutral-50 text-neutral-800 border border-neutral-200 rounded-md cursor-pointer flex items-center gap-1 shadow-2xs font-bold text-[11px]"
                             title={`外放语音广播: ${oChannel === 'pickup' ? '叫号取餐' : oChannel === 'delivery' ? '呼叫骑手' : '呼叫传菜'}`}
                           >
-                            <Megaphone className="w-3 h-3 text-amber-600" />
-                            <span className="font-bold text-[10px]">
+                            <Megaphone className="w-3.5 h-3.5 text-neutral-700" />
+                            <span>
                               {oChannel === 'pickup' ? '叫号' : oChannel === 'delivery' ? '呼叫' : '传菜'}
                               {orderCallCounts[order.orderNo] ? ` (${orderCallCounts[order.orderNo]})` : ''}
                             </span>
@@ -1740,18 +2293,18 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                           <button
                             type="button"
                             onClick={() => setChatOrder(order)}
-                            className="p-1.5 bg-slate-900 hover:bg-black text-white border border-slate-900 rounded-[2px] cursor-pointer"
+                            className="p-1.5 bg-neutral-900 hover:bg-black text-white border border-neutral-900 rounded-md cursor-pointer shadow-2xs"
                             title="联络室"
                           >
-                            <MessageSquare className="w-3 h-3 text-emerald-400" />
+                            <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
                           </button>
                           <button
                             type="button"
                             onClick={() => setReceiptOrder(order)}
-                            className="p-1.5 bg-[#fbfbfa] hover:bg-slate-100 text-[#787774] hover:text-[#0f172a] border border-[#e6e6e4] rounded-[2px] cursor-pointer"
+                            className="p-1.5 bg-white hover:bg-neutral-100 text-neutral-700 hover:text-neutral-900 border border-neutral-200 rounded-md cursor-pointer shadow-2xs"
                             title="打印小票"
                           >
-                            <Printer className="w-3 h-3" />
+                            <Printer className="w-3.5 h-3.5" />
                           </button>
                           <button
                             type="button"
@@ -1759,11 +2312,11 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                               setDeleteTargetOrder(order);
                               setDeleteReason('顾客误触/重复下单作废');
                             }}
-                            className="p-1.5 bg-[#fbfbfa] hover:bg-rose-50 text-[#9b9a97] hover:text-rose-600 border border-[#e6e6e4] hover:border-rose-200 rounded-[2px] cursor-pointer flex items-center gap-1 font-normal"
+                            className="p-1.5 bg-white hover:bg-rose-50 text-neutral-400 hover:text-rose-600 border border-neutral-200 hover:border-rose-200 rounded-md cursor-pointer flex items-center gap-1 font-medium shadow-2xs"
                             title="作废删除此订单"
                           >
-                            <Trash2 className="w-3 h-3" />
-                            <span className="text-[10px]">删除</span>
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span className="text-[11px]">删除</span>
                           </button>
                         </div>
                       </td>
@@ -1785,7 +2338,7 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
           <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full led-pulse"></span>
           <span className="font-medium text-[#0f172a]">工作中</span>
           <span className="text-[#e6e6e4]">|</span>
-          <span className="font-normal">待办工单: <span className="font-mono text-[#b45309] font-medium">{cookingOrders.length + pendingOrders.length} 单</span></span>
+          <span className="font-normal">待办工单: <span className="text-[#b45309] font-medium">{cookingOrders.length + pendingOrders.length} 单</span></span>
           <span className="text-[#e6e6e4]">|</span>
           <span className="font-normal">今日已结营业额: <span className="font-amount text-[#047857] font-medium">¥{todayRevenue.toFixed(2)}</span></span>
         </div>
@@ -1825,7 +2378,7 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
             </div>
 
             {/* Receipt Simulation Body */}
-            <div className="p-4 bg-[#fbfbfa] text-xs font-mono space-y-3 max-h-[70vh] overflow-y-auto border-y border-[#e6e6e4]">
+            <div className="p-4 bg-[#fbfbfa] text-xs space-y-3 max-h-[70vh] overflow-y-auto border-y border-[#e6e6e4]">
               <div className="text-center space-y-1">
                 <p className="font-medium text-sm text-[#0f172a]">{getUnifiedTruckName(receiptOrder.truckId || receiptOrder.truckName, 'standard')}</p>
                 <p className="text-[11px] text-[#787774]">-- 结账备餐制作单 --</p>
@@ -1852,13 +2405,13 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                       {it.options && <div className="text-[10px] text-[#9b9a97]">[{it.options}]</div>}
                     </div>
                     <span className="text-[#787774]">x{it.quantity}</span>
-                    <span className="font-medium">¥{(it.price * it.quantity).toFixed(2)}</span>
+                    <span className="font-medium font-amount">¥{(it.price * it.quantity).toFixed(2)}</span>
                   </div>
                 ))}
               </div>
 
               <div className="border-t border-dashed border-[#e6e6e4] pt-2 space-y-1 text-right">
-                <p className="font-semibold text-sm text-[#047857] pt-1">
+                <p className="font-semibold text-sm text-[#047857] pt-1 font-amount">
                   实付总额: ¥{receiptOrder.totalAmount.toFixed(2)}
                 </p>
               </div>
@@ -1887,14 +2440,32 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setReceiptOrder(null);
-                  showToast(`已向热敏云打印机发送【${receiptOrder.orderNo}】出票指令！`);
+                disabled={receiptPrinting}
+                onClick={async () => {
+                  if (receiptPrinting || !receiptOrder) return;
+                  setReceiptPrinting(true);
+                  const template = getSavedReceiptTemplate();
+                  try {
+                    const res = await printLayoutViaBridge(
+                      buildOrderReceiptLayoutLines(receiptOrder, template, '80mm'),
+                      template.headerTitle
+                    );
+                    if (res.ok) {
+                      setReceiptOrder(null);
+                      showToast(`已向本机打印队列发送【${receiptOrder.orderNo}】顾客联 (含价格)，请看出纸口`);
+                    } else {
+                      showToast(`出票失败: ${res.error || '打印桥返回异常'}`);
+                    }
+                  } catch {
+                    showToast('本地打印桥未运行，请先在收银机双击 start-bridge.cmd 启动');
+                  } finally {
+                    setReceiptPrinting(false);
+                  }
                 }}
-                className="px-4 py-1.5 bg-slate-900 hover:bg-black text-white rounded-[2px] font-normal cursor-pointer flex items-center gap-1 text-xs"
+                className="px-4 py-1.5 bg-slate-900 hover:bg-black text-white rounded-[2px] font-normal cursor-pointer flex items-center gap-1 text-xs disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <Printer className="w-3.5 h-3.5 text-emerald-400" />
-                <span>立即出票</span>
+                <span>{receiptPrinting ? '出票中...' : '立即出票'}</span>
               </button>
             </div>
           </div>
@@ -1921,7 +2492,7 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
 
             <div className="p-4 space-y-3 text-xs">
               <p className="text-[#787774]">
-                正在对工单 <span className="font-mono text-[#0f172a] font-medium">#{rejectOrderTarget.orderNo.replace(/^#/, '')}</span> 进行拒单操作，退款将全额原路退还至顾客支付账户。
+                正在对工单 <span className="text-[#0f172a] font-medium">#{rejectOrderTarget.orderNo.replace(/^#/, '')}</span> 进行拒单操作，退款将全额原路退还至顾客支付账户。
               </p>
 
               <div className="space-y-1">
@@ -1984,7 +2555,7 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
 
             <div className="p-4 space-y-3 text-xs">
               <p className="text-[#787774]">
-                正在驳回工单 <span className="font-mono text-[#0f172a] font-medium">#{refundRejectTarget.orderNo.replace(/^#/, '')}</span> 的退款申请。驳回后工单将恢复出餐/配送流程。
+                正在驳回工单 <span className="text-[#0f172a] font-medium">#{refundRejectTarget.orderNo.replace(/^#/, '')}</span> 的退款申请。驳回后工单将恢复出餐/配送流程。
               </p>
 
               <div className="space-y-1">
@@ -2109,7 +2680,7 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
               {/* Order Info Card */}
               <div className="bg-[#fbfbfa] p-3 border border-[#e6e6e4] rounded-[2px] space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-mono font-medium text-[#0f172a] text-sm">
+                  <span className="font-medium text-[#0f172a] text-sm">
                     #{deleteTargetOrder.orderNo.replace(/^#/, '')}
                   </span>
                   <span className="text-[11px] font-normal text-[#787774]">
@@ -2131,7 +2702,7 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
                   </span>
                   <span>
                     实付:{' '}
-                    <span className="font-mono text-[#047857] font-semibold text-sm">
+                    <span className="font-amount text-[#047857] font-semibold text-sm">
                       ¥{deleteTargetOrder.totalAmount.toFixed(2)}
                     </span>
                   </span>
@@ -2233,6 +2804,16 @@ export const MerchantOrders: React.FC<MerchantOrdersProps> = ({
         onClose={() => setOrderEditModalState({ isOpen: false, order: null })}
         onSaveOrderEdit={handleSaveOrderEdit}
         showToast={showToast}
+      />
+
+      {/* 订单管理 · 手机端相机快捷扫码模态弹窗 */}
+      <MobileCameraScannerModal
+        isOpen={isOrderCameraScannerOpen}
+        onClose={() => setIsOrderCameraScannerOpen(false)}
+        title="订单核销 · 手机相机扫码"
+        hint="扫描顾客自提码、外卖小票条形码即可自动匹配并打开核销"
+        showToast={showToast}
+        autoRouteGlobalEngine={true}
       />
     </div>
   );

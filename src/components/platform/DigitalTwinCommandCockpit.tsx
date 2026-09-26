@@ -1411,7 +1411,7 @@ export const DigitalTwinCommandCockpit: React.FC<DigitalTwinCommandCockpitProps>
             strokeWidth="22"
             strokeLinecap="round"
           />
-          <text x="1260" y="445" fill="#9ca3af" fontSize="11" letterSpacing="4" fontFamily="monospace">
+          <text x="1260" y="445" fill="#9ca3af" fontSize="11" letterSpacing="4" fontFamily="'Space Grotesk', sans-serif">
             SUZHOU CREEK 水系干线
           </text>
 
@@ -1460,7 +1460,7 @@ export const DigitalTwinCommandCockpit: React.FC<DigitalTwinCommandCockpitProps>
                     fill={z.id === 'zone-01' ? '#1a1c1b' : z.id === 'zone-02' ? '#006d36' : '#d97706'}
                     fontSize="12"
                     fontWeight="bold"
-                    fontFamily="monospace"
+                    fontFamily="'Space Grotesk', sans-serif"
                     letterSpacing="1.2"
                     textAnchor="middle"
                   >
@@ -1490,7 +1490,7 @@ export const DigitalTwinCommandCockpit: React.FC<DigitalTwinCommandCockpitProps>
                     <text x="12" y="18" fill="#1a1c1b" fontSize="11" fontWeight="bold">
                       {z.name}
                     </text>
-                    <text x="12" y="32" fill="#787770" fontSize="9.5" fontFamily="monospace">
+                    <text x="12" y="32" fill="#787770" fontSize="9.5" fontFamily="'Space Grotesk', sans-serif">
                       主管: {z.managerName} · 覆盖率 {z.coverageRatePercent}%
                     </text>
                   </g>
@@ -1524,7 +1524,7 @@ export const DigitalTwinCommandCockpit: React.FC<DigitalTwinCommandCockpitProps>
                 <g key={idx} transform={`translate(${pt.x}, ${pt.y})`}>
                   <circle r="7" fill="white" stroke="#006d36" strokeWidth="2.5" filter="url(#craftGlow)" />
                   <circle r="3" fill="#006d36" />
-                  <text x="10" y="4" fill="#006d36" fontSize="9" fontWeight="bold" fontFamily="monospace">
+                  <text x="10" y="4" fill="#006d36" fontSize="9" fontWeight="bold" fontFamily="'Space Grotesk', sans-serif">
                     P{idx + 1}
                   </text>
                 </g>
@@ -1644,7 +1644,7 @@ export const DigitalTwinCommandCockpit: React.FC<DigitalTwinCommandCockpitProps>
                     {/* 辐射距离标签 */}
                     <g transform={`translate(${(s.serviceRadiusMeters / M_PER_PX) * 0.707}, ${-(s.serviceRadiusMeters / M_PER_PX) * 0.707})`}>
                       <rect x="-32" y="-10" width="64" height="16" rx="4" fill="#1a1c1b" opacity="0.85" />
-                      <text x="0" y="2" fill="white" fontSize="8.5" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
+                      <text x="0" y="2" fill="white" fontSize="8.5" fontWeight="bold" textAnchor="middle" fontFamily="'Space Grotesk', sans-serif">
                         {(s.serviceRadiusMeters / 1000).toFixed(1)}km 雷达
                       </text>
                     </g>
@@ -1675,7 +1675,7 @@ export const DigitalTwinCommandCockpit: React.FC<DigitalTwinCommandCockpitProps>
                   <text x="114" y="15" fill="#006d36" fontSize="8" fontWeight="bold" textAnchor="middle">
                     {s.status === 'open' ? '营业中' : '暂停'}
                   </text>
-                  <text x="8" y="30" fill="#474741" fontSize="8.5" fontFamily="monospace">
+                  <text x="8" y="30" fill="#474741" fontSize="8.5" fontFamily="'Space Grotesk', sans-serif">
                     ¥{s.revenue.toLocaleString()} · {s.todayOrders}单 · {s.stationedRiders}骑
                   </text>
                 </g>
@@ -1753,7 +1753,7 @@ export const DigitalTwinCommandCockpit: React.FC<DigitalTwinCommandCockpitProps>
                     <text x="6" y="8" fill="#1a1c1b" fontSize="10.5" fontWeight="bold">
                       {t.name}
                     </text>
-                    <text x="6" y="20" fill="#787770" fontSize="8.5" fontFamily="monospace">
+                    <text x="6" y="20" fill="#787770" fontSize="8.5" fontFamily="'Space Grotesk', sans-serif">
                       炉温 {t.stoveTemp} · 队列: {t.pendingQueue}单
                     </text>
                   </g>
@@ -2025,7 +2025,7 @@ export const DigitalTwinCommandCockpit: React.FC<DigitalTwinCommandCockpitProps>
                       fontWeight="bold"
                       textAnchor="middle"
                       dominantBaseline="middle"
-                      fontFamily="monospace"
+                      fontFamily="'Space Grotesk', sans-serif"
                     >
                       {distText} · ~{estMins}分
                     </text>

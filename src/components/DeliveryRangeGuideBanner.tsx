@@ -62,7 +62,7 @@ export const DeliveryRangeGuideBanner: React.FC<DeliveryRangeGuideBannerProps> =
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-xs font-extrabold text-amber-950 flex items-center gap-1">
                 <span>超出餐车外卖配送范围</span>
-                <span className="text-[9.5px] px-1.5 py-0.2 rounded-full bg-amber-200/90 text-amber-900 font-mono font-bold">
+                <span className="text-[9.5px] px-1.5 py-0.2 rounded-full bg-amber-200/90 text-amber-900 tabular-nums font-bold">
                   超出 {evaluation.exceededKm.toFixed(2)} km
                 </span>
               </span>
@@ -74,11 +74,11 @@ export const DeliveryRangeGuideBanner: React.FC<DeliveryRangeGuideBannerProps> =
                 {evaluation.targetAddress}
               </span>
               」距【{evaluation.truckName}】
-              <span className="font-bold text-amber-950 font-mono">
+              <span className="font-bold text-amber-950 tabular-nums">
                 {evaluation.distanceKm.toFixed(2)} km
               </span>
               ，仅支持{' '}
-              <span className="font-bold text-black bg-amber-200/60 px-1 py-0.2 rounded font-mono">
+              <span className="font-bold text-black bg-amber-200/60 px-1 py-0.2 rounded tabular-nums">
                 {evaluation.radiusKm.toFixed(1)} km
               </span>{' '}
               内专送。

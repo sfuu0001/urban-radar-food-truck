@@ -94,7 +94,7 @@ export const CrossTruckCartModal: React.FC<CrossTruckCartModalProps> = ({
                 </div>
                 <div className="text-right">
                   <span className="text-[11px] text-neutral-500 block">共 {currentCartItemCount} 件餐品</span>
-                  <span className="font-mono font-bold text-xs text-neutral-800">
+                  <span className="tabular-nums font-bold text-xs text-neutral-800">
                     ¥{currentCartTotal.toFixed(2)}
                   </span>
                 </div>
@@ -119,7 +119,7 @@ export const CrossTruckCartModal: React.FC<CrossTruckCartModalProps> = ({
                 {newDishItem && (
                   <div className="text-right">
                     <span className="text-[11px] text-emerald-800 font-bold block">{newDishItem.name}</span>
-                    <span className="font-mono font-bold text-xs text-emerald-700">
+                    <span className="tabular-nums font-bold text-xs text-emerald-700">
                       ¥{newDishItem.price.toFixed(2)}
                     </span>
                   </div>

@@ -11,10 +11,12 @@ import {
   Clock,
   Volume2,
   Scan,
-  PackageCheck
+  PackageCheck,
+  Camera
 } from 'lucide-react';
 import { Order } from '../../types';
 import { getOrGeneratePickupCode, getPickupShelfCode, dispatchPickupVerifiedEvent } from '../../utils/pickupCodeEngine';
+import { MobileCameraScannerModal } from '../common/MobileCameraScannerModal';
 
 interface MerchantPickupVerifyModalProps {
   isOpen: boolean;
@@ -33,6 +35,7 @@ export const MerchantPickupVerifyModal: React.FC<MerchantPickupVerifyModalProps>
 }) => {
   const [inputCode, setInputCode] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [isCameraScannerOpen, setIsCameraScannerOpen] = useState(false);
 
   if (!isOpen || !order) return null;
 
@@ -104,7 +107,7 @@ export const MerchantPickupVerifyModal: React.FC<MerchantPickupVerifyModalProps>
                 <Scan className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold text-sm text-white flex items-center gap-1.5 font-mono">
+                <h3 className="font-bold text-sm text-white flex items-center gap-1.5">
                   <span>骑手取件核销台</span>
                   <span className="text-[10px] font-sans font-bold px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
                     餐车交接
@@ -128,7 +131,7 @@ export const MerchantPickupVerifyModal: React.FC<MerchantPickupVerifyModalProps>
             {/* Order Card Info */}
             <div className="bg-[#fafafa] p-3.5 rounded-xl border border-[#e6e6e4] space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="font-mono font-bold text-xs bg-neutral-200 text-neutral-800 px-2 py-0.5 rounded">
+                <span className="font-bold text-xs bg-neutral-200 text-neutral-800 px-2 py-0.5 rounded">
                   #{cleanOrderNo}
                 </span>
                 <span className="text-[11px] font-bold text-[#2b593f] bg-[#edf3ec] border border-[#c4dcbc] px-2 py-0.5 rounded">
@@ -141,7 +144,7 @@ export const MerchantPickupVerifyModal: React.FC<MerchantPickupVerifyModalProps>
                   <Bike className="w-3.5 h-3.5 text-sky-600" />
                   <span>对接骑手: <strong>{order.courierName || '黑曜石极速专送'}</strong></span>
                 </span>
-                <span className="font-mono font-semibold">
+                <span className="font-semibold">
                   {order.courierPhone || '138-****-9201'}
                 </span>
               </div>
@@ -153,7 +156,7 @@ export const MerchantPickupVerifyModal: React.FC<MerchantPickupVerifyModalProps>
                   {order.items.map((it, idx) => (
                     <div key={idx} className="flex items-center justify-between text-[11px]">
                       <span className="text-neutral-800 font-medium truncate">{it.name}</span>
-                      <span className="font-mono font-bold text-neutral-700">x{it.quantity}</span>
+                      <span className="font-bold text-neutral-700">x{it.quantity}</span>
                     </div>
                   ))}
                 </div>
@@ -164,7 +167,7 @@ export const MerchantPickupVerifyModal: React.FC<MerchantPickupVerifyModalProps>
             <div className="bg-amber-50 border border-amber-200/80 rounded-xl p-3 flex items-center justify-between">
               <div>
                 <span className="text-[10.5px] text-amber-700 font-bold block">本单系统取件码</span>
-                <span className="text-2xl font-black font-mono tracking-wider text-amber-950">
+                <span className="text-2xl font-black tracking-wider text-amber-950">
                   {expectedPickupCode}
                 </span>
               </div>
@@ -196,9 +199,18 @@ export const MerchantPickupVerifyModal: React.FC<MerchantPickupVerifyModalProps>
                     if (e.key === 'Enter') handleVerify();
                   }}
                   placeholder={`例如: ${expectedPickupCode}`}
-                  className="flex-1 px-3 py-2.5 bg-white border border-neutral-300 rounded-xl font-mono font-bold text-base text-neutral-900 focus:outline-none focus:border-neutral-900"
+                  className="flex-1 px-3 py-2.5 bg-white border border-neutral-300 rounded-xl font-bold text-base text-neutral-900 focus:outline-none focus:border-neutral-900"
                   autoFocus
                 />
+                <button
+                  type="button"
+                  onClick={() => setIsCameraScannerOpen(true)}
+                  className="px-3.5 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 border border-neutral-300 rounded-xl font-bold text-xs cursor-pointer flex items-center gap-1.5 transition-colors shrink-0"
+                  title="开启手机相机扫码核销"
+                >
+                  <Camera className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>扫码</span>
+                </button>
                 <button
                   type="button"
                   onClick={handleVerify}
@@ -238,6 +250,25 @@ export const MerchantPickupVerifyModal: React.FC<MerchantPickupVerifyModalProps>
           </div>
         </motion.div>
       </div>
+
+      <MobileCameraScannerModal
+        isOpen={isCameraScannerOpen}
+        onClose={() => setIsCameraScannerOpen(false)}
+        title="核销取件码 · 手机相机扫码"
+        hint="扫描骑手手机出示的提货二维码或一维条形码"
+        showToast={showToast}
+        autoRouteGlobalEngine={false}
+        onScanSuccess={(scannedCode) => {
+          const trimmed = scannedCode.trim().toUpperCase().replace(/^(PICKUP:|PK-|#)/i, '');
+          setInputCode(trimmed);
+          setIsCameraScannerOpen(false);
+          if (trimmed === expectedPickupCode || trimmed === cleanOrderNo || cleanOrderNo.slice(-4) === trimmed) {
+            handleVerify();
+          } else {
+            setErrorMsg(`识别码 [${trimmed}] 与本单取件码 [${expectedPickupCode}] 不匹配`);
+          }
+        }}
+      />
     </AnimatePresence>
   );
 };

@@ -2082,7 +2082,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                     next[i].name = e.target.value;
                                     setEditVariants(next);
                                   }}
-                                  className="font-bold text-xs bg-transparent border-b border-dashed border-[#c8c7be] focus:border-[#000000] outline-none"
+                                  className="font-bold text-[16px] md:text-xs bg-transparent border-b border-dashed border-[#c8c7be] focus:border-[#000000] outline-none touch-manipulation"
                                 />
                               </td>
                               <td className="p-2.5">
@@ -2094,7 +2094,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                     next[i].specRatio = e.target.value;
                                     setEditVariants(next);
                                   }}
-                                  className="text-xs text-[#474741] bg-transparent border-b border-dashed border-[#c8c7be] focus:border-[#000000] outline-none w-28"
+                                  className="text-[16px] md:text-xs text-[#474741] bg-transparent border-b border-dashed border-[#c8c7be] focus:border-[#000000] outline-none w-28 touch-manipulation"
                                 />
                               </td>
                               <td className="p-2.5 font-mono">
@@ -2108,7 +2108,7 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                                     next[i].price = parseFloat(e.target.value) || 0;
                                     setEditVariants(next);
                                   }}
-                                  className="font-bold text-xs w-16 bg-transparent border-b border-dashed border-[#c8c7be] focus:border-[#000000] outline-none ml-0.5"
+                                  className="font-bold text-[16px] md:text-xs w-16 bg-transparent border-b border-dashed border-[#c8c7be] focus:border-[#000000] outline-none ml-0.5 touch-manipulation"
                                 />
                               </td>
                               <td className="p-2.5 font-mono">{v.refCode || editPrepTime}</td>
@@ -2343,10 +2343,10 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                           <rect height="40" rx="4" width="60" x="20" y="30" />
                           <line x1="10" x2="90" y1="50" y2="50" />
                           <line x1="50" x2="50" y1="10" y2="90" />
-                          <text fill="currentColor" fontFamily="monospace" fontSize="6" x="24" y="45">
+                          <text fill="currentColor" fontFamily="'Space Grotesk', sans-serif" fontSize="6" x="24" y="45">
                             WAGYU 130g
                           </text>
-                          <text fill="currentColor" fontFamily="monospace" fontSize="6" x="24" y="62">
+                          <text fill="currentColor" fontFamily="'Space Grotesk', sans-serif" fontSize="6" x="24" y="62">
                             BRIOCHE 80g
                           </text>
                         </svg>
@@ -2389,10 +2389,10 @@ export const DishParameterRulesModal: React.FC<DishParameterRulesModalProps> = (
                           <rect height="15" rx="3" width="70" x="15" y="45" />
                           <rect height="15" rx="3" width="70" x="15" y="65" />
                           <line strokeDasharray="1,3" x1="5" x2="95" y1="10" y2="90" />
-                          <text fill="currentColor" fontFamily="monospace" fontSize="5" x="25" y="35">
+                          <text fill="currentColor" fontFamily="'Space Grotesk', sans-serif" fontSize="5" x="25" y="35">
                             PATTY 01
                           </text>
-                          <text fill="currentColor" fontFamily="monospace" fontSize="5" x="25" y="55">
+                          <text fill="currentColor" fontFamily="'Space Grotesk', sans-serif" fontSize="5" x="25" y="55">
                             PATTY 02
                           </text>
                         </svg>

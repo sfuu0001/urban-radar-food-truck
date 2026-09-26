@@ -69,15 +69,15 @@ interface CardActionProps {
 }
 
 const SKINS: Record<ActionSkin, string> = {
-  call: 'bg-rad-dark hover:bg-rad-dark-card text-white font-semibold shadow-xs',
-  red: 'bg-rad-red hover:bg-rad-red/90 text-white font-bold shadow-xs',
-  white: 'bg-rad-surface hover:bg-rad-subtle border border-rad-line text-rad-text-main font-medium shadow-xs',
-  green: 'bg-rad-green hover:bg-rad-green/90 text-white font-semibold shadow-xs',
+  call: 'bg-[#37352f] hover:bg-[#191817] text-white font-semibold shadow-2xs',
+  red: 'bg-rose-600 hover:bg-rose-700 text-white font-bold shadow-2xs',
+  white: 'bg-white hover:bg-[#f7f7f5] border border-[#d3d1cb] text-[#37352f] font-semibold shadow-2xs',
+  green: 'bg-[#2b593f] hover:bg-[#204430] text-white font-semibold shadow-2xs',
   redSubtle:
-    'bg-rad-red-subtle border border-rad-red/30 text-rad-red hover:bg-rad-red hover:text-white font-bold shadow-xs',
-  amberSubtle: 'bg-rad-amber-subtle border border-rad-amber/30 text-rad-amber font-semibold shadow-xs',
+    'bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-600 hover:text-white font-bold shadow-2xs',
+  amberSubtle: 'bg-[#fdf8f4] border border-[#fae2a0] text-[#b06000] font-semibold shadow-2xs',
   mutedDanger:
-    'bg-rad-surface border border-rad-line text-rad-text-muted hover:text-rad-amber font-medium shadow-xs'
+    'bg-white border border-[#e6e6e4] text-[#787774] hover:text-rose-600 font-medium shadow-2xs'
 };
 
 const CardAction: React.FC<CardActionProps> = ({ icon: Icon, label, onClick, skin, title, pulse }) => (
@@ -85,7 +85,7 @@ const CardAction: React.FC<CardActionProps> = ({ icon: Icon, label, onClick, ski
     type="button"
     title={title || label}
     onClick={onClick}
-    className={`h-7 px-2.5 rounded-rad text-xs flex items-center gap-1 transition-colors cursor-pointer ${SKINS[skin]}`}
+    className={`h-7 px-3 rounded-full text-xs flex items-center gap-1.5 transition-colors cursor-pointer ${SKINS[skin]}`}
   >
     {Icon && (
       <Icon
@@ -107,7 +107,7 @@ const IconAction: React.FC<{ icon: LucideIcon; title: string; onClick: () => voi
     title={title}
     aria-label={title}
     onClick={onClick}
-    className="h-7 w-7 bg-rad-surface border border-rad-line hover:bg-rad-subtle text-rad-text-muted hover:text-rad-amber rounded-rad flex items-center justify-center transition-colors cursor-pointer shadow-xs"
+    className="h-7 w-7 bg-white border border-[#d3d1cb] hover:bg-[#f7f7f5] text-[#787774] hover:text-[#37352f] rounded-full flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
   >
     <Icon className="w-[14px] h-[14px]" strokeWidth={2} />
   </button>
@@ -186,8 +186,12 @@ export const CallingTicketGrid: React.FC<CallingTicketGridProps> = ({
         return (
           <div
             key={ticket.id}
-            className={`bg-rad-surface rounded-rad p-3 shadow-xs transition-colors flex flex-col justify-between ${
-              isOverdue ? 'border-2 border-rad-red/70' : 'border border-rad-line hover:border-rad-dark'
+            className={`bg-white rounded-[4px] p-3.5 shadow-2xs transition-all flex flex-col justify-between ${
+              isOverdue
+                ? 'border-2 border-rose-500'
+                : isPickup
+                ? 'border-l-[4px] border-l-[#d9730d] border-[#e6e6e4] hover:border-[#37352f]'
+                : 'border-l-[4px] border-l-[#37352f] border-[#e6e6e4] hover:border-[#37352f]'
             }`}
           >
             <div className="space-y-2.5">
@@ -211,7 +215,7 @@ export const CallingTicketGrid: React.FC<CallingTicketGridProps> = ({
 
                 <div className="text-right shrink-0">
                   <span
-                    className={`px-1.5 py-0.5 font-mono text-[10px] rounded-rad-sm font-bold uppercase inline-flex items-center gap-1 ${statusMeta.badge}`}
+                    className={`px-2.5 py-0.5 font-mono text-[10px] rounded-full font-bold uppercase inline-flex items-center gap-1 ${statusMeta.badge}`}
                   >
                     {statusMeta.dot && <span className={`w-1.5 h-1.5 rounded-full ${statusMeta.dot}`} />}
                     <span className="whitespace-nowrap">{statusMeta.label}</span>

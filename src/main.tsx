@@ -2,6 +2,14 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import { checkAndExecuteVersionPurge } from './utils/versionPurgeGateway';
+
+// 启动版本检测与自愈清理网关：若检测到新版本发布，立即清空旧用户文件与数据残留
+if (typeof window !== 'undefined') {
+  checkAndExecuteVersionPurge().catch((err) => {
+    console.warn('[VersionPurgeGateway] 初始化检测异常:', err);
+  });
+}
 
 /**
  * 全局未捕获异常守卫。
@@ -34,6 +42,21 @@ function isKnownSdkNoise(message: string): boolean {
 }
 
 if (typeof window !== 'undefined') {
+  const rawConsoleError = console.error;
+  console.error = (...args: any[]) => {
+    try {
+      const fullText = args
+        .map((arg) => (typeof arg === 'string' ? arg : arg?.message || JSON.stringify(arg) || ''))
+        .join(' ');
+      if (isKnownSdkNoise(fullText)) {
+        return;
+      }
+    } catch {
+      // ignore
+    }
+    rawConsoleError.apply(console, args);
+  };
+
   window.addEventListener('error', (e) => {
     if (!e.message || isKnownSdkNoise(e.message)) {
       e.preventDefault();

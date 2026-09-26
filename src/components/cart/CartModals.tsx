@@ -168,7 +168,7 @@ export const CartCouponModal: React.FC<CartCouponModalProps> = ({
                   <div>
                     <div className="flex items-center gap-1.5">
                       <span className="font-bold text-xs text-neutral-900">{c.label}</span>
-                      <span className="text-[10px] text-neutral-500 font-mono">[{c.code}]</span>
+                      <span className="text-[10px] text-neutral-500 tabular-nums">[{c.code}]</span>
                     </div>
                     <span className="text-[11px] text-emerald-700 font-bold">立减 ¥{c.amount}.00</span>
                   </div>

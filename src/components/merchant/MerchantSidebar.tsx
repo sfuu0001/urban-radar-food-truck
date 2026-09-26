@@ -10,7 +10,8 @@ import {
   Lock,
   ChevronUp,
   ChevronsUpDown,
-  MoveVertical
+  MoveVertical,
+  Pin
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MerchantTab } from './MerchantSystemView';
@@ -37,6 +38,8 @@ interface MerchantSidebarProps {
   onCloseMobile: () => void;
   truckName?: string;
   merchantSession?: MerchantSession | null;
+  pinnedTabs?: string[];
+  onTogglePinTab?: (tabId: string) => void;
 }
 
 const CATEGORY_STYLES: Record<string, { dot: string; text: string; bg: string; badge: string }> = {
@@ -58,7 +61,9 @@ export const MerchantSidebar: React.FC<MerchantSidebarProps> = ({
   isOpenMobile,
   onCloseMobile,
   truckName,
-  merchantSession
+  merchantSession,
+  pinnedTabs,
+  onTogglePinTab
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
@@ -422,6 +427,7 @@ export const MerchantSidebar: React.FC<MerchantSidebarProps> = ({
 
                       if (isCollapsed) {
                         // Compact Icon-only mode: Capsule outline with thin black line & diffusion opacity
+                        const isPinned = pinnedTabs ? pinnedTabs.includes(tab.id) : false;
                         return (
                           <div
                             key={tab.id}
@@ -436,7 +442,7 @@ export const MerchantSidebar: React.FC<MerchantSidebarProps> = ({
                                 onSelectTab(tab.id);
                                 onCloseMobile();
                               }}
-                              title={`${tab.label} · ${tab.category}`}
+                              title={`${tab.label} · ${tab.category}${isPinned ? ' (已固定至顶部)' : ''}`}
                               className={`w-9 h-9 rounded-full flex items-center justify-center relative transition-all cursor-pointer select-none ${
                                 isSelected
                                   ? 'border border-[#1a1918] bg-white text-[#1a1918] shadow-2xs'
@@ -446,6 +452,12 @@ export const MerchantSidebar: React.FC<MerchantSidebarProps> = ({
                               <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-[#1a1918]' : 'text-[#6a6864]'}`} />
                               {isSelected && (
                                 <span className="absolute bottom-0.5 w-1 h-1 rounded-full bg-emerald-500" />
+                              )}
+                              {isPinned && !isSelected && (
+                                <span
+                                  className="absolute top-0.5 left-0.5 w-1.5 h-1.5 rounded-full bg-emerald-500 ring-1 ring-white"
+                                  title="已固定在顶部常用栏"
+                                />
                               )}
                               {tab.badge !== undefined && tab.badge > 0 && (
                                 <span
@@ -462,6 +474,7 @@ export const MerchantSidebar: React.FC<MerchantSidebarProps> = ({
                       // Full Mode: Non-full-width capsule outline button wrapping text, black thin border & diffusion opacity
                       const accessCheck = canAccessMerchantTab(tab.id, merchantSession);
                       const isRestricted = !accessCheck.allowed;
+                      const isPinned = pinnedTabs ? pinnedTabs.includes(tab.id) : false;
 
                       return (
                         <div
@@ -478,33 +491,33 @@ export const MerchantSidebar: React.FC<MerchantSidebarProps> = ({
                               onSelectTab(tab.id);
                               onCloseMobile();
                             }}
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-normal transition-all duration-150 cursor-pointer select-none max-w-[calc(100%-24px)] text-left ${
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-all duration-150 cursor-pointer select-none max-w-[calc(100%-48px)] text-left ${
                               isSelected
-                                ? 'border border-[#1a1918] bg-white text-[#1a1918] shadow-2xs'
+                                ? 'border border-neutral-900 bg-white text-neutral-900 font-bold shadow-xs'
                                 : isRestricted
-                                ? 'border border-transparent text-[#8c8a85] hover:border-[#e6e6e4] hover:bg-neutral-50 hover:text-[#37352f]'
-                                : 'border border-transparent text-[#5c5a54] hover:border-[#e6e6e4] hover:bg-neutral-50 hover:text-[#1a1918]'
+                                ? 'border border-transparent text-neutral-400 hover:border-neutral-200 hover:bg-neutral-100/60 hover:text-neutral-600 font-normal'
+                                : 'border border-transparent text-neutral-600 hover:border-neutral-200 hover:bg-neutral-100/80 hover:text-neutral-900 font-medium'
                             }`}
                             title={`${tab.label} · ${tab.category}`}
                           >
                             <Icon
                               className={`w-3.5 h-3.5 shrink-0 transition-colors ${
                                 isSelected
-                                  ? 'text-[#1a1918]'
+                                  ? 'text-neutral-900'
                                   : isRestricted
                                   ? 'text-neutral-400'
-                                  : 'text-[#8c8a85]'
+                                  : 'text-neutral-500'
                               }`}
                             />
-                            <span className="truncate font-normal tracking-tight">
+                            <span className="truncate tracking-tight">
                               {tab.label}
                             </span>
                             {isSelected && (
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
                             )}
                           </button>
 
-                          {/* Right Badges & Indicators */}
+                          {/* Right Badges, Lock & Pin Button */}
                           <div className="flex items-center gap-1 shrink-0 pl-1">
                             {isRestricted && (
                               <span
@@ -516,7 +529,7 @@ export const MerchantSidebar: React.FC<MerchantSidebarProps> = ({
                             )}
                             {tab.badge !== undefined && tab.badge > 0 && (
                               <span
-                                className={`text-[9.5px] font-mono font-normal px-1.5 py-0.2 rounded-full border shrink-0 ${
+                                className={`text-[9.5px] font-normal px-1.5 py-0.2 rounded-full border shrink-0 ${
                                   isSelected
                                     ? 'bg-neutral-100 text-[#1a1918] border-neutral-300'
                                     : tab.badgeAlert
@@ -526,6 +539,26 @@ export const MerchantSidebar: React.FC<MerchantSidebarProps> = ({
                               >
                                 {tab.badge}
                               </span>
+                            )}
+
+                            {/* 就地图钉接线 (未固定鼠标悬停显极淡图钉，已固定常驻高亮显示翡翠绿图钉) */}
+                            {onTogglePinTab && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onTogglePinTab(tab.id);
+                                }}
+                                className={`w-5 h-5 rounded-md flex items-center justify-center transition-all cursor-pointer ${
+                                  isPinned
+                                    ? 'opacity-100 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 shadow-2xs'
+                                    : 'opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-neutral-800 hover:bg-neutral-100 border border-transparent hover:border-neutral-200'
+                                }`}
+                                title={isPinned ? '已固定在顶部快捷栏（点击取消固定）' : '点击固定到顶部常用快捷栏并同步云端'}
+                                aria-label={isPinned ? '取消固定' : '固定到顶部常用栏'}
+                              >
+                                <Pin className={`w-3 h-3 ${isPinned ? 'fill-emerald-600 text-emerald-700 rotate-45' : 'rotate-45'}`} />
+                              </button>
                             )}
                           </div>
                         </div>

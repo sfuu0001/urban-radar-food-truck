@@ -8,7 +8,6 @@ import {
   User,
   X,
   ChevronUp,
-  Sparkles,
   Send,
   Radio,
   Clock,
@@ -240,7 +239,7 @@ export const FloatingChatBubbleWidget: React.FC<FloatingChatBubbleWidgetProps> =
                       ? '平台总控 · 客服'
                       : '即时客服'}
                   </span>
-                  <span className="text-[9.5px] font-mono bg-[#edf3ec] text-[#2b593f] px-1.5 py-0.2 rounded font-bold">
+                  <span className="text-[9.5px] tabular-nums bg-[#edf3ec] text-[#2b593f] px-1.5 py-0.2 rounded font-bold">
                     三端直连
                   </span>
                 </div>
@@ -275,7 +274,7 @@ export const FloatingChatBubbleWidget: React.FC<FloatingChatBubbleWidgetProps> =
                   <div className="text-left">
                     <div className="flex items-center gap-1.5">
                       <span className="font-bold text-[11.5px]">消息中心聚合中枢</span>
-                      <span className="text-[9px] px-1 py-0.2 rounded bg-amber-400/20 text-amber-300 font-mono font-bold">
+                      <span className="text-[9px] px-1 py-0.2 rounded bg-amber-400/20 text-amber-300 tabular-nums font-bold">
                         全网全单
                       </span>
                     </div>
@@ -315,7 +314,7 @@ export const FloatingChatBubbleWidget: React.FC<FloatingChatBubbleWidgetProps> =
                         ? '⏱️ 待回复响应'
                         : '✨ 联络响应时效极佳'}
                     </span>
-                    <span className="font-mono font-black text-[11px]">
+                    <span className="tabular-nums font-black text-[11px]">
                       {slaResponse.isWaitingReply ? slaResponse.formattedTimer : `SLA ${slaResponse.responseRatePercent}%`}
                     </span>
                   </div>
@@ -340,7 +339,7 @@ export const FloatingChatBubbleWidget: React.FC<FloatingChatBubbleWidgetProps> =
                           setSelectedOrderNo(cNo);
                           markOrderChatAsRead(cNo, role);
                         }}
-                        className={`px-2 py-0.5 rounded-[4px] text-[11px] font-mono font-semibold flex items-center gap-1 shrink-0 transition-colors cursor-pointer border ${
+                        className={`px-2 py-0.5 rounded-[4px] text-[11px] tabular-nums font-semibold flex items-center gap-1 shrink-0 transition-colors cursor-pointer border ${
                           isSel
                             ? 'bg-[#37352f] text-white border-[#37352f]'
                             : 'bg-[#f7f7f5] text-[#5a5854] border-[#e6e6e4] hover:bg-[#eaeae7]'
@@ -368,7 +367,7 @@ export const FloatingChatBubbleWidget: React.FC<FloatingChatBubbleWidgetProps> =
                       ({currentOrder?.customerName || '食客'})
                     </span>
                   </div>
-                  <div className="flex items-center gap-1 text-[10px] text-[#9b9a97] font-mono">
+                  <div className="flex items-center gap-1 text-[10px] text-[#9b9a97] tabular-nums">
                     <Clock className="w-3 h-3" />
                     <span>{latestMsg?.timeExact || latestMsg?.time || '刚刚'}</span>
                     {latestMsg?.timestamp && (
@@ -391,7 +390,7 @@ export const FloatingChatBubbleWidget: React.FC<FloatingChatBubbleWidgetProps> =
                     点击进入完整对话室
                     <ArrowRight className="w-2.5 h-2.5" />
                   </span>
-                  <span className="font-mono text-[#9b9a97]">时间戳存证</span>
+                  <span className="tabular-nums text-[#9b9a97]">时间戳存证</span>
                 </div>
               </div>
 
@@ -498,7 +497,7 @@ export const FloatingChatBubbleWidget: React.FC<FloatingChatBubbleWidgetProps> =
 
             {/* Total unread badge across all orders */}
             {totalUnreadAll > 0 && (
-              <span className="bg-[#eb5757] text-white font-mono font-extrabold text-[9.5px] min-w-[17px] h-[17px] px-1 rounded-full flex items-center justify-center animate-bounce shadow-xs">
+              <span className="bg-[#eb5757] text-white tabular-nums font-extrabold text-[9.5px] min-w-[17px] h-[17px] px-1 rounded-full flex items-center justify-center animate-bounce shadow-xs">
                 {totalUnreadAll}
               </span>
             )}
@@ -532,14 +531,14 @@ export const FloatingChatBubbleWidget: React.FC<FloatingChatBubbleWidgetProps> =
                 ? '平台'
                 : '客服'}
             </span>
-            <span className="font-mono text-[9.5px] text-neutral-300 bg-white/10 px-1 py-0.2 rounded">
+            <span className="tabular-nums text-[9.5px] text-neutral-300 bg-white/10 px-1 py-0.2 rounded">
               #{activeOrderNo}
             </span>
 
             {/* SLA countdown badge or warning indicator */}
             {slaResponse.isWaitingReply && (
               <span
-                className={`font-mono text-[9px] font-bold px-1 py-0.2 rounded-full flex items-center gap-0.5 ${
+                className={`tabular-nums text-[9px] font-bold px-1 py-0.2 rounded-full flex items-center gap-0.5 ${
                   slaResponse.isOverdue
                     ? 'bg-rose-600 text-white animate-bounce'
                     : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'

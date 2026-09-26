@@ -12,48 +12,66 @@ export const INITIAL_PRINTER_STATIONS: PrinterStation[] = [
     id: 'prt-grill',
     name: '后厨炭烤档口飞单机',
     stationType: 'grill',
+    connectionType: 'network',
     deviceIp: '192.168.1.101',
+    port: 9100,
+    modelBrand: '佳博 Gprinter 80以太网口重型防油防水机',
     paperWidth: '80mm',
     copies: 1,
     autoPrintOnNewOrder: true,
     categoriesHandled: ['skewers', 'western'],
     status: 'online',
+    pingLatencyMs: 6,
     lastPrintedAt: '2分钟前'
   },
   {
     id: 'prt-bar',
     name: '吧台冷萃饮品打印机',
     stationType: 'bar',
+    connectionType: 'wifi',
     deviceIp: '192.168.1.102',
+    port: 9100,
+    modelBrand: '爱普生 Epson TM-m30II 双频 WiFi 票据机',
     paperWidth: '58mm',
     copies: 1,
     autoPrintOnNewOrder: true,
     categoriesHandled: ['drinks', 'desserts'],
     status: 'online',
+    pingLatencyMs: 14,
     lastPrintedAt: '8分钟前'
   },
   {
     id: 'prt-fry',
     name: '小吃炸炉档口打印机',
     stationType: 'fry',
+    connectionType: 'usb',
     deviceIp: '192.168.1.103',
+    usbVendorId: '0x0416',
+    usbProductId: '0x5011',
+    modelBrand: '芯烨 Xprinter XP-N160I USB 档口小票机',
     paperWidth: '58mm',
     copies: 1,
     autoPrintOnNewOrder: true,
     categoriesHandled: ['snacks', 'mains'],
     status: 'online',
+    pingLatencyMs: 4,
     lastPrintedAt: '15分钟前'
   },
   {
     id: 'prt-cashier',
     name: '前台收银/外卖总单打印机',
     stationType: 'cashier',
+    connectionType: 'bluetooth',
     deviceIp: '192.168.1.100',
+    macAddress: 'DC:0D:30:8F:A2:11',
+    modelBrand: '佳博 GP-58MBIII 车载蓝牙便携票据机',
     paperWidth: '80mm',
     copies: 2,
     autoPrintOnNewOrder: true,
     categoriesHandled: ['all'],
     status: 'online',
+    batteryLevel: 92,
+    pingLatencyMs: 18,
     lastPrintedAt: '刚刚'
   }
 ];
@@ -72,7 +90,23 @@ export const INITIAL_RECEIPT_TEMPLATE: ReceiptTemplateConfig = {
   wifiPassword: 'eat-good-food',
   footerNotes: '感谢您的品尝！现烤现制稍需等候，如需调味请告知主厨。',
   customerCopyText: '【顾客联 · 请妥善保管小票】',
-  kitchenCopyText: '【后厨出品联 · 制作联】'
+  kitchenCopyText: '【后厨出品联 · 制作联】',
+  activePreviewChannel: 'auto',
+  // 堂食 (Dine-in)
+  dineInTitle: '堂食出单联',
+  showDineInTableBig: true,
+  showDineInGuests: true,
+  dineInZoneNotice: '餐车外摆休闲区',
+  // 自提 (Self-Pickup)
+  pickupTitle: '顾客自提联',
+  showPickupCodeBig: true,
+  showPickupShelf: true,
+  pickupLockerCode: '02号保温取餐格',
+  // 外卖 (Delivery)
+  deliveryTitle: '专送外卖联 (骑手/封口)',
+  showDeliveryAddressBig: true,
+  showDeliveryRiderNotes: true,
+  showFoodSafetySeal: true
 };
 
 export const INITIAL_MEMBERS: MemberRecord[] = [

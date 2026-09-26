@@ -30,6 +30,7 @@ import {
 } from '../../utils/franchiseTenantEngine';
 import { FranchiseTenantContext, FranchiseDishPolicy } from '../../types/franchise';
 import { getSessions } from '../../utils/tableSessionEngine';
+import { getAllTruckConfigs } from '../../utils/truckLocationEngine';
 
 export interface TruckScopeItem {
   truckId: string;
@@ -248,94 +249,129 @@ export const TruckBusinessScopeDropdown: React.FC<TruckBusinessScopeDropdownProp
     <div
       ref={containerRef}
       id="truck-business-scope-dropdown-container"
-      style={{ backgroundColor: '#ffffff' }}
-      className="relative flex items-center bg-white border border-[#e6e6e4] hover:border-[#37352f] rounded-[2px] px-2 py-0.5 shrink-0 transition-colors shadow-2xs"
+      className="relative shrink-0 flex items-center"
     >
-      {/* Trigger Button: Composite Capsule with Tenant Sandbox & Truck Business State */}
+      {/* 手机端：单图标按钮 (Mobile: Single Icon Button) */}
       <button
         type="button"
-        id="truck-business-scope-dropdown-trigger"
+        id="truck-business-scope-dropdown-trigger-mobile"
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-1.5 cursor-pointer text-left outline-none py-0.5"
-        title="点击打开多餐车站台营业与渠道调度中枢"
+        className="sm:hidden relative p-1.5 bg-white hover:bg-[#f7f7f5] active:scale-95 text-[#1a1918] rounded-[2px] transition-all cursor-pointer border border-[#e6e6e4] hover:border-[#37352f] flex items-center justify-center shrink-0 shadow-2xs"
+        title={`餐车站台与渠道调度 (${getTruckLabel(currentTruck as any, 'short')}) · ${activeTruckStatus.isOpen ? '营业中' : '已暂停'}`}
+        aria-label="打开餐车站台与渠道调度中枢"
         aria-expanded={isOpen}
-        aria-haspopup="dialog"
       >
-        {/* Tenant Role Pill */}
-        <div
-          className={`flex items-center gap-1 px-1.5 py-0.2 rounded-[2px] border text-[10px] font-medium shrink-0 ${
-            franchiseContext.isHqUser
-              ? 'bg-amber-50 text-amber-900 border-amber-300/80'
-              : 'bg-emerald-50 text-emerald-900 border-emerald-300/80'
+        <Truck className="w-4 h-4 text-[#2b593f]" />
+        {/* Master status indicator dot in top right */}
+        <span
+          className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-white shrink-0 ${
+            activeTruckStatus.isOpen ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
           }`}
-          title={`当前身份: ${franchiseContext.isHqUser ? '品牌总部 HQ (Super Admin)' : '特许加盟商沙箱'} · 操作员: ${franchiseContext.operatorName}`}
-        >
-          {franchiseContext.isHqUser ? (
-            <Crown className="w-3 h-3 text-amber-700 shrink-0" />
-          ) : (
-            <Building2 className="w-3 h-3 text-emerald-700 shrink-0" />
-          )}
-          <span className="hidden sm:inline">
-            {franchiseContext.isHqUser ? 'HQ总部' : '加盟沙箱'}
-          </span>
-        </div>
-
-        <div className="h-3 w-[1px] bg-[#e6e6e4] shrink-0 hidden sm:block" />
-
-        <Truck className="w-3.5 h-3.5 text-[#2b593f] shrink-0" />
-        <div className="flex items-center gap-1">
-          <span className="text-[11px] sm:text-xs font-medium text-[#201f1d] truncate max-w-[85px] xs:max-w-[110px] sm:max-w-[140px] tracking-tight">
-            {getTruckLabel(currentTruck as any, 'standard')}
-          </span>
-          {/* Master status indicator dot for active truck */}
-          <span
-            className={`w-2 h-2 rounded-full shrink-0 ${
-              activeTruckStatus.isOpen ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
-            }`}
-            title={activeTruckStatus.isOpen ? '当前餐车总开关: 营业中' : '当前餐车总开关: 已暂停'}
-          />
-        </div>
-
-        {/* Channel quick indicator pills for active truck */}
-        <div className="hidden md:flex items-center gap-0.5 text-[9px] font-mono text-[#787774] pl-0.5">
-          <span
-            className={`px-1 py-0.2 rounded-[2px] font-normal ${
-              isDineInActive && activeTruckStatus.isOpen
-                ? 'bg-emerald-50 text-emerald-700'
-                : 'bg-neutral-100 text-neutral-400 line-through'
-            }`}
-            title={`堂食: ${isDineInActive ? '开启' : '关闭'}`}
-          >
-            堂
-          </span>
-          <span
-            className={`px-1 py-0.2 rounded-[2px] font-normal ${
-              isDeliveryActive && activeTruckStatus.isOpen
-                ? 'bg-blue-50 text-blue-700'
-                : 'bg-neutral-100 text-neutral-400 line-through'
-            }`}
-            title={`外卖: ${isDeliveryActive ? '开启' : '关闭'}`}
-          >
-            外
-          </span>
-          <span
-            className={`px-1 py-0.2 rounded-[2px] font-normal ${
-              isPickupActive && activeTruckStatus.isOpen
-                ? 'bg-amber-50 text-amber-700'
-                : 'bg-neutral-100 text-neutral-400 line-through'
-            }`}
-            title={`自提: ${isPickupActive ? '开启' : '关闭'}`}
-          >
-            提
-          </span>
-        </div>
-
-        <ChevronDown
-          className={`w-3.5 h-3.5 text-[#787774] shrink-0 transition-transform duration-200 ${
-            isOpen ? 'rotate-180 text-black' : ''
-          }`}
+          title={activeTruckStatus.isOpen ? '营业中' : '已暂停'}
         />
       </button>
+
+      {/* 桌面与平板端：复合胶囊详细展示 (Tablet & Desktop: Composite capsule) */}
+      <div
+        style={{ backgroundColor: '#ffffff' }}
+        className="hidden sm:flex items-center bg-white border border-[#e6e6e4] hover:border-[#37352f] rounded-[2px] px-2 py-0.5 shrink-0 transition-colors shadow-2xs"
+      >
+        <button
+          type="button"
+          id="truck-business-scope-dropdown-trigger"
+          onClick={() => setIsOpen(true)}
+          className="flex items-center gap-1.5 cursor-pointer text-left outline-none py-0.5"
+          title="点击打开多餐车站台营业与渠道调度中枢"
+          aria-expanded={isOpen}
+          aria-haspopup="dialog"
+        >
+          {/* Tenant Role Pill */}
+          <div
+            className={`flex items-center gap-1 px-1.5 py-0.2 rounded-[2px] border text-[10px] font-medium shrink-0 ${
+              franchiseContext.isHqUser
+                ? 'bg-amber-50 text-amber-900 border-amber-300/80'
+                : 'bg-emerald-50 text-emerald-900 border-emerald-300/80'
+            }`}
+            title={`当前身份: ${franchiseContext.isHqUser ? '品牌总部 HQ (Super Admin)' : '特许加盟商沙箱'} · 操作员: ${franchiseContext.operatorName}`}
+          >
+            {franchiseContext.isHqUser ? (
+              <Crown className="w-3 h-3 text-amber-700 shrink-0" />
+            ) : (
+              <Building2 className="w-3 h-3 text-emerald-700 shrink-0" />
+            )}
+            <span>
+              {franchiseContext.isHqUser ? 'HQ总部' : '加盟沙箱'}
+            </span>
+          </div>
+
+          <div className="h-3 w-[1px] bg-[#e6e6e4] shrink-0" />
+
+          {(() => {
+            const allConfigs = getAllTruckConfigs();
+            const trkConfig = allConfigs.find((cfg) => cfg.id === selectedTruckId);
+            const logo = trkConfig?.logo || trkConfig?.image;
+            return logo ? (
+              <div className="w-4 h-4 rounded-xs overflow-hidden border border-emerald-500/50 shrink-0">
+                <img src={logo} alt="Logo" className="w-full h-full object-cover" />
+              </div>
+            ) : (
+              <Truck className="w-3.5 h-3.5 text-[#2b593f] shrink-0" />
+            );
+          })()}
+          <div className="flex items-center gap-1 min-w-0">
+            <span className="text-xs font-medium text-[#201f1d] truncate max-w-[150px] md:max-w-[180px] tracking-tight">
+              {getTruckLabel(currentTruck as any, 'standard')}
+            </span>
+            {/* Master status indicator dot for active truck */}
+            <span
+              className={`w-2 h-2 rounded-full shrink-0 ${
+                activeTruckStatus.isOpen ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
+              }`}
+              title={activeTruckStatus.isOpen ? '当前餐车总开关: 营业中' : '当前餐车总开关: 已暂停'}
+            />
+          </div>
+
+          {/* Channel quick indicator pills for active truck */}
+          <div className="hidden md:flex items-center gap-0.5 text-[9px] font-mono text-[#787774] pl-0.5">
+            <span
+              className={`px-1 py-0.2 rounded-[2px] font-normal ${
+                isDineInActive && activeTruckStatus.isOpen
+                  ? 'bg-emerald-50 text-emerald-700'
+                  : 'bg-neutral-100 text-neutral-400 line-through'
+              }`}
+              title={`堂食: ${isDineInActive ? '开启' : '关闭'}`}
+            >
+              堂
+            </span>
+            <span
+              className={`px-1 py-0.2 rounded-[2px] font-normal ${
+                isDeliveryActive && activeTruckStatus.isOpen
+                  ? 'bg-blue-50 text-blue-700'
+                  : 'bg-neutral-100 text-neutral-400 line-through'
+              }`}
+              title={`外卖: ${isDeliveryActive ? '开启' : '关闭'}`}
+            >
+              外
+            </span>
+            <span
+              className={`px-1 py-0.2 rounded-[2px] font-normal ${
+                isPickupActive && activeTruckStatus.isOpen
+                  ? 'bg-amber-50 text-amber-700'
+                  : 'bg-neutral-100 text-neutral-400 line-through'
+              }`}
+              title={`自提: ${isPickupActive ? '开启' : '关闭'}`}
+            >
+              提
+            </span>
+          </div>
+
+          <ChevronDown
+            className={`w-3.5 h-3.5 text-[#787774] shrink-0 transition-transform duration-200 ${
+              isOpen ? 'rotate-180 text-black' : ''
+            }`}
+          />
+        </button>
+      </div>
 
       {/* Modern Centered Modal Overlay (适配三端：Mobile / Tablet / Desktop) */}
       <AnimatePresence>
@@ -724,11 +760,22 @@ export const TruckBusinessScopeDropdown: React.FC<TruckBusinessScopeDropdownProp
                                 : '非管辖餐车（只读沙箱）'
                             }
                           >
-                            <Truck
-                              className={`w-3.5 h-3.5 shrink-0 ${
-                                isSelected ? 'text-zinc-900' : 'text-zinc-400'
-                              }`}
-                            />
+                            {(() => {
+                              const allConfigs = getAllTruckConfigs();
+                              const trkConfig = allConfigs.find((cfg) => cfg.id === t.truckId);
+                              const logo = trkConfig?.logo || trkConfig?.image;
+                              return logo ? (
+                                <div className="w-5 h-5 rounded-xs overflow-hidden border border-emerald-500/50 shrink-0">
+                                  <img src={logo} alt="Logo" className="w-full h-full object-cover" />
+                                </div>
+                              ) : (
+                                <Truck
+                                  className={`w-3.5 h-3.5 shrink-0 ${
+                                    isSelected ? 'text-zinc-900' : 'text-zinc-400'
+                                  }`}
+                                />
+                              );
+                            })()}
                             <span
                               className={`text-xs font-mono truncate ${
                                 isSelected

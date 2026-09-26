@@ -44,7 +44,7 @@ export const TrackingRouteBar: React.FC<TrackingRouteBarProps> = ({
       <button
         type="button"
         onClick={handleOpenNav}
-        className="bg-[#f0f0ee] hover:bg-[#e6e6e2] active:scale-95 text-[#333] text-[11px] font-bold px-2.5 py-1 flex items-center gap-1 font-mono shrink-0 rounded-full cursor-pointer border border-[#e0e0dc] transition-all"
+        className="bg-[#f0f0ee] hover:bg-[#e6e6e2] active:scale-95 text-[#333] text-[11px] font-bold px-2.5 py-1 flex items-center gap-1 font-sans shrink-0 rounded-full cursor-pointer border border-[#e0e0dc] transition-all"
         title="点击打开高德地图专线路径"
       >
         <Navigation className="w-3 h-3 text-emerald-600 fill-emerald-600" />

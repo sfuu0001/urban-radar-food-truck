@@ -421,7 +421,7 @@ export const TruckPullUpMenu: React.FC<TruckPullUpMenuProps> = ({
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0 pl-1.5">
-                  <span className="text-[9.5px] font-mono font-black text-rose-600 bg-rose-50 px-1 py-0.2 rounded border border-rose-100">
+                  <span className="text-[9.5px] tabular-nums font-black text-rose-600 bg-rose-50 px-1 py-0.2 rounded border border-rose-100">
                     {currentPromo.discount}
                   </span>
                   <ChevronRight className="w-3 h-3 text-neutral-400" />
@@ -576,7 +576,7 @@ export const TruckPullUpMenu: React.FC<TruckPullUpMenuProps> = ({
                       </div>
 
                       <div className="text-right shrink-0 flex flex-col items-end gap-1">
-                        <div className="text-xs font-black text-rose-600 font-mono">
+                        <div className="text-xs font-black text-rose-600 tabular-nums">
                           {item.price}
                         </div>
                         <button
@@ -647,11 +647,11 @@ export const TruckPullUpMenu: React.FC<TruckPullUpMenuProps> = ({
                               {dish.badgeText || dish.typeTag} · {dish.prepTime}
                             </p>
                             <div className="flex items-baseline gap-1 mt-0.5">
-                              <span className="text-xs font-black text-rose-600 font-mono">
+                              <span className="text-xs font-black text-rose-600 tabular-nums">
                                 ¥{dish.price.toFixed(1)}
                               </span>
                               {dish.originalPrice && (
-                                <span className="text-[9px] text-neutral-400 line-through font-mono">
+                                <span className="text-[9px] text-neutral-400 line-through tabular-nums">
                                   ¥{dish.originalPrice.toFixed(1)}
                                 </span>
                               )}
@@ -699,7 +699,7 @@ export const TruckPullUpMenu: React.FC<TruckPullUpMenuProps> = ({
                       >
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-[10.5px] font-black text-amber-700 bg-amber-100/80 px-1.5 py-0.2 rounded border border-amber-200 font-mono">
+                            <span className="text-[10.5px] font-black text-amber-700 bg-amber-100/80 px-1.5 py-0.2 rounded border border-amber-200 tabular-nums">
                               {coupon.discountType}
                             </span>
                             <h4 className="text-xs font-bold text-[#1a1c1b] truncate">
@@ -788,7 +788,7 @@ export const TruckPullUpMenu: React.FC<TruckPullUpMenuProps> = ({
                           </p>
                         </div>
 
-                        <span className="text-[10px] font-mono text-neutral-400 shrink-0">
+                        <span className="text-[10px] tabular-nums text-neutral-400 shrink-0">
                           {st.distance}
                         </span>
                       </div>

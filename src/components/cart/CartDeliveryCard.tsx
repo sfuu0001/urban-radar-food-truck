@@ -68,30 +68,30 @@ export const CartDeliveryCard: React.FC<CartDeliveryCardProps> = ({
           {/* Route Text Details */}
           <div className="flex-1 min-w-0 space-y-2">
             {/* Origin */}
-            <div className="flex items-center justify-between text-xs">
-              <div className="truncate pr-2">
-                <span className="inline-block text-[10px] text-neutral-500 bg-neutral-100 px-1 py-0.5 rounded mr-1 font-medium">
+            <div className="flex items-center justify-between text-xs gap-2 min-w-0">
+              <div className="truncate min-w-0 flex-1">
+                <span className="inline-block text-[10px] text-neutral-500 bg-neutral-100 px-1 py-0.5 rounded mr-1 font-medium shrink-0">
                   起送点
                 </span>
                 <span className="font-medium text-neutral-700">{truckName}</span>
                 <span className="text-neutral-400 text-[11px] ml-1">({truckLocation})</span>
               </div>
-              <span className="text-[10px] text-neutral-400 shrink-0 font-mono">{distanceDesc}</span>
+              <span className="text-[10px] text-neutral-400 shrink-0 tabular-nums">{distanceDesc}</span>
             </div>
 
             {/* Destination */}
-            <div className="flex items-center justify-between text-xs">
-              <div className="truncate pr-2">
-                <span className="inline-block text-[10px] text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded mr-1 font-bold">
+            <div className="flex items-center justify-between text-xs gap-2 min-w-0">
+              <div className="truncate min-w-0 flex-1">
+                <span className="inline-block text-[10px] text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded mr-1 font-bold shrink-0">
                   收货点
                 </span>
                 <span className="font-bold text-neutral-900 truncate">{deliveryAddress}</span>
-                <div className="text-neutral-500 text-[11px] mt-0.5 font-normal">
+                <div className="text-neutral-500 text-[11px] mt-0.5 font-normal truncate">
                   {recipientName} · {recipientPhone}
                   {houseNumber ? ` · ${houseNumber}` : ''}
                 </div>
                 {remarks && (
-                  <div className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded mt-0.5 inline-block border border-emerald-100 font-medium">
+                  <div className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded mt-0.5 inline-block border border-emerald-100 font-medium truncate max-w-full">
                     备注: {remarks}
                   </div>
                 )}
@@ -99,7 +99,7 @@ export const CartDeliveryCard: React.FC<CartDeliveryCardProps> = ({
               <button
                 type="button"
                 onClick={onOpenAddress}
-                className="shrink-0 text-xs text-neutral-600 hover:text-neutral-900 font-medium px-2 py-1 rounded border border-neutral-200 cursor-pointer active:scale-95 flex items-center gap-0.5 transition-colors bg-white shadow-2xs"
+                className="shrink-0 text-xs text-neutral-600 hover:text-neutral-900 font-medium px-2 py-1 rounded border border-neutral-200 cursor-pointer active:scale-95 flex items-center gap-0.5 transition-colors bg-white shadow-2xs whitespace-nowrap"
               >
                 <span>修改</span>
                 <ChevronRight className="w-3 h-3 text-neutral-400" />

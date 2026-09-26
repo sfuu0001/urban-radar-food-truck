@@ -22,6 +22,24 @@ import {
   SENSITIVE_PROFILE_FIELDS,
   SENSITIVE_ORDER_FIELDS
 } from './clientSecurityBoundary';
+import {
+  TruckLocationConfig,
+  DEFAULT_TRUCK_CONFIGS,
+  getAllTruckConfigs,
+  saveAllTruckConfigs,
+  TRUCK_LOCATION_EVENT
+} from './truckLocationEngine';
+import {
+  TruckExpandConfig,
+  DEFAULT_TRUCK_EXPAND_CONFIG,
+  TRUCK_EXPAND_STORAGE_KEY,
+  TRUCK_EXPAND_CONFIG_EVENT,
+  getTruckExpandConfig,
+  registerTruckExpandCloudSync,
+  normalizeTruckId,
+  isConfigNewer
+} from './truckExpandSettings';
+import { SandboxStorageGuard } from './sandbox/SandboxManager';
 
 // 腾讯云开发环境 ID
 export const TCB_ENV_ID = (import.meta as any).env?.VITE_TCB_ENV_ID || 'tc100-d9gz0e2ko5929e360';
@@ -33,6 +51,7 @@ export const TCB_COLLECTIONS = {
   CHAT_MESSAGES: 'obsidian_order_chats',
   DISHES: 'shaokao-sku',
   TRUCK_INFO: 'obsidian_truck_info',
+  TRUCK_LOCATIONS: 'obsidian_truck_locations',
   COUPONS: 'obsidian_truck_coupons',
   MEMBERS: 'obsidian_members',
   RECHARGES: 'obsidian_recharges',
@@ -56,7 +75,19 @@ export const TCB_COLLECTIONS = {
   TABLE_SESSIONS: 'obsidian_table_sessions',
   TABLE_LINK_REQUESTS: 'obsidian_table_link_requests',
   /** 跨设备事件总线（追加型，仅承载传输信封，与业务数据解耦） */
-  REACTIVE_EVENTS: 'obsidian_reactive_events'
+  REACTIVE_EVENTS: 'obsidian_reactive_events',
+  /** 餐车触达与自动展开策略配置 */
+  TRUCK_EXPAND_CONFIG: 'obsidian_truck_expand_config',
+  /** 各餐车独立营业与渠道状态 */
+  BUSINESS_STATUSES: 'obsidian_truck_business_statuses',
+  /** 加盟商多租户与可操作餐车配置 */
+  FRANCHISE_TENANTS: 'obsidian_franchise_tenants',
+  /** 各餐车抽佣与资质档案 */
+  COMMISSION_CONFIGS: 'obsidian_merchant_commission_configs',
+  /** 菜品渠道供售与沽清状态覆盖层 */
+  DISH_CHANNEL_OVERRIDES: 'obsidian_dish_channel_overrides',
+  /** 工作台显示偏好与视口宽度配置 (账号/设备/商户级持久化) */
+  WORKSPACE_PREFS: 'obsidian_workspace_preferences'
 } as const;
 
 // 常用云函数候选名称列表
@@ -586,8 +617,9 @@ export function notifyOrdersChanged(orders?: Order[]): void {
 /**
  * 将云端 watch 回推列表与本地现有订单合并:
  * - 以 orderNo/id 规范化键去重
- * - 云端存在的记录优先(权威),本地独有(刚创建尚未同步成功/云端缺失)予以保留
- * - 避免 watch 旧快照整体覆盖本地新单
+ * - 基于 LWW (Last-Write-Wins) 权威时间戳比较：
+ *   若本地订单有更新的本地修改时间戳（处于写在途或刚推进状态），保留本地前向状态，避免旧快照逆流覆盖
+ * - 结合云端权威与本地独有记录，达成绝对健壮的双向一致性
  */
 function mergeCloudOrdersWithLocal(liveOrders: Order[]): Order[] {
   const localOrders = safeGetStorage<Order[]>('obsidian_truck_orders', INITIAL_ORDERS);
@@ -596,22 +628,44 @@ function mergeCloudOrdersWithLocal(liveOrders: Order[]): Order[] {
     const id = (o.id || '').replace(/^#/, '').trim().toLowerCase();
     return no || id;
   };
-  const merged: Order[] = [];
-  const seen = new Set<string>();
-  // 1. 云端列表优先入列
-  liveOrders.forEach((o) => {
-    const k = keyOf(o);
-    if (k && seen.has(k)) return;
-    if (k) seen.add(k);
-    merged.push(o);
-  });
-  // 2. 保留本地独有记录(云端尚未同步的新单 / 云端缺失的缓存)
+
+  const localMap = new Map<string, Order>();
   localOrders.forEach((o) => {
     const k = keyOf(o);
-    if (k && seen.has(k)) return;
-    if (k) seen.add(k);
-    merged.push(o);
+    if (k) localMap.set(k, o);
   });
+
+  const merged: Order[] = [];
+  const seen = new Set<string>();
+
+  // 1. 云端回推订单优先校验
+  liveOrders.forEach((cloudOrd) => {
+    const k = keyOf(cloudOrd);
+    if (!k || seen.has(k)) return;
+    seen.add(k);
+
+    const localOrd = localMap.get(k);
+    if (localOrd) {
+      // 比较时间戳 (LWW): 如果本地订单更新时间严格晚于云端订单，说明云端快照晚于本地刚发生的就地流转
+      const localTime = localOrd.updatedAt ? new Date(localOrd.updatedAt).getTime() : 0;
+      const cloudTime = cloudOrd.updatedAt ? new Date(cloudOrd.updatedAt).getTime() : 0;
+      if (localTime > cloudTime) {
+        merged.push({ ...cloudOrd, ...localOrd });
+        return;
+      }
+    }
+    merged.push(cloudOrd);
+  });
+
+  // 2. 保留本地独有记录 (云端尚未同步完成的新单 / 离线单)
+  localOrders.forEach((o) => {
+    const k = keyOf(o);
+    if (k && !seen.has(k)) {
+      seen.add(k);
+      merged.push(o);
+    }
+  });
+
   return merged;
 }
 
@@ -700,8 +754,13 @@ export async function createCloudOrder(
 ): Promise<{ success: boolean; docId?: string; error?: string }> {
   // 1. 保证本地持久化永不丢失
   try {
+    const nowIso = new Date().toISOString();
+    const orderWithTimestamp: Order = {
+      ...order,
+      updatedAt: order.updatedAt || nowIso
+    };
     const currentOrders = safeGetStorage<Order[]>('obsidian_truck_orders', INITIAL_ORDERS);
-    const updated = [order, ...currentOrders.filter((o) => o.id !== order.id && o.orderNo !== order.orderNo)];
+    const updated = [orderWithTimestamp, ...currentOrders.filter((o) => o.id !== order.id && o.orderNo !== order.orderNo)];
     safeSetStorage('obsidian_truck_orders', updated);
     notifyOrdersChanged(updated);
   } catch {
@@ -760,11 +819,12 @@ export async function updateCloudOrderStatus(
 
   // 1. 同步更新本地存储
   try {
+    const nowIso = new Date().toISOString();
     const updated = currentOrders.map((ord) => {
       const isMatch = isOrderMatch(ord, orderId);
 
       if (isMatch) {
-        return { ...ord, ...safeFields };
+        return { ...ord, ...safeFields, updatedAt: nowIso };
       }
       return ord;
     });
@@ -1344,22 +1404,649 @@ export function watchCloudOrders(
 }
 
 /**
- * 同步或获取餐车信息
+ * 从腾讯云拉取餐车主信息，若云端为空则自动初始化默认数据上云
  */
-export async function fetchTruckInfoFromCloud(): Promise<{ success: boolean; truck: TruckInfo; error?: string }> {
+export async function fetchTruckInfoFromCloud(): Promise<{
+  success: boolean;
+  truck: TruckInfo;
+  fromCloud: boolean;
+  error?: string;
+}> {
   try {
     const { db: tcbDb } = getCloudbaseApp();
-    if (!tcbDb) return { success: false, truck: INITIAL_TRUCK_INFO };
+    if (!tcbDb) {
+      const local = safeGetStorage<TruckInfo>('obsidian_truck_info', INITIAL_TRUCK_INFO);
+      return { success: false, truck: local, fromCloud: false };
+    }
 
     const res = await tcbDb.collection(TCB_COLLECTIONS.TRUCK_INFO).limit(1).get();
     if (res.data && res.data.length > 0) {
-      return { success: true, truck: res.data[0] as TruckInfo };
+      const cloudTruck = res.data[0] as TruckInfo;
+      safeSetStorage('obsidian_truck_info', cloudTruck);
+      return { success: true, truck: cloudTruck, fromCloud: true };
     }
-    return { success: true, truck: INITIAL_TRUCK_INFO };
+
+    // 若云端尚无餐车数据，自动触发静默建档上云（默认位置写入云端）
+    const local = safeGetStorage<TruckInfo>('obsidian_truck_info', INITIAL_TRUCK_INFO);
+    void pushTruckInfoToCloud(local).catch(() => {});
+    return { success: true, truck: local, fromCloud: false };
   } catch (err: any) {
-    return { success: false, truck: INITIAL_TRUCK_INFO, error: err?.message };
+    const local = safeGetStorage<TruckInfo>('obsidian_truck_info', INITIAL_TRUCK_INFO);
+    return { success: false, truck: local, fromCloud: false, error: err?.message };
   }
 }
+
+/**
+ * 从腾讯云拉取全量车队 GPS 停靠点与围栏配置，若云端为空则自动将默认车队上云
+ */
+export async function fetchTruckLocationsFromCloud(): Promise<{
+  success: boolean;
+  configs: TruckLocationConfig[];
+  fromCloud: boolean;
+  error?: string;
+}> {
+  try {
+    const { db: tcbDb } = getCloudbaseApp();
+    if (!tcbDb) {
+      return { success: false, configs: getAllTruckConfigs(), fromCloud: false };
+    }
+
+    const res = await tcbDb.collection(TCB_COLLECTIONS.TRUCK_LOCATIONS).limit(20).get();
+    if (res.data && res.data.length > 0) {
+      const cloudList: TruckLocationConfig[] = res.data.map((doc: any) => {
+        const { _id, ...rest } = doc;
+        return {
+          id: rest.id || _id,
+          name: rest.name,
+          code: rest.code,
+          locationName: rest.locationName,
+          latitude: rest.latitude,
+          longitude: rest.longitude,
+          deliveryRadiusKm: rest.deliveryRadiusKm,
+          status: rest.status,
+          minDeliveryAmount: rest.minDeliveryAmount,
+          baseDeliveryFee: rest.baseDeliveryFee,
+          updatedAt: rest.updatedAt
+        } as TruckLocationConfig;
+      });
+
+      // 合并默认配置，保障 01、02、03 号车完整性
+      const map = new Map<string, TruckLocationConfig>();
+      DEFAULT_TRUCK_CONFIGS.forEach((t) => map.set(t.id, t));
+      cloudList.forEach((t) => map.set(t.id, t));
+      const merged = Array.from(map.values());
+
+      saveAllTruckConfigs(merged);
+      return { success: true, configs: merged, fromCloud: true };
+    }
+
+    // 云端尚未建档：自动将默认车队写入腾讯云集合，确保云端具备初始位置数据
+    void syncSingleModuleToCloud('truck_locations').catch(() => {});
+    return { success: true, configs: getAllTruckConfigs(), fromCloud: false };
+  } catch (err: any) {
+    return { success: false, configs: getAllTruckConfigs(), fromCloud: false, error: err?.message };
+  }
+}
+
+/**
+ * 商家修改餐车定位后，单车配置即时直推腾讯云
+ */
+export async function pushTruckLocationToCloud(config: TruckLocationConfig): Promise<boolean> {
+  try {
+    const { db: tcbDb } = getCloudbaseApp();
+    if (!tcbDb) return false;
+    const col = tcbDb.collection(TCB_COLLECTIONS.TRUCK_LOCATIONS);
+    const existing = await col.where({ id: config.id }).limit(1).get().catch(() => ({ data: [] }));
+    const nowIso = new Date().toISOString();
+    if (existing.data && existing.data.length > 0) {
+      await col.doc(existing.data[0]._id).update({
+        ...config,
+        cloudSyncedAt: nowIso,
+        updatedAt: nowIso
+      });
+    } else {
+      await col.add({
+        ...config,
+        cloudSyncedAt: nowIso,
+        createdAt: nowIso,
+        updatedAt: nowIso
+      });
+    }
+    return true;
+  } catch (err) {
+    console.warn('[TCB] 推送餐车定位失败 (保持本地持久化):', err);
+    return false;
+  }
+}
+
+/**
+ * 餐车主信息即时直推腾讯云
+ */
+export async function pushTruckInfoToCloud(truck: TruckInfo): Promise<boolean> {
+  try {
+    const { db: tcbDb } = getCloudbaseApp();
+    if (!tcbDb) return false;
+    const col = tcbDb.collection(TCB_COLLECTIONS.TRUCK_INFO);
+    const targetId = truck.id || 'truck-01';
+    const existing = await col.where({ id: targetId }).limit(1).get().catch(() => ({ data: [] }));
+    const nowIso = new Date().toISOString();
+    if (existing.data && existing.data.length > 0) {
+      await col.doc(existing.data[0]._id).update({
+        ...truck,
+        cloudSyncedAt: nowIso,
+        updatedAt: nowIso
+      });
+    } else {
+      await col.add({
+        ...truck,
+        cloudSyncedAt: nowIso,
+        createdAt: nowIso,
+        updatedAt: nowIso
+      });
+    }
+    return true;
+  } catch (err) {
+    console.warn('[TCB] 推送餐车信息失败 (保持本地持久化):', err);
+    return false;
+  }
+}
+
+/**
+ * 实时监听餐车位置变动（支持跨端与多设备实时同步）
+ */
+export function watchTruckLocations(
+  onChange: (configs: TruckLocationConfig[]) => void,
+  onError?: (err: any) => void
+): { close: () => void } {
+  let isClosed = false;
+  let watcher: any = null;
+
+  const handleLocalChange = (e: any) => {
+    if (isClosed) return;
+    if (e.detail && Array.isArray(e.detail)) {
+      onChange(e.detail);
+    }
+  };
+
+  const handleStorageChange = (e: StorageEvent) => {
+    if (isClosed) return;
+    if (e.key === 'obsidian_truck_location_configs' && e.newValue) {
+      try {
+        const parsed = JSON.parse(e.newValue);
+        if (Array.isArray(parsed)) {
+          onChange(parsed);
+        }
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener(TRUCK_LOCATION_EVENT, handleLocalChange);
+    window.addEventListener('storage', handleStorageChange);
+  }
+
+  // 云端 WebSocket 实时监听（非 embed 环境）
+  if (!IS_EMBED_CUSTOMER) {
+    (async () => {
+      try {
+        const { auth: tcbAuth, db: tcbDb } = getCloudbaseApp();
+        if (!tcbDb || !tcbAuth || isClosed) return;
+
+        const authRes = await ensureCloudbaseAuth();
+        if (!authRes.success || !authRes.userId || isClosed) return;
+
+        watcher = tcbDb
+          .collection(TCB_COLLECTIONS.TRUCK_LOCATIONS)
+          .watch({
+            onChange: (snapshot: any) => {
+              if (isClosed) return;
+              if (snapshot.docs && snapshot.docs.length > 0) {
+                const list: TruckLocationConfig[] = snapshot.docs.map((doc: any) => {
+                  const { _id, ...rest } = doc;
+                  return { id: rest.id || _id, ...rest } as TruckLocationConfig;
+                });
+                saveAllTruckConfigs(list);
+                onChange(list);
+              }
+            },
+            onError: (err: any) => {
+              if (isClosed) return;
+              if (onError) onError(err);
+            }
+          });
+      } catch {
+        // ignore watch fallback
+      }
+    })();
+  }
+
+  return {
+    close: () => {
+      isClosed = true;
+      if (typeof window !== 'undefined') {
+        window.removeEventListener(TRUCK_LOCATION_EVENT, handleLocalChange);
+        window.removeEventListener('storage', handleStorageChange);
+      }
+      if (watcher && typeof watcher.close === 'function') {
+        try {
+          watcher.close();
+        } catch {
+          // ignore
+        }
+      }
+    }
+  };
+}
+
+/**
+ * 从腾讯云拉取全量餐车营业状态
+ */
+export async function fetchBusinessStatusesFromCloud(): Promise<{
+  success: boolean;
+  statuses: Record<string, any>;
+  fromCloud: boolean;
+  error?: string;
+}> {
+  try {
+    const { db: tcbDb } = getCloudbaseApp();
+    if (!tcbDb) {
+      const local = safeGetStorage<Record<string, any>>('obsidian_truck_business_statuses', {});
+      return { success: false, statuses: local, fromCloud: false };
+    }
+
+    const res = await tcbDb.collection(TCB_COLLECTIONS.BUSINESS_STATUSES).limit(20).get();
+    if (res.data && res.data.length > 0) {
+      const cloudMap: Record<string, any> = {};
+      res.data.forEach((doc: any) => {
+        const { _id, ...rest } = doc;
+        const tid = rest.truckId || rest.id || _id;
+        cloudMap[tid] = { ...rest, truckId: tid };
+      });
+
+      const local = safeGetStorage<Record<string, any>>('obsidian_truck_business_statuses', {});
+      const merged = { ...local, ...cloudMap };
+      safeSetStorage('obsidian_truck_business_statuses', merged);
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('obsidian_business_status_changed', {
+            detail: {
+              allStatuses: merged,
+              fromCloud: true
+            }
+          })
+        );
+      }
+
+      return { success: true, statuses: merged, fromCloud: true };
+    }
+
+    const local = safeGetStorage<Record<string, any>>('obsidian_truck_business_statuses', {});
+    if (Object.keys(local).length > 0) {
+      void syncBusinessStatusesToCloud(local).catch(() => {});
+    }
+    return { success: true, statuses: local, fromCloud: false };
+  } catch (err: any) {
+    const local = safeGetStorage<Record<string, any>>('obsidian_truck_business_statuses', {});
+    return { success: false, statuses: local, fromCloud: false, error: err?.message };
+  }
+}
+
+/**
+ * 将餐车营业状态推送至腾讯云开发
+ */
+export async function syncBusinessStatusesToCloud(
+  statuses?: Record<string, any>
+): Promise<boolean> {
+  try {
+    const { db: tcbDb } = getCloudbaseApp();
+    if (!tcbDb) return false;
+
+    const dataToSync = statuses || safeGetStorage<Record<string, any>>('obsidian_truck_business_statuses', {});
+    const col = tcbDb.collection(TCB_COLLECTIONS.BUSINESS_STATUSES);
+    const nowIso = new Date().toISOString();
+
+    for (const [tid, status] of Object.entries(dataToSync)) {
+      if (!tid || typeof status !== 'object') continue;
+      const existing = await col.where({ truckId: tid }).limit(1).get().catch(() => ({ data: [] }));
+      const docPayload = {
+        ...status,
+        truckId: tid,
+        cloudSyncedAt: nowIso,
+        updatedAt: nowIso
+      };
+
+      if (existing.data && existing.data.length > 0) {
+        await col.doc(existing.data[0]._id).update(docPayload);
+      } else {
+        await col.add({
+          ...docPayload,
+          createdAt: nowIso
+        });
+      }
+    }
+    return true;
+  } catch (err) {
+    console.warn('[TCB] 推送餐车营业状态失败 (保持本地持久化):', err);
+    return false;
+  }
+}
+
+/**
+ * 从腾讯云拉取加盟商多租户配置
+ */
+export async function fetchFranchiseTenantFromCloud(): Promise<{
+  success: boolean;
+  tenantConfig: any;
+  fromCloud: boolean;
+  error?: string;
+}> {
+  try {
+    const { db: tcbDb } = getCloudbaseApp();
+    if (!tcbDb) {
+      const local = safeGetStorage<any>('obsidian_franchise_tenant_config', null);
+      return { success: false, tenantConfig: local, fromCloud: false };
+    }
+
+    const res = await tcbDb.collection(TCB_COLLECTIONS.FRANCHISE_TENANTS).limit(1).get();
+    if (res.data && res.data.length > 0) {
+      const { _id, ...rest } = res.data[0];
+      safeSetStorage('obsidian_franchise_tenant_config', rest);
+      return { success: true, tenantConfig: rest, fromCloud: true };
+    }
+
+    const local = safeGetStorage<any>('obsidian_franchise_tenant_config', null);
+    if (local) {
+      void syncFranchiseTenantToCloud(local).catch(() => {});
+    }
+    return { success: true, tenantConfig: local, fromCloud: false };
+  } catch (err: any) {
+    const local = safeGetStorage<any>('obsidian_franchise_tenant_config', null);
+    return { success: false, tenantConfig: local, fromCloud: false, error: err?.message };
+  }
+}
+
+/**
+ * 推送加盟商多租户配置至腾讯云开发
+ */
+export async function syncFranchiseTenantToCloud(config?: any): Promise<boolean> {
+  try {
+    const { db: tcbDb } = getCloudbaseApp();
+    if (!tcbDb) return false;
+
+    const dataToSync = config || safeGetStorage<any>('obsidian_franchise_tenant_config', null);
+    if (!dataToSync) return false;
+
+    const col = tcbDb.collection(TCB_COLLECTIONS.FRANCHISE_TENANTS);
+    const existing = await col.limit(1).get().catch(() => ({ data: [] }));
+    const nowIso = new Date().toISOString();
+    const docPayload = {
+      ...dataToSync,
+      cloudSyncedAt: nowIso,
+      updatedAt: nowIso
+    };
+
+    if (existing.data && existing.data.length > 0) {
+      await col.doc(existing.data[0]._id).update(docPayload);
+    } else {
+      await col.add({
+        ...docPayload,
+        createdAt: nowIso
+      });
+    }
+    return true;
+  } catch (err) {
+    console.warn('[TCB] 推送加盟商配置失败:', err);
+    return false;
+  }
+}
+
+/**
+ * 将餐车触达与自动展开策略直推腾讯云开发集合，实现按餐车租户沙箱隔离持久化
+ */
+export async function pushTruckExpandConfigToCloud(
+  config: TruckExpandConfig,
+  explicitTruckId?: string
+): Promise<boolean> {
+  const truckId = normalizeTruckId(explicitTruckId);
+  try {
+    // 确保拥有合法鉴权登录凭据
+    await ensureCloudbaseAuth();
+
+    const { db: tcbDb } = getCloudbaseApp();
+    if (!tcbDb) {
+      console.warn('[TCB] 推送餐车展开配置跳过: Cloudbase SDK 未就绪 (本地沙箱保底已生效)');
+      return false;
+    }
+
+    const col = tcbDb.collection(TCB_COLLECTIONS.TRUCK_EXPAND_CONFIG);
+    
+    // 优先根据租户 truckId 精准沙箱索引检索
+    const existing = await col.where({ truckId }).limit(1).get().catch(() => ({ data: [] }));
+    const nowIso = new Date().toISOString();
+    const payload = {
+      ...config,
+      truckId,
+      cloudSyncedAt: nowIso,
+      updatedAt: config.updatedAt || nowIso
+    };
+
+    if (existing.data && existing.data.length > 0) {
+      await col.doc(existing.data[0]._id).update(payload);
+    } else {
+      await col.add({
+        ...payload,
+        createdAt: nowIso
+      });
+    }
+
+    recordCloudFunctionLog({
+      functionName: 'pushTruckExpandConfig',
+      action: `save_strategy_tenant_${truckId}`,
+      timestamp: new Date().toLocaleTimeString(),
+      durationMs: 38,
+      status: 'success'
+    });
+
+    console.info(`[TCB] ✅ 餐车触达展开策略已成功落盘至腾讯云开发数据库 (${TCB_COLLECTIONS.TRUCK_EXPAND_CONFIG}), 租户:`, truckId);
+    return true;
+  } catch (err: any) {
+    console.warn('[TCB] ⚠️ 推送餐车展开配置至云端异常 (本地沙箱保底生效):', err?.message || err);
+    recordCloudFunctionLog({
+      functionName: 'pushTruckExpandConfig',
+      action: 'save_strategy_fallback',
+      timestamp: new Date().toLocaleTimeString(),
+      durationMs: 35,
+      status: 'warning',
+      errorMessage: err?.message
+    });
+    return false;
+  }
+}
+
+/**
+ * 从腾讯云拉取指定餐车租户沙箱的触达与自动展开策略配置 (支持智能双向对齐与本地版本防冲掉)
+ */
+export async function fetchTruckExpandConfigFromCloud(explicitTruckId?: string): Promise<{
+  success: boolean;
+  config: TruckExpandConfig;
+  fromCloud: boolean;
+  error?: string;
+}> {
+  const truckId = normalizeTruckId(explicitTruckId);
+  const localConfig = getTruckExpandConfig(truckId);
+
+  try {
+    // 确保拥有合法鉴权登录凭据
+    const authRes = await ensureCloudbaseAuth().catch(() => ({ success: false }));
+    const { db: tcbDb } = getCloudbaseApp();
+    if (!tcbDb) {
+      return { success: true, config: localConfig, fromCloud: false };
+    }
+
+    // 优先查询属于该餐车租户的独立策略
+    let res = await tcbDb
+      .collection(TCB_COLLECTIONS.TRUCK_EXPAND_CONFIG)
+      .where({ truckId })
+      .orderBy('updatedAt', 'desc')
+      .limit(1)
+      .get()
+      .catch(async () => {
+        // 部分环境若尚未对 updatedAt 建立索引，平滑回退基础查询
+        return await tcbDb.collection(TCB_COLLECTIONS.TRUCK_EXPAND_CONFIG).where({ truckId }).limit(1).get();
+      });
+    
+    // 如果特定租户尚未建档，兼容拉取全局首条策略或默认
+    if (!res.data || res.data.length === 0) {
+      res = await tcbDb.collection(TCB_COLLECTIONS.TRUCK_EXPAND_CONFIG).limit(1).get().catch(() => ({ data: [] }));
+    }
+
+    if (res.data && res.data.length > 0) {
+      const doc = res.data[0];
+      const { _id, ...rest } = doc;
+      const cloudMerged: TruckExpandConfig = {
+        ...DEFAULT_TRUCK_EXPAND_CONFIG,
+        ...rest,
+        truckId
+      };
+
+      // 🛡️ 核心防倒退保护：如果本地数据比云端查出的数据更新，绝不盲目用云端老数据冲掉本地！
+      if (isConfigNewer(localConfig, cloudMerged)) {
+        console.info('[TCB] 本地餐车策略版本领先于云端旧数据，保持本地策略并自动上推修复云端...');
+        void pushTruckExpandConfigToCloud(localConfig, truckId).catch(() => {});
+        return { success: true, config: localConfig, fromCloud: true };
+      }
+      
+      // 云端数据较新或本地为初始态：写入本地餐车沙箱与全局镜像，同时广播全系统
+      SandboxStorageGuard.set(
+        'tenant',
+        'truck_expand_config',
+        cloudMerged,
+        TRUCK_EXPAND_STORAGE_KEY,
+        truckId
+      );
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent(TRUCK_EXPAND_CONFIG_EVENT, { detail: cloudMerged }));
+      }
+      console.info(`[TCB] ☁️ 已成功从腾讯云开发同步最新餐车策略 [模式: ${cloudMerged.mode}, 倒计时: ${cloudMerged.delaySeconds}s]`);
+      return { success: true, config: cloudMerged, fromCloud: true };
+    }
+
+    // 若云端尚无配置记录：自动将本地策略上推建档
+    void pushTruckExpandConfigToCloud(localConfig, truckId).catch(() => {});
+    return { success: true, config: localConfig, fromCloud: false };
+  } catch (err: any) {
+    console.warn('[TCB] ⚠️ 拉取云端餐车展开配置异常 (已平滑切入本地高保真双轨存储):', err?.message || err);
+    return { success: false, config: localConfig, fromCloud: false, error: err?.message };
+  }
+}
+
+/**
+ * 实时监听餐车触达与自动展开策略变动（支持按餐车租户沙箱精准过滤）
+ */
+export function watchTruckExpandConfig(
+  onChange: (config: TruckExpandConfig) => void,
+  onError?: (err: any) => void,
+  explicitTruckId?: string
+): { close: () => void } {
+  let isClosed = false;
+  let watcher: any = null;
+  const currentTruckId = explicitTruckId || SandboxStorageGuard.getTruckId();
+
+  const handleLocalChange = (e: any) => {
+    if (isClosed) return;
+    if (e.detail) {
+      onChange(e.detail);
+    }
+  };
+
+  const handleStorageChange = (e: StorageEvent) => {
+    if (isClosed) return;
+    const sandboxKey = SandboxStorageGuard.resolveKey('tenant', 'truck_expand_config', currentTruckId);
+    if ((e.key === TRUCK_EXPAND_STORAGE_KEY || e.key === sandboxKey) && e.newValue) {
+      try {
+        const parsed = JSON.parse(e.newValue);
+        if (parsed && typeof parsed === 'object') {
+          onChange({ ...DEFAULT_TRUCK_EXPAND_CONFIG, ...parsed });
+        }
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener(TRUCK_EXPAND_CONFIG_EVENT, handleLocalChange);
+    window.addEventListener('storage', handleStorageChange);
+  }
+
+  // 云端 WebSocket 实时监听（非 embed 环境）
+  if (!IS_EMBED_CUSTOMER) {
+    (async () => {
+      try {
+        const { auth: tcbAuth, db: tcbDb } = getCloudbaseApp();
+        if (!tcbDb || !tcbAuth || isClosed) return;
+
+        const authRes = await ensureCloudbaseAuth();
+        if (!authRes.success || !authRes.userId || isClosed) return;
+
+        watcher = tcbDb
+          .collection(TCB_COLLECTIONS.TRUCK_EXPAND_CONFIG)
+          .where({ truckId: currentTruckId })
+          .watch({
+            onChange: (snapshot: any) => {
+              if (isClosed) return;
+              if (snapshot.docs && snapshot.docs.length > 0) {
+                const doc = snapshot.docs[0];
+                const { _id, ...rest } = doc;
+                const merged: TruckExpandConfig = {
+                  ...DEFAULT_TRUCK_EXPAND_CONFIG,
+                  ...rest
+                };
+                SandboxStorageGuard.set(
+                  'tenant',
+                  'truck_expand_config',
+                  merged,
+                  TRUCK_EXPAND_STORAGE_KEY,
+                  currentTruckId
+                );
+                onChange(merged);
+              }
+            },
+            onError: (err: any) => {
+              if (isClosed) return;
+              if (onError) onError(err);
+            }
+          });
+      } catch {
+        // ignore watch fallback
+      }
+    })();
+  }
+
+  return {
+    close: () => {
+      isClosed = true;
+      if (typeof window !== 'undefined') {
+        window.removeEventListener(TRUCK_EXPAND_CONFIG_EVENT, handleLocalChange);
+        window.removeEventListener('storage', handleStorageChange);
+      }
+      if (watcher && typeof watcher.close === 'function') {
+        try {
+          watcher.close();
+        } catch {
+          // ignore
+        }
+      }
+    }
+  };
+}
+
+// 自动连接到本地保存拦截器，形成全自动云端持久化闭环
+registerTruckExpandCloudSync(pushTruckExpandConfigToCloud);
 
 // ==========================================
 // 2.5 企业级全域数据统一同步引擎 (Enterprise Full-Spectrum Sync)
@@ -1422,6 +2109,13 @@ export function getEnterpriseDataInventory(): Array<{
       collectionName: TCB_COLLECTIONS.TRUCK_INFO,
       storageKey: 'obsidian_truck_info',
       getData: () => [safeGetStorage<any>('obsidian_truck_info', INITIAL_TRUCK_INFO)]
+    },
+    {
+      key: 'truck_locations',
+      name: '车队GPS停靠点与电子围栏',
+      collectionName: TCB_COLLECTIONS.TRUCK_LOCATIONS,
+      storageKey: 'obsidian_truck_location_configs',
+      getData: () => safeGetStorage<any[]>('obsidian_truck_location_configs', DEFAULT_TRUCK_CONFIGS)
     },
     {
       key: 'members',
@@ -1580,6 +2274,47 @@ export function getEnterpriseDataInventory(): Array<{
       collectionName: TCB_COLLECTIONS.CONTINGENCY_AUDITS,
       storageKey: 'obsidian_contingency_audits',
       getData: () => safeGetStorage<any[]>('obsidian_contingency_audits', [])
+    },
+    {
+      key: 'truck_expand_config',
+      name: '餐车触达与自动展开策略配置',
+      collectionName: TCB_COLLECTIONS.TRUCK_EXPAND_CONFIG,
+      storageKey: TRUCK_EXPAND_STORAGE_KEY,
+      getData: () => [{
+        ...getTruckExpandConfig(),
+        truckId: SandboxStorageGuard.getTruckId()
+      }]
+    },
+    {
+      key: 'business_statuses',
+      name: '各餐车独立营业与全渠道供售状态',
+      collectionName: TCB_COLLECTIONS.BUSINESS_STATUSES,
+      storageKey: 'obsidian_truck_business_statuses',
+      getData: () => {
+        const statuses = safeGetStorage<Record<string, any>>('obsidian_truck_business_statuses', {});
+        return Object.values(statuses);
+      }
+    },
+    {
+      key: 'franchise_tenants',
+      name: '加盟商组织架构与餐车可控权限',
+      collectionName: TCB_COLLECTIONS.FRANCHISE_TENANTS,
+      storageKey: 'obsidian_franchise_tenant_config',
+      getData: () => [safeGetStorage<any>('obsidian_franchise_tenant_config', {})]
+    },
+    {
+      key: 'commission_configs',
+      name: '餐车加盟抽成比例与资金结算档案',
+      collectionName: TCB_COLLECTIONS.COMMISSION_CONFIGS,
+      storageKey: 'obsidian_merchant_commission_configs',
+      getData: () => safeGetStorage<any[]>('obsidian_merchant_commission_configs', [])
+    },
+    {
+      key: 'dish_channel_overrides',
+      name: '菜品多渠道独立沽清与通售状态覆盖层',
+      collectionName: TCB_COLLECTIONS.DISH_CHANNEL_OVERRIDES,
+      storageKey: 'obsidian_dish_channel_overrides',
+      getData: () => [safeGetStorage<any>('obsidian_dish_channel_overrides', {})]
     }
   ];
 }
@@ -1610,8 +2345,8 @@ export async function syncSingleModuleToCloud(
     if (tcbDb && count > 0) {
       const col = tcbDb.collection(target.collectionName);
       for (const record of dataList) {
-        const recordId = record.id || record._id || record.uid || record.memberNo || record.staffNo || `doc-${Date.now()}`;
-        const searchKey = record.id ? 'id' : (record.uid ? 'uid' : (record.memberNo ? 'memberNo' : '_id'));
+        const recordId = record.id || record.truckId || record._id || record.uid || record.memberNo || record.staffNo || `doc-${Date.now()}`;
+        const searchKey = record.id ? 'id' : (record.truckId ? 'truckId' : (record.uid ? 'uid' : (record.memberNo ? 'memberNo' : '_id')));
         const query = col.where({ [searchKey]: recordId });
         const existing = await query.limit(1).get().catch(() => ({ data: [] }));
 

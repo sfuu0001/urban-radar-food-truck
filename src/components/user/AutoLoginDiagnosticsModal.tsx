@@ -240,7 +240,7 @@ export const AutoLoginDiagnosticsModal: React.FC<AutoLoginDiagnosticsModalProps>
                 <h3 className="font-black text-sm sm:text-base text-white tracking-tight">
                   无密码智能自动登录系统
                 </h3>
-                <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-mono px-1.5 py-0.2 rounded border border-emerald-500/30">
+                <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-sans px-1.5 py-0.2 rounded border border-emerald-500/30">
                   99.8% 高熵匹配
                 </span>
               </div>
@@ -316,7 +316,7 @@ export const AutoLoginDiagnosticsModal: React.FC<AutoLoginDiagnosticsModalProps>
                   <span className="text-xs font-black text-white truncate">
                     {currentUser.nickname}
                   </span>
-                  <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-mono px-1 rounded">
+                  <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-sans px-1 rounded">
                     UID: {currentUser.uid}
                   </span>
                 </div>
@@ -334,7 +334,7 @@ export const AutoLoginDiagnosticsModal: React.FC<AutoLoginDiagnosticsModalProps>
 
             <div className="text-right shrink-0">
               <span className="text-[9px] text-neutral-400 block">匹配置信度</span>
-              <span className="text-sm font-black font-mono text-emerald-400">
+              <span className="text-sm font-black font-sans text-emerald-400">
                 99.8%
               </span>
             </div>
@@ -360,7 +360,7 @@ export const AutoLoginDiagnosticsModal: React.FC<AutoLoginDiagnosticsModalProps>
                       <span>复制</span>
                     </button>
                   </div>
-                  <div className="text-xs font-mono font-black text-black">
+                  <div className="text-xs font-sans font-black text-black">
                     {deviceDetails?.hardwareHash || 'HW-CALCULATING...'}
                   </div>
                   <p className="text-[9px] text-neutral-400 mt-0.5">
@@ -383,7 +383,7 @@ export const AutoLoginDiagnosticsModal: React.FC<AutoLoginDiagnosticsModalProps>
                       <span>复制</span>
                     </button>
                   </div>
-                  <div className="text-xs font-mono font-black text-black">
+                  <div className="text-xs font-sans font-black text-black">
                     {deviceDetails?.deviceFingerprint || 'DEV-CALCULATING...'}
                   </div>
                   <p className="text-[9px] text-neutral-400 mt-0.5">
@@ -415,7 +415,7 @@ export const AutoLoginDiagnosticsModal: React.FC<AutoLoginDiagnosticsModalProps>
                         </span>
                       </div>
                     </div>
-                    <span className="text-[9px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded font-mono shrink-0">
+                    <span className="text-[9px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded font-sans shrink-0">
                       WebGL
                     </span>
                   </div>
@@ -433,7 +433,7 @@ export const AutoLoginDiagnosticsModal: React.FC<AutoLoginDiagnosticsModalProps>
                         </span>
                       </div>
                     </div>
-                    <span className="text-[9px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded font-mono shrink-0">
+                    <span className="text-[9px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded font-sans shrink-0">
                       AudioContext
                     </span>
                   </div>
@@ -451,7 +451,7 @@ export const AutoLoginDiagnosticsModal: React.FC<AutoLoginDiagnosticsModalProps>
                         </span>
                       </div>
                     </div>
-                    <span className="text-[9px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded font-mono shrink-0">
+                    <span className="text-[9px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded font-sans shrink-0">
                       Screen DPR
                     </span>
                   </div>
@@ -469,7 +469,7 @@ export const AutoLoginDiagnosticsModal: React.FC<AutoLoginDiagnosticsModalProps>
                         </span>
                       </div>
                     </div>
-                    <span className="text-[9px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded font-mono shrink-0">
+                    <span className="text-[9px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded font-sans shrink-0">
                       Hardware
                     </span>
                   </div>
@@ -487,7 +487,7 @@ export const AutoLoginDiagnosticsModal: React.FC<AutoLoginDiagnosticsModalProps>
                         </span>
                       </div>
                     </div>
-                    <span className="text-[9px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded font-mono shrink-0">
+                    <span className="text-[9px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded font-sans shrink-0">
                       Locale
                     </span>
                   </div>
@@ -616,7 +616,7 @@ export const AutoLoginDiagnosticsModal: React.FC<AutoLoginDiagnosticsModalProps>
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       判定结果: {lastAuthResult.isNewUser ? '新设备建档成功' : '老用户匹配登录成功'}
                     </span>
-                    <span className="font-mono">置信度: {lastAuthResult.matchScore}%</span>
+                    <span className="font-sans">置信度: {lastAuthResult.matchScore}%</span>
                   </div>
                   <div className="text-[10px] text-neutral-300">
                     <span className="text-neutral-400">判定依据: </span>
@@ -646,7 +646,7 @@ export const AutoLoginDiagnosticsModal: React.FC<AutoLoginDiagnosticsModalProps>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <div className="flex-1 p-2 bg-white rounded-xl border border-neutral-300 font-mono font-black text-sm text-center tracking-widest text-black">
+                  <div className="flex-1 p-2 bg-white rounded-xl border border-neutral-300 font-sans font-black text-sm text-center tracking-widest text-black">
                     UR-{currentUser.uid.slice(-4).toUpperCase()}-BIND
                   </div>
                   <button
@@ -669,7 +669,7 @@ export const AutoLoginDiagnosticsModal: React.FC<AutoLoginDiagnosticsModalProps>
                     placeholder="例如: UR-9821-BIND"
                     value={pairingCodeInput}
                     onChange={(e) => setPairingCodeInput(e.target.value.toUpperCase())}
-                    className="flex-1 px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-mono font-bold text-black focus:bg-white focus:outline-none focus:ring-1 focus:ring-black"
+                    className="flex-1 px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-sans font-bold text-black focus:bg-white focus:outline-none focus:ring-1 focus:ring-black"
                   />
                   <button
                     type="button"

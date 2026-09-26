@@ -433,11 +433,11 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
             {/* Order Meta */}
             <div className="flex items-center space-x-1.5 text-xs min-w-0 flex-1 overflow-hidden">
               <div className="inline-flex items-center bg-gray-100 border border-gray-200/70 rounded-full px-2 py-0.5 space-x-1.5 flex-shrink-0 shadow-sm">
-                <span className="font-mono font-bold text-[11px] text-gray-900 tracking-tight">
+                <span className="font-sans font-bold text-[11px] text-gray-900 tracking-tight">
                   #{cleanOrderNo.replace(/^#/, '')}
                 </span>
                 <span className="w-0.5 h-2.5 bg-gray-300" />
-                <span className="font-mono text-[10px] text-gray-500 font-medium">
+                <span className="font-sans text-[10px] text-gray-500 font-medium">
                   {currentOrderTime}
                 </span>
               </div>
@@ -483,7 +483,7 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
             >
               <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
               <div className="flex items-center gap-1.5 truncate">
-                <span className="font-bold text-sm text-neutral-900 font-mono tracking-tight">
+                <span className="font-bold text-sm text-neutral-900 font-sans tracking-tight">
                   ¥{totalAmount.toFixed(2)}
                 </span>
                 <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-800 bg-emerald-100/70 px-1.5 py-0.5 rounded-md shrink-0">
@@ -555,7 +555,7 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
                         <div className="min-w-0 flex-1">
                           <div className="text-xs font-bold text-gray-900 flex items-center justify-between">
                             <span>电子支付凭证</span>
-                            <span className="text-[9px] font-mono font-bold text-[#00B96B] bg-emerald-50 px-1.5 py-0.2 rounded">
+                            <span className="text-[9px] font-sans font-bold text-[#00B96B] bg-emerald-50 px-1.5 py-0.2 rounded">
                               已签章
                             </span>
                           </div>
@@ -608,9 +608,9 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
                         <div className="min-w-0 flex-1">
                           <div className="text-xs font-bold text-gray-900 flex items-center justify-between">
                             <span>复制流水单号</span>
-                            <span className="text-[9px] font-mono text-gray-400">存证哈希</span>
+                            <span className="text-[9px] font-sans text-gray-400">存证哈希</span>
                           </div>
-                          <p className="text-[10px] text-gray-400 font-mono truncate">
+                          <p className="text-[10px] text-gray-400 font-sans truncate">
                             {paymentVoucher?.voucherNo || cleanOrderNo}
                           </p>
                         </div>
@@ -685,13 +685,13 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
                           className="flex items-center justify-between text-[11px] bg-[#fafaf8] px-2.5 py-1.5 rounded-lg border border-gray-100"
                         >
                           <div className="flex items-center gap-2 min-w-0">
-                            <span className="w-4 h-4 rounded-full bg-emerald-50 text-[#00B96B] font-mono text-[10px] font-bold flex items-center justify-center shrink-0">
+                            <span className="w-4 h-4 rounded-full bg-emerald-50 text-[#00B96B] font-sans text-[10px] font-bold flex items-center justify-center shrink-0">
                               {i + 1}
                             </span>
                             <span className="text-gray-900 font-medium truncate">{d.name}</span>
-                            <span className="text-gray-400 text-[10px] font-mono">x{d.count}</span>
+                            <span className="text-gray-400 text-[10px] font-sans">x{d.count}</span>
                           </div>
-                          <span className="font-mono font-bold text-gray-900 shrink-0">
+                          <span className="font-sans font-bold text-gray-900 shrink-0">
                             ¥{d.price.toFixed(2)}
                           </span>
                         </div>
@@ -731,14 +731,14 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
                           <Check className="w-3.5 h-3.5 text-[#00B96B]" />
                           <span>履约清算专户监管状态</span>
                         </span>
-                        <span className="text-[10px] font-mono text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded font-bold">
+                        <span className="text-[10px] font-sans text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded font-bold">
                           资金锁定中
                         </span>
                       </div>
                       <p className="text-[10.5px] text-gray-500 leading-snug">
                         资金全额由银行专户托管。骑手妥投扫码核销后清算至商户，未履约可随时极速原路退回。
                       </p>
-                      <div className="pt-1 border-t border-gray-200/60 flex items-center justify-between text-[10px] text-gray-400 font-mono">
+                      <div className="pt-1 border-t border-gray-200/60 flex items-center justify-between text-[10px] text-gray-400 font-sans">
                         <span>存证流水: {paymentVoucher?.voucherNo?.slice(0, 16) || cleanOrderNo}...</span>
                         <span className="text-[#00B96B] font-medium">区块链已防伪存证</span>
                       </div>
@@ -921,7 +921,7 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
                 <div className="flex items-center space-x-2">
                   <span className="w-2 h-2 rounded-full bg-[#00B96B] animate-pulse-dot inline-block" />
                   <span className="text-xs font-semibold tracking-wider text-gray-900 uppercase">状态</span>
-                  <span className="text-[10px] font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
+                  <span className="text-[10px] font-sans text-gray-500 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
                     UR-PIPELINE // 7 STAGES
                   </span>
                 </div>
@@ -963,7 +963,7 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
                       </svg>
                     </div>
                     <div className="mt-2 flex items-center space-x-1">
-                      <span className="text-[9px] font-mono text-emerald-800 bg-emerald-50 px-1 py-0.2 rounded font-bold border border-emerald-200">
+                      <span className="text-[9px] font-sans text-emerald-800 bg-emerald-50 px-1 py-0.2 rounded font-bold border border-emerald-200">
                         01
                       </span>
                       <span className="text-[11px] font-bold text-gray-900 whitespace-nowrap">用户下单</span>
@@ -986,7 +986,7 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
                       </svg>
                     </div>
                     <div className="mt-2 flex items-center space-x-1">
-                      <span className={`text-[9px] font-mono px-1 py-0.2 rounded font-bold ${
+                      <span className={`text-[9px] font-sans px-1 py-0.2 rounded font-bold ${
                         realStep >= 2
                           ? 'text-emerald-800 bg-emerald-50 border border-emerald-200'
                           : 'text-gray-400 bg-gray-100'
@@ -1079,7 +1079,7 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
                         className="flex flex-col items-center mt-1"
                       >
                         <div className="flex items-center space-x-1">
-                          <span className="text-[9px] font-mono text-white bg-[#FF7D00] px-1 py-0.2 rounded font-bold">
+                          <span className="text-[9px] font-sans text-white bg-[#FF7D00] px-1 py-0.2 rounded font-bold">
                             {activeDyn.badge}
                           </span>
                           <span className="text-[11px] font-extrabold text-gray-900 whitespace-nowrap">
@@ -1120,7 +1120,7 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
                       )}
                     </div>
                     <div className="mt-2 flex items-center space-x-1">
-                      <span className={`text-[9px] font-mono px-1 py-0.2 rounded font-bold ${
+                      <span className={`text-[9px] font-sans px-1 py-0.2 rounded font-bold ${
                         realStep >= 7
                           ? 'text-emerald-800 bg-emerald-50 border border-emerald-200'
                           : 'text-gray-400 bg-gray-100'
@@ -1146,9 +1146,9 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
                 <div className="flex items-center space-x-1 text-gray-600 truncate">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#FF7D00] inline-block flex-shrink-0" />
                   <span>当前专线骑手配送时速</span>
-                  <span className="font-bold font-mono text-gray-900">{isSimulating ? 36 : 24} km/h</span>
+                  <span className="font-bold font-sans text-gray-900">{isSimulating ? 36 : 24} km/h</span>
                   <span className="text-gray-400">，预计剩余</span>
-                  <span className="text-[#FF7D00] font-bold font-mono">6 分钟</span>
+                  <span className="text-[#FF7D00] font-bold font-sans">6 分钟</span>
                   <span className="text-gray-400">送达</span>
                 </div>
                 <div className="flex items-center space-x-2 text-gray-700 flex-shrink-0 text-[11px]">
@@ -1249,11 +1249,11 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
                     <div>
                       <div className="flex items-center space-x-1.5">
                         <h3 className="text-xs font-bold text-gray-900">流转节点存证状态机</h3>
-                        <span className="bg-[#00B96B]/10 text-[#00B96B] border border-[#00B96B]/30 text-[9px] font-bold px-1.5 py-0.2 rounded font-mono">
+                        <span className="bg-[#00B96B]/10 text-[#00B96B] border border-[#00B96B]/30 text-[9px] font-bold px-1.5 py-0.2 rounded font-sans">
                           UR-7 STAGES
                         </span>
                       </div>
-                      <p className="text-[10px] text-gray-500 mt-0.5 font-mono">
+                      <p className="text-[10px] text-gray-500 mt-0.5 font-sans">
                         区块链哈希存证已同步 · 实时监控中
                       </p>
                     </div>
@@ -1306,7 +1306,7 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
                             {stage.title}
                           </span>
                           <span
-                            className={`text-[10px] font-mono ${
+                            className={`text-[10px] font-sans ${
                               stage.isActive ? 'text-[#FF7D00] font-semibold' : 'text-gray-400'
                             }`}
                           >
@@ -1314,7 +1314,7 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
                           </span>
                         </div>
                         <p className="text-[11px] text-gray-700 mt-1">{stage.desc}</p>
-                        <div className="mt-1.5 text-[9px] font-mono text-gray-400 bg-white/70 px-1.5 py-0.5 rounded flex items-center justify-between">
+                        <div className="mt-1.5 text-[9px] font-sans text-gray-400 bg-white/70 px-1.5 py-0.5 rounded flex items-center justify-between">
                           <span>存证哈希: {stage.hash}</span>
                           <span className="text-[#00B96B] font-bold">✓ 校验一致</span>
                         </div>
@@ -1325,7 +1325,7 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
 
                 {/* Footer */}
                 <div className="p-3 border-t border-gray-100 bg-white flex items-center justify-between">
-                  <span className="text-[11px] text-gray-400 font-mono">UR-TRACE // BLOCK-HEIGHT #9821</span>
+                  <span className="text-[11px] text-gray-400 font-sans">UR-TRACE // BLOCK-HEIGHT #9821</span>
                   <button
                     type="button"
                     onClick={() => setIsPipelineModalOpen(false)}

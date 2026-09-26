@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { CartItem } from '../../types';
 import { matchDishImageUrl } from '../../utils/dishImageMatcher';
+import { OrganicCardReveal } from '../../utils/useCardScrollReveal';
 
 export interface CartItemListSectionProps {
   items: CartItem[];
@@ -120,10 +121,9 @@ export const CartItemListSection: React.FC<CartItemListSectionProps> = ({
     const optionsList = Object.values(item.selectedOptions || {});
 
     return (
-      <article
+      <OrganicCardReveal
         key={item.cartItemId}
         className="pt-3 pb-3 flex gap-3 items-start transition-colors"
-        data-purpose="dish-item"
       >
         {/* Dish Image (Shown only in 'rich' mode) */}
         {viewMode === 'rich' && (
@@ -200,7 +200,7 @@ export const CartItemListSection: React.FC<CartItemListSectionProps> = ({
                   <span>由 <span className="font-semibold text-neutral-900">{adderName}</span> 添加</span>
                 </span>
                 {isDineIn && (
-                  <span className="text-[9px] text-neutral-400 font-mono px-1 py-0.2 rounded bg-neutral-50 border border-neutral-200/50">
+                  <span className="text-[9px] text-neutral-400 tabular-nums px-1 py-0.2 rounded bg-neutral-50 border border-neutral-200/50">
                     {item.cartId || `#CART-${currentTable}-01`}
                   </span>
                 )}
@@ -248,7 +248,7 @@ export const CartItemListSection: React.FC<CartItemListSectionProps> = ({
                 <Minus className="w-3 h-3" />
               </button>
 
-              <span className="w-6 text-center text-xs font-bold text-neutral-900 select-none font-mono">
+              <span className="w-6 text-center text-xs font-bold text-neutral-900 select-none tabular-nums">
                 {item.quantity}
               </span>
 
@@ -263,7 +263,7 @@ export const CartItemListSection: React.FC<CartItemListSectionProps> = ({
             </div>
           </div>
         </div>
-      </article>
+      </OrganicCardReveal>
     );
   };
 
@@ -351,7 +351,7 @@ export const CartItemListSection: React.FC<CartItemListSectionProps> = ({
                   />
                   <div className="flex items-center space-x-1.5 flex-wrap">
                     <span className="text-xs font-bold text-neutral-900 truncate">{group.name}</span>
-                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-neutral-100 text-neutral-600 border border-neutral-200">
+                    <span className="text-[10px] tabular-nums px-1.5 py-0.2 rounded bg-neutral-100 text-neutral-600 border border-neutral-200">
                       {group.cartId}
                     </span>
                   </div>
@@ -379,7 +379,7 @@ export const CartItemListSection: React.FC<CartItemListSectionProps> = ({
               {/* 该点餐人独立汇总小计 */}
               <div className="mt-2 pt-2 border-t border-dashed border-neutral-200/80 flex items-center justify-between text-xs font-medium text-neutral-600">
                 <span className="text-[11px] text-neutral-500">
-                  {group.name} 已点 <strong className="text-neutral-800 font-mono">{group.totalQty}</strong> 份
+                  {group.name} 已点 <strong className="text-neutral-800 tabular-nums">{group.totalQty}</strong> 份
                 </span>
                 <div className="flex items-baseline space-x-1">
                   <span className="text-[11px] text-neutral-400">分单小计：</span>

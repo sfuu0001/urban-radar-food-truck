@@ -22,7 +22,8 @@ import {
   CheckCircle2,
   AlertOctagon,
   RefreshCw,
-  Crown
+  Crown,
+  Radio
 } from 'lucide-react';
 import {
   TableSession,
@@ -51,6 +52,7 @@ interface TableCardSynergyDrawerProps {
   isOpen?: boolean;
   onClose: () => void;
   showToast: (msg: string) => void;
+  onOpenCctvModal?: (session: TableSession) => void;
 }
 
 const PHASE_ICONS: Record<ProbePhase, { icon: string; label: string }> = {
@@ -71,7 +73,8 @@ export function TableCardSynergyDrawer({
   session: propsSession,
   isOpen = true,
   onClose,
-  showToast
+  showToast,
+  onOpenCctvModal
 }: TableCardSynergyDrawerProps) {
   const [, setTick] = useState(0);
   const [activeTab, setActiveTab] = useState<'members' | 'probes'>('members');
@@ -163,7 +166,7 @@ export function TableCardSynergyDrawer({
         {/* Header */}
         <div className="px-4 py-3 bg-[#111111] text-white flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="font-mono font-bold text-sm bg-white/20 px-2 py-0.5 rounded">
+            <span className="font-bold text-sm bg-white/20 px-2 py-0.5 rounded">
               {effectiveTableCode}
             </span>
             <div>
@@ -171,12 +174,28 @@ export function TableCardSynergyDrawer({
               <p className="text-[11px] text-neutral-400">第 {session.occupancySeq} 轮 · 会话 ID: {session.sessionId.slice(-6)}</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 hover:bg-white/10 rounded text-neutral-300 hover:text-white transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            {onOpenCctvModal && (
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenCctvModal(session);
+                  onClose();
+                }}
+                className="px-2.5 py-1 bg-[#1A1D24] hover:bg-neutral-800 text-[#3BB4FE] border border-[#2E333D] rounded text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                title="进入桌面端全景 CCTV 监控大模态大屏"
+              >
+                <Radio className="w-3.5 h-3.5 text-rose-500 animate-pulse" />
+                <span>全景CCTV大屏</span>
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="p-1.5 hover:bg-white/10 rounded text-neutral-300 hover:text-white transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Tab switcher */}
@@ -325,11 +344,11 @@ export function TableCardSynergyDrawer({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-neutral-900">{meta.label}</span>
-                        <span className="text-[10px] font-mono text-neutral-400">
+                        <span className="text-[10px] text-neutral-400">
                           {new Date(probe.at).toLocaleTimeString('zh-CN')}
                         </span>
                       </div>
-                      <p className="text-[11px] text-neutral-600 mt-0.5 truncate font-mono">
+                      <p className="text-[11px] text-neutral-600 mt-0.5 truncate">
                         {JSON.stringify(probe.payload)}
                       </p>
                     </div>

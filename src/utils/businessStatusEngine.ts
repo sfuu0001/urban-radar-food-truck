@@ -227,6 +227,11 @@ export function setTruckBusinessStatus(
         }
       })
     );
+
+    // 触发云端异步镜像同步
+    import('./cloudbase').then(({ syncBusinessStatusesToCloud }) => {
+      syncBusinessStatusesToCloud(all).catch(() => {});
+    }).catch(() => {});
   }
 
   return updated;

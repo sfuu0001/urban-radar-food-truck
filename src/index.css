@@ -350,9 +350,9 @@
   --radius-rad-sm: 4px;
   --radius-rad-xl: 12px;
 
-  /* ---- Typography（display=标题 grotesk，mono=遥测等宽）---- */
-  --font-display: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  /* ---- Typography（默认采用标准高品质系统无衬线字体族，保持自然易读）---- */
+  --font-display: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
 /* ============================================================================
@@ -415,10 +415,11 @@
   --height-action: 44px;
   --height-tag: 28px;
 
-  /* ---- 字体（Inter 正文 / Space Grotesk 金额与数字） ---- */
-  --font-text: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  /* ---- 字体（金额专享 Space Grotesk 现代几何字体；普通文本统一切回系统默认无衬线标准字体） ---- */
+  --font-text: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   --font-amount: 'Space Grotesk', -apple-system, sans-serif;
   --font-price: 'Space Grotesk', -apple-system, sans-serif;
+  --font-mono: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
 /* ---- DESIGN.md 全局类（§Global CSS Snippet + 全局金额统一类） ---- */
@@ -468,46 +469,39 @@
 .ds-tag { min-height: 28px; border-radius: 4px; font-size: 12px; font-weight: 500; }
 .ds-select-ring { border-color: #F97316; }
 .text-success-only { color: #1C834F; }
-/* Typography styles for industrial workstation */
-.font-headline-lg, .text-headline-lg { font-family: 'Space Grotesk', -apple-system, sans-serif; font-size: 24px; line-height: 32px; letter-spacing: -0.02em; font-weight: 700; }
-.font-headline-md, .text-headline-md { font-family: 'Space Grotesk', -apple-system, sans-serif; font-size: 17px; line-height: 24px; letter-spacing: -0.01em; font-weight: 600; }
-.font-headline-sm, .text-headline-sm { font-family: 'Space Grotesk', -apple-system, sans-serif; font-size: 15px; line-height: 22px; font-weight: 600; }
-.font-body-lg, .text-body-lg { font-family: 'Manrope', -apple-system, sans-serif; font-size: 15px; line-height: 22px; font-weight: 500; }
-.font-body-md, .text-body-md { font-family: 'Manrope', -apple-system, sans-serif; font-size: 13.5px; line-height: 20px; font-weight: 500; }
-.font-body-sm, .text-body-sm { font-family: 'Manrope', -apple-system, sans-serif; font-size: 12.5px; line-height: 18px; font-weight: 500; }
-.font-label-lg, .text-label-lg { font-family: 'JetBrains Mono', monospace; font-size: 14px; line-height: 20px; letter-spacing: 0.02em; font-weight: 600; }
-.font-label-md, .text-label-md { font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 18px; letter-spacing: 0.02em; font-weight: 500; }
-.font-label-sm, .text-label-sm { font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 16px; letter-spacing: 0.03em; font-weight: 600; }
-.font-label-micro, .text-label-micro { font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 15px; letter-spacing: 0.03em; font-weight: 600; }
+/* Typography styles for industrial workstation (切回默认字体，保持清晰易读) */
+.font-headline-lg, .text-headline-lg { font-size: 24px; line-height: 32px; letter-spacing: -0.02em; font-weight: 700; }
+.font-headline-md, .text-headline-md { font-size: 17px; line-height: 24px; letter-spacing: -0.01em; font-weight: 600; }
+.font-headline-sm, .text-headline-sm { font-size: 15px; line-height: 22px; font-weight: 600; }
+.font-body-lg, .text-body-lg { font-size: 15px; line-height: 22px; font-weight: 500; }
+.font-body-md, .text-body-md { font-size: 13.5px; line-height: 20px; font-weight: 500; }
+.font-body-sm, .text-body-sm { font-size: 12.5px; line-height: 18px; font-weight: 500; }
+.font-label-lg, .text-label-lg { font-size: 14px; line-height: 20px; letter-spacing: 0.01em; font-weight: 600; }
+.font-label-md, .text-label-md { font-size: 13px; line-height: 18px; letter-spacing: 0.01em; font-weight: 500; }
+.font-label-sm, .text-label-sm { font-size: 12px; line-height: 16px; letter-spacing: 0.01em; font-weight: 600; }
+.font-label-micro, .text-label-micro { font-size: 11px; line-height: 15px; letter-spacing: 0.01em; font-weight: 600; }
 /* Mobile headline scale (三端适配：桌面 24px / 移动 18px) */
-.font-headline-lg-mobile, .text-headline-lg-mobile { font-family: 'Space Grotesk', -apple-system, sans-serif; font-size: 18px; line-height: 24px; letter-spacing: -0.01em; font-weight: 700; }
-/* Telemetry numerics (遥测等宽数字) */
-.font-code-num, .text-code-num { font-family: 'JetBrains Mono', monospace; font-size: 14px; line-height: 20px; letter-spacing: -0.02em; font-weight: 500; }
-.font-code-sm, .text-code-sm { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 17px; letter-spacing: 0.02em; font-weight: 500; }
+.font-headline-lg-mobile, .text-headline-lg-mobile { font-size: 18px; line-height: 24px; letter-spacing: -0.01em; font-weight: 700; }
+/* Telemetry numerics */
+.font-code-num, .text-code-num { font-size: 14px; line-height: 20px; letter-spacing: -0.01em; font-weight: 600; }
+.font-code-sm, .text-code-sm { font-size: 12.5px; line-height: 17px; letter-spacing: -0.01em; font-weight: 500; }
 
 /* ============================================================================
-   M3 角色排版层（DESIGN.md 权威字阶）
-   ----------------------------------------------------------------------------
-   为什么带 m3- 前缀：上面那套 .font-* / .text-* 复合类把「字体族 + 字号 + 字重」
-   揉在一起，且 label-* 全为等宽、字号整体比 DESIGN.md 小一档（历史遗留的紧凑刻度）。
-   直接覆盖它们会波及全站数百个组件，故 M3 字阶以独立前缀并存，供新迁移界面使用。
-
-   用法：class="m3-label-md" 即同时获得 DESIGN.md 规定的 family/size/line-height/
-   letter-spacing/weight。等宽遥测数字用 m3-code-*。
+   M3 角色排版层（切回系统默认无衬线标准字阶，金额保持单独设定）
    ============================================================================ */
-.m3-display-lg { font-family: 'Space Grotesk', -apple-system, sans-serif; font-size: 36px; line-height: 44px; letter-spacing: -0.03em; font-weight: 700; }
-.m3-display-sm { font-family: 'Space Grotesk', -apple-system, sans-serif; font-size: 28px; line-height: 36px; letter-spacing: -0.02em; font-weight: 600; }
-.m3-headline-lg { font-family: 'Space Grotesk', -apple-system, sans-serif; font-size: 24px; line-height: 32px; letter-spacing: -0.02em; font-weight: 600; }
-.m3-headline-sm { font-family: 'Space Grotesk', -apple-system, sans-serif; font-size: 20px; line-height: 28px; letter-spacing: -0.01em; font-weight: 600; }
-.m3-title-md { font-family: 'Hanken Grotesk', 'Manrope', -apple-system, sans-serif; font-size: 16px; line-height: 24px; letter-spacing: 0; font-weight: 600; }
-.m3-body-lg { font-family: 'Hanken Grotesk', 'Manrope', -apple-system, sans-serif; font-size: 16px; line-height: 24px; letter-spacing: 0; font-weight: 400; }
-.m3-body-md { font-family: 'Hanken Grotesk', 'Manrope', -apple-system, sans-serif; font-size: 14px; line-height: 20px; letter-spacing: 0; font-weight: 400; }
-.m3-body-sm { font-family: 'Hanken Grotesk', 'Manrope', -apple-system, sans-serif; font-size: 12px; line-height: 16px; letter-spacing: 0.01em; font-weight: 400; }
-.m3-label-lg { font-family: 'Hanken Grotesk', 'Manrope', -apple-system, sans-serif; font-size: 14px; line-height: 20px; letter-spacing: 0.02em; font-weight: 600; }
-.m3-label-md { font-family: 'Hanken Grotesk', 'Manrope', -apple-system, sans-serif; font-size: 12px; line-height: 16px; letter-spacing: 0.04em; font-weight: 600; }
-.m3-code-num-lg { font-family: 'JetBrains Mono', monospace; font-size: 20px; line-height: 24px; letter-spacing: -0.03em; font-weight: 600; }
-.m3-code-num { font-family: 'JetBrains Mono', monospace; font-size: 14px; line-height: 20px; letter-spacing: -0.02em; font-weight: 500; }
-.m3-code-sm { font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 16px; letter-spacing: 0.02em; font-weight: 400; }
+.m3-display-lg { font-size: 36px; line-height: 44px; letter-spacing: -0.03em; font-weight: 700; }
+.m3-display-sm { font-size: 28px; line-height: 36px; letter-spacing: -0.02em; font-weight: 600; }
+.m3-headline-lg { font-size: 24px; line-height: 32px; letter-spacing: -0.02em; font-weight: 600; }
+.m3-headline-sm { font-size: 20px; line-height: 28px; letter-spacing: -0.01em; font-weight: 600; }
+.m3-title-md { font-size: 16px; line-height: 24px; letter-spacing: 0; font-weight: 600; }
+.m3-body-lg { font-size: 16px; line-height: 24px; letter-spacing: 0; font-weight: 400; }
+.m3-body-md { font-size: 14px; line-height: 20px; letter-spacing: 0; font-weight: 400; }
+.m3-body-sm { font-size: 12px; line-height: 16px; letter-spacing: 0.01em; font-weight: 400; }
+.m3-label-lg { font-size: 14px; line-height: 20px; letter-spacing: 0.02em; font-weight: 600; }
+.m3-label-md { font-size: 12px; line-height: 16px; letter-spacing: 0.04em; font-weight: 600; }
+.m3-code-num-lg { font-size: 20px; line-height: 24px; letter-spacing: -0.02em; font-weight: 600; }
+.m3-code-num { font-size: 14px; line-height: 20px; letter-spacing: -0.01em; font-weight: 600; }
+.m3-code-sm { font-size: 12px; line-height: 16px; letter-spacing: 0.01em; font-weight: 500; }
 
 /* ============================================================================
    菜品与多渠道沽清界面 · 控制台专用工具层
@@ -604,8 +598,9 @@
 
 /* Card Textures & 3D Interactive Styles */
 .obsidian-mesh {
-  background: radial-gradient(circle at 10% 15%, rgba(52, 53, 50, 0.7) 0%, rgba(20, 20, 18, 0.98) 60%),
-              linear-gradient(135deg, #252522 0%, #151513 100%);
+  background-color: #141412;
+  background-image: radial-gradient(circle at 10% 15%, rgba(52, 53, 50, 0.7) 0%, rgba(20, 20, 18, 0.98) 60%),
+                    linear-gradient(135deg, #252522 0%, #151513 100%);
 }
 .chip-gold {
   background: linear-gradient(135deg, #fce08b 0%, #dfad44 50%, #b8860b 100%);
@@ -615,20 +610,75 @@
 }
 .card-perspective-container {
   perspective: 1000px;
+  -webkit-perspective: 1000px;
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
 }
 .card-flipper {
+  position: relative;
+  width: 100%;
+  height: 100%;
   transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
   transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .card-flipper.is-flipped {
   transform: rotateY(180deg);
+  -webkit-transform: rotateY(180deg);
 }
 .card-front, .card-back {
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden !important;
+  -webkit-backface-visibility: hidden !important;
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+  background-color: #141412;
+  border-radius: 0.75rem;
+}
+.card-front {
+  transform: rotateY(0deg) translateZ(1px);
+  -webkit-transform: rotateY(0deg) translateZ(1px);
+  z-index: 2;
+  pointer-events: auto;
 }
 .card-back {
-  transform: rotateY(180deg);
+  transform: rotateY(180deg) translateZ(1px);
+  -webkit-transform: rotateY(180deg) translateZ(1px);
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* 翻转状态切换：在翻转到背面时，正面自动隐藏并禁用事件，背面提升层级并激活事件，彻底解决透视穿透与遮罩重叠 */
+.card-flipper.is-flipped .card-front {
+  z-index: 1;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease, visibility 0s 0.25s;
+}
+.card-flipper.is-flipped .card-back {
+  z-index: 2;
+  pointer-events: auto;
+  visibility: visible;
+  opacity: 1;
+  transition: opacity 0.2s ease 0.15s, visibility 0s 0.15s;
+}
+.card-flipper:not(.is-flipped) .card-front {
+  z-index: 2;
+  pointer-events: auto;
+  visibility: visible;
+  opacity: 1;
+  transition: opacity 0.2s ease 0.15s, visibility 0s 0.15s;
+}
+.card-flipper:not(.is-flipped) .card-back {
+  z-index: 1;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease, visibility 0s 0.25s;
 }
 .glare-overlay {
   pointer-events: none;
@@ -639,6 +689,37 @@
 .card-perspective-container:hover .glare-overlay,
 .card-perspective-container.is-active .glare-overlay {
   opacity: 1;
+}
+
+/* Dish Penetration Anchor Spotlight Animation */
+@keyframes dishAnchorSpotlight {
+  0% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.85);
+    outline: 2px solid #f59e0b;
+    background-color: rgba(254, 243, 199, 0.5);
+    transform: scale(1.02);
+  }
+  30% {
+    box-shadow: 0 0 0 10px rgba(245, 158, 11, 0);
+    outline: 2px solid #000;
+    background-color: rgba(254, 243, 199, 0.3);
+    transform: scale(1.01);
+  }
+  70% {
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.2);
+    outline: 2px solid #f59e0b;
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+    outline: 2px solid transparent;
+    background-color: transparent;
+    transform: scale(1);
+  }
+}
+.dish-anchor-highlight {
+  animation: dishAnchorSpotlight 2.2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards !important;
+  z-index: 30 !important;
+  position: relative;
 }
 
 /* User-specified Real-time Orders UI Tokens and Animations */
@@ -783,24 +864,30 @@
 }
 
 @layer base {
+  :root {
+    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
   html,
   body {
     margin: 0;
     padding: 0;
     overscroll-behavior-y: none;
+    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
   }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
     background-color: #f9f9f7;
     color: #1a1c1b;
     min-height: 100vh;
     overflow-x: hidden;
     letter-spacing: -0.01em;
   }
+  input, button, select, textarea {
+    font-family: inherit;
+  }
 }
 
 .font-hanken {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
 }
 
 .shadow-urban {
@@ -917,13 +1004,44 @@
   animation: skeletonPulse 1.8s ease-in-out infinite;
 }
 
-/* Bottom Navigation Bar Precision Padding */
+/* Bottom Navigation Bar Precision Padding & Folder Tab Stack Dock */
 #bottom-main-dock-nav,
 nav[id^="bottom-main"] {
   padding-top: 6px !important;
-  padding-bottom: 4px !important;
-  padding-left: 5px !important;
-  padding-right: 5px !important;
+  padding-bottom: 6px !important;
+  padding-left: 0px !important;
+  padding-right: 0px !important;
+}
+
+/* Ancestor Container Top Shadow & Optical Reflection */
+#bottom-navbar-outer-wrapper {
+  position: relative;
+  box-shadow: 0 -14px 32px -4px rgba(0, 0, 0, 0.16), 0 -4px 12px -2px rgba(0, 0, 0, 0.08);
+}
+
+#bottom-navbar-outer-wrapper::before {
+  content: '';
+  position: absolute;
+  top: -14px;
+  left: 0;
+  right: 0;
+  height: 14px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.09) 0%, rgba(255, 255, 255, 0.04) 40%, transparent 100%);
+  pointer-events: none;
+  z-index: 10;
+}
+
+#bottom-navbar-outer-wrapper::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1.5px;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.95) 20%, rgba(255, 255, 255, 1) 50%, rgba(255, 255, 255, 0.95) 80%, transparent 100%);
+  box-shadow: 0 -1px 4px rgba(255, 255, 255, 0.9), 0 1px 3px rgba(0, 0, 0, 0.06);
+  pointer-events: none;
+  z-index: 30;
 }
 
 @keyframes glassReflect {
@@ -981,8 +1099,202 @@ nav[id^="bottom-main"] {
   40%, 80% { transform: translateX(4px); }
 }
 
-.shake-animate {
+.shake-animate,
+.animate-shake {
   animation: shake 0.4s ease-in-out;
+}
+
+/* =========================================================================
+ * Full Entrance Transition Engine (animate-in / fade-in / zoom-in-95)
+ * ========================================================================= */
+@keyframes enterAnim {
+  from {
+    opacity: var(--tw-enter-opacity, 1);
+    transform: translate3d(var(--tw-enter-translate-x, 0), var(--tw-enter-translate-y, 0), 0)
+      scale3d(var(--tw-enter-scale, 1), var(--tw-enter-scale, 1), var(--tw-enter-scale, 1));
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
+  }
+}
+
+.animate-in {
+  animation-name: enterAnim;
+  animation-duration: var(--tw-animation-duration, 150ms);
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  animation-fill-mode: both;
+}
+
+.fade-in,
+.fade-in-0 {
+  --tw-enter-opacity: 0;
+}
+
+.fade-in-50 {
+  --tw-enter-opacity: 0.5;
+}
+
+.zoom-in-75 {
+  --tw-enter-scale: 0.75;
+}
+
+.zoom-in-90 {
+  --tw-enter-scale: 0.90;
+}
+
+.zoom-in-95 {
+  --tw-enter-scale: 0.95;
+}
+
+.zoom-in-98 {
+  --tw-enter-scale: 0.98;
+}
+
+.zoom-in {
+  --tw-enter-scale: 0.95;
+}
+
+.slide-in-from-top-1 {
+  --tw-enter-translate-y: -0.25rem;
+}
+
+.slide-in-from-top-2 {
+  --tw-enter-translate-y: -0.5rem;
+}
+
+.slide-in-from-top-3 {
+  --tw-enter-translate-y: -0.75rem;
+}
+
+.slide-in-from-top-4 {
+  --tw-enter-translate-y: -1rem;
+}
+
+.slide-in-from-bottom {
+  --tw-enter-translate-y: 100%;
+}
+
+.slide-in-from-bottom-1 {
+  --tw-enter-translate-y: 0.25rem;
+}
+
+.slide-in-from-bottom-2 {
+  --tw-enter-translate-y: 0.5rem;
+}
+
+.slide-in-from-bottom-4 {
+  --tw-enter-translate-y: 1rem;
+}
+
+.slide-in-from-bottom-6 {
+  --tw-enter-translate-y: 1.5rem;
+}
+
+.slide-in-from-left {
+  --tw-enter-translate-x: -100%;
+}
+
+.slide-in-from-left-2 {
+  --tw-enter-translate-x: -0.5rem;
+}
+
+.slide-in-from-left-3 {
+  --tw-enter-translate-x: -0.75rem;
+}
+
+.slide-in-from-right {
+  --tw-enter-translate-x: 100%;
+}
+
+.slide-in-from-right-2 {
+  --tw-enter-translate-x: 0.5rem;
+}
+
+.slide-in-from-right-3 {
+  --tw-enter-translate-x: 0.75rem;
+}
+
+/* Durations for entry transitions */
+.duration-75 { --tw-animation-duration: 75ms; }
+.duration-100 { --tw-animation-duration: 100ms; }
+.duration-150 { --tw-animation-duration: 150ms; }
+.duration-200 { --tw-animation-duration: 200ms; }
+.duration-300 { --tw-animation-duration: 300ms; }
+.duration-500 { --tw-animation-duration: 500ms; }
+
+/* Micro-animations: fadeIn, slow spin, soft pulse, gradient flow, emergency strobe */
+@keyframes fadeInMicro {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn,
+.animate-fade-in {
+  animation: fadeInMicro 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin-slow {
+  animation: spinSlow 10s linear infinite;
+}
+
+@keyframes pulseSoft {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.78; transform: scale(0.97); }
+}
+
+.animate-pulse-soft {
+  animation: pulseSoft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes gradientFlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradientFlow 4s ease infinite;
+}
+
+@keyframes emergencyStrobe {
+  0%, 100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 2px rgba(225, 29, 72, 0.45));
+  }
+  50% {
+    opacity: 0.4;
+    filter: drop-shadow(0 0 7px rgba(225, 29, 72, 0.9));
+  }
+}
+
+.animate-emergency-strobe {
+  animation: emergencyStrobe 0.75s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes apertureTwist {
+  0% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(0.85) rotate(45deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+.animate-aperture-twist {
+  animation: apertureTwist 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes antennaPing {
+  0% { transform: scale(0.8); opacity: 0.85; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+.animate-antenna-ping {
+  animation: antennaPing 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
 /* =========================================================================
@@ -1304,4 +1616,118 @@ html[data-embed-lite='1'] *::after {
   transform: translateY(-15px) scale(0.92);
   opacity: 0;
 }
+
+/* ============================================================================
+   极致 120FPS 硬件加速滚动微舒展动效（高刷新率、零闪烁、微动轻量化）
+   ============================================================================ */
+.organic-card-reveal {
+  transform-origin: left center !important;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.organic-card-reveal[data-reveal="hidden-down"] {
+  opacity: 0.35 !important;
+  transform: translate3d(-6px, 8px, 0) scale(0.985) !important;
+  transition: none !important;
+}
+
+.organic-card-reveal[data-reveal="hidden-up"] {
+  opacity: 0.35 !important;
+  transform: translate3d(-6px, -8px, 0) scale(0.985) !important;
+  transition: none !important;
+}
+
+.organic-card-reveal[data-reveal="visible"] {
+  opacity: 1 !important;
+  transform: translate3d(0, 0, 0) scale(1) !important;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease-out !important;
+}
+
+@keyframes sound-wave {
+  0% {
+    transform: scaleY(0.35);
+  }
+  100% {
+    transform: scaleY(1.3);
+  }
+}
+
+/* ============================================================================
+   全局排版规范：普通文本切回系统默认无衬线字体，金额单独保留 Space Grotesk
+   ============================================================================ */
+.font-mono,
+[class*="font-mono"] {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+}
+
+/* ============================================================================
+   防输入框聚焦自动放大视口规范 (Strict No-Zoom On Input Focus Policy)
+   ----------------------------------------------------------------------------
+   移动端/触控设备/iframe预览互动器在 input/textarea/select 的 font-size < 16px 时，
+   点击聚焦会触发浏览器（尤其 iOS Safari / WebKit 内核）对视口的自动缩放拉伸 (Auto-Zoom)，
+   导致整体互动器画面比例失真且无法复原。
+   此处通过全局与局部防御实现三重锁定：
+   1. 视口与触控锁定：touch-action: manipulation，禁止双击/多指缩放污染比例；
+   2. 移动端/触控端输入框基础字号强制锁定不低于 16px (text-base / 16px)；
+   3. 阻止字体缩放调整 (-webkit-text-size-adjust: 100%)。
+   ============================================================================ */
+html, body, #root {
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+@media screen and (max-width: 1024px), (hover: none) and (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* 输入元素全局防双击放大与滑动防拉伸 */
+input, textarea, select {
+  touch-action: manipulation;
+}
+
+/* ============================================================================
+   热敏小票机物理打印与隔空打印样式重置 (去除遮罩、仅打印小票白底、适配 58mm/80mm)
+   ============================================================================ */
+@media print {
+  html, body {
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+  }
+
+  body > *:not(.thermal-print-portal) {
+    display: none !important;
+  }
+
+  #thermal-self-test-paper {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 58mm !important;
+    margin: 0 !important;
+    padding: 2mm !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    visibility: visible !important;
+  }
+
+  @page {
+    size: 58mm auto;
+    margin: 0;
+  }
+}
+
+
+
+
 

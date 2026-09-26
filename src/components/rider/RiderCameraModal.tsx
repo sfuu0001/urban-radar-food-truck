@@ -10,6 +10,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { DynamicCameraShutter } from '../common/DynamicIcons';
 
 interface RiderCameraModalProps {
   isOpen: boolean;
@@ -199,9 +200,9 @@ export const RiderCameraModal: React.FC<RiderCameraModalProps> = ({
             <button
               type="button"
               onClick={handleCapture}
-              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white rounded-[4px] font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md transition-all"
+              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white rounded-[4px] font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md transition-all group"
             >
-              <Camera className="w-4 h-4" />
+              <DynamicCameraShutter size={15} triggered={photoTaken} />
               <span>按下快门 · 拍照存证</span>
             </button>
           ) : (

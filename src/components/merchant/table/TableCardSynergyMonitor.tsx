@@ -171,7 +171,7 @@ export function TableCardSynergyMonitor({
   return (
     <div
       onClick={(e) => e.stopPropagation()}
-      className="bg-[#f7f8f6] border border-[#e2e5df] rounded-[4px] p-2 space-y-2 text-[11px] select-none transition-all hover:border-[#cbd0c6]"
+      className="bg-neutral-50 border border-neutral-200 rounded-md p-2 space-y-2 text-[11px] select-none transition-all hover:border-neutral-300"
     >
       {/* 1. 待处理授权请求专区（最高优先级高亮提醒） */}
       {pendingRequests.length > 0 && (
@@ -179,7 +179,7 @@ export function TableCardSynergyMonitor({
           {pendingRequests.map((req) => (
             <div
               key={req.requestId}
-              className="bg-amber-50/95 border border-amber-300 rounded-[3px] p-2 space-y-1.5 shadow-2xs animate-pulse-once"
+              className="bg-amber-50/95 border border-amber-300 rounded-md p-2 space-y-1.5 shadow-2xs"
             >
               <div className="flex items-center justify-between gap-1">
                 <div className="flex items-center gap-1 min-w-0 flex-1">
@@ -188,12 +188,12 @@ export function TableCardSynergyMonitor({
                     扫码申请加入: <strong className="font-mono">{req.requesterMaskedId}</strong>
                   </span>
                 </div>
-                <span className="text-[9px] px-1 py-0.2 bg-amber-200/80 text-amber-800 font-semibold rounded shrink-0">
+                <span className="text-[9px] px-1 py-0.2 bg-amber-200 text-amber-800 font-bold rounded shrink-0">
                   {isAllOffline ? '桌主离线' : '待桌主同意'}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between text-[10px] text-amber-800/90 pt-0.5">
+              <div className="flex items-center justify-between text-[10px] text-amber-800 pt-0.5">
                 <span>{isAllOffline ? '同桌无人在线，建议前台一键代批' : '支持前台服务人员直接代批免卡单'}</span>
               </div>
 
@@ -201,7 +201,7 @@ export function TableCardSynergyMonitor({
                 <button
                   type="button"
                   onClick={(e) => handleSettle(e, req, 'granted')}
-                  className="flex-1 py-1 px-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold rounded-[2px] text-[10.5px] flex items-center justify-center gap-1 transition-colors cursor-pointer shadow-2xs"
+                  className="flex-1 py-1 px-2 bg-neutral-900 hover:bg-black text-white font-bold rounded text-[10.5px] flex items-center justify-center gap-1 transition-colors cursor-pointer shadow-2xs"
                 >
                   <Check className="w-3 h-3 stroke-[2.5]" />
                   <span>代批同意</span>
@@ -209,7 +209,7 @@ export function TableCardSynergyMonitor({
                 <button
                   type="button"
                   onClick={(e) => handleSettle(e, req, 'denied')}
-                  className="py-1 px-2 bg-white hover:bg-rose-50 text-rose-700 border border-amber-200 hover:border-rose-300 font-medium rounded-[2px] text-[10.5px] flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                  className="py-1 px-2 bg-white hover:bg-rose-50 text-rose-700 border border-neutral-200 hover:border-rose-300 font-medium rounded text-[10.5px] flex items-center justify-center gap-1 transition-colors cursor-pointer shadow-2xs"
                 >
                   <X className="w-3 h-3 text-rose-500" />
                   <span>拒绝</span>
@@ -223,12 +223,12 @@ export function TableCardSynergyMonitor({
       {/* 2. 协同感知摘要条（常态呈现：协同人数、在线心跳、展开明细） */}
       {session && (
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between gap-1 text-[11px] text-[#4d5249]">
+          <div className="flex items-center justify-between gap-1 text-[11px] text-neutral-600">
             <div className="flex items-center gap-1.5 min-w-0 flex-1">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-              <span className="font-semibold text-[#1a1c1b] truncate flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full bg-neutral-900 animate-pulse shrink-0" />
+              <span className="font-bold text-neutral-900 truncate flex items-center gap-1">
                 <span>点餐协同监管</span>
-                <span className="font-mono text-[#585c54] font-normal">
+                <span className="font-mono text-neutral-500 font-normal">
                   ({onlineCount}/{participants.length}在线)
                 </span>
               </span>
@@ -242,7 +242,7 @@ export function TableCardSynergyMonitor({
                     e.stopPropagation();
                     onOpenSynergyDrawer(session);
                   }}
-                  className="text-[10px] text-[#2b593f] hover:text-[#193a28] font-medium flex items-center gap-0.5 hover:underline"
+                  className="text-[10px] text-neutral-900 hover:underline font-bold flex items-center gap-0.5"
                   title="打开本桌完整行为探针与权限控制抽屉"
                 >
                   <span>全景</span>
@@ -255,7 +255,7 @@ export function TableCardSynergyMonitor({
                   e.stopPropagation();
                   setIsExpanded(!isExpanded);
                 }}
-                className="p-0.5 hover:bg-black/5 rounded text-[#585c54] transition-colors"
+                className="p-0.5 hover:bg-neutral-200 rounded text-neutral-600 transition-colors"
                 title={isExpanded ? '收起同桌轨迹' : '展开同桌轨迹'}
               >
                 {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -265,13 +265,13 @@ export function TableCardSynergyMonitor({
 
           {/* 折叠态摘要：展示第一条有行为轨迹的顾客状态 */}
           {!isExpanded && participants.length > 0 && (
-            <div className="bg-white/80 rounded-[3px] px-2 py-1 border border-[#e4e8e0] text-[10px] text-[#585c54] flex items-center justify-between gap-1">
+            <div className="bg-white rounded px-2 py-1 border border-neutral-200 text-[10px] text-neutral-600 flex items-center justify-between gap-1">
               <div className="flex items-center gap-1 min-w-0 flex-1 truncate">
                 <span className={`w-1.5 h-1.5 rounded-full ${PRESENCE_DOT_MAP[participants[0].presence].dot} shrink-0`} />
-                <span className="font-mono font-medium text-[#20221f] shrink-0">
+                <span className="font-mono font-bold text-neutral-900 shrink-0">
                   {participants[0].maskedId}
                 </span>
-                <span className="text-[#72776c] truncate">
+                <span className="text-neutral-500 truncate">
                   {participants[0].lastNode?.lastClickedDishName
                     ? `刚选了「${participants[0].lastNode.lastClickedDishName}」`
                     : participants[0].lastNode?.categoryName
@@ -279,7 +279,7 @@ export function TableCardSynergyMonitor({
                     : '已就位正在选餐'}
                 </span>
               </div>
-              <span className="font-mono text-[#2b593f] font-semibold shrink-0">
+              <span className="font-mono text-neutral-900 font-bold shrink-0">
                 加购¥{(participants[0].cartSummary?.totalAmount || 0).toFixed(0)}
               </span>
             </div>
@@ -287,28 +287,28 @@ export function TableCardSynergyMonitor({
 
           {/* 展开态：显示同桌每个人的实时足迹与快捷控制 */}
           {isExpanded && (
-            <div className="space-y-1 pt-1 border-t border-[#e2e5df]/80 max-h-48 overflow-y-auto pr-0.5 custom-scrollbar">
+            <div className="space-y-1 pt-1 border-t border-neutral-200 max-h-48 overflow-y-auto pr-0.5 custom-scrollbar">
               {participants.map((p) => {
                 const presenceMeta = PRESENCE_DOT_MAP[p.presence];
                 const hasCart = (p.cartSummary?.itemCount || 0) > 0;
                 return (
                   <div
                     key={p.participantId}
-                    className="bg-white rounded-[3px] border border-[#e2e5df] p-1.5 space-y-1 transition-colors hover:border-[#ccd1c6]"
+                    className="bg-white rounded border border-neutral-200 p-1.5 space-y-1 transition-colors hover:border-neutral-300"
                   >
                     <div className="flex items-center justify-between gap-1">
                       <div className="flex items-center gap-1 min-w-0 flex-1">
                         <span className={`w-1.5 h-1.5 rounded-full ${presenceMeta.dot} shrink-0`} title={presenceMeta.label} />
-                        <span className="font-mono font-bold text-[#1f211e] truncate text-[10.5px]">
+                        <span className="font-mono font-bold text-neutral-900 truncate text-[10.5px]">
                           {p.maskedId}
                         </span>
                         {p.role === 'owner' ? (
-                          <span className="text-[9px] px-1 py-0.2 bg-amber-500 text-white font-bold rounded flex items-center gap-0.5 shrink-0">
+                          <span className="text-[9px] px-1 py-0.2 bg-neutral-900 text-white font-bold rounded flex items-center gap-0.5 shrink-0">
                             <Crown className="w-2.5 h-2.5 fill-current" />
                             <span>桌主</span>
                           </span>
                         ) : (
-                          <span className="text-[9px] px-1 py-0.2 bg-slate-100 text-slate-600 rounded shrink-0">
+                          <span className="text-[9px] px-1 py-0.2 bg-neutral-100 text-neutral-700 rounded font-medium shrink-0">
                             {p.authority === 'manage' ? '协管' : '点餐'}
                           </span>
                         )}
@@ -318,7 +318,7 @@ export function TableCardSynergyMonitor({
                         <button
                           type="button"
                           onClick={(e) => handleQuickRemove(e, p)}
-                          className="text-[9.5px] px-1.5 py-0.2 text-rose-600 hover:bg-rose-50 rounded border border-rose-200/80 transition-colors shrink-0"
+                          className="text-[9.5px] px-1.5 py-0.2 text-rose-600 hover:bg-rose-50 rounded border border-rose-200 transition-colors shrink-0"
                           title="从本桌协同名单移出此顾客"
                         >
                           移出
@@ -327,27 +327,27 @@ export function TableCardSynergyMonitor({
                     </div>
 
                     {/* 实时行为感知行 */}
-                    <div className="text-[10px] text-[#555a50] space-y-0.5 bg-[#f9faf8] p-1 rounded-[2px]">
+                    <div className="text-[10px] text-neutral-600 space-y-0.5 bg-neutral-50 p-1 rounded">
                       <div className="flex items-center gap-1 truncate">
-                        <Eye className="w-2.5 h-2.5 text-[#7a8075] shrink-0" />
+                        <Eye className="w-2.5 h-2.5 text-neutral-400 shrink-0" />
                         <span className="truncate">
                           {p.lastNode?.categoryName ? (
-                            <span>正在看 <strong className="text-[#20221f]">{p.lastNode.categoryName}</strong></span>
+                            <span>正在看 <strong className="text-neutral-900">{p.lastNode.categoryName}</strong></span>
                           ) : (
-                            <span className="text-[#8e9488]">暂未浏览分类</span>
+                            <span className="text-neutral-400">暂未浏览分类</span>
                           )}
                           {p.lastNode?.lastClickedDishName && (
-                            <span className="ml-1 text-[#2b593f]">· 选「{p.lastNode.lastClickedDishName}」</span>
+                            <span className="ml-1 text-neutral-900 font-medium">· 选「{p.lastNode.lastClickedDishName}」</span>
                           )}
                         </span>
                       </div>
 
-                      <div className="flex items-center justify-between text-[#4d5249]">
+                      <div className="flex items-center justify-between text-neutral-600">
                         <span className="flex items-center gap-1">
-                          <ShoppingBag className="w-2.5 h-2.5 text-[#7a8075] shrink-0" />
+                          <ShoppingBag className="w-2.5 h-2.5 text-neutral-400 shrink-0" />
                           <span>已选 {p.cartSummary?.itemCount || 0} 件</span>
                         </span>
-                        <span className="font-mono font-bold text-[#2b593f]">
+                        <span className="font-mono font-black text-neutral-900">
                           ¥{(p.cartSummary?.totalAmount || 0).toFixed(1)}
                         </span>
                       </div>

@@ -18,7 +18,8 @@ import {
   Timer,
   AlertTriangle,
   CheckCircle2,
-  Sparkles,
+  Bell,
+  Zap,
   MapPin,
   ChevronRight,
   RefreshCw,
@@ -580,7 +581,7 @@ export const OmniAggregatedChatHub: React.FC<OmniAggregatedChatHubProps> = ({
                 rider: { label: '专线骑手', color: 'bg-[#fbf3db] text-[#8f6b00] border-[#f5e6b3]', icon: Bike },
                 user: { label: '下单食客', color: 'bg-[#edf3fc] text-[#285eaf] border-[#d0e1f9]', icon: User },
                 platform: { label: '平台总控', color: 'bg-[#f3e8ff] text-[#6b21a8] border-[#e9d5ff]', icon: ShieldCheck },
-                system: { label: '系统通知', color: 'bg-[#f1f1ef] text-[#787774] border-[#e3e2de]', icon: Sparkles }
+                system: { label: '系统通知', color: 'bg-[#f1f1ef] text-[#787774] border-[#e3e2de]', icon: Bell }
               }[msg.senderRole] || { label: '成员', color: 'bg-white text-[#37352f] border-[#e3e2de]', icon: User };
 
               const RoleIcon = roleConfig.icon;
@@ -674,8 +675,8 @@ export const OmniAggregatedChatHub: React.FC<OmniAggregatedChatHubProps> = ({
 
           {/* Quick Presets Bar */}
           <div className="px-4 py-1.5 bg-[#f7f6f3] border-t border-[#e9e9e7] flex items-center gap-1.5 overflow-x-auto">
-            <span className="text-[10px] text-[#787774] font-semibold whitespace-nowrap flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-[#d97706]" /> 快捷响应:
+            <span className="text-[10px] text-[#787774] font-medium whitespace-nowrap flex items-center gap-1">
+              <Zap className="w-3 h-3 text-[#d97706] stroke-[1.5]" /> 快捷响应:
             </span>
             {rolePresets.map((preset, idx) => (
               <button

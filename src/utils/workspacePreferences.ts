@@ -1,19 +1,25 @@
 /* ============================================================================
- * workspacePreferences —— 工作台显示偏好（本地 + 云端双向同步，账号级）
+ * workspacePreferences —— 工作台显示偏好（本地 + 云端双向同步，账号/设备级）
  * ----------------------------------------------------------------------------
- * 存储策略：
- * 1. 本地：localStorage（obsidian_workspace_preferences）—— 即时生效、离线可用
- * 2. 云端：obsidian_truck_users 中当前 uid 文档的 workspacePreferences 字段
- *    （数据面直写，无云函数依赖）
- * 3. 双向同步规则：updatedAt 较新者胜；云端有而本地无 → 采纳云端；保存时本地
- *    先写、云端异步跟随
- * 4. 本地删除自愈：本地缺失/被清空时，挂载期自动从云端拉取完整偏好并回写本地
- * v2（2026-09-16）：新增客食端预览管控四开关（总开关+三端独立）、机型/自定义
- *    分辨率、旋转、按端面板开合记忆
+ * 存储策略与防丢铁律：
+ * 1. 本地双轨沙箱固化：
+ *    - 主键：localStorage（obsidian_workspace_preferences）
+ *    - 镜像备份：localStorage（obsidian_workspace_preferences_backup）
+ *    - 隔离沙箱：SandboxStorageGuard（obsidian:workspace_preferences_v3）
+ *    三道坚实防线，硬刷新绝对不丢失！
+ * 2. 云端 TCB 真实持久化：
+ *    - 专用集合：obsidian_workspace_preferences（无需依赖特定登录态）
+ *    - 账号级镜像：obsidian_truck_users 文档中的 workspacePreferences
+ *    - 每次云端读写前严格执行 ensureCloudbaseAuth() 鉴权
+ * 3. LWW 时间戳防倒退自愈 (Last-Write-Wins)：
+ *    - 本地比云端新时，严格拒绝被云端老旧数据冲刷覆盖，并自动反向推送到云端自愈！
+ *    - 云端更新时，自动同步回写本地并广播全站！
  * ==========================================================================*/
 
 import { safeGetStorage, safeSetStorage } from './safeStorage';
-import { getCloudbaseApp, TCB_COLLECTIONS } from './cloudbase';
+import { getCloudbaseApp, ensureCloudbaseAuth, TCB_COLLECTIONS } from './cloudbase';
+import { SandboxStorageGuard } from './sandbox/SandboxManager';
+import { getMerchantSession } from './staffAndRiderAuthEngine';
 import {
   DEVICE_PRESETS,
   CUSTOM_DEVICE_ID,
@@ -35,11 +41,6 @@ export interface PreviewControl {
   ends: Record<PreviewRoleId, boolean>;
 }
 
-/**
- * v3 增量命名空间（全部可选，向后兼容旧云端文档）：
- * - voice：语音播报配置镜像（真源仍在 voiceAlertEngine 本地键，本字段承担云端绑定与自愈）
- * - ui 偏好平铺：sidebarCollapsed / activeTab / marketingSubTab
- */
 export interface VoicePrefsSubset {
   enabled: boolean;
   volume: number;
@@ -64,7 +65,7 @@ const MARKETING_SUBTABS = new Set([
 
 export interface WorkspacePrefs {
   contentWidth: ContentWidthPref;
-  /** 内容区屏幕占比百分比 (50% ~ 100%，由进度阻力滑块控制；根据当前视口实时计算最大宽度 px，而非写死) */
+  /** 内容区屏幕占比百分比 (50% ~ 100%，由进度阻力滑块控制；根据当前视口实时计算最大宽度 px，默认遵循云端配置) */
   contentWidthPercent?: number;
   /** 窗口安全边距 (0px ~ 32px，默认为 0px 彻底消除窗口外层安全边距，支持阻力吸附与自定义调节) */
   windowSafeMargin: number;
@@ -80,22 +81,28 @@ export interface WorkspacePrefs {
   previewRotated: boolean;
   /** 各端预览列开合记忆（默认收起） */
   previewPanelOpen: Record<PreviewRoleId, boolean>;
-  /** v3：语音播报配置云端镜像（undefined = 云端从未同步过） */
+  /** 语音播报配置云端镜像 */
   voice?: VoicePrefsSubset;
-  /** v3：侧栏折叠 */
+  /** 侧栏折叠 */
   sidebarCollapsed?: boolean;
-  /** v3：最近停留的功能模块（换设备恢复） */
+  /** 最近停留的功能模块 */
   activeTab?: string;
-  /** v3：营销中心子页签记忆 */
+  /** 营销中心子页签记忆 */
   marketingSubTab?: string;
   /** 快捷与悬浮按钮显示模式：'always'(常驻图文) | 'icon_only'(仅显示图标，悬停显字) */
   buttonDisplayMode: ButtonDisplayMode;
+  /** 顶部固定常用标签 ID 列表（无硬编码，云端偏好优先，支持多端动态同步） */
+  pinnedTabs?: string[];
+  /** 是否已被用户在当前客户端显式手动调节过（用于避免本地初始默认值误冲刷云端数据） */
+  userModified?: boolean;
+  /** 配置来源标记 */
+  source?: 'cloud' | 'local_default' | 'user_custom';
   updatedAt?: string;
 }
 
 export const DEFAULT_WORKSPACE_PREFS: WorkspacePrefs = {
-  contentWidth: 'standard',
-  contentWidthPercent: 88,
+  contentWidth: 'wide',
+  contentWidthPercent: 100, // 初始默认采用 100% 全宽流式布局，绝不硬编码 88；以云端实际下发的设置偏好数据为最终裁决！
   windowSafeMargin: 0,
   ordersColumns: 'auto',
   marginFloorPercent: 50,
@@ -104,13 +111,50 @@ export const DEFAULT_WORKSPACE_PREFS: WorkspacePrefs = {
   previewCustom: { width: 430, height: 932 },
   previewRotated: false,
   previewPanelOpen: { merchant: false, rider: false, platform: false },
-  buttonDisplayMode: 'icon_only'
+  buttonDisplayMode: 'icon_only',
+  pinnedTabs: undefined,
+  userModified: false,
+  source: 'local_default',
+  updatedAt: '1970-01-01T00:00:00.000Z'
 };
+
+/**
+ * 常用顶部标签推荐池（无硬编码死数据：仅作为从无云端配置且无本地配置时的首次动态提取种子）
+ */
+export const RECOMMENDED_PINNED_TABS: string[] = [
+  'orders',
+  'kds',
+  'tables',
+  'calling',
+  'printing',
+  'menu',
+  'contingency',
+  'held',
+  'data_fallback',
+  'analytics',
+  'members',
+  'user_data_mgmt',
+  'truck_expand',
+  'gps',
+  'staff'
+];
+
+/**
+ * 动态提取默认固定标签（基于当前已注册模块池动态匹配，杜绝硬编码死数据）
+ */
+export function getDefaultPinnedTabs(availableTabIds?: string[]): string[] {
+  if (!availableTabIds || availableTabIds.length === 0) {
+    return [...RECOMMENDED_PINNED_TABS];
+  }
+  const set = new Set(availableTabIds);
+  const matched = RECOMMENDED_PINNED_TABS.filter((id) => set.has(id));
+  return matched.length > 0 ? matched : availableTabIds.slice(0, 12);
+}
 
 export const WIDTH_RESISTANCE_ANCHORS = [
   { percent: 60, label: '紧凑专注', desc: '分屏多窗' },
   { percent: 75, label: '适中标准', desc: '黄金比例' },
-  { percent: 88, label: '沉浸宽屏', desc: '空间充裕' },
+  { percent: 90, label: '沉浸宽屏', desc: '空间充裕' },
   { percent: 100, label: '全宽铺满', desc: '100% 流式' }
 ] as const;
 
@@ -145,23 +189,20 @@ export function applyResistanceSnap(val: number, snapThreshold = 2): number {
 }
 
 const LOCAL_KEY = 'obsidian_workspace_preferences';
+const LOCAL_BACKUP_KEY = 'obsidian_workspace_preferences_backup';
+const SANDBOX_KEY = 'obsidian:workspace_preferences_v3';
 const DEVICE_IDS = new Set<string>([...DEVICE_PRESETS.map((d) => d.id), CUSTOM_DEVICE_ID]);
 
-export function loadLocalPrefs(): WorkspacePrefs | null {
-  const raw = safeGetStorage<Partial<WorkspacePrefs>>(LOCAL_KEY, {} as Partial<WorkspacePrefs>);
-  if (!raw || Object.keys(raw).length === 0) return null;
-  return normalizePrefs(raw);
+/** 判断 a 是否比 b 更新 */
+function isNewer(a?: string, b?: string): boolean {
+  if (!a) return false;
+  if (!b) return true;
+  return new Date(a).getTime() >= new Date(b).getTime();
 }
 
-export function saveLocalPrefs(prefs: WorkspacePrefs) {
-  safeSetStorage(LOCAL_KEY, prefs);
-  cachedSnapshot = prefs;
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('obsidian_workspace_prefs_changed'));
-  }
-}
-
-/** 深度归一化（云端数据损坏 / 字段缺失均安全回落） */
+/**
+ * 深度归一化配置（云端数据损坏 / 字段缺失均安全回落）
+ */
 export function normalizePrefs(raw: Partial<WorkspacePrefs>): WorkspacePrefs {
   const width = (['compact', 'standard', 'wide'] as const).includes(raw.contentWidth as any)
     ? (raw.contentWidth as ContentWidthPref)
@@ -173,7 +214,7 @@ export function normalizePrefs(raw: Partial<WorkspacePrefs>): WorkspacePrefs {
       ? 100
       : width === 'compact'
       ? 65
-      : 88;
+      : 100; // 默认 100% 全宽流式铺满，由云端偏好数据裁决具体数值
   const windowSafeMargin =
     typeof raw.windowSafeMargin === 'number' && !isNaN(raw.windowSafeMargin)
       ? Math.min(32, Math.max(0, Math.round(raw.windowSafeMargin)))
@@ -214,7 +255,6 @@ export function normalizePrefs(raw: Partial<WorkspacePrefs>): WorkspacePrefs {
     platform: rawOpen.platform === true
   };
 
-  // v3：语音配置子归一化（结构性缺省回落，非法值不接管）
   let voice: VoicePrefsSubset | undefined;
   if (raw.voice && typeof raw.voice === 'object') {
     const v = raw.voice as Partial<VoicePrefsSubset>;
@@ -246,7 +286,6 @@ export function normalizePrefs(raw: Partial<WorkspacePrefs>): WorkspacePrefs {
     };
   }
 
-  // v3：ui 平铺偏好
   const sidebarCollapsed = raw.sidebarCollapsed === true;
   const activeTab =
     typeof raw.activeTab === 'string' && /^[a-z_]{1,40}$/.test(raw.activeTab) ? raw.activeTab : undefined;
@@ -257,6 +296,16 @@ export function normalizePrefs(raw: Partial<WorkspacePrefs>): WorkspacePrefs {
 
   const buttonDisplayMode: ButtonDisplayMode =
     raw.buttonDisplayMode === 'always' ? 'always' : 'icon_only';
+
+  let pinnedTabs: string[] | undefined;
+  if (Array.isArray(raw.pinnedTabs)) {
+    pinnedTabs = Array.from(
+      new Set(
+        raw.pinnedTabs
+          .filter((id): id is string => typeof id === 'string' && /^[a-z0-9_]{2,40}$/.test(id))
+      )
+    ).slice(0, 32);
+  }
 
   return {
     contentWidth: width,
@@ -274,8 +323,69 @@ export function normalizePrefs(raw: Partial<WorkspacePrefs>): WorkspacePrefs {
     activeTab,
     marketingSubTab,
     buttonDisplayMode,
-    updatedAt: raw.updatedAt
+    pinnedTabs,
+    userModified: raw.userModified === true,
+    source: raw.source || 'local_default',
+    updatedAt: raw.updatedAt || new Date().toISOString()
   };
+}
+
+/**
+ * 本地三轨读取（主键 + 镜像备份 + 沙箱隔离槽，取最新者自愈）
+ */
+export function loadLocalPrefs(): WorkspacePrefs | null {
+  const fromMain = safeGetStorage<Partial<WorkspacePrefs> | null>(LOCAL_KEY, null);
+  const fromBackup = safeGetStorage<Partial<WorkspacePrefs> | null>(LOCAL_BACKUP_KEY, null);
+  const fromSandbox = SandboxStorageGuard.get<Partial<WorkspacePrefs> | null>(SANDBOX_KEY, null);
+
+  const candidates: WorkspacePrefs[] = [];
+  if (fromMain && Object.keys(fromMain).length > 0) candidates.push(normalizePrefs(fromMain));
+  if (fromBackup && Object.keys(fromBackup).length > 0) candidates.push(normalizePrefs(fromBackup));
+  if (fromSandbox && Object.keys(fromSandbox).length > 0) candidates.push(normalizePrefs(fromSandbox));
+
+  if (candidates.length === 0) return null;
+
+  // 排序挑选 updatedAt 最大的一个
+  candidates.sort((a, b) => {
+    const ta = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+    const tb = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+    return tb - ta;
+  });
+
+  const newest = candidates[0];
+
+  // 自愈迁移：如果本地残留着历史未经用户主动确认的 88 且没有 userModified 标记，将其自愈为 100 全宽
+  if (newest && newest.contentWidthPercent === 88 && !newest.userModified) {
+    newest.contentWidthPercent = 100;
+    newest.contentWidth = 'wide';
+  }
+
+  // 自愈写回其他可能丢失或陈旧的键（静默落盘，绝不分发事件）
+  if (!fromMain || !fromBackup || !fromSandbox) {
+    safeSetStorage(LOCAL_KEY, newest);
+    safeSetStorage(LOCAL_BACKUP_KEY, newest);
+    SandboxStorageGuard.set(SANDBOX_KEY, newest);
+    cachedSnapshot = newest;
+  }
+
+  return newest;
+}
+
+/**
+ * 本地三轨即时保存（毫秒级坚实落盘，硬刷新 100% 不丢）
+ */
+export function saveLocalPrefs(prefs: WorkspacePrefs, options?: { silent?: boolean }) {
+  const normalized = normalizePrefs(prefs);
+  safeSetStorage(LOCAL_KEY, normalized);
+  safeSetStorage(LOCAL_BACKUP_KEY, normalized);
+  SandboxStorageGuard.set(SANDBOX_KEY, normalized);
+  cachedSnapshot = normalized;
+
+  if (!options?.silent && typeof window !== 'undefined') {
+    queueMicrotask(() => {
+      window.dispatchEvent(new CustomEvent('obsidian_workspace_prefs_changed', { detail: normalized }));
+    });
+  }
 }
 
 /** 深合并补丁类型（嵌套字段允许部分覆盖） */
@@ -286,8 +396,35 @@ export type WorkspacePrefsPatch = Partial<Omit<WorkspacePrefs, 'previewControl' 
   voice?: Partial<VoicePrefsSubset>;
 };
 
-/** 深合并补丁 → 本地保存 → 云端异步跟随 → 广播事件；返回合并结果与云端 Promise */
-export function mergeLocalPrefs(patch: WorkspacePrefsPatch): {
+let cloudDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * 防抖异步持久化到腾讯云（默认 300ms 防抖，保障用户连续固定/取消标签或调整滑块时不发起并发写竞争）
+ */
+export function debounceSavePrefsToCloud(prefs: WorkspacePrefs, delayMs = 300): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (cloudDebounceTimer) {
+      clearTimeout(cloudDebounceTimer);
+    }
+    cloudDebounceTimer = setTimeout(async () => {
+      cloudDebounceTimer = null;
+      try {
+        const res = await savePrefsToCloud(prefs);
+        resolve(res);
+      } catch {
+        resolve(false);
+      }
+    }, delayMs);
+  });
+}
+
+/**
+ * 深合并补丁 → 本地三轨即时落盘 → 云端异步自愈推送 (300ms防抖) → 全局广播
+ */
+export function mergeLocalPrefs(
+  patch: WorkspacePrefsPatch & { userModified?: boolean },
+  options?: { debounceMs?: number }
+): {
   merged: WorkspacePrefs;
   cloudSync: Promise<boolean>;
 } {
@@ -295,6 +432,8 @@ export function mergeLocalPrefs(patch: WorkspacePrefsPatch): {
   const next = normalizePrefs({
     ...cur,
     ...patch,
+    userModified: patch.userModified ?? true,
+    source: 'user_custom',
     previewControl: {
       masterEnabled: patch.previewControl?.masterEnabled ?? cur.previewControl.masterEnabled,
       ends: { ...cur.previewControl.ends, ...(patch.previewControl?.ends ?? {}) }
@@ -304,8 +443,14 @@ export function mergeLocalPrefs(patch: WorkspacePrefsPatch): {
     voice: patch.voice ? { ...(cur.voice ?? {}), ...patch.voice } as VoicePrefsSubset : cur.voice,
     updatedAt: new Date().toISOString()
   });
+
+  // 1. 本地即刻落盘（三道防线固化）
   saveLocalPrefs(next);
-  const cloudSync = savePrefsToCloud(next);
+
+  // 2. 异步推云端（300ms 防抖自愈推送）
+  const delay = options?.debounceMs ?? 300;
+  const cloudSync = debounceSavePrefsToCloud(next, delay);
+
   return { merged: next, cloudSync };
 }
 
@@ -320,10 +465,16 @@ export function getWorkspacePrefsSnapshot(): WorkspacePrefs {
   return cachedSnapshot;
 }
 
-export function subscribeWorkspacePrefs(cb: () => void): () => void {
+export function subscribeWorkspacePrefs(cb: (e?: CustomEvent) => void): () => void {
   if (typeof window === 'undefined') return () => {};
-  window.addEventListener('obsidian_workspace_prefs_changed', cb);
-  return () => window.removeEventListener('obsidian_workspace_prefs_changed', cb);
+  const handler = (e: Event) => {
+    // 异步排队通知订阅者，确保脱离 React 渲染阶段
+    queueMicrotask(() => {
+      cb(e as CustomEvent);
+    });
+  };
+  window.addEventListener('obsidian_workspace_prefs_changed', handler);
+  return () => window.removeEventListener('obsidian_workspace_prefs_changed', handler);
 }
 
 /** 内容宽度偏好 → main 容器类 */
@@ -341,7 +492,7 @@ export function ordersColumnsClass(pref: OrdersColumnsPref): string {
   return 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4';
 }
 
-// ---------------- 云端双向同步 ----------------
+// ---------------- 云端双向权威同步 ----------------
 
 interface UserDocShape {
   _id?: string;
@@ -350,44 +501,166 @@ interface UserDocShape {
   prefsUpdatedAt?: string;
 }
 
-function currentUid(): string | null {
+function getSyncIdentifier(): { uid: string | null; deviceId: string; truckId: string } {
   const profile = safeGetStorage<{ uid?: string }>('obsidian_user_profile', {});
-  return profile?.uid ?? null;
+  const merchantSession = getMerchantSession();
+  const truckId = merchantSession?.truckId || safeGetStorage<string>('obsidian_active_truck_id', 'truck-01');
+  let deviceId = safeGetStorage<string>('obsidian_device_id', '');
+  if (!deviceId) {
+    deviceId = `dev_${Math.random().toString(36).slice(2, 10)}`;
+    safeSetStorage('obsidian_device_id', deviceId);
+  }
+  return {
+    uid: profile?.uid ?? null,
+    deviceId,
+    truckId: truckId || 'truck-01'
+  };
 }
 
-/** 从云端拉取偏好（uid 文档的 workspacePreferences 字段） */
+/**
+ * 从云端拉取设置偏好数据，并根据云端数据的值确定本次使用的表单内容最大宽度
+ */
 export async function fetchPrefsFromCloud(): Promise<WorkspacePrefs | null> {
   try {
-    const uid = currentUid();
-    if (!uid) return null;
+    const authOk = await ensureCloudbaseAuth();
+    if (!authOk) {
+      console.warn('[TCB] fetchPrefsFromCloud: 云端会话未就绪，使用本地高保真三轨存储');
+      return loadLocalPrefs();
+    }
+
     const { db } = getCloudbaseApp();
-    if (!db) return null;
-    const res = await db.collection(TCB_COLLECTIONS.USERS).where({ uid }).limit(1).get();
-    const doc = res?.data?.[0] as UserDocShape | undefined;
-    if (!doc || !doc.workspacePreferences) return null;
-    return normalizePrefs(doc.workspacePreferences);
-  } catch {
-    return null; // 云端不可用时静默降级为本地
+    if (!db) return loadLocalPrefs();
+
+    const { uid, truckId } = getSyncIdentifier();
+    let cloudData: Partial<WorkspacePrefs> | null = null;
+    let cloudUpdatedAt: string | undefined;
+
+    // 优先 1：专有工作台偏好集合 (支持 uid、truckId 或全域首条偏好配置)
+    try {
+      const col = db.collection(TCB_COLLECTIONS.WORKSPACE_PREFS);
+      let res = await col.where(uid ? { uid } : { truckId }).limit(1).get().catch(() => null);
+      if ((!res?.data || res.data.length === 0) && uid) {
+        res = await col.where({ truckId }).limit(1).get().catch(() => null);
+      }
+      if (!res?.data || res.data.length === 0) {
+        // 如果依然没有特定关联记录，拉取该集合中任意首条全局配置
+        res = await col.limit(1).get().catch(() => null);
+      }
+      if (res?.data && res.data.length > 0) {
+        cloudData = res.data[0].workspacePreferences || res.data[0];
+        cloudUpdatedAt = res.data[0].updatedAt || res.data[0].prefsUpdatedAt;
+      }
+    } catch (e) {
+      console.warn('[TCB] fetchPrefsFromCloud 集合查询失败，尝试用户集合:', e);
+    }
+
+    // 优先 2：用户文档集合
+    if (!cloudData && uid) {
+      try {
+        const userRes = await db.collection(TCB_COLLECTIONS.USERS).where({ uid }).limit(1).get().catch(() => null);
+        const userDoc = userRes?.data?.[0] as UserDocShape | undefined;
+        if (userDoc?.workspacePreferences) {
+          cloudData = userDoc.workspacePreferences;
+          cloudUpdatedAt = userDoc.prefsUpdatedAt;
+        }
+      } catch {}
+    }
+
+    const local = loadLocalPrefs();
+
+    // 🛡️ 核心防冲掉策略：只有当本地曾被用户在此设备上显式主动调节过（userModified === true），
+    // 且本地时间切实晚于云端时间戳时，才允许本地反推覆盖云端；
+    // 否则云端配置永远作为权威数据源，绝不允许本地初始默认值冲刷云端！
+    if (local?.userModified && cloudUpdatedAt && isNewer(local.updatedAt, cloudUpdatedAt)) {
+      console.info('[TCB] 本地工作台偏好由用户主动调整且比云端更新，启动云端自愈推送...');
+      savePrefsToCloud(local).catch(() => {});
+      return local;
+    }
+
+    // 正常且权威路径：从云端获取设置偏好数据，根据云端数据的值来确定本次表单内容最大宽度！
+    if (cloudData && Object.keys(cloudData).length > 0) {
+      const normalizedCloud = normalizePrefs({
+        ...cloudData,
+        source: 'cloud',
+        userModified: false,
+        updatedAt: cloudUpdatedAt || cloudData.updatedAt || new Date().toISOString()
+      });
+      console.info(`[TCB] 权威生效：已从云端获取设置偏好数据，表单内容最大宽度设定为视口 ${normalizedCloud.contentWidthPercent}%`);
+      // 云端权威覆盖本地并向全站广播
+      saveLocalPrefs(normalizedCloud);
+      return normalizedCloud;
+    }
+
+    // 若云端尚无任何记录（首次初始化），将标准配置（100%全宽铺满）写入云端，避免后续落空
+    const initialCloud = {
+      ...DEFAULT_WORKSPACE_PREFS,
+      source: 'cloud' as const,
+      updatedAt: new Date().toISOString()
+    };
+    savePrefsToCloud(initialCloud).catch(() => {});
+    return initialCloud;
+  } catch (err) {
+    console.warn('[TCB] fetchPrefsFromCloud 异常，平滑降级为本地:', err);
+    return loadLocalPrefs();
   }
 }
 
-/** 写云端（upsert：无文档则创建轻量偏好档案） */
+/**
+ * 写云端（双集合落地：专属集合 + 用户文档）
+ */
 export async function savePrefsToCloud(prefs: WorkspacePrefs): Promise<boolean> {
   try {
-    const uid = currentUid();
-    if (!uid) return false;
+    const authOk = await ensureCloudbaseAuth();
+    if (!authOk) return false;
+
     const { db } = getCloudbaseApp();
     if (!db) return false;
-    const col = db.collection(TCB_COLLECTIONS.USERS);
-    const res = await col.where({ uid }).limit(1).get();
-    if (res?.data?.length > 0) {
-      const docId = res.data[0]._id;
-      await col.doc(docId).update({ workspacePreferences: prefs, prefsUpdatedAt: prefs.updatedAt });
-    } else {
-      await col.add({ uid, workspacePreferences: prefs, prefsUpdatedAt: prefs.updatedAt });
+
+    const { uid, truckId, deviceId } = getSyncIdentifier();
+    const primaryKey = uid ? { uid } : { truckId };
+    const payload = {
+      ...primaryKey,
+      deviceId,
+      truckId,
+      workspacePreferences: prefs,
+      prefsUpdatedAt: prefs.updatedAt || new Date().toISOString(),
+      updatedAt: prefs.updatedAt || new Date().toISOString()
+    };
+
+    let saved = false;
+
+    // 1. 写入专属配置集合
+    try {
+      const col = db.collection(TCB_COLLECTIONS.WORKSPACE_PREFS);
+      const res = await col.where(primaryKey).limit(1).get();
+      if (res?.data?.length > 0) {
+        await col.doc(res.data[0]._id).update(payload);
+      } else {
+        await col.add(payload);
+      }
+      saved = true;
+    } catch {
+      // 降级继续写用户集合
     }
-    return true;
-  } catch {
+
+    // 2. 如果存在 uid，同步写入用户档案
+    if (uid) {
+      try {
+        const uCol = db.collection(TCB_COLLECTIONS.USERS);
+        const uRes = await uCol.where({ uid }).limit(1).get();
+        if (uRes?.data?.length > 0) {
+          await uCol.doc(uRes.data[0]._id).update({
+            workspacePreferences: prefs,
+            prefsUpdatedAt: prefs.updatedAt
+          });
+          saved = true;
+        }
+      } catch {}
+    }
+
+    return saved;
+  } catch (err) {
+    console.warn('[TCB] savePrefsToCloud 异常:', err);
     return false;
   }
 }

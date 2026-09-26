@@ -1252,6 +1252,15 @@ export function updateParticipantCart(params: {
         p.participantId === participantId ? updated : p
       )
     });
+
+    reactiveSyncBus.publish('TABLE_SESSION_MUTATED', {
+      sessionId,
+      tableCode: session.tableCode,
+      change: 'cart_updated',
+      participantId,
+      at: nowIso()
+    });
+
     return ok('购物车摘要已更新', updated);
   });
 }

@@ -24,7 +24,12 @@ import {
   ShoppingBag
 } from 'lucide-react';
 import { DishItem, Order } from '../types';
-import { getTruckExpandConfig, saveTruckExpandConfig, TruckExpandConfig } from '../utils/truckExpandSettings';
+import {
+  getTruckExpandConfig,
+  saveTruckExpandConfig,
+  TruckExpandConfig,
+  openTruckExpandSettings
+} from '../utils/truckExpandSettings';
 import { resolveOrderChannelType } from '../utils/orderNormalizer';
 
 interface MerchantPortalModalProps {
@@ -296,7 +301,7 @@ export const MerchantPortalModal: React.FC<MerchantPortalModalProps> = ({
                       {/* Left Order Info */}
                       <div className="min-w-0 flex-1 space-y-1.5">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-xs font-mono font-bold bg-[#f4f4f2] text-black px-1.5 py-0.2 rounded border border-[#e2e3e1]">
+                          <span className="text-xs tabular-nums font-bold bg-[#f4f4f2] text-black px-1.5 py-0.2 rounded border border-[#e2e3e1]">
                             {order.orderNo}
                           </span>
                           
@@ -805,6 +810,25 @@ export const MerchantPortalModal: React.FC<MerchantPortalModalProps> = ({
                     <div className="text-[10px] text-neutral-500 mt-0.5 font-normal">
                       不自动弹出，顾客点按展开
                     </div>
+                  </button>
+                </div>
+
+                {/* Direct Jump to Advanced Console */}
+                <div className="pt-2 border-t border-dashed border-neutral-200 flex items-center justify-between">
+                  <div className="text-[11px] text-neutral-500">
+                    需要高精时间轴微调、前台即时仿真器或腾讯云备份？
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      openTruckExpandSettings();
+                    }}
+                    className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  >
+                    <Sliders className="w-3.5 h-3.5 text-amber-400" />
+                    <span>进入高级控制台</span>
+                    <ArrowRight className="w-3 h-3" />
                   </button>
                 </div>
               </div>

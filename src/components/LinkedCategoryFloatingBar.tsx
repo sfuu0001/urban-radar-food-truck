@@ -112,12 +112,12 @@ export const LinkedCategoryFloatingBar: React.FC<LinkedCategoryFloatingBarProps>
                   <span className="text-[11px] sm:text-xs font-black tracking-tight text-white whitespace-nowrap">
                     {currentConfig.name}
                   </span>
-                  <span className="text-[9px] font-mono text-amber-400 bg-amber-400/15 px-1 rounded border border-amber-400/30 leading-none">
+                  <span className="text-[9px] tabular-nums text-amber-400 bg-amber-400/15 px-1 rounded border border-amber-400/30 leading-none">
                     {currentIndex + 1}/{categories.length}
                   </span>
                 </div>
                 {count > 0 && (
-                  <span className="text-[8.5px] text-neutral-400 font-mono leading-none">
+                  <span className="text-[8.5px] text-neutral-400 tabular-nums leading-none">
                     {count}款精选
                   </span>
                 )}

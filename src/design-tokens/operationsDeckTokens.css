@@ -37,9 +37,9 @@
   --deck-status-danger-border: rgba(220, 38, 38, 0.4);
 
   /* Typography */
-  --deck-font-heading: 'Space Grotesk', system-ui, -apple-system, sans-serif;
-  --deck-font-body: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --deck-font-mono: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+  --deck-font-heading: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --deck-font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --deck-font-mono: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;
 
   /* Border Radii */
   --deck-radius-sharp: 1px;

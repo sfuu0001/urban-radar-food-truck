@@ -266,7 +266,7 @@ export function generateArtisanSvgBlueprint(params: {
       <!-- 8. 工匠温控探针 (Thermal Core Sensor Pin) -->
       <line x1="160" y1="16" x2="160" y2="${isTriple ? '154' : isDouble ? '136' : '110'}" stroke="${strokeRed}" stroke-width="1.6" stroke-dasharray="4 2" />
       <circle cx="160" cy="${isTriple ? '154' : isDouble ? '136' : '110'}" r="3.5" fill="${strokeRed}" />
-      <text x="166" y="24" fill="${strokeRed}" font-family="monospace" font-size="7.5" font-weight="bold">CORE: ${coreTemp}</text>
+      <text x="166" y="24" fill="${strokeRed}" font-family="'Space Grotesk', sans-serif" font-size="7.5" font-weight="bold">CORE: ${coreTemp}</text>
     `;
   } else if (sType.includes('skewer') || category === 'skewers' || category === 'yakitori') {
     pathsSvg = `
@@ -424,7 +424,7 @@ export function generateArtisanSvgBlueprint(params: {
       <!-- 6. 慢熬温控指针 (Simmer Thermal Pin) -->
       <line x1="265" y1="35" x2="210" y2="92" stroke="${strokeRed}" stroke-width="1.5" stroke-dasharray="4 2" />
       <circle cx="210" cy="92" r="3" fill="${strokeRed}" />
-      <text x="238" y="32" fill="${strokeRed}" font-family="monospace" font-size="7.5" font-weight="bold">SLOW SIMMER: ${coreTemp}</text>
+      <text x="238" y="32" fill="${strokeRed}" font-family="'Space Grotesk', sans-serif" font-size="7.5" font-weight="bold">SLOW SIMMER: ${coreTemp}</text>
     `;
   } else if (sType.includes('spice') || sType.includes('spiciness') || sType.includes('chili') || sType.includes('pepper')) {
     pathsSvg = `
@@ -457,7 +457,7 @@ export function generateArtisanSvgBlueprint(params: {
       <line x1="225" y1="150" x2="235" y2="150" stroke="${strokeMain}" stroke-width="1" />
       <line x1="225" y1="165" x2="235" y2="165" stroke="${strokeMain}" stroke-width="1" />
       <line x1="225" y1="180" x2="235" y2="180" stroke="${strokeMain}" stroke-width="1" />
-      <text x="240" y="158" fill="${strokeRed}" font-family="monospace" font-size="7" font-weight="bold">CAPSAICIN / ${specRatio}</text>
+      <text x="240" y="158" fill="${strokeRed}" font-family="'Space Grotesk', sans-serif" font-size="7" font-weight="bold">CAPSAICIN / ${specRatio}</text>
     `;
   } else if (sType.includes('salad') || sType.includes('vegetable') || sType.includes('greens')) {
     pathsSvg = `
@@ -477,7 +477,7 @@ export function generateArtisanSvgBlueprint(params: {
       <circle cx="175" cy="115" r="3" stroke="${strokeAccent}" stroke-width="1.2" fill="none" />
       <circle cx="195" cy="130" r="2.5" stroke="${strokeAccent}" stroke-width="1.2" fill="none" />
       <circle cx="150" cy="138" r="2" stroke="${strokeWarm}" stroke-width="1" fill="none" />
-      <text x="210" y="48" fill="${strokeAccent}" font-family="monospace" font-size="7.5" font-weight="bold">CHILLED: 4°C</text>
+      <text x="210" y="48" fill="${strokeAccent}" font-family="'Space Grotesk', sans-serif" font-size="7.5" font-weight="bold">CHILLED: 4°C</text>
     `;
   } else {
     // 默认高规格主厨餐盘分解图
@@ -527,10 +527,10 @@ export function generateArtisanSvgBlueprint(params: {
       <!-- 顶部 HUD 状态栏 (中文在前，英文在后) -->
       <g>
         <rect x="10" y="8" width="156" height="16" fill="${isBlueprint ? '#07243E' : '#E8E7DF'}" stroke="${strokeMain}" stroke-width="0.8" />
-        <text x="15" y="19.5" fill="${strokeMain}" font-family="monospace" font-size="8.5" font-weight="bold">${artisanCode} · ${isBlueprint ? '工匠蓝图 CAD' : '手绘素描 SKETCH'}</text>
+        <text x="15" y="19.5" fill="${strokeMain}" font-family="'Space Grotesk', sans-serif" font-size="8.5" font-weight="bold">${artisanCode} · ${isBlueprint ? '工匠蓝图 CAD' : '手绘素描 SKETCH'}</text>
 
         <rect x="230" y="8" width="80" height="16" fill="${isBlueprint ? '#07243E' : '#E8E7DF'}" stroke="${strokeAccent}" stroke-width="0.8" />
-        <text x="236" y="19.5" fill="${strokeAccent}" font-family="monospace" font-size="8.5" font-weight="bold">温控: ${coreTemp}</text>
+        <text x="236" y="19.5" fill="${strokeAccent}" font-family="'Space Grotesk', sans-serif" font-size="8.5" font-weight="bold">温控: ${coreTemp}</text>
       </g>
 
       <!-- 核心写实矢量图元 -->
@@ -545,13 +545,13 @@ export function generateArtisanSvgBlueprint(params: {
         <line x1="295" y1="183" x2="295" y2="193" stroke="${strokeMain}" stroke-width="1" />
         <line x1="160" y1="185" x2="160" y2="191" stroke="${strokeMain}" stroke-width="1" />
         <rect x="110" y="181" width="100" height="12" fill="${bgColor}" />
-        <text x="160" y="189.5" fill="${strokeMain}" font-family="monospace" font-size="7.5" font-weight="bold" text-anchor="middle">配比: ${specRatio}</text>
+        <text x="160" y="189.5" fill="${strokeMain}" font-family="'Space Grotesk', sans-serif" font-size="7.5" font-weight="bold" text-anchor="middle">配比: ${specRatio}</text>
       </g>
 
       <!-- 菜品水印与工艺签名 (中文在前，英文在后) -->
       <g>
         <text x="14" y="162" fill="${isBlueprint ? '#FFFFFF' : '#1A1C1B'}" opacity="0.95" font-family="sans-serif" font-size="11" font-weight="bold">${titleZh}</text>
-        <text x="14" y="174" fill="${textMuted}" font-family="monospace" font-size="8" font-weight="bold" text-transform="uppercase">${titleEn}</text>
+        <text x="14" y="174" fill="${textMuted}" font-family="'Space Grotesk', sans-serif" font-size="8" font-weight="bold" text-transform="uppercase">${titleEn}</text>
       </g>
 
       <!-- 右下角激光准星 HUD -->
@@ -559,7 +559,7 @@ export function generateArtisanSvgBlueprint(params: {
         <circle cx="0" cy="0" r="7" stroke="${strokeMain}" stroke-width="0.8" fill="none" />
         <line x1="0" y1="-10" x2="0" y2="10" stroke="${strokeMain}" stroke-width="0.8" />
         <line x1="-10" y1="0" x2="10" y2="0" stroke="${strokeMain}" stroke-width="0.8" />
-        <text x="0" y="14" fill="${strokeMain}" font-family="monospace" font-size="6" text-anchor="middle">${isBlueprint ? '1:1 CAD' : 'SKETCH'}</text>
+        <text x="0" y="14" fill="${strokeMain}" font-family="'Space Grotesk', sans-serif" font-size="6" text-anchor="middle">${isBlueprint ? '1:1 CAD' : 'SKETCH'}</text>
       </g>
     </svg>
   `;
@@ -728,9 +728,9 @@ export function convertPhotoToBlueprintCanvas(
         ctx.strokeRect(10, 10, width - 20, height - 20);
 
         ctx.fillStyle = '#00d4ff';
-        ctx.font = 'bold 12px monospace';
+        ctx.font = 'bold 12px "Space Grotesk", sans-serif';
         ctx.fillText('REALISTIC BLUEPRINT / 智能实物工匠蓝图', 24, 32);
-        ctx.font = '10px monospace';
+        ctx.font = '10px "Space Grotesk", sans-serif';
         ctx.fillText('CALIBRATED COLOR-DODGE SKETCH · 1:1 GEOMETRY', 24, 48);
 
         // 底部标尺
@@ -739,7 +739,7 @@ export function convertPhotoToBlueprintCanvas(
         ctx.moveTo(24, height - 24);
         ctx.lineTo(width - 24, height - 24);
         ctx.stroke();
-        ctx.font = '10px monospace';
+        ctx.font = '10px "Space Grotesk", sans-serif';
         ctx.fillText('TOLERANCE ±0.05mm · RATIO 7:3', width / 2 - 80, height - 28);
       } else {
         // 铅笔素描 HUD
@@ -750,7 +750,7 @@ export function convertPhotoToBlueprintCanvas(
         ctx.fillStyle = '#222220';
         ctx.font = 'bold 12px serif';
         ctx.fillText('ARTISAN PENCIL SKETCH / 工匠艺术手绘素描', 24, 34);
-        ctx.font = '10px monospace';
+        ctx.font = '10px "Space Grotesk", sans-serif';
         ctx.fillText('HAND-CRAFTED MARBLING & PROFILE', 24, 50);
       }
       ctx.restore();

@@ -191,7 +191,7 @@ export const CategoryBrandModal: React.FC<CategoryBrandModalProps> = ({
                 <span>{config.badgeText || '✨ 招牌推荐'}</span>
               </span>
               {countdown > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[10.5px] font-mono text-white/90 border border-white/20 flex items-center gap-1">
+                <span className="px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[10.5px] tabular-nums text-white/90 border border-white/20 flex items-center gap-1">
                   <Clock className="w-3 h-3 text-amber-400" />
                   <span>{countdown}s后自动关闭</span>
                 </span>

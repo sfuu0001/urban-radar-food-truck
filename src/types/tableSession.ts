@@ -56,10 +56,18 @@ export interface ParticipantLastNode {
   at?: string;
 }
 
+export interface ParticipantCartItem {
+  dishId: string;
+  dishName: string;
+  quantity: number;
+  price?: number;
+}
+
 export interface ParticipantCartSummary {
   itemCount: number;
   totalAmount: number;
   updatedAt: string;
+  items?: ParticipantCartItem[];
 }
 
 export interface DiningParticipant {

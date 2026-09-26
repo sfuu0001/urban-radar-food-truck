@@ -213,7 +213,7 @@ export const RiderPortalModal: React.FC<RiderPortalModalProps> = ({
                     {/* Header line */}
                     <div className="flex items-center justify-between flex-wrap gap-1.5">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-mono font-black bg-emerald-50 text-emerald-900 px-2 py-0.5 rounded-md border border-emerald-200">
+                        <span className="text-xs tabular-nums font-black bg-emerald-50 text-emerald-900 px-2 py-0.5 rounded-md border border-emerald-200">
                           {order.orderNo}
                         </span>
                         <span className="text-[11px] font-bold bg-emerald-600 text-white px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -319,7 +319,7 @@ export const RiderPortalModal: React.FC<RiderPortalModalProps> = ({
                   >
                     <div className="space-y-0.5 min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-mono font-bold bg-amber-50 text-amber-900 border border-amber-200 px-1.5 py-0.2 rounded">
+                        <span className="text-xs tabular-nums font-bold bg-amber-50 text-amber-900 border border-amber-200 px-1.5 py-0.2 rounded">
                           {order.orderNo}
                         </span>
                         <span className="text-[11px] font-bold text-[#474741]">

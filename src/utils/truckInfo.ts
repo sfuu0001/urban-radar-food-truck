@@ -15,7 +15,12 @@ import { INITIAL_TRUCK_INFO } from '../data/mockData';
 const TRUCK_INFO_KEY = 'obsidian_truck_info';
 
 export function getTruckInfo(): TruckInfo {
-  return safeGetStorage<TruckInfo>(TRUCK_INFO_KEY, INITIAL_TRUCK_INFO);
+  const info = safeGetStorage<TruckInfo>(TRUCK_INFO_KEY, INITIAL_TRUCK_INFO);
+  if (!info.latitude || !info.longitude) {
+    info.latitude = INITIAL_TRUCK_INFO.latitude ?? 31.2435;
+    info.longitude = INITIAL_TRUCK_INFO.longitude ?? 121.4690;
+  }
+  return info;
 }
 
 export function saveTruckInfo(truck: TruckInfo): void {

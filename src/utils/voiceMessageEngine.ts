@@ -90,7 +90,11 @@ class VoiceMessageEngine {
               this.pcmChunks.push(pcmCopy);
             };
             source.connect(this.scriptProcessor);
-            this.scriptProcessor.connect(this.audioContext.destination);
+            // 静音节点隔离：防止麦克风声音反馈到扬声器引发啸叫
+            const muteGain = this.audioContext.createGain();
+            muteGain.gain.setValueAtTime(0, this.audioContext.currentTime);
+            this.scriptProcessor.connect(muteGain);
+            muteGain.connect(this.audioContext.destination);
           } catch {
             // ScriptProcessor optional fallback
           }
@@ -328,17 +332,27 @@ class VoiceMessageEngine {
   }
 
   /**
-   * 播放真实录制语音消息 (直接播放真声 Audio 数据)
+   * 播放真实录制语音消息 (直接播放真声 Audio 数据并支持实时播放进度与字级追踪)
    */
   public playVoice(
     audioUrlOrBase64?: string,
     transcriptText?: string,
     duration: number = 3,
-    onEnded?: () => void
+    onEnded?: () => void,
+    playbackRate: number = 1.0,
+    onProgress?: (progress: number, currentTime: number, totalDuration: number) => void
   ): { stop: () => void } {
     this.stopCurrentPlaying();
 
     let stopped = false;
+    let progressTimer: any = null;
+
+    const stopProgressTimer = () => {
+      if (progressTimer) {
+        clearInterval(progressTimer);
+        progressTimer = null;
+      }
+    };
 
     // 1. 如果有真实录制的声音（Base64 或 Blob URL）
     if (
@@ -351,10 +365,30 @@ class VoiceMessageEngine {
         const audio = new Audio();
         audio.src = audioUrlOrBase64;
         audio.volume = 1.0;
+        audio.playbackRate = playbackRate;
         this.currentPlayingAudio = audio;
+
+        const effectiveDuration = duration > 0 ? duration : 3;
+
+        // 启动高频平滑进度轮询 (每 40ms 一次，支持字级高亮与拟真频谱)
+        progressTimer = setInterval(() => {
+          if (stopped) return;
+          const curTime = audio.currentTime || 0;
+          const actualDur = audio.duration && !isNaN(audio.duration) && audio.duration > 0
+            ? audio.duration
+            : effectiveDuration;
+          const prog = Math.min(1, Math.max(0, curTime / actualDur));
+          if (onProgress) {
+            onProgress(prog, curTime, actualDur);
+          }
+        }, 40);
 
         audio.onended = () => {
           if (!stopped) {
+            stopProgressTimer();
+            if (onProgress) {
+              onProgress(1.0, audio.duration || effectiveDuration, audio.duration || effectiveDuration);
+            }
             this.currentPlayingAudio = null;
             if (onEnded) onEnded();
           }
@@ -362,8 +396,9 @@ class VoiceMessageEngine {
 
         audio.onerror = (e) => {
           console.warn('[VoiceEngine] Audio 播放失败，尝试声学生成:', e);
+          stopProgressTimer();
           if (!stopped) {
-            this.playSynthesizedTone(duration, transcriptText, onEnded);
+            this.playSynthesizedTone(duration, transcriptText, onEnded, onProgress);
           }
         };
 
@@ -371,9 +406,10 @@ class VoiceMessageEngine {
         if (playPromise !== undefined) {
           playPromise.catch((err) => {
             console.warn('[VoiceEngine] 自动播放受阻:', err);
+            stopProgressTimer();
             // 遇到浏览权限拦截时声学兼容播放
             if (!stopped) {
-              this.playSynthesizedTone(duration, transcriptText, onEnded);
+              this.playSynthesizedTone(duration, transcriptText, onEnded, onProgress);
             }
           });
         }
@@ -381,6 +417,7 @@ class VoiceMessageEngine {
         return {
           stop: () => {
             stopped = true;
+            stopProgressTimer();
             try {
               audio.pause();
               audio.currentTime = 0;
@@ -392,11 +429,12 @@ class VoiceMessageEngine {
         };
       } catch (err) {
         console.warn('[VoiceEngine] 初始化 Audio 失败:', err);
+        stopProgressTimer();
       }
     }
 
-    // 2. 仅当完全没有音频流时才采用蜂鸣音效
-    return this.playSynthesizedTone(duration, transcriptText, onEnded);
+    // 2. 仅当完全没有音频流时才采用蜂鸣音效与语音合成
+    return this.playSynthesizedTone(duration, transcriptText, onEnded, onProgress);
   }
 
   /**
@@ -423,14 +461,16 @@ class VoiceMessageEngine {
   }
 
   /**
-   * 内部：使用 Web Audio API 产生对讲提示音效
+   * 内部：使用 Web Audio API 产生对讲提示音效，并配合 SpeechSynthesis 发音与平滑逐字推进
    */
   private playSynthesizedTone(
     duration: number,
     text?: string,
-    onEnded?: () => void
+    onEnded?: () => void,
+    onProgress?: (progress: number, currentTime: number, totalDuration: number) => void
   ): { stop: () => void } {
     let stopped = false;
+    let progressTimer: any = null;
     const AudioCtx = typeof window !== 'undefined' ? window.AudioContext || (window as any).webkitAudioContext : null;
 
     if (AudioCtx) {
@@ -456,15 +496,68 @@ class VoiceMessageEngine {
       }
     }
 
-    // 倒计时结束回调
+    const cleanText = text
+      ? text.replace(/^【.*?】：?/, '').replace(/^语音转文字：/, '').trim()
+      : '';
+    // 根据字数动态计算合理的自然语速时长 (汉字约每字 0.22 秒，最少 2 秒)
+    const naturalDuration = cleanText
+      ? Math.max(duration || 3, Math.round(cleanText.length * 0.24 * 10) / 10)
+      : Math.max(2, duration || 3);
+    const startTime = Date.now();
+
+    // 启动高精度进度轮询，驱动字级跟随
+    progressTimer = setInterval(() => {
+      if (stopped) return;
+      const elapsed = (Date.now() - startTime) / 1000;
+      const prog = Math.min(1.0, elapsed / naturalDuration);
+      if (onProgress) {
+        onProgress(prog, elapsed, naturalDuration);
+      }
+    }, 40);
+
+    // 若有转写文本且浏览器支持语音合成，朗读转写内容实现真正发声
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window && cleanText) {
+      try {
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        utterance.lang = 'zh-CN';
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        utterance.onend = () => {
+          if (!stopped) {
+            if (progressTimer) clearInterval(progressTimer);
+            if (onProgress) onProgress(1.0, naturalDuration, naturalDuration);
+            clearTimeout(timer);
+            if (onEnded) onEnded();
+          }
+        };
+        utterance.onerror = () => {
+          // fallback to timer
+        };
+        window.speechSynthesis.speak(utterance);
+      } catch {
+        // ignore
+      }
+    }
+
+    // 倒计时结束回调保底
     const timer = setTimeout(() => {
-      if (!stopped && onEnded) onEnded();
-    }, Math.max(1500, duration * 1000));
+      if (!stopped) {
+        if (progressTimer) clearInterval(progressTimer);
+        if (onProgress) onProgress(1.0, naturalDuration, naturalDuration);
+        if (onEnded) onEnded();
+      }
+    }, Math.max(1500, naturalDuration * 1000));
 
     return {
       stop: () => {
         stopped = true;
+        if (progressTimer) clearInterval(progressTimer);
         clearTimeout(timer);
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+          try {
+            window.speechSynthesis.cancel();
+          } catch {}
+        }
       }
     };
   }

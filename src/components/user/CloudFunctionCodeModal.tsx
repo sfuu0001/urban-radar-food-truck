@@ -111,7 +111,7 @@ export const CloudFunctionCodeModal: React.FC<CloudFunctionCodeModalProps> = ({
           <div className="p-3 bg-neutral-50 rounded-2xl border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-mono font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                <span className="font-sans font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                   {currentTemplate.name}
                 </span>
                 <span className="font-bold text-black">{currentTemplate.description}</span>
@@ -152,7 +152,7 @@ export const CloudFunctionCodeModal: React.FC<CloudFunctionCodeModalProps> = ({
           </div>
 
           {/* Code Viewer: index.js */}
-          <div className="rounded-2xl border border-neutral-800 bg-[#121314] overflow-hidden text-white font-mono text-xs">
+          <div className="rounded-2xl border border-neutral-800 bg-[#121314] overflow-hidden text-white font-sans text-xs">
             <div className="px-3 py-2 bg-neutral-900 border-b border-neutral-800 flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-neutral-400 text-[11px]">
                 <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80" />
@@ -169,7 +169,7 @@ export const CloudFunctionCodeModal: React.FC<CloudFunctionCodeModalProps> = ({
                 <span>复制 index.js</span>
               </button>
             </div>
-            <pre className="p-3.5 overflow-x-auto text-[11px] leading-relaxed text-emerald-300/90 font-mono select-text">
+            <pre className="p-3.5 overflow-x-auto text-[11px] leading-relaxed text-emerald-300/90 font-sans select-text">
               {currentTemplate.indexJs}
             </pre>
           </div>
@@ -182,8 +182,8 @@ export const CloudFunctionCodeModal: React.FC<CloudFunctionCodeModalProps> = ({
             </div>
             <ol className="list-decimal list-inside space-y-1 text-[11px] text-sky-900 pl-1">
               <li>打开腾讯云控制台 - 进入对应「云开发 CloudBase 环境」</li>
-              <li>点击左侧菜单「云函数」- 点击「新建云函数」- 名称输入 <span className="font-mono font-bold bg-white px-1 py-0.2 rounded">{currentTemplate.name}</span></li>
-              <li>将上方代码粘贴进 <span className="font-mono bg-white px-1 py-0.2 rounded">index.js</span> 并点击「保存并部署」即可立即生效！</li>
+              <li>点击左侧菜单「云函数」- 点击「新建云函数」- 名称输入 <span className="font-sans font-bold bg-white px-1 py-0.2 rounded">{currentTemplate.name}</span></li>
+              <li>将上方代码粘贴进 <span className="font-sans bg-white px-1 py-0.2 rounded">index.js</span> 并点击「保存并部署」即可立即生效！</li>
             </ol>
           </div>
         </div>

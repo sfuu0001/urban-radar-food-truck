@@ -1,6 +1,6 @@
 {
   "name": "Urban Radar 流动餐车",
-  "description": "Urban Radar 流动餐车 GPS 极速专送平台 - 总部分级权限、组件功能授权分流与高德地图闭环运力调度中枢",
+  "description": "流动餐车 GPS 极速专送平台与黑曜石协同中枢，配备版本自愈清理与腾讯云端实时拉取数据引擎",
   "requestFramePermissions": [
     "microphone",
     "camera",

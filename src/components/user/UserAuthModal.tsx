@@ -494,7 +494,7 @@ export const UserAuthModal: React.FC<UserAuthModalProps> = ({
                     ? '注册新食客账号'
                     : '黑曜石会员登录 / 注册'}
                 </h3>
-                <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-mono px-1.5 py-0.2 rounded border border-emerald-500/30">
+                <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-sans px-1.5 py-0.2 rounded border border-emerald-500/30">
                   UR-AUTH
                 </span>
               </div>
@@ -608,7 +608,7 @@ export const UserAuthModal: React.FC<UserAuthModalProps> = ({
                   手机号码 (Phone Number)
                 </label>
                 <div className="relative flex items-center">
-                  <span className="absolute left-3 text-xs font-bold text-neutral-500 font-mono">
+                  <span className="absolute left-3 text-xs font-bold text-neutral-500 font-sans">
                     +86
                   </span>
                   <input
@@ -616,7 +616,7 @@ export const UserAuthModal: React.FC<UserAuthModalProps> = ({
                     value={smsPhone}
                     onChange={(e) => setSmsPhone(e.target.value)}
                     placeholder="请输入11位手机号码"
-                    className="w-full pl-12 pr-3 py-2.5 rounded-xl bg-neutral-50 border border-neutral-200 focus:border-black focus:bg-white text-xs font-mono font-bold text-neutral-900 outline-none transition-all"
+                    className="w-full pl-12 pr-3 py-2.5 rounded-xl bg-neutral-50 border border-neutral-200 focus:border-black focus:bg-white text-xs font-sans font-bold text-neutral-900 outline-none transition-all"
                   />
                 </div>
               </div>
@@ -633,7 +633,7 @@ export const UserAuthModal: React.FC<UserAuthModalProps> = ({
                     value={smsCode}
                     onChange={(e) => setSmsCode(e.target.value)}
                     placeholder="6位数字验证码"
-                    className="flex-1 px-3 py-2.5 rounded-xl bg-neutral-50 border border-neutral-200 focus:border-black focus:bg-white text-xs font-mono font-bold text-neutral-900 outline-none tracking-widest transition-all"
+                    className="flex-1 px-3 py-2.5 rounded-xl bg-neutral-50 border border-neutral-200 focus:border-black focus:bg-white text-xs font-sans font-bold text-neutral-900 outline-none tracking-widest transition-all"
                   />
                   <button
                     type="button"
@@ -861,12 +861,12 @@ export const UserAuthModal: React.FC<UserAuthModalProps> = ({
                     <Fingerprint className="w-5 h-5 text-emerald-400" />
                     <span className="text-xs font-black tracking-tight">当前设备硬件特征已就绪</span>
                   </div>
-                  <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-mono px-1.5 py-0.5 rounded">
+                  <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-sans px-1.5 py-0.5 rounded">
                     高熵 99.8%
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-[10.5px] text-neutral-300 font-mono bg-white/5 p-2 rounded-xl border border-white/5">
+                <div className="grid grid-cols-2 gap-2 text-[10.5px] text-neutral-300 font-sans bg-white/5 p-2 rounded-xl border border-white/5">
                   <div>
                     <span className="text-neutral-400 block text-[9.5px]">硬件指纹码:</span>
                     <span className="text-emerald-400 font-bold">
@@ -932,14 +932,14 @@ export const UserAuthModal: React.FC<UserAuthModalProps> = ({
                         <div className="text-xs font-black text-black group-hover:text-emerald-700 transition-colors">
                           {preset.label}
                         </div>
-                        <div className="text-[10px] text-neutral-500 font-mono mt-0.5">
+                        <div className="text-[10px] text-neutral-500 font-sans mt-0.5">
                           {preset.profile.phone} · UID:{preset.profile.uid.slice(-6)}
                         </div>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] bg-neutral-900 text-emerald-400 font-bold px-2 py-0.5 rounded-full font-mono">
+                      <span className="text-[10px] bg-neutral-900 text-emerald-400 font-bold px-2 py-0.5 rounded-full font-sans">
                         {preset.tag}
                       </span>
                       <ArrowRight className="w-3.5 h-3.5 text-neutral-400 group-hover:translate-x-0.5 transition-transform" />

@@ -52,6 +52,7 @@ import {
 } from '../../types/payment';
 import { safeGetStorage, safeSetStorage } from '../../utils/safeStorage';
 import { DateRangeFilter } from '../common/DateRangeFilter';
+import { HeatmapGridMatrix, HeatmapDataPoint } from '../common/HeatmapGridMatrix';
 import {
   DateFilterState,
   resolveDateRange,
@@ -105,6 +106,35 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
     () => ledgerItems.filter((item) => isWithinRange(new Date(item.paidAt || 0).getTime(), dateRange)),
     [ledgerItems, dateRange]
   );
+
+  // 全渠道资金结算与打卡热力矩阵数据源
+  const paymentHeatmapData: HeatmapDataPoint[] = useMemo(() => {
+    const map = new Map<string, { total: number; count: number; stuck: number }>();
+    ledgerItems.forEach((item) => {
+      const dStr = new Date(item.paidAt || 0).toISOString().slice(0, 10);
+      const cur = map.get(dStr) || { total: 0, count: 0, stuck: 0 };
+      cur.total += item.amount || 0;
+      cur.count += 1;
+      if (item.status === 'PENDING_REPLAY') cur.stuck += 1;
+      map.set(dStr, cur);
+    });
+
+    const list: HeatmapDataPoint[] = [];
+    map.forEach((val, dStr) => {
+      list.push({
+        date: dStr,
+        value: Math.round(val.total),
+        title: `¥${val.total.toFixed(2)} · ${val.count}笔入账`,
+        extraNote: val.stuck > 0 ? `${val.stuck}笔离线待重放` : '全部T+0平账',
+        metrics: [
+          { label: '通道收款', value: `¥${val.total.toFixed(2)}` },
+          { label: '入账笔数', value: `${val.count} 笔` }
+        ],
+        status: val.stuck > 0 ? 'warning' : 'success'
+      });
+    });
+    return list;
+  }, [ledgerItems]);
   // 收款概览指标：从台账按所选区间真实聚合（替代原硬编码演示值）
   // 数据治理（店长专属）：台账行级更正 / 软删除入回收站
   const ledgerGate = usePermissionGate('finance:data_correct');
@@ -386,6 +416,27 @@ export const MerchantPaymentChannels: React.FC<MerchantPaymentChannelsProps> = (
             </button>
           </div>
         </div>
+
+        {/* 全渠道入账心跳打卡热力矩阵 */}
+        <HeatmapGridMatrix
+          id="payment-channels-heatmap"
+          title="全渠道资金结算与联机打卡热力"
+          subtitle="透视微信/支付宝/银联POS/数币每日入账实收与通道健康度，点击格子可下钻过滤该日防伪凭证流水"
+          theme="emerald"
+          daysCount={42}
+          data={paymentHeatmapData}
+          metricUnit="元"
+          selectedDate={dateFilter.preset === 'custom' && dateFilter.customStart ? dateFilter.customStart.slice(0, 10) : null}
+          onSelectDate={(dStr) => {
+            setDateFilter({
+              preset: 'custom',
+              customStart: `${dStr}T00:00`,
+              customEnd: `${dStr}T23:59`
+            });
+            showToast(`已下钻筛选 ${dStr} 的全渠道收款流水台账`);
+          }}
+          legendLabels={['无入账', '微量 <500', '常规 <1500', '通畅 <3000', '高峰 >3000']}
+        />
 
         {/* 时间区间筛选 + 真实聚合指标（数据源：防伪凭证总账 paidAt 入账时间） */}
         <div className="pt-0.5 pb-1 flex items-center justify-between gap-2 flex-wrap">

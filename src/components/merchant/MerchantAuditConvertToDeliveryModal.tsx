@@ -110,7 +110,7 @@ export const MerchantAuditConvertToDeliveryModal: React.FC<MerchantAuditConvertT
           <div className="p-3 bg-[#f7f7f5] rounded-[3px] border border-[#e6e6e4] space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="font-mono font-bold text-xs bg-[#37352f] text-white px-2 py-0.5 rounded-[2px]">
+                <span className="font-bold text-xs bg-[#37352f] text-white px-2 py-0.5 rounded-[2px]">
                   #{order.orderNo.replace(/^#/, '')}
                 </span>
                 <span className="text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded-[2px] flex items-center gap-1">
@@ -118,7 +118,7 @@ export const MerchantAuditConvertToDeliveryModal: React.FC<MerchantAuditConvertT
                   <span>当前渠道: 现场堂食</span>
                 </span>
               </div>
-              <span className="font-bold text-sm text-black font-mono">
+              <span className="font-bold text-sm text-black font-amount">
                 ¥{order.totalAmount.toFixed(2)}
               </span>
             </div>
@@ -196,7 +196,7 @@ export const MerchantAuditConvertToDeliveryModal: React.FC<MerchantAuditConvertT
               value={customerPhone}
               onChange={(e) => setCustomerPhone(e.target.value)}
               placeholder="例如：138-8888-9201"
-              className="w-full px-3 py-1.5 bg-white border border-[#d3d1cb] rounded-[2px] text-xs font-mono focus:outline-hidden focus:border-[#37352f]"
+              className="w-full px-3 py-1.5 bg-white border border-[#d3d1cb] rounded-[2px] text-xs focus:outline-hidden focus:border-[#37352f]"
             />
           </div>
 

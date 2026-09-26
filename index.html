@@ -2,16 +2,30 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover" />
+    <script>
+      // 防输入框聚焦与手势缩放导致互动器视口比例被拉伸放大的硬性守卫
+      if (typeof document !== 'undefined') {
+        document.addEventListener('gesturestart', function(e) {
+          if (typeof e.preventDefault === 'function') e.preventDefault();
+        }, { passive: false });
+        document.addEventListener('gesturechange', function(e) {
+          if (typeof e.preventDefault === 'function') e.preventDefault();
+        }, { passive: false });
+        document.addEventListener('gestureend', function(e) {
+          if (typeof e.preventDefault === 'function') e.preventDefault();
+        }, { passive: false });
+      }
+    </script>
     <!-- FIX(控制台 404): 内联 SVG favicon，消除 /favicon.ico 404，无需新增二进制资源 -->
     <link
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23151a20'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%23ff7a1a' stroke-width='2.5'/%3E%3Ccircle cx='16' cy='16' r='2.5' fill='%23ff7a1a'/%3E%3C/svg%3E"
     />
     <title>Urban Radar 流动餐车</title>
-    <meta name="description" content="Urban Radar 流动餐车 GPS 极速专送平台 - 总部分级权限、组件功能授权分流与高德地图闭环运力调度中枢" />
+    <meta name="description" content="流动餐车 GPS 极速专送平台与黑曜石协同中枢，配备版本自愈清理与腾讯云端实时拉取数据引擎" />
     <meta property="og:title" content="Urban Radar 流动餐车" />
-    <meta property="og:description" content="Urban Radar 流动餐车 GPS 极速专送平台 - 总部分级权限、组件功能授权分流与高德地图闭环运力调度中枢" />
+    <meta property="og:description" content="流动餐车 GPS 极速专送平台与黑曜石协同中枢，配备版本自愈清理与腾讯云端实时拉取数据引擎" />
     <script>
       // Global uncaught error guard for iframe preview stability & SDK key checks
       window.addEventListener('error', function(event) {
@@ -54,10 +68,10 @@
       }, true);
     </script>
 
-    <!-- Google Fonts: Space Grotesk, Manrope, JetBrains Mono & Material Symbols -->
+    <!-- Google Fonts: Space Grotesk, Manrope & Material Symbols (彻底剔除等宽字体) -->
     <link href="https://fonts.googleapis.com" rel="preconnect">
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Manrope:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
 
@@ -109,7 +123,7 @@
       }
     </style>
   </head>
-  <body class="bg-[#f9f9f7] text-[#1a1c1b] antialiased selection:bg-neutral-900 selection:text-white">
+  <body class="bg-white text-[#1a1c1b] antialiased selection:bg-neutral-900 selection:text-white">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

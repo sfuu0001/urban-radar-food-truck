@@ -72,8 +72,8 @@ export const operationsDeckTokens = {
   typography: {
     fontFamily: {
       heading: '"Space Grotesk", system-ui, -apple-system, sans-serif',
-      body: '"Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      mono: '"JetBrains Mono", "SF Mono", Menlo, Consolas, monospace'
+      body: '"Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif',
+      mono: '"Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif'
     },
     fontSize: {
       micro: '10px',

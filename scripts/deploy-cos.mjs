@@ -26,6 +26,7 @@ if (!SecretId || !SecretKey || !Bucket) {
 const cos = new COS({
   SecretId,
   SecretKey,
+  Timeout: 120000, // 120s timeout
 });
 
 const distDir = path.resolve(process.cwd(), 'dist');
@@ -85,24 +86,27 @@ async function ensureBucketPublicRead() {
   });
 }
 
-async function uploadFile(file) {
+async function uploadSingleFile(file) {
   const ext = path.extname(file.fullPath).toLowerCase();
   const contentType = mimeMap[ext] || 'application/octet-stream';
-  // index.html should not be cached by browser to ensure immediate updates
   const isHtml = ext === '.html';
   const cacheControl = isHtml ? 'no-cache, no-store, must-revalidate' : 'public, max-age=31536000, immutable';
 
   return new Promise((resolve, reject) => {
-    cos.putObject(
+    cos.uploadFile(
       {
         Bucket,
         Region,
         Key: file.key,
+        FilePath: file.fullPath,
         StorageClass: 'STANDARD',
-        Body: fs.createReadStream(file.fullPath),
-        ContentType: contentType,
-        CacheControl: cacheControl,
-        ACL: 'public-read',
+        SliceSize: 1024 * 1024 * 1, // 1MB slice
+        AsyncLimit: 3,
+        Headers: {
+          'Content-Type': contentType,
+          'Cache-Control': cacheControl,
+          'x-cos-acl': 'public-read',
+        },
       },
       (err, data) => {
         if (err) {
@@ -113,6 +117,18 @@ async function uploadFile(file) {
       }
     );
   });
+}
+
+async function uploadWithRetry(file, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await uploadSingleFile(file);
+    } catch (err) {
+      if (attempt === maxRetries) throw err;
+      console.warn(`\n⚠️ [${file.key}] 上传重试 (${attempt}/${maxRetries}): ${err.message || err}`);
+      await new Promise((r) => setTimeout(r, 1500 * attempt));
+    }
+  }
 }
 
 async function configureWebsite() {
@@ -147,12 +163,12 @@ async function main() {
   let successCount = 0;
   let failCount = 0;
 
-  for (let i = 0; i < files.length; i += 5) {
-    const chunk = files.slice(i, i + 5);
+  for (let i = 0; i < files.length; i += 3) {
+    const chunk = files.slice(i, i + 3);
     await Promise.all(
       chunk.map(async (file) => {
         try {
-          await uploadFile(file);
+          await uploadWithRetry(file);
           successCount++;
           process.stdout.write(`\r  已上传: [${successCount}/${files.length}] ${file.key}`);
         } catch (err) {

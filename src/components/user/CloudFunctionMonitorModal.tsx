@@ -140,15 +140,15 @@ export const CloudFunctionMonitorModal: React.FC<CloudFunctionMonitorModalProps>
         <div className="grid grid-cols-3 p-3 bg-neutral-50 border-b border-neutral-200 text-xs">
           <div className="px-3 py-1">
             <span className="text-[10px] text-neutral-400 font-bold block">总调用次数</span>
-            <span className="text-base font-black font-mono text-black">{totalCalls} 次</span>
+            <span className="text-base font-black font-sans text-black">{totalCalls} 次</span>
           </div>
           <div className="px-3 py-1 border-x border-neutral-200">
             <span className="text-[10px] text-neutral-400 font-bold block">平均执行耗时</span>
-            <span className="text-base font-black font-mono text-emerald-700">{avgDuration} ms</span>
+            <span className="text-base font-black font-sans text-emerald-700">{avgDuration} ms</span>
           </div>
           <div className="px-3 py-1">
             <span className="text-[10px] text-neutral-400 font-bold block">双轨降级保底率</span>
-            <span className="text-base font-black font-mono text-neutral-800">100% 成功</span>
+            <span className="text-base font-black font-sans text-neutral-800">100% 成功</span>
           </div>
         </div>
 
@@ -222,7 +222,7 @@ export const CloudFunctionMonitorModal: React.FC<CloudFunctionMonitorModalProps>
                       >
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
-                            <span className="font-mono font-black">{log.functionName}</span>
+                            <span className="font-sans font-black">{log.functionName}</span>
                             <span
                               className={`text-[9px] px-1 py-0.2 rounded font-bold ${
                                 log.status === 'success'
@@ -238,7 +238,7 @@ export const CloudFunctionMonitorModal: React.FC<CloudFunctionMonitorModalProps>
                           </p>
                         </div>
 
-                        <div className="text-right shrink-0 font-mono text-[10.5px]">
+                        <div className="text-right shrink-0 font-sans text-[10.5px]">
                           <span className={`font-bold block ${isSelected ? 'text-emerald-300' : 'text-emerald-700'}`}>
                             {log.durationMs}ms
                           </span>
@@ -253,7 +253,7 @@ export const CloudFunctionMonitorModal: React.FC<CloudFunctionMonitorModalProps>
               </div>
 
               {/* Right: Selected Log Payload Inspector */}
-              <div className="bg-[#141517] rounded-2xl border border-neutral-800 p-3 text-white flex flex-col justify-between max-h-[48vh] overflow-hidden text-xs font-mono">
+              <div className="bg-[#141517] rounded-2xl border border-neutral-800 p-3 text-white flex flex-col justify-between max-h-[48vh] overflow-hidden text-xs font-sans">
                 {selectedLog ? (
                   <div className="space-y-3 overflow-y-auto pr-1">
                     <div className="flex items-center justify-between border-b border-neutral-800 pb-2">
@@ -322,7 +322,7 @@ export const CloudFunctionMonitorModal: React.FC<CloudFunctionMonitorModalProps>
                 {/* Action 1: userProfile Get */}
                 <div className="p-3 bg-white border border-neutral-200 rounded-xl flex items-center justify-between gap-2 shadow-2xs">
                   <div>
-                    <span className="font-bold font-mono text-black block">userProfile (get)</span>
+                    <span className="font-bold font-sans text-black block">userProfile (get)</span>
                     <span className="text-[10px] text-neutral-400">读取当前用户的完整个人资料与地址簿</span>
                   </div>
                   <button
@@ -339,7 +339,7 @@ export const CloudFunctionMonitorModal: React.FC<CloudFunctionMonitorModalProps>
                 {/* Action 2: orders List */}
                 <div className="p-3 bg-white border border-neutral-200 rounded-xl flex items-center justify-between gap-2 shadow-2xs">
                   <div>
-                    <span className="font-bold font-mono text-black block">orders (list)</span>
+                    <span className="font-bold font-sans text-black block">orders (list)</span>
                     <span className="text-[10px] text-neutral-400">拉取最新 50 条多端同步订单流水</span>
                   </div>
                   <button
@@ -356,7 +356,7 @@ export const CloudFunctionMonitorModal: React.FC<CloudFunctionMonitorModalProps>
                 {/* Action 3: createOrder Test */}
                 <div className="p-3 bg-white border border-neutral-200 rounded-xl flex items-center justify-between gap-2 shadow-2xs">
                   <div>
-                    <span className="font-bold font-mono text-black block">createOrder (test)</span>
+                    <span className="font-bold font-sans text-black block">createOrder (test)</span>
                     <span className="text-[10px] text-neutral-400">模拟向炭烤流动车台下发测试订单</span>
                   </div>
                   <button
@@ -390,7 +390,7 @@ export const CloudFunctionMonitorModal: React.FC<CloudFunctionMonitorModalProps>
                 {/* Action 4: syncUserData */}
                 <div className="p-3 bg-white border border-neutral-200 rounded-xl flex items-center justify-between gap-2 shadow-2xs">
                   <div>
-                    <span className="font-bold font-mono text-black block">syncUserData (full)</span>
+                    <span className="font-bold font-sans text-black block">syncUserData (full)</span>
                     <span className="text-[10px] text-neutral-400">双向打包同步用户资料与所有订单</span>
                   </div>
                   <button

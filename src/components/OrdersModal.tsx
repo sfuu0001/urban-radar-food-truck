@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Compass,
@@ -37,6 +37,41 @@ export const OrdersModal: React.FC<OrdersModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('in_progress');
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+
+  // 跟踪最近发生状态变更的订单（保留15秒脉冲指示器）
+  const [recentlyUpdatedIds, setRecentlyUpdatedIds] = useState<Record<string, number>>({});
+  const prevStatusMapRef = useRef<Record<string, string>>({});
+  const isOrdersInitRef = useRef(true);
+
+  useEffect(() => {
+    if (!orders || orders.length === 0) return;
+    if (isOrdersInitRef.current) {
+      isOrdersInitRef.current = false;
+      const map: Record<string, string> = {};
+      orders.forEach((o) => {
+        map[String(o.id || o.orderNo)] = `${o.status}_${o.stepIndex}`;
+      });
+      prevStatusMapRef.current = map;
+      return;
+    }
+    const changed: string[] = [];
+    orders.forEach((o) => {
+      const key = String(o.id || o.orderNo);
+      const sig = `${o.status}_${o.stepIndex}`;
+      if (prevStatusMapRef.current[key] && prevStatusMapRef.current[key] !== sig) {
+        changed.push(key);
+      }
+      prevStatusMapRef.current[key] = sig;
+    });
+    if (changed.length > 0) {
+      const now = Date.now();
+      setRecentlyUpdatedIds((prev) => {
+        const next = { ...prev };
+        changed.forEach((k) => { next[k] = now; });
+        return next;
+      });
+    }
+  }, [orders]);
 
   if (!isOpen) return null;
 
@@ -83,6 +118,12 @@ export const OrdersModal: React.FC<OrdersModalProps> = ({
     .filter((o) => o.status === 'cooking' || o.status === 'delivering')
     .map((o) => {
       const isDelivering = o.status === 'delivering';
+      const isJustUpdated = Boolean(
+        (recentlyUpdatedIds[String(o.id)] && Date.now() - recentlyUpdatedIds[String(o.id)] < 15000) ||
+        (recentlyUpdatedIds[String(o.orderNo)] && Date.now() - recentlyUpdatedIds[String(o.orderNo)] < 15000) ||
+        o.isRecentlyUpdated ||
+        (o as any)._justUpdated
+      );
       return {
         id: o.id,
         title: o.truckName || '黑曜石 01 号流动餐车',
@@ -98,6 +139,7 @@ export const OrdersModal: React.FC<OrdersModalProps> = ({
         totalAmount: o.totalAmount,
         hasTopAccent: isDelivering,
         stepIndex: isDelivering ? 3 : 1,
+        isRecentlyUpdated: isJustUpdated,
         courierName: o.courierName || (isDelivering ? '张专员 (专线急速车 01)' : '餐车吧台主理人'),
         courierPhone: o.courierPhone || '138-0012-9821',
         deliveryAddress: o.deliveryAddress
@@ -106,23 +148,32 @@ export const OrdersModal: React.FC<OrdersModalProps> = ({
 
   const dynamicDelivered = orders
     .filter((o) => o.status === 'completed')
-    .map((o) => ({
-      id: o.id,
-      title: o.truckName || '黑曜石 01 号流动餐车',
-      orderNo: o.orderNo,
-      status: 'DELIVERED',
-      statusType: 'delivered',
-      estArrival: o.createdTime || '已送达',
-      distance: '1.2 mi',
-      itemsCount: o.items.reduce((s, i) => s + i.quantity, 0),
-      itemsSummary: o.items.map((i) => `${i.name} x ${i.quantity}`).join(', '),
-      totalAmount: o.totalAmount,
-      hasTopAccent: false,
-      stepIndex: 4,
-      courierName: o.courierName,
-      courierPhone: o.courierPhone,
-      deliveryAddress: o.deliveryAddress
-    }));
+    .map((o) => {
+      const isJustUpdated = Boolean(
+        (recentlyUpdatedIds[String(o.id)] && Date.now() - recentlyUpdatedIds[String(o.id)] < 15000) ||
+        (recentlyUpdatedIds[String(o.orderNo)] && Date.now() - recentlyUpdatedIds[String(o.orderNo)] < 15000) ||
+        o.isRecentlyUpdated ||
+        (o as any)._justUpdated
+      );
+      return {
+        id: o.id,
+        title: o.truckName || '黑曜石 01 号流动餐车',
+        orderNo: o.orderNo,
+        status: 'DELIVERED',
+        statusType: 'delivered',
+        estArrival: o.createdTime || '已送达',
+        distance: '1.2 mi',
+        itemsCount: o.items.reduce((s, i) => s + i.quantity, 0),
+        itemsSummary: o.items.map((i) => `${i.name} x ${i.quantity}`).join(', '),
+        totalAmount: o.totalAmount,
+        hasTopAccent: false,
+        stepIndex: 4,
+        isRecentlyUpdated: isJustUpdated,
+        courierName: o.courierName,
+        courierPhone: o.courierPhone,
+        deliveryAddress: o.deliveryAddress
+      };
+    });
 
   const inProgressList = dynamicInProgress.length > 0 ? dynamicInProgress : defaultInProgressOrders;
   const recentlyDeliveredList =
@@ -331,19 +382,55 @@ export const OrdersModal: React.FC<OrdersModalProps> = ({
                   {/* Status Badge */}
                   <div className="shrink-0 flex items-center gap-1.5">
                     {order.statusType === 'en_route' ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#e6f4ea] text-[#15803d] text-[11px] font-black tracking-wider uppercase">
-                        <Truck className="w-3.5 h-3.5 fill-current" />
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#e6f4ea] text-[#15803d] text-[11px] font-black tracking-wider uppercase transition-all duration-300 ${order.isRecentlyUpdated ? 'ring-2 ring-emerald-400/50 shadow-xs' : ''}`}>
+                        {order.isRecentlyUpdated ? (
+                          <span className="relative flex h-2 w-2 shrink-0 items-center justify-center">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500 animate-pulse-dot" />
+                          </span>
+                        ) : (
+                          <Truck className="w-3.5 h-3.5 fill-current" />
+                        )}
                         <span>EN ROUTE</span>
+                        {order.isRecentlyUpdated && (
+                          <span className="text-[9px] font-black text-emerald-700 bg-emerald-100/90 px-1 py-0.2 rounded-full leading-none normal-case animate-pulse">
+                            刚刚更新
+                          </span>
+                        )}
                       </span>
                     ) : order.statusType === 'preparing' ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#f0f0ed] text-[#4b5563] text-[11px] font-black tracking-wider uppercase">
-                        <CookingPot className="w-3.5 h-3.5" />
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#f0f0ed] text-[#4b5563] text-[11px] font-black tracking-wider uppercase transition-all duration-300 ${order.isRecentlyUpdated ? 'ring-2 ring-amber-400/50 shadow-xs' : ''}`}>
+                        {order.isRecentlyUpdated ? (
+                          <span className="relative flex h-2 w-2 shrink-0 items-center justify-center">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500 animate-pulse-dot" />
+                          </span>
+                        ) : (
+                          <CookingPot className="w-3.5 h-3.5" />
+                        )}
                         <span>PREPARING</span>
+                        {order.isRecentlyUpdated && (
+                          <span className="text-[9px] font-black text-amber-700 bg-amber-100/90 px-1 py-0.2 rounded-full leading-none normal-case animate-pulse">
+                            刚刚更新
+                          </span>
+                        )}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#e6f4ea] text-[#15803d] text-[11px] font-black tracking-wider uppercase">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#e6f4ea] text-[#15803d] text-[11px] font-black tracking-wider uppercase transition-all duration-300 ${order.isRecentlyUpdated ? 'ring-2 ring-emerald-400/50 shadow-xs' : ''}`}>
+                        {order.isRecentlyUpdated ? (
+                          <span className="relative flex h-2 w-2 shrink-0 items-center justify-center">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500 animate-pulse-dot" />
+                          </span>
+                        ) : (
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        )}
                         <span>DELIVERED</span>
+                        {order.isRecentlyUpdated && (
+                          <span className="text-[9px] font-black text-emerald-700 bg-emerald-100/90 px-1 py-0.2 rounded-full leading-none normal-case animate-pulse">
+                            刚刚更新
+                          </span>
+                        )}
                       </span>
                     )}
                   </div>

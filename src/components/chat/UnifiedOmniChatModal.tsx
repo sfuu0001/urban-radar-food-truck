@@ -23,7 +23,7 @@ import {
   PanelBottomOpen,
   Check,
   CheckCheck,
-  Sparkles,
+  Bell,
   Zap,
   Gift,
   Clock,
@@ -56,14 +56,19 @@ import {
   Gavel,
   BadgeAlert,
   Smile,
-  ChevronLeft
+  ChevronLeft,
+  Loader2,
+  History
 } from 'lucide-react';
+import { HistoryMessageFoldBanner } from './HistoryMessageFoldBanner';
 import { Order, OrderItemRecord } from '../../types';
 import {
   ChatMessageItem,
   ChatRole,
   getOrderChatMessages,
   sendOrderChatMessage,
+  markOrderChatAsRead,
+  updateChatMessageStatus,
   subscribeOrderChat,
   syncOrderChatFromCloud,
   flushOrderChatToCloud,
@@ -199,6 +204,10 @@ export const UnifiedOmniChatModal: React.FC<UnifiedOmniChatModalProps> = ({
   const [isTyping, setIsTyping] = useState(false);
   const [isOrderBannerExpanded, setIsOrderBannerExpanded] = useState(false);
 
+  // 历史旧消息折叠与交互展开状态 (优化视觉效果与交互感知)
+  const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
+  const [autoFoldEnabled, setAutoFoldEnabled] = useState(true);
+
   // Voice recording & playback states
   const [inputMode, setInputMode] = useState<'text' | 'voice'>('text');
   const [isRecording, setIsRecording] = useState(false);
@@ -231,9 +240,17 @@ export const UnifiedOmniChatModal: React.FC<UnifiedOmniChatModalProps> = ({
   const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
 
   const chatBottomRef = useRef<HTMLDivElement>(null);
+  const modalViewportRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const recordTimerRef = useRef<any>(null);
   const voicePlayerRef = useRef<{ stop: () => void } | null>(null);
+
+  // 视口平滑滚动与动态遮罩状态
+  const [isNearBottom, setIsNearBottom] = useState(true);
+  const [showTopFade, setShowTopFade] = useState(false);
+  const [showBottomFade, setShowBottomFade] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const prevMessagesLengthRef = useRef(0);
 
   // Fetch and subscribe to chat messages
   useEffect(() => {
@@ -254,14 +271,75 @@ export const UnifiedOmniChatModal: React.FC<UnifiedOmniChatModalProps> = ({
     }
   }, [isOpen, currentOrderNo, order]);
 
-  // Scroll to bottom on updates
+  // 双端已读同步监听 (仅限食客端与商家端，平台端不启用)
   useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => {
-        chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
+    if (isOpen && (viewerRole === 'user' || viewerRole === 'merchant')) {
+      markOrderChatAsRead(currentOrderNo, viewerRole);
     }
-  }, [isOpen, messages, isRecording]);
+  }, [isOpen, currentOrderNo, viewerRole, messages.length]);
+
+  // 滚动至视口底部 (平滑物理动效)
+  const scrollToBottom = React.useCallback((behavior: ScrollBehavior = 'smooth') => {
+    if (chatBottomRef.current) {
+      chatBottomRef.current.scrollIntoView({ behavior });
+    }
+    if (modalViewportRef.current) {
+      modalViewportRef.current.scrollTo({ top: modalViewportRef.current.scrollHeight, behavior });
+    }
+    setIsNearBottom(true);
+    setUnreadCount(0);
+    setShowBottomFade(false);
+  }, []);
+
+  // 视口滚动事件处理
+  const handleViewportScroll = React.useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const { scrollTop, scrollHeight, clientHeight } = el;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    const nearBottom = distanceFromBottom < 75;
+
+    setIsNearBottom(nearBottom);
+    setShowTopFade(scrollTop > 12);
+    setShowBottomFade(distanceFromBottom > 16);
+    if (nearBottom) {
+      setUnreadCount(0);
+    }
+  }, []);
+
+  // 智能跟手滚动：新消息到达时仅在处于底部或初次打开时自动吸底
+  useEffect(() => {
+    if (!isOpen) {
+      prevMessagesLengthRef.current = 0;
+      return;
+    }
+    const isInitial = prevMessagesLengthRef.current === 0;
+    const hasNew = messages.length > prevMessagesLengthRef.current;
+
+    if (hasNew) {
+      const lastMsg = messages[messages.length - 1];
+      const isSelfMsg = lastMsg?.senderRole === viewerRole;
+
+      if (isNearBottom || isSelfMsg || isInitial) {
+        scrollToBottom(isInitial ? 'auto' : 'smooth');
+        setUnreadCount(0);
+      } else {
+        setUnreadCount((prev) => prev + (messages.length - prevMessagesLengthRef.current));
+      }
+    } else if (isInitial && messages.length > 0) {
+      scrollToBottom('auto');
+    }
+    prevMessagesLengthRef.current = messages.length;
+  }, [isOpen, messages, viewerRole, isNearBottom, scrollToBottom]);
+
+  // 录音状态切换微调
+  useEffect(() => {
+    if (isOpen && isNearBottom) {
+      const timer = setTimeout(() => {
+        scrollToBottom('smooth');
+      }, 80);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, isRecording, isNearBottom, scrollToBottom]);
 
   // Call timer
   useEffect(() => {
@@ -294,12 +372,37 @@ export const UnifiedOmniChatModal: React.FC<UnifiedOmniChatModalProps> = ({
 
   const senderName = roleNameMap[viewerRole];
 
+  // 消息派发与状态流转引擎 (集成发送中动效、双端已读标记与微震声效)
+  const dispatchOmniMessage = (msgData: Omit<ChatMessageItem, 'id' | 'time'>) => {
+    const activeMsgRole = viewerRole;
+    const initialMsg = sendOrderChatMessage(currentOrderNo, {
+      ...msgData,
+      deliveryStatus: 'sending',
+      readBy: {
+        ...(msgData.readBy || {}),
+        [activeMsgRole]: true
+      }
+    });
+
+    // 交互平滑动画过渡：发送中 380ms 后平滑转为已送达/送出
+    setTimeout(() => {
+      updateChatMessageStatus(currentOrderNo, initialMsg.id, {
+        deliveryStatus: 'sent'
+      });
+      if (activeMsgRole === 'user' || activeMsgRole === 'merchant') {
+        markOrderChatAsRead(currentOrderNo, activeMsgRole);
+      }
+    }, 380);
+
+    return initialMsg;
+  };
+
   // Send pure text
   const handleSendText = (textToSend?: string) => {
     const content = (textToSend || inputText).trim();
     if (!content) return;
 
-    sendOrderChatMessage(currentOrderNo, {
+    dispatchOmniMessage({
       senderRole: viewerRole,
       senderName,
       type: 'text',
@@ -356,7 +459,7 @@ export const UnifiedOmniChatModal: React.FC<UnifiedOmniChatModalProps> = ({
 
     const result = await voiceMessageEngine.stopRecording(liveTranscript || defaultFallback);
 
-    sendOrderChatMessage(currentOrderNo, {
+    dispatchOmniMessage({
       senderRole: viewerRole,
       senderName,
       type: 'voice',
@@ -392,7 +495,7 @@ export const UnifiedOmniChatModal: React.FC<UnifiedOmniChatModalProps> = ({
   // Quick Preset Voice Template Send
   const handleSendPresetVoice = (tpl: { title: string; text: string; duration: number }) => {
     setIsWalkieTalkieDrawerOpen(false);
-    sendOrderChatMessage(currentOrderNo, {
+    dispatchOmniMessage({
       senderRole: viewerRole,
       senderName,
       type: 'voice',
@@ -494,7 +597,7 @@ export const UnifiedOmniChatModal: React.FC<UnifiedOmniChatModalProps> = ({
   // Quote a specific dish in chat
   const handleQuoteDish = (item: OrderItemRecord) => {
     const dishImg = matchDishImageUrl({ name: item.name });
-    sendOrderChatMessage(currentOrderNo, {
+    dispatchOmniMessage({
       senderRole: viewerRole,
       senderName,
       type: 'dish_quote',
@@ -513,7 +616,7 @@ export const UnifiedOmniChatModal: React.FC<UnifiedOmniChatModalProps> = ({
   // Send live GPS position / route quote
   const handleSendLocation = () => {
     const dest = order?.deliveryAddress || '西藏北路 166 号大悦城商务座 1204 室';
-    sendOrderChatMessage(currentOrderNo, {
+    dispatchOmniMessage({
       senderRole: viewerRole,
       senderName,
       type: 'location',
@@ -527,7 +630,7 @@ export const UnifiedOmniChatModal: React.FC<UnifiedOmniChatModalProps> = ({
   // Send photo proof
   const handleSendProofPhoto = () => {
     const defaultProofImg = matchDishImageUrl({ name: '碳烤和牛小汉堡双重奏' });
-    sendOrderChatMessage(currentOrderNo, {
+    dispatchOmniMessage({
       senderRole: viewerRole,
       senderName,
       type: 'image',
@@ -608,7 +711,7 @@ export const UnifiedOmniChatModal: React.FC<UnifiedOmniChatModalProps> = ({
 
   // Urgent Rush Alert
   const handleSendRushAlert = () => {
-    sendOrderChatMessage(currentOrderNo, {
+    dispatchOmniMessage({
       senderRole: viewerRole,
       senderName,
       type: 'rush_alert',
@@ -689,6 +792,17 @@ export const UnifiedOmniChatModal: React.FC<UnifiedOmniChatModalProps> = ({
     }
     return true;
   });
+
+  // 旧消息折叠切分计算 (默认保留最新 5 条实时消息，早前历史归纳进折叠胶囊)
+  const FOLD_THRESHOLD = 5;
+  const shouldFoldHistory = autoFoldEnabled && filteredMessages.length > FOLD_THRESHOLD;
+  const foldedHistoryCount = shouldFoldHistory ? filteredMessages.length - FOLD_THRESHOLD : 0;
+  const olderMessages = shouldFoldHistory
+    ? filteredMessages.slice(0, filteredMessages.length - FOLD_THRESHOLD)
+    : [];
+  const recentMessages = shouldFoldHistory
+    ? filteredMessages.slice(filteredMessages.length - FOLD_THRESHOLD)
+    : filteredMessages;
 
   const contentJsx = (
     <motion.div
@@ -1074,31 +1188,73 @@ export const UnifiedOmniChatModal: React.FC<UnifiedOmniChatModalProps> = ({
             )}
 
             {/* 5. Messages Feed / Real Chat Bubbles Flow */}
-            <div className="flex-1 min-h-0 overflow-y-auto px-3.5 py-3 space-y-3 bg-[#f8f9fa] overscroll-contain">
-              {filteredMessages.map((msg) => {
-                const isSelf = msg.senderRole === viewerRole;
+            <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden bg-[#f8f9fa]">
+              {/* Top ambient fade edge */}
+              <div
+                className={`absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-black/[0.04] to-transparent pointer-events-none z-10 transition-opacity duration-200 ${
+                  showTopFade ? 'opacity-100' : 'opacity-0'
+                }`}
+              />
+
+              <div
+                ref={modalViewportRef}
+                onScroll={handleViewportScroll}
+                className="flex-1 min-h-0 overflow-y-auto px-3.5 py-3 space-y-3 overscroll-y-contain scroll-smooth touch-pan-y no-scrollbar"
+                style={{
+                  WebkitOverflowScrolling: 'touch',
+                  maskImage: showTopFade && showBottomFade
+                    ? 'linear-gradient(to bottom, transparent 0%, black 20px, black calc(100% - 24px), transparent 100%)'
+                    : showTopFade
+                    ? 'linear-gradient(to bottom, transparent 0%, black 20px, black 100%)'
+                    : showBottomFade
+                    ? 'linear-gradient(to bottom, black 0%, black calc(100% - 24px), transparent 100%)'
+                    : undefined,
+                  WebkitMaskImage: showTopFade && showBottomFade
+                    ? 'linear-gradient(to bottom, transparent 0%, black 20px, black calc(100% - 24px), transparent 100%)'
+                    : showTopFade
+                    ? 'linear-gradient(to bottom, transparent 0%, black 20px, black 100%)'
+                    : showBottomFade
+                    ? 'linear-gradient(to bottom, black 0%, black calc(100% - 24px), transparent 100%)'
+                    : undefined
+                }}
+              >
+              {(() => {
+                const renderModalMessage = (msg: ChatMessageItem, isOlder: boolean = false) => {
+                  const isSelf = msg.senderRole === viewerRole;
 
                 // 1. System Notice
                 if (msg.type === 'system_notice') {
                   return (
-                    <div key={msg.id} className="flex justify-center my-1.5">
+                    <motion.div
+                      key={msg.id}
+                      initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ type: 'spring', stiffness: 360, damping: 26 }}
+                      className="flex justify-center my-1.5"
+                    >
                       <div className="inline-flex items-center gap-1.5 bg-[#edf7ee] text-[#1b5e20] text-[11px] px-3.5 py-1 rounded-full border border-[#bbf7d0] text-center max-w-[92%] shadow-2xs font-medium">
                         <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                         <span>{msg.text}</span>
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 }
 
                 // 2. Status Change Event Card (Merchant baking / Cooking confirmation)
                 if (msg.type === 'status_change' && msg.statusChangeInfo) {
                   return (
-                    <div key={msg.id} className="flex justify-center my-1.5">
+                    <motion.div
+                      key={msg.id}
+                      initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+                      className="flex justify-center my-1.5"
+                    >
                       <div className="w-full bg-white border border-neutral-200/90 p-3.5 rounded-2xl shadow-2xs space-y-2">
                         <div className="flex items-center justify-between text-xs">
                           <span className="font-extrabold text-neutral-900 flex items-center gap-1.5">
                             <span className="w-4 h-4 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-                              <Sparkles className="w-2.5 h-2.5 text-amber-600" />
+                              <Bell className="w-2.5 h-2.5 text-amber-600 stroke-[1.5]" />
                             </span>
                             <span>{msg.statusChangeInfo.title}</span>
                           </span>
@@ -1121,14 +1277,20 @@ export const UnifiedOmniChatModal: React.FC<UnifiedOmniChatModalProps> = ({
                           </span>
                         </div>
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 }
 
                 // 3. Rush Alert Card
                 if (msg.type === 'rush_alert') {
                   return (
-                    <div key={msg.id} className="flex justify-center my-1.5">
+                    <motion.div
+                      key={msg.id}
+                      initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+                      className="flex justify-center my-1.5"
+                    >
                       <div className="w-full bg-[#fef2f2] border border-[#fecaca] p-3 rounded-2xl shadow-xs space-y-1 text-[#991b1b]">
                         <div className="flex items-center justify-between text-xs font-bold">
                           <span className="flex items-center gap-1.5">
@@ -1139,14 +1301,20 @@ export const UnifiedOmniChatModal: React.FC<UnifiedOmniChatModalProps> = ({
                         </div>
                         <p className="text-xs leading-relaxed">{msg.text}</p>
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 }
 
                 // 4. Gift Card
                 if (msg.type === 'gift_card' && msg.giftInfo) {
                   return (
-                    <div key={msg.id} className="flex justify-center my-1.5">
+                    <motion.div
+                      key={msg.id}
+                      initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+                      className="flex justify-center my-1.5"
+                    >
                       <div className="w-full bg-gradient-to-r from-[#fffbeb] to-[#fef3c7] border border-[#fcd34d] p-3 rounded-2xl shadow-sm space-y-1 text-amber-950">
                         <div className="flex items-center justify-between text-xs font-bold">
                           <span className="flex items-center gap-1 text-amber-800">
@@ -1160,14 +1328,36 @@ export const UnifiedOmniChatModal: React.FC<UnifiedOmniChatModalProps> = ({
                         </div>
                         <div className="text-xs text-amber-800">{msg.giftInfo.giftNote}</div>
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 }
 
                 // 5. Standard Interactive Bubble (User, Rider, Merchant)
+                const isSending = msg.deliveryStatus === 'sending';
+                const isPeerRead =
+                  viewerRole === 'user'
+                    ? Boolean(msg.readBy?.merchant)
+                    : viewerRole === 'merchant'
+                    ? Boolean(msg.readBy?.user)
+                    : false;
+                // 平台端不展示已未读，仅客户端与商家端展示已未读状态
+                const shouldShowReadStatus =
+                  isSelf &&
+                  (viewerRole === 'user' || viewerRole === 'merchant') &&
+                  msg.senderRole !== 'platform' &&
+                  msg.senderRole !== 'system';
+
                 return (
-                  <div
+                  <motion.div
                     key={msg.id}
+                    initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{
+                      type: 'spring',
+                      stiffness: 400,
+                      damping: 28,
+                      mass: 0.5
+                    }}
                     className={`flex flex-col ${isSelf ? 'items-end' : 'items-start'} space-y-1`}
                   >
                     {/* Sender Meta Info */}
@@ -1186,6 +1376,11 @@ export const UnifiedOmniChatModal: React.FC<UnifiedOmniChatModalProps> = ({
                       <span>·</span>
                       <span className="font-mono">{msg.timeExact || msg.time}</span>
                       <span className="text-[10px] text-neutral-400">({msg.time})</span>
+                      {isOlder && (
+                        <span className="text-[9.5px] px-1 py-0.2 rounded bg-neutral-100 text-neutral-500 border border-neutral-200/60 font-sans">
+                          历史
+                        </span>
+                      )}
                       <span className="ml-1 bg-[#edf7ee] text-[#166534] border border-[#bbf7d0] px-1.5 py-0.2 rounded text-[9.5px] font-medium flex items-center gap-0.5">
                         <Check className="w-2.5 h-2.5" />
                         云端已存
@@ -1193,12 +1388,14 @@ export const UnifiedOmniChatModal: React.FC<UnifiedOmniChatModalProps> = ({
                     </div>
 
                     {/* Bubble Body */}
-                    <div
-                      className={`max-w-[92%] sm:max-w-[85%] rounded-2xl p-3.5 shadow-2xs text-xs leading-relaxed relative ${
+                    <motion.div
+                      animate={isSending ? { scale: [0.985, 1, 0.985] } : { scale: 1 }}
+                      transition={isSending ? { duration: 0.8, repeat: Infinity, ease: 'easeInOut' } : undefined}
+                      className={`max-w-[92%] sm:max-w-[85%] rounded-2xl p-3.5 shadow-2xs text-xs leading-relaxed relative transition-all ${
                         isSelf
                           ? 'bg-[#121417] text-white rounded-tr-xs border border-neutral-800'
                           : 'bg-white text-neutral-800 rounded-tl-xs border border-neutral-200/90'
-                      }`}
+                      } ${isSending ? 'opacity-85 ring-1 ring-neutral-400/40' : ''}`}
                     >
                       {/* Quoted Dish Card */}
                       {msg.type === 'dish_quote' && msg.quotedDish && (
@@ -1330,18 +1527,105 @@ export const UnifiedOmniChatModal: React.FC<UnifiedOmniChatModalProps> = ({
 
                       {/* Normal text content */}
                       {msg.type === 'text' && <div>{msg.text}</div>}
-                    </div>
+                    </motion.div>
 
-                    {/* Status Tick */}
+                    {/* 发送中动态交货指示器 与 商家/客户端已读未读标识 (平台端不展示) */}
                     {isSelf && (
-                      <div className="flex items-center gap-1 text-[10px] text-neutral-400 mt-0.5 mr-1">
-                        <CheckCheck className="w-3 h-3 text-emerald-500" />
-                        <span className="text-emerald-600 font-medium">全员已读</span>
+                      <div className="flex items-center gap-1.5 pr-1 mt-0.5 select-none font-mono">
+                        <AnimatePresence mode="wait">
+                          {isSending ? (
+                            <motion.div
+                              key={`sending-${msg.id}`}
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.8 }}
+                              className="flex items-center gap-1 text-[10px] text-neutral-400"
+                            >
+                              <Loader2 className="w-2.5 h-2.5 animate-spin text-neutral-400" />
+                              <span>发送中...</span>
+                            </motion.div>
+                          ) : shouldShowReadStatus ? (
+                            <motion.div
+                              key={`read-state-${msg.id}-${isPeerRead}`}
+                              initial={{ opacity: 0, scale: 0.85 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ type: 'spring', stiffness: 450, damping: 22 }}
+                              className="flex items-center"
+                            >
+                              {isPeerRead ? (
+                                <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200/60 shadow-2xs">
+                                  <CheckCheck className="w-2.5 h-2.5 text-emerald-600" />
+                                  <span>已读</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-neutral-400 bg-neutral-100/90 px-1.5 py-0.2 rounded border border-neutral-200/60 shadow-2xs">
+                                  <Check className="w-2.5 h-2.5 text-neutral-400" />
+                                  <span>未读</span>
+                                </span>
+                              )}
+                            </motion.div>
+                          ) : null}
+                        </AnimatePresence>
                       </div>
                     )}
-                  </div>
+                  </motion.div>
                 );
-              })}
+              };
+
+              return (
+                <>
+                  {/* 智能旧消息折叠与展开状态条 */}
+                  {shouldFoldHistory && (
+                    <HistoryMessageFoldBanner
+                      foldedCount={foldedHistoryCount}
+                      totalCount={filteredMessages.length}
+                      isExpanded={isHistoryExpanded}
+                      onToggleExpand={() => {
+                        setIsHistoryExpanded((prev) => !prev);
+                      }}
+                      foldedMessages={olderMessages}
+                      autoFoldEnabled={autoFoldEnabled}
+                      onToggleAutoFold={() => {
+                        const next = !autoFoldEnabled;
+                        setAutoFoldEnabled(next);
+                        showToast(next ? '已开启旧消息智能折叠' : '已切换为全量展示模式');
+                      }}
+                    />
+                  )}
+
+                  {/* 展开的早前历史记录流 */}
+                  {shouldFoldHistory && (
+                    <AnimatePresence initial={false}>
+                      {isHistoryExpanded && (
+                        <motion.div
+                          key="modal-history-older-messages"
+                          initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
+                          animate={{ opacity: 1, height: 'auto', transition: { duration: 0.28, ease: [0.16, 1, 0.3, 1] } }}
+                          exit={{ opacity: 0, height: 0, transition: { duration: 0.2, ease: [0.7, 0, 0.84, 0] } }}
+                          className="space-y-3 pt-1"
+                        >
+                          {olderMessages.map((msg) => renderModalMessage(msg, true))}
+
+                          <div className="flex items-center justify-center py-2 select-none">
+                            <button
+                              type="button"
+                              onClick={() => setIsHistoryExpanded(false)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-neutral-100 hover:bg-neutral-200/80 text-neutral-600 text-[11px] font-medium border border-neutral-200/80 shadow-2xs transition active:scale-[0.98] cursor-pointer"
+                              title="点击快速收起早前记录"
+                            >
+                              <span>早前记录已全部呈现 · 点击快速收起</span>
+                              <ChevronUp className="w-3 h-3 text-neutral-500" />
+                            </button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  )}
+
+                  {recentMessages.map((msg) => renderModalMessage(msg, false))}
+                </>
+              );
+            })()}
 
               {/* Typing indicator */}
               {isTyping && (
@@ -1362,24 +1646,49 @@ export const UnifiedOmniChatModal: React.FC<UnifiedOmniChatModalProps> = ({
               <div ref={chatBottomRef} />
             </div>
 
+            {/* Floating Back to Bottom Pill */}
+            <AnimatePresence>
+              {!isNearBottom && (
+                <motion.button
+                  type="button"
+                  initial={{ opacity: 0, y: 16, scale: 0.9 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 16, scale: 0.9 }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    scrollToBottom('smooth');
+                    setUnreadCount(0);
+                  }}
+                  className="absolute bottom-3 right-3 sm:right-4 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-neutral-900/90 hover:bg-neutral-900 text-white text-xs font-medium shadow-md hover:shadow-lg backdrop-blur-md border border-neutral-700/60 cursor-pointer transition-all select-none"
+                >
+                  <ChevronDown className="w-3.5 h-3.5 text-emerald-400 animate-bounce" />
+                  <span className="text-[11px] font-medium tracking-tight">
+                    {unreadCount > 0 ? `${unreadCount} 条新消息` : '回到底部'}
+                  </span>
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </div>
+
             {/* 6 & 7. Isolated Dedicated Bottom Component (Urban Radar Dock) */}
             <div
               id="chat-isolated-bottom-dock"
               className="shrink-0 bg-white border-t border-neutral-200/90 z-20 shadow-[0_-2px_12px_rgba(0,0,0,0.03)]"
             >
               <div>
-                {/* 6. Role-Specific Horizontal Quick Phrases */}
+                {/* 6. Role-Specific Horizontal Quick Phrases (Unified Capsule Design) */}
                 <div
                   id="chat-quick-phrases-bar"
-                  className="px-3 py-2 bg-white border-b border-neutral-100 overflow-x-auto no-scrollbar flex items-center gap-2 shrink-0"
+                  className="px-3 py-2 bg-white border-b border-neutral-100 overflow-x-auto no-scrollbar flex items-center gap-1.5 shrink-0"
                 >
                   <button
                     type="button"
                     onClick={() => setIsWalkieTalkieDrawerOpen(true)}
-                    className="px-3 py-1 bg-[#121417] text-white hover:bg-black active:scale-95 text-xs font-semibold rounded-full border border-neutral-800 shrink-0 whitespace-nowrap cursor-pointer transition-colors flex items-center gap-1.5 shadow-2xs"
+                    className="shrink-0 h-7 px-3 rounded-full bg-neutral-900 text-white hover:bg-black border border-neutral-800 text-[11px] font-medium inline-flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer whitespace-nowrap"
                   >
                     <Radio className="w-3 h-3 text-emerald-400" />
-                    <span>对讲话音库</span>
+                    <span>对讲短语库</span>
                   </button>
 
                   {ROLE_QUICK_PHRASES[viewerRole].map((phrase, idx) => (
@@ -1387,7 +1696,7 @@ export const UnifiedOmniChatModal: React.FC<UnifiedOmniChatModalProps> = ({
                       key={idx}
                       type="button"
                       onClick={() => handleSendText(phrase)}
-                      className="px-3 py-1 bg-[#f4f4f2] hover:bg-neutral-200 active:scale-95 text-neutral-800 text-xs font-medium rounded-full border border-neutral-200/70 shrink-0 whitespace-nowrap cursor-pointer transition-colors"
+                      className="shrink-0 h-7 px-3 rounded-full bg-white hover:bg-neutral-50 border border-neutral-200/90 hover:border-neutral-300 text-neutral-800 text-[11px] font-medium inline-flex items-center gap-1 shadow-2xs transition-all active:scale-95 cursor-pointer whitespace-nowrap"
                     >
                       {phrase}
                     </button>
@@ -1399,13 +1708,13 @@ export const UnifiedOmniChatModal: React.FC<UnifiedOmniChatModalProps> = ({
                   id="chat-input-action-toolbar"
                   className="p-2.5 sm:p-3 bg-white space-y-2 shrink-0"
                 >
-                  {/* Media & Action Shortcuts */}
-                  <div className="flex items-center justify-between px-0.5 gap-1 overflow-x-auto no-scrollbar">
-                    <div className="flex items-center gap-1.5 text-neutral-600 shrink-0">
+                  {/* Media & Action Shortcuts (Unified Capsule Design) */}
+                  <div className="flex items-center justify-between px-0.5 gap-1.5 overflow-x-auto no-scrollbar">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         type="button"
                         onClick={handleSendLocation}
-                        className="flex items-center gap-1 text-xs bg-[#e8f8f0] hover:bg-emerald-100 text-[#065f46] px-2.5 py-1 rounded-lg border border-[#a7f3d0] transition-colors cursor-pointer font-medium whitespace-nowrap"
+                        className="shrink-0 h-6.5 px-2.5 rounded-full bg-emerald-50 hover:bg-emerald-100/80 text-emerald-800 border border-emerald-200/80 text-[11px] font-medium inline-flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-2xs whitespace-nowrap"
                       >
                         <MapPin className="w-3 h-3 text-emerald-600" />
                         <span>发送定位</span>
@@ -1414,7 +1723,7 @@ export const UnifiedOmniChatModal: React.FC<UnifiedOmniChatModalProps> = ({
                       <button
                         type="button"
                         onClick={() => setIsWalkieTalkieDrawerOpen(true)}
-                        className="flex items-center gap-1 text-xs bg-[#f0f9ff] hover:bg-sky-100 text-[#0369a1] px-2.5 py-1 rounded-lg border border-[#bae6fd] transition-colors cursor-pointer font-medium whitespace-nowrap"
+                        className="shrink-0 h-6.5 px-2.5 rounded-full bg-sky-50 hover:bg-sky-100/80 text-sky-800 border border-sky-200/80 text-[11px] font-medium inline-flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-2xs whitespace-nowrap"
                       >
                         <Radio className="w-3 h-3 text-sky-600" />
                         <span>对讲短语</span>
@@ -1423,7 +1732,7 @@ export const UnifiedOmniChatModal: React.FC<UnifiedOmniChatModalProps> = ({
                       <button
                         type="button"
                         onClick={handleSendProofPhoto}
-                        className="flex items-center gap-1 text-xs bg-[#fffbeb] hover:bg-amber-100 text-[#92400e] px-2.5 py-1 rounded-lg border border-[#fde68a] transition-colors cursor-pointer font-medium whitespace-nowrap"
+                        className="shrink-0 h-6.5 px-2.5 rounded-full bg-amber-50 hover:bg-amber-100/80 text-amber-800 border border-amber-200/80 text-[11px] font-medium inline-flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-2xs whitespace-nowrap"
                       >
                         <Camera className="w-3 h-3 text-amber-600" />
                         <span>拍照存证</span>
@@ -1432,16 +1741,16 @@ export const UnifiedOmniChatModal: React.FC<UnifiedOmniChatModalProps> = ({
                       <button
                         type="button"
                         onClick={handleSendRushAlert}
-                        className="flex items-center gap-1 text-xs bg-[#fef2f2] hover:bg-rose-100 text-[#991b1b] px-2.5 py-1 rounded-lg border border-[#fecaca] transition-colors cursor-pointer font-medium whitespace-nowrap"
+                        className="shrink-0 h-6.5 px-2.5 rounded-full bg-rose-50 hover:bg-rose-100/80 text-rose-800 border border-rose-200/80 text-[11px] font-medium inline-flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-2xs whitespace-nowrap"
                       >
                         <Zap className="w-3 h-3 text-rose-600" />
                         <span>加急催单</span>
                       </button>
                     </div>
 
-                    <div className="text-[11px] text-emerald-600 flex items-center gap-1 shrink-0 whitespace-nowrap ml-1 font-medium">
+                    <div className="text-[10px] text-emerald-600 flex items-center gap-1 shrink-0 whitespace-nowrap ml-1 font-medium font-mono">
                       <Check className="w-3 h-3 text-emerald-600" />
-                      <span>云端就备</span>
+                      <span>已加密协同</span>
                     </div>
                   </div>
 
@@ -1677,10 +1986,10 @@ export const UnifiedOmniChatModal: React.FC<UnifiedOmniChatModalProps> = ({
                       </div>
 
                       {/* Live Speech Recognition Transcript */}
-                      <div className="text-[11px] text-sky-800 bg-white/80 p-2 rounded-xl border border-sky-100 flex items-start gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5 text-sky-600 shrink-0 mt-0.5" />
+                      <div className="text-[11px] text-neutral-800 bg-white/90 p-2 rounded-xl border border-neutral-200 flex items-start gap-1.5">
+                        <FileText className="w-3.5 h-3.5 text-neutral-600 stroke-[1.5] shrink-0 mt-0.5" />
                         <div>
-                          <span className="font-bold text-sky-900">实时识别预览：</span>
+                          <span className="font-bold text-neutral-900">实时识别预览：</span>
                           <span>{liveTranscript || '正在聆听您的语音输入...'}</span>
                         </div>
                       </div>

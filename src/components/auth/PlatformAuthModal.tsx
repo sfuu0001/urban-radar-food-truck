@@ -79,7 +79,7 @@ export const PlatformAuthModal: React.FC<PlatformAuthModalProps> = ({
           {/* Header Banner */}
           <div className="bg-[#1a1a17] text-white p-4 sm:p-5 flex items-start justify-between relative overflow-hidden">
             <div className="relative z-10">
-              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-900/60 border border-indigo-400/40 text-[10px] font-mono text-indigo-200 mb-2">
+              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-900/60 border border-indigo-400/40 text-[10px] tabular-nums text-indigo-200 mb-2">
                 <ShieldCheck className="w-3 h-3 text-indigo-400" />
                 <span>LEVEL-4 SUPERVISION SECURITY GATE</span>
               </div>
@@ -105,7 +105,7 @@ export const PlatformAuthModal: React.FC<PlatformAuthModalProps> = ({
             <div>
               <label className="block text-xs font-bold text-neutral-700 mb-2 flex items-center justify-between">
                 <span>快速体验演示专员账号 (点击填入):</span>
-                <span className="text-[10px] font-mono text-neutral-400">3 组预设权限</span>
+                <span className="text-[10px] tabular-nums text-neutral-400">3 组预设权限</span>
               </label>
               <div className="space-y-2">
                 {PRESET_PLATFORM_ACCOUNTS.map((preset) => {
@@ -126,7 +126,7 @@ export const PlatformAuthModal: React.FC<PlatformAuthModalProps> = ({
                           <div>
                             <div className="text-xs font-bold text-[#1a1a17] flex items-center gap-1.5">
                               {preset.name}
-                              <span className="text-[10px] font-mono font-normal px-1.5 py-0.2 rounded bg-neutral-100 text-neutral-600 border border-neutral-200">
+                              <span className="text-[10px] tabular-nums font-normal px-1.5 py-0.2 rounded bg-neutral-100 text-neutral-600 border border-neutral-200">
                                 {preset.roleTitle}
                               </span>
                             </div>
@@ -134,7 +134,7 @@ export const PlatformAuthModal: React.FC<PlatformAuthModalProps> = ({
                           </div>
                         </div>
                         <div className="text-right">
-                          <span className="inline-flex items-center gap-1 text-[11px] font-mono font-semibold text-indigo-700 bg-indigo-100/70 px-2 py-0.5 rounded">
+                          <span className="inline-flex items-center gap-1 text-[11px] tabular-nums font-semibold text-indigo-700 bg-indigo-100/70 px-2 py-0.5 rounded">
                             PIN: {preset.pin}
                           </span>
                         </div>
@@ -156,7 +156,7 @@ export const PlatformAuthModal: React.FC<PlatformAuthModalProps> = ({
                   value={inputAccount}
                   onChange={(e) => setInputAccount(e.target.value)}
                   placeholder="如 admin@urbanradar.com"
-                  className="w-full text-xs font-mono px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full text-xs tabular-nums px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   required
                 />
               </div>
@@ -164,7 +164,7 @@ export const PlatformAuthModal: React.FC<PlatformAuthModalProps> = ({
               <div>
                 <label className="block text-xs font-semibold text-neutral-700 mb-1 flex items-center justify-between">
                   <span>6 位安全访问 PIN 码</span>
-                  <span className="text-[10px] text-neutral-400 font-mono">通用万能放行码: 888888</span>
+                  <span className="text-[10px] text-neutral-400 tabular-nums">通用万能放行码: 888888</span>
                 </label>
                 <div className="relative">
                   <input
@@ -173,7 +173,7 @@ export const PlatformAuthModal: React.FC<PlatformAuthModalProps> = ({
                     value={inputPin}
                     onChange={(e) => setInputPin(e.target.value)}
                     placeholder="输入 6 位数字 PIN"
-                    className="w-full text-xs font-mono tracking-widest px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full text-xs tabular-nums tracking-widest px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     required
                   />
                   <KeyRound className="w-4 h-4 text-neutral-400 absolute right-2.5 top-2.5 pointer-events-none" />

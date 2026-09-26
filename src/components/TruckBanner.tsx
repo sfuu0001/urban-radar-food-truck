@@ -390,7 +390,7 @@ export const TruckBanner: React.FC<TruckBannerProps> = ({
                 关闭
               </button>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+            <div className="divide-y divide-neutral-200 border border-neutral-200 rounded bg-white overflow-hidden">
               {truckList.map((t) => {
                 const dist = calculateGeodesicDistanceKm(userCoord.latitude, userCoord.longitude, t.latitude, t.longitude);
                 const isCurrent = t.name === truck.name || (truck.code && t.code === truck.code);
@@ -405,43 +405,53 @@ export const TruckBanner: React.FC<TruckBannerProps> = ({
                       }
                       setIsTruckPickerOpen(false);
                     }}
-                    className={`p-2 rounded-lg border text-left cursor-pointer transition-all flex items-center justify-between gap-2 ${
+                    className={`p-2 sm:px-3 text-left cursor-pointer transition-colors flex items-center justify-between gap-2.5 ${
                       isCurrent
-                        ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950 font-bold shadow-2xs'
-                        : 'bg-white border-neutral-200 hover:border-neutral-300 text-neutral-800'
+                        ? 'bg-emerald-50/50 border-l-4 border-l-emerald-600 font-bold'
+                        : 'hover:bg-neutral-50'
                     }`}
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1 text-xs">
-                        <span className="truncate">{t.name}</span>
+                      <div className="flex items-center gap-1.5 text-xs">
+                        <span className="font-bold text-neutral-900 truncate">{t.name}</span>
                         {isCurrent && (
-                          <span className="text-[9px] bg-emerald-600 text-white px-1 py-0.2 rounded font-mono">
-                            当前
+                          <span className="text-[9px] bg-emerald-700 text-white px-1.5 py-0.2 rounded font-semibold">
+                            当前服务
                           </span>
                         )}
                         <span
-                          className={`text-[9px] px-1 py-0.2 rounded font-bold ${
+                          className={`text-[9px] px-1.5 py-0.2 rounded font-semibold ${
                             tStatus.isOpen
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-rose-100 text-rose-800'
+                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                              : 'bg-rose-50 text-rose-800 border border-rose-200'
                           }`}
                         >
                           {tStatus.isOpen ? '营业中' : '打烊'}
                         </span>
                       </div>
-                      <div className="text-[10px] text-neutral-500 truncate mt-0.5">
-                        {t.locationName}
+                      <div className="text-[10.5px] text-neutral-500 truncate mt-0.5">
+                        {t.locationName} · 起送 ¥{t.minDeliveryAmount} · 半径 {t.deliveryRadiusKm}km
                       </div>
                     </div>
-                    <div className="text-right shrink-0">
-                      <div className="text-xs font-mono font-bold text-neutral-900">
-                        {dist.toFixed(1)} km
+                    <div className="text-right shrink-0 flex items-center gap-2">
+                      <div>
+                        <div className="text-xs font-bold text-neutral-900">
+                          {dist.toFixed(1)} km
+                        </div>
+                        <span className={`text-[9px] px-1 py-0.2 rounded font-semibold block mt-0.5 ${
+                          inRange ? 'text-emerald-700 bg-emerald-50' : 'text-rose-700 bg-rose-50'
+                        }`}>
+                          {inRange ? '可极速达' : '超出范围'}
+                        </span>
                       </div>
-                      <span className={`text-[9px] px-1 py-0.2 rounded ${
-                        inRange ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                      }`}>
-                        {inRange ? '可配送' : '超范围'}
-                      </span>
+                      {!isCurrent && (
+                        <button
+                          type="button"
+                          className="text-[10px] px-2 py-1 rounded bg-neutral-900 text-white font-semibold hover:bg-black transition-colors"
+                        >
+                          切换
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -459,7 +469,7 @@ export const TruckBanner: React.FC<TruckBannerProps> = ({
                 该餐车已打烊：{currentTruckStatus.closeReason || '暂停接单中'}
               </span>
             </div>
-            <span className="text-[10px] font-mono text-rose-600 shrink-0 bg-white px-1.5 py-0.5 rounded border border-rose-200">
+            <span className="text-[10px] tabular-nums text-rose-600 shrink-0 bg-white px-1.5 py-0.5 rounded border border-rose-200">
               预计恢复: {currentTruckStatus.reopenTime}
             </span>
           </div>
@@ -497,7 +507,7 @@ export const TruckBanner: React.FC<TruckBannerProps> = ({
                 </span>
 
                 {/* Discount Badge Bubble */}
-                <span className="text-[10px] text-amber-300 font-mono font-bold shrink-0 bg-transparent px-2 py-0.5 rounded-none border border-amber-400/60 shadow-2xs flex items-center gap-0.5">
+                <span className="text-[10px] text-amber-300 tabular-nums font-bold shrink-0 bg-transparent px-2 py-0.5 rounded-none border border-amber-400/60 shadow-2xs flex items-center gap-0.5">
                   <span>{currentPromo.discount}</span>
                 </span>
               </motion.div>
@@ -557,7 +567,7 @@ export const TruckBanner: React.FC<TruckBannerProps> = ({
                   </button>
                 </div>
 
-                <span className="text-[10px] text-[#787770] font-mono shrink-0 hidden sm:inline-flex items-center gap-1">
+                <span className="text-[10px] text-[#787770] tabular-nums shrink-0 hidden sm:inline-flex items-center gap-1">
                   <Clock className="w-3 h-3 text-neutral-400" />
                   实时榜单每5分钟刷新
                 </span>
@@ -604,18 +614,18 @@ export const TruckBanner: React.FC<TruckBannerProps> = ({
 
                           <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-[#f0f0ec]">
                             <div className="flex items-baseline gap-1">
-                              <span className="text-xs font-black text-black font-mono">
+                              <span className="text-xs font-black text-black tabular-nums">
                                 {item.price}
                               </span>
                               {item.originalPrice && (
-                                <span className="text-[10px] text-[#999] line-through font-mono">
+                                <span className="text-[10px] text-[#999] line-through tabular-nums">
                                   {item.originalPrice}
                                 </span>
                               )}
                             </div>
 
                             <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] text-[#787770] font-mono flex items-center gap-0.5">
+                              <span className="text-[10px] text-[#787770] tabular-nums flex items-center gap-0.5">
                                 <Flame className="w-2.5 h-2.5 text-rose-500" />
                                 {item.hotnessScore}
                               </span>
@@ -666,7 +676,7 @@ export const TruckBanner: React.FC<TruckBannerProps> = ({
 
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-1.5">
-                                <span className="text-xs font-black text-rose-600 font-mono">
+                                <span className="text-xs font-black text-rose-600 tabular-nums">
                                   {cp.discountType}
                                 </span>
                                 <h4 className="text-xs font-black text-[#1a1c1b] truncate">
@@ -679,7 +689,7 @@ export const TruckBanner: React.FC<TruckBannerProps> = ({
                                 <span>·</span>
                                 <span>{cp.maxDeduct}</span>
                                 <span>·</span>
-                                <span className="font-mono text-[#8c8b84]">{cp.validPeriod}</span>
+                                <span className="tabular-nums text-[#8c8b84]">{cp.validPeriod}</span>
                               </div>
                             </div>
                           </div>

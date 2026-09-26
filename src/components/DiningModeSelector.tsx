@@ -288,7 +288,7 @@ export const DiningModeSelector: React.FC<DiningModeSelectorProps> = ({
                           <span className={`text-xs font-bold ${isSelected ? item.colorClass : 'text-[#1a1c1b]'}`}>
                             {item.label}
                           </span>
-                          <span className="text-[10px] text-[#787770] font-mono">({item.enLabel})</span>
+                          <span className="text-[10px] text-[#787770] tabular-nums">({item.enLabel})</span>
                           <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-medium shrink-0 ${
                             isSelected ? 'bg-white/80 border border-current font-bold' : 'bg-neutral-100 text-[#474741]'
                           }`}>

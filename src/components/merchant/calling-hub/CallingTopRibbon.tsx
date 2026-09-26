@@ -11,6 +11,7 @@ import {
   Gauge,
   type LucideIcon
 } from 'lucide-react';
+import { UiverseAudioEqualizer } from '../uiverse/UiverseDynamicComponents';
 
 /* ============================================================================
  * ① TOP GLOBAL STATUS & ACTION RIBBON — 顶层全局状态与动作缎带  [RAD OPS]
@@ -108,9 +109,10 @@ export const CallingTopRibbon: React.FC<CallingTopRibbonProps> = ({
                 URBAN RADAR // 前台叫号取餐与等位排队中枢
               </h1>
             </div>
-            <span className="bg-rad-blue-subtle text-rad-blue border border-rad-blue/30 px-2 py-0.5 rounded-rad font-mono font-bold text-[11px] uppercase tracking-wider">
-              LIVE CALLING
-            </span>
+            <div className="bg-rad-blue-subtle text-rad-blue border border-rad-blue/30 px-2 py-0.5 rounded-rad font-mono font-bold text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+              <span>LIVE CALLING</span>
+              <UiverseAudioEqualizer active={true} />
+            </div>
             <span className="bg-rad-subtle border border-rad-line px-2 py-0.5 rounded-rad font-mono text-[11px] text-rad-text-muted">
               v4.8.2-PROD
             </span>

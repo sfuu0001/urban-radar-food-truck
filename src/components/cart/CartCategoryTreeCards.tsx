@@ -124,7 +124,7 @@ export const CartCategoryTreeCards: React.FC<CartCategoryTreeCardsProps> = ({
                   <h4 className="text-xs sm:text-[13px] font-black text-neutral-900 leading-tight">
                     {cat.name}
                   </h4>
-                  <p className="text-[10px] text-neutral-400 font-mono mt-0.5 truncate">
+                  <p className="text-[10px] text-neutral-400 tabular-nums mt-0.5 truncate">
                     {cat.enName}
                   </p>
                 </div>
@@ -151,7 +151,7 @@ export const CartCategoryTreeCards: React.FC<CartCategoryTreeCardsProps> = ({
                       </button>
                     ))}
                     {!isExpanded && cat.subCategories.length > 3 && (
-                      <span className="px-1 py-0.5 text-[9.5px] text-neutral-400 font-mono">
+                      <span className="px-1 py-0.5 text-[9.5px] text-neutral-400 tabular-nums">
                         +{cat.subCategories.length - 3}
                       </span>
                     )}
@@ -194,7 +194,7 @@ export const CartCategoryTreeCards: React.FC<CartCategoryTreeCardsProps> = ({
                                 <p className="text-[11px] font-bold text-neutral-900 truncate">
                                   {dish.name}
                                 </p>
-                                <span className="text-[10px] font-mono font-bold text-neutral-800">
+                                <span className="text-[10px] tabular-nums font-bold text-neutral-800">
                                   ¥{dish.price}
                                 </span>
                               </div>

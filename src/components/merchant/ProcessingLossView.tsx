@@ -270,7 +270,7 @@ export const ProcessingLossView: React.FC<ProcessingLossViewProps> = ({ showToas
                       fontSize="9"
                       fill="#94a3b8"
                       textAnchor="end"
-                      fontFamily="monospace"
+                      fontFamily="'Space Grotesk', sans-serif"
                     >
                       {val}%
                     </text>

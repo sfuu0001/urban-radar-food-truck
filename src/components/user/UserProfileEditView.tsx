@@ -610,15 +610,15 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
             <div className="h-4 w-px bg-hairline" />
             <div className="flex flex-col">
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-mono tracking-wider text-ink-tertiary uppercase">URBAN RADAR /</span>
+                <span className="text-[10px] font-sans tracking-wider text-ink-tertiary uppercase">URBAN RADAR /</span>
                 <h1 className="text-xs sm:text-sm font-bold tracking-tight text-ink uppercase">
                   会员资料与参数控制台
                 </h1>
-                <span className="hidden sm:inline-block text-[10px] font-mono bg-ink text-on-ink px-1.5 py-0.2 rounded-ds-sm font-bold">
+                <span className="hidden sm:inline-block text-[10px] font-sans bg-ink text-on-ink px-1.5 py-0.2 rounded-ds-sm font-bold">
                   PRECISION v2
                 </span>
               </div>
-              <span className="text-[9.5px] font-mono text-ink-tertiary hidden md:inline-block">
+              <span className="text-[9.5px] font-sans text-ink-tertiary hidden md:inline-block">
                 CENTRAL PARAMETER CONSOLE · COMPACT ADAPTIVE GRID
               </span>
             </div>
@@ -627,7 +627,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
           {/* Right Action & Cloud Status */}
           <div className="flex items-center space-x-2.5">
             {/* Real-time Cloud Indicator */}
-            <div className="hidden md:flex items-center gap-2 text-xs font-mono bg-success-soft text-success px-3 py-1 rounded-ds border border-success/30">
+            <div className="hidden md:flex items-center gap-2 text-xs font-sans bg-success-soft text-success px-3 py-1 rounded-ds border border-success/30">
               <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
               <span className="text-[11px] font-bold tracking-tight">车载雷达全域联通</span>
             </div>
@@ -672,7 +672,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
               <div className="flex items-center justify-between mb-3.5 relative z-10">
                 <div className="flex items-center gap-1.5">
                   <Award className="w-3.5 h-3.5 text-select" />
-                  <span className="text-[10px] font-mono font-black tracking-widest uppercase text-select bg-select-soft/10 border border-select-border/30 px-2 py-0.5 rounded-ds-sm">
+                  <span className="text-[10px] font-sans font-black tracking-widest uppercase text-select bg-select-soft/10 border border-select-border/30 px-2 py-0.5 rounded-ds-sm">
                     {userProfile.membershipTier === 'vip_black_elite'
                       ? 'BLACK ELITE'
                       : userProfile.membershipTier === 'vip_silver'
@@ -680,7 +680,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                       : 'BLACK ELITE 先锋'}
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 text-[10px] font-mono text-emerald-400 bg-emerald-950/70 px-2 py-0.5 rounded-ds-sm border border-emerald-800/60">
+                <div className="flex items-center gap-1.5 text-[10px] font-sans text-emerald-400 bg-emerald-950/70 px-2 py-0.5 rounded-ds-sm border border-emerald-800/60">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   <span>实时联通</span>
                 </div>
@@ -701,17 +701,17 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                     <h2 className="text-sm font-bold text-white truncate">
                       {nickname || '张伟 (店长)'}
                     </h2>
-                    <span className="text-[9px] font-mono bg-[#222222] text-neutral-300 px-1 py-0.2 rounded-ds-sm border border-[#333333]">
+                    <span className="text-[9px] font-sans bg-[#222222] text-neutral-300 px-1 py-0.2 rounded-ds-sm border border-[#333333]">
                       {gender === 'male' ? '男' : gender === 'female' ? '女' : '保密'}
                     </span>
                   </div>
-                  <p className="text-[11px] text-neutral-400 font-mono mt-0.5">{phone}</p>
+                  <p className="text-[11px] text-neutral-400 font-sans mt-0.5">{phone}</p>
                   <p className="text-[10px] text-neutral-400 mt-0.5 truncate">{bio}</p>
                 </div>
               </div>
 
               {/* Card Metrics Grid */}
-              <div className="grid grid-cols-2 gap-2 border-t border-[#242424] pt-3 relative z-10 font-mono">
+              <div className="grid grid-cols-2 gap-2 border-t border-[#242424] pt-3 relative z-10 font-sans">
                 <div className="bg-[#181818] border border-[#282828] p-2.5 rounded-ds">
                   <span className="text-[9.5px] text-neutral-400 block uppercase mb-0.5">储值账户余额</span>
                   <span className="text-base font-black text-white leading-none font-amount">¥{balance.toFixed(2)}</span>
@@ -726,11 +726,11 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
             {/* Industrial Precision Navigation Tabs Menu */}
             <nav className="bg-canvas border border-hairline shadow-console-1 rounded-ds-xl p-2.5 sm:p-3">
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-hairline px-1">
-                <div className="text-[10.5px] font-mono uppercase tracking-wider text-ink-tertiary flex items-center gap-1.5 font-bold">
+                <div className="text-[10.5px] font-sans uppercase tracking-wider text-ink-tertiary flex items-center gap-1.5 font-bold">
                   <Sliders className="w-3.5 h-3.5 text-icon-default" />
                   <span>控制台分类导航</span>
                 </div>
-                <span className="text-[9px] font-mono text-ink-secondary bg-canvas-gray px-2 py-0.5 border border-hairline rounded-ds-sm font-bold">
+                <span className="text-[9px] font-sans text-ink-secondary bg-canvas-gray px-2 py-0.5 border border-hairline rounded-ds-sm font-bold">
                   5 项参数模块
                 </span>
               </div>
@@ -768,7 +768,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                             {t.label}
                           </span>
                           <span
-                            className={`text-[9px] font-mono block ${
+                            className={`text-[9px] font-sans block ${
                               isActive ? 'text-neutral-400' : 'text-ink-tertiary'
                             }`}
                           >
@@ -777,7 +777,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                         </div>
                       </div>
                       <span
-                        className={`text-[9.5px] font-mono px-2 py-0.5 rounded-ds-sm border leading-none font-semibold ${
+                        className={`text-[9.5px] font-sans px-2 py-0.5 rounded-ds-sm border leading-none font-semibold ${
                           isActive
                             ? 'bg-ink-hover text-white border-neutral-700'
                             : t.badgeColor
@@ -792,7 +792,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
             </nav>
 
             {/* Quick Terminal & Cloud Diagnostics Note */}
-            <div className="p-3.5 bg-canvas border border-hairline rounded-ds-xl text-[11px] font-mono text-ink-secondary space-y-1.5 shadow-console-1">
+            <div className="p-3.5 bg-canvas border border-hairline rounded-ds-xl text-[11px] font-sans text-ink-secondary space-y-1.5 shadow-console-1">
               <div className="text-ink font-bold flex items-center justify-between uppercase text-xs">
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
@@ -831,7 +831,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                         <h3 className="text-sm font-bold text-ink uppercase tracking-tight">
                           基本资料与数字身份
                         </h3>
-                        <span className="text-[10px] font-mono text-success bg-success-soft px-2 py-0.5 rounded-ds-sm border border-success/30 font-bold">
+                        <span className="text-[10px] font-sans text-success bg-success-soft px-2 py-0.5 rounded-ds-sm border border-success/30 font-bold">
                           实时广播
                         </span>
                       </div>
@@ -839,7 +839,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                         用于餐车站台身份识别、外送配送呼叫与电子小票出票人称呼。
                       </p>
                     </div>
-                    <div className="text-[10.5px] font-mono text-ink-tertiary">
+                    <div className="text-[10.5px] font-sans text-ink-tertiary">
                       上次同步：{lastSyncTime}
                     </div>
                   </div>
@@ -851,7 +851,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                         <Sparkles className="w-3.5 h-3.5 text-warning" />
                         <span>数字头像设定</span>
                       </label>
-                      <span className="text-[11px] text-ink-tertiary font-mono">点击图标一键切换</span>
+                      <span className="text-[11px] text-ink-tertiary font-sans">点击图标一键切换</span>
                     </div>
                     <div className="grid grid-cols-4 sm:grid-cols-8 gap-2.5" id="avatar-container">
                       {avatarPresets.map((icon, idx) => {
@@ -897,7 +897,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                           placeholder="输入您的称呼"
                           className="w-full text-xs font-semibold px-3 py-2 border border-hairline bg-canvas-gray/40 focus:bg-canvas text-ink focus:outline-none focus:border-ink focus:ring-1 focus:ring-ink rounded-ds transition-all"
                         />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono text-ink-tertiary">
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-sans text-ink-tertiary">
                           {nickname.length}/20
                         </span>
                       </div>
@@ -909,7 +909,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                         <label className="block text-xs font-bold text-ink uppercase" htmlFor="phone">
                           绑定手机号 (核心账户凭证)
                         </label>
-                        <span className="text-[10px] font-mono text-success font-bold flex items-center gap-1">
+                        <span className="text-[10px] font-sans text-success font-bold flex items-center gap-1">
                           <ShieldCheck className="w-3 h-3" />
                           已实名核验
                         </span>
@@ -920,7 +920,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                           type="text"
                           value={phone}
                           readOnly
-                          className="w-full text-xs font-mono px-3 py-2 border border-hairline bg-canvas-gray text-ink-secondary focus:outline-none cursor-not-allowed rounded-ds"
+                          className="w-full text-xs font-sans px-3 py-2 border border-hairline bg-canvas-gray text-ink-secondary focus:outline-none cursor-not-allowed rounded-ds"
                         />
                         <Lock className="w-3.5 h-3.5 text-icon-muted absolute right-3 top-1/2 -translate-y-1/2" />
                       </div>
@@ -965,7 +965,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                           value={birthday}
                           onChange={(e) => setBirthday(e.target.value)}
                           placeholder="YYYY/MM/DD (例如 1990/01/01)"
-                          className="w-full text-xs font-mono px-3 py-2 border border-hairline bg-canvas-gray/40 focus:bg-canvas text-ink focus:outline-none focus:border-ink focus:ring-1 focus:ring-ink rounded-ds transition-all"
+                          className="w-full text-xs font-sans px-3 py-2 border border-hairline bg-canvas-gray/40 focus:bg-canvas text-ink focus:outline-none focus:border-ink focus:ring-1 focus:ring-ink rounded-ds transition-all"
                         />
                         <Calendar className="w-3.5 h-3.5 text-icon-muted absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                       </div>
@@ -986,7 +986,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                       placeholder="写下您的点单偏好或业务备注..."
                       className="w-full text-xs px-3 py-2 border border-hairline bg-canvas-gray/40 focus:bg-canvas text-ink focus:outline-none focus:border-ink focus:ring-1 focus:ring-ink rounded-ds transition-all resize-none"
                     />
-                    <div className="flex justify-between items-center text-[10px] text-ink-tertiary mt-1 font-mono">
+                    <div className="flex justify-between items-center text-[10px] text-ink-tertiary mt-1 font-sans">
                       <span>此内容将在站台呼叫屏与订单流水日志中作为备用字段呈现</span>
                       <span>{bio.length}/60</span>
                     </div>
@@ -1008,7 +1008,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                         <h3 className="text-sm font-bold text-ink uppercase tracking-tight">
                           就餐偏好与出餐策略联动
                         </h3>
-                        <span className="text-[10px] font-mono text-warning bg-warning-soft px-2 py-0.5 rounded-ds-sm border border-warning/30 font-bold">
+                        <span className="text-[10px] font-sans text-warning bg-warning-soft px-2 py-0.5 rounded-ds-sm border border-warning/30 font-bold">
                           后厨联动
                         </span>
                       </div>
@@ -1019,7 +1019,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                     <button
                       type="button"
                       onClick={handleResetToInitial}
-                      className="text-xs font-mono text-ink-tertiary hover:text-ink border border-hairline px-2.5 py-1 rounded-ds hover:bg-canvas-gray transition-colors self-start sm:self-auto cursor-pointer"
+                      className="text-xs font-sans text-ink-tertiary hover:text-ink border border-hairline px-2.5 py-1 rounded-ds hover:bg-canvas-gray transition-colors self-start sm:self-auto cursor-pointer"
                     >
                       恢复默认偏好
                     </button>
@@ -1076,7 +1076,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                         <div>
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs font-bold text-ink">践行低碳就餐 (免一次性餐具)</span>
-                            <span className="text-[9.5px] font-mono text-success bg-success-soft px-1.5 py-0.2 rounded-ds-sm border border-success/30 font-bold">
+                            <span className="text-[9.5px] font-sans text-success bg-success-soft px-1.5 py-0.2 rounded-ds-sm border border-success/30 font-bold">
                               每次点单 +5 积分
                             </span>
                           </div>
@@ -1107,7 +1107,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                         <div>
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs font-bold text-ink">自动选用最优满减券与折扣方案</span>
-                            <span className="text-[9.5px] font-mono text-select bg-select-soft px-1.5 py-0.2 rounded-ds-sm border border-select-border font-bold">
+                            <span className="text-[9.5px] font-sans text-select bg-select-soft px-1.5 py-0.2 rounded-ds-sm border border-select-border font-bold">
                               省心立减
                             </span>
                           </div>
@@ -1173,7 +1173,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                             key={tag}
                             type="button"
                             onClick={() => handleToggleDietaryTag(tag)}
-                            className={`text-xs font-mono px-2.5 py-1 rounded-ds-sm border transition-all cursor-pointer ${
+                            className={`text-xs font-sans px-2.5 py-1 rounded-ds-sm border transition-all cursor-pointer ${
                               isIncluded
                                 ? 'bg-ink border-ink text-on-ink font-bold shadow-console-1'
                                 : 'bg-canvas border-hairline text-ink-secondary hover:border-ink/50'
@@ -1210,7 +1210,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                         <h3 className="text-sm font-bold text-ink uppercase tracking-tight">
                           常用送达地址簿与调度站台
                         </h3>
-                        <span className="text-[10px] font-mono text-on-ink bg-ink px-2 py-0.5 rounded-ds-sm font-bold">
+                        <span className="text-[10px] font-sans text-on-ink bg-ink px-2 py-0.5 rounded-ds-sm font-bold">
                           COMPACT GRID · 全端自适应网格
                         </span>
                       </div>
@@ -1221,7 +1221,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
 
                     {/* Action Toolbar */}
                     <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
-                      <span className="text-xs font-mono text-ink-tertiary bg-canvas-gray px-2.5 py-1 rounded-ds border border-hairline">
+                      <span className="text-xs font-sans text-ink-tertiary bg-canvas-gray px-2.5 py-1 rounded-ds border border-hairline">
                         共 <strong className="text-ink font-amount">{addresses.length}</strong> 处点位
                       </span>
                       <button
@@ -1259,7 +1259,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                           key={idx}
                           type="button"
                           onClick={() => handleApplyPreset(preset)}
-                          className="text-[11px] font-mono bg-canvas hover:bg-canvas-gray text-ink-secondary hover:text-ink border border-hairline px-2 py-0.5 rounded-ds transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                          className="text-[11px] font-sans bg-canvas hover:bg-canvas-gray text-ink-secondary hover:text-ink border border-hairline px-2 py-0.5 rounded-ds transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
                           title="点击快速以此模板载入"
                         >
                           <span className="font-bold text-ink">[{preset.tag}]</span>
@@ -1287,7 +1287,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                           key={item.key}
                           type="button"
                           onClick={() => setAddressTagFilter(item.key as any)}
-                          className={`text-xs font-mono px-2.5 py-1 rounded-ds border transition-all cursor-pointer whitespace-nowrap flex items-center gap-1 ${
+                          className={`text-xs font-sans px-2.5 py-1 rounded-ds border transition-all cursor-pointer whitespace-nowrap flex items-center gap-1 ${
                             addressTagFilter === item.key
                               ? 'bg-ink border-ink text-on-ink font-bold shadow-console-1'
                               : 'bg-canvas border-hairline text-ink-secondary hover:text-ink hover:bg-canvas-gray'
@@ -1307,7 +1307,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                         value={addressSearchQuery}
                         onChange={(e) => setAddressSearchQuery(e.target.value)}
                         placeholder="搜索写字楼 / 房间 / 备注..."
-                        className="w-full h-8 pl-8 pr-7 text-xs font-mono bg-canvas border border-hairline rounded-ds text-ink placeholder:text-ink-tertiary focus:outline-none focus:border-ink"
+                        className="w-full h-8 pl-8 pr-7 text-xs font-sans bg-canvas border border-hairline rounded-ds text-ink placeholder:text-ink-tertiary focus:outline-none focus:border-ink"
                       />
                       {addressSearchQuery && (
                         <button
@@ -1335,7 +1335,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                           <button
                             type="button"
                             onClick={handleSimulateGpsAutofill}
-                            className="text-[11px] font-mono bg-canvas-gray hover:bg-hairline text-ink border border-hairline px-2.5 py-1 rounded-ds cursor-pointer flex items-center gap-1 shadow-2xs"
+                            className="text-[11px] font-sans bg-canvas-gray hover:bg-hairline text-ink border border-hairline px-2.5 py-1 rounded-ds cursor-pointer flex items-center gap-1 shadow-2xs"
                           >
                             <Crosshair className="w-3 h-3 text-icon-default" />
                             <span>读取当前 GPS 坐标</span>
@@ -1364,7 +1364,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                             value={addrName}
                             onChange={(e) => setAddrName(e.target.value)}
                             placeholder="收货人姓名"
-                            className="w-full h-9 px-3 bg-canvas-gray/40 border border-hairline text-xs font-semibold focus:outline-none focus:bg-canvas focus:border-ink rounded-ds font-mono"
+                            className="w-full h-9 px-3 bg-canvas-gray/40 border border-hairline text-xs font-semibold focus:outline-none focus:bg-canvas focus:border-ink rounded-ds font-sans"
                           />
                         </div>
                         <div>
@@ -1376,7 +1376,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                             value={addrPhone}
                             onChange={(e) => setAddrPhone(e.target.value)}
                             placeholder="联系电话"
-                            className="w-full h-9 px-3 bg-canvas-gray/40 border border-hairline text-xs font-mono focus:outline-none focus:bg-canvas focus:border-ink rounded-ds"
+                            className="w-full h-9 px-3 bg-canvas-gray/40 border border-hairline text-xs font-sans focus:outline-none focus:bg-canvas focus:border-ink rounded-ds"
                           />
                         </div>
                       </div>
@@ -1392,7 +1392,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                               key={tag}
                               type="button"
                               onClick={() => setAddrTag(tag)}
-                              className={`px-3 py-1 text-xs font-mono font-bold border rounded-ds cursor-pointer transition-all ${
+                              className={`px-3 py-1 text-xs font-sans font-bold border rounded-ds cursor-pointer transition-all ${
                                 addrTag === tag
                                   ? 'bg-ink border-ink text-on-ink shadow-console-1'
                                   : 'bg-canvas border-hairline text-ink-secondary hover:border-ink/50'
@@ -1415,7 +1415,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                             value={addrLocation}
                             onChange={(e) => setAddrLocation(e.target.value)}
                             placeholder="例: 静安大悦城南座办公楼"
-                            className="w-full h-9 px-3 bg-canvas-gray/40 border border-hairline text-xs font-semibold focus:outline-none focus:bg-canvas focus:border-ink rounded-ds font-mono"
+                            className="w-full h-9 px-3 bg-canvas-gray/40 border border-hairline text-xs font-semibold focus:outline-none focus:bg-canvas focus:border-ink rounded-ds font-sans"
                           />
                         </div>
                         <div>
@@ -1427,7 +1427,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                             value={addrHouseNumber}
                             onChange={(e) => setAddrHouseNumber(e.target.value)}
                             placeholder="例: 南座8楼801室"
-                            className="w-full h-9 px-3 bg-canvas-gray/40 border border-hairline text-xs font-semibold focus:outline-none focus:bg-canvas focus:border-ink rounded-ds font-mono"
+                            className="w-full h-9 px-3 bg-canvas-gray/40 border border-hairline text-xs font-semibold focus:outline-none focus:bg-canvas focus:border-ink rounded-ds font-sans"
                           />
                         </div>
                       </div>
@@ -1443,7 +1443,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                             value={addrDetail}
                             onChange={(e) => setAddrDetail(e.target.value)}
                             placeholder="例: 西藏北路166号"
-                            className="w-full h-9 px-3 bg-canvas-gray/40 border border-hairline text-xs font-mono focus:outline-none focus:bg-canvas focus:border-ink rounded-ds"
+                            className="w-full h-9 px-3 bg-canvas-gray/40 border border-hairline text-xs font-sans focus:outline-none focus:bg-canvas focus:border-ink rounded-ds"
                           />
                         </div>
                         <div>
@@ -1455,14 +1455,14 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                             value={addrRemarks}
                             onChange={(e) => setAddrRemarks(e.target.value)}
                             placeholder="例: 放前台外卖架 / 到楼下电联"
-                            className="w-full h-9 px-3 bg-canvas-gray/40 border border-hairline text-xs font-mono focus:outline-none focus:bg-canvas focus:border-ink rounded-ds"
+                            className="w-full h-9 px-3 bg-canvas-gray/40 border border-hairline text-xs font-sans focus:outline-none focus:bg-canvas focus:border-ink rounded-ds"
                           />
                         </div>
                       </div>
 
                       {/* Coordinates Readout */}
                       {addrLat && addrLng && (
-                        <div className="flex items-center gap-2 text-[11px] font-mono text-ink-secondary bg-canvas-gray/60 p-2 rounded-ds border border-hairline">
+                        <div className="flex items-center gap-2 text-[11px] font-sans text-ink-secondary bg-canvas-gray/60 p-2 rounded-ds border border-hairline">
                           <Navigation className="w-3.5 h-3.5 text-select shrink-0" />
                           <span>绑定的 GPS 空间坐标：{addrLat.toFixed(4)}°N, {addrLng.toFixed(4)}°E (已校准)</span>
                         </div>
@@ -1514,7 +1514,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                             <div className="flex items-center justify-between gap-1 mb-2">
                               <div className="flex items-center gap-1.5">
                                 <span
-                                  className={`px-2 py-0.5 rounded-ds-sm text-[10px] font-mono font-bold ${
+                                  className={`px-2 py-0.5 rounded-ds-sm text-[10px] font-sans font-bold ${
                                     addr.tag === '公司'
                                       ? 'bg-ink text-on-ink'
                                       : addr.tag === '家'
@@ -1527,19 +1527,19 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                                   {addr.tag}
                                 </span>
                                 {isDef ? (
-                                  <span className="text-[10px] font-mono font-bold bg-ink text-on-ink px-2 py-0.5 rounded-ds-sm flex items-center gap-1">
+                                  <span className="text-[10px] font-sans font-bold bg-ink text-on-ink px-2 py-0.5 rounded-ds-sm flex items-center gap-1">
                                     <Check className="w-2.5 h-2.5 stroke-[3]" />
                                     默认送达
                                   </span>
                                 ) : (
-                                  <span className="text-[10px] font-mono text-ink-tertiary">
+                                  <span className="text-[10px] font-sans text-ink-tertiary">
                                     LOC-{String(idx + 1).padStart(2, '0')}
                                   </span>
                                 )}
                               </div>
 
                               {/* Telemetry coordinate badge */}
-                              <div className="text-[10px] font-mono text-ink-tertiary flex items-center gap-1">
+                              <div className="text-[10px] font-sans text-ink-tertiary flex items-center gap-1">
                                 <Navigation className="w-2.5 h-2.5 text-icon-muted" />
                                 <span>{addr.latitude ? `${addr.latitude.toFixed(2)}°N` : '31.24°N'}</span>
                               </div>
@@ -1554,12 +1554,12 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                             </div>
 
                             {/* Detail Street & House Number */}
-                            <p className="text-xs font-mono text-ink-secondary mt-1 pl-5.5 leading-relaxed">
+                            <p className="text-xs font-sans text-ink-secondary mt-1 pl-5.5 leading-relaxed">
                               {addr.detail} {addr.houseNumber ? `· ${addr.houseNumber}` : ''}
                             </p>
 
                             {/* Contact Person & Phone */}
-                            <div className="mt-2.5 pt-2 border-t border-hairline/80 flex items-center justify-between text-xs font-mono text-ink-secondary">
+                            <div className="mt-2.5 pt-2 border-t border-hairline/80 flex items-center justify-between text-xs font-sans text-ink-secondary">
                               <div className="flex items-center gap-1.5 truncate">
                                 <User className="w-3 h-3 text-icon-muted shrink-0" />
                                 <span className="font-bold text-ink">{addr.name}</span>
@@ -1569,7 +1569,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
 
                             {/* Remarks Pill */}
                             {addr.remarks && (
-                              <div className="mt-2 text-[11px] font-mono text-ink-secondary bg-canvas-gray/80 px-2 py-1 rounded-ds border border-hairline/60 flex items-center gap-1.5 truncate">
+                              <div className="mt-2 text-[11px] font-sans text-ink-secondary bg-canvas-gray/80 px-2 py-1 rounded-ds border border-hairline/60 flex items-center gap-1.5 truncate">
                                 <span className="text-[9.5px] text-ink-tertiary uppercase font-bold shrink-0">嘱咐:</span>
                                 <span className="truncate">{addr.remarks}</span>
                               </div>
@@ -1577,18 +1577,18 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                           </div>
 
                           {/* Card Footer Action Toolbar */}
-                          <div className="mt-3 pt-2.5 border-t border-hairline flex items-center justify-between gap-1 text-xs font-mono">
+                          <div className="mt-3 pt-2.5 border-t border-hairline flex items-center justify-between gap-1 text-xs font-sans">
                             <div>
                               {!isDef ? (
                                 <button
                                   type="button"
                                   onClick={() => handleSetDefaultAddress(addr.id)}
-                                  className="text-[10px] font-mono text-ink-secondary hover:text-ink border border-hairline px-2 py-0.5 rounded-ds cursor-pointer bg-canvas hover:bg-canvas-gray transition-colors"
+                                  className="text-[10px] font-sans text-ink-secondary hover:text-ink border border-hairline px-2 py-0.5 rounded-ds cursor-pointer bg-canvas hover:bg-canvas-gray transition-colors"
                                 >
                                   设为默认
                                 </button>
                               ) : (
-                                <span className="text-[10px] font-mono text-success font-bold flex items-center gap-1">
+                                <span className="text-[10px] font-sans text-success font-bold flex items-center gap-1">
                                   <CheckCircle2 className="w-3 h-3" />
                                   极速派送优先
                                 </span>
@@ -1678,7 +1678,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                         <Plus className="w-4 h-4" />
                       </div>
                       <span className="text-xs font-bold text-ink">新增送达地址点位</span>
-                      <span className="text-[10px] font-mono text-ink-tertiary mt-0.5">
+                      <span className="text-[10px] font-sans text-ink-tertiary mt-0.5">
                         点击录入写字楼、园区或住宅
                       </span>
                     </div>
@@ -1701,7 +1701,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                           setAddressSearchQuery('');
                           setAddressTagFilter('all');
                         }}
-                        className="mt-3 text-xs font-mono text-ink bg-canvas border border-hairline px-3 py-1 rounded-ds hover:bg-canvas-gray cursor-pointer"
+                        className="mt-3 text-xs font-sans text-ink bg-canvas border border-hairline px-3 py-1 rounded-ds hover:bg-canvas-gray cursor-pointer"
                       >
                         重置所有筛选
                       </button>
@@ -1724,7 +1724,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                         <h3 className="text-sm font-bold text-ink uppercase tracking-tight">
                           云端安全凭据与硬件芯片级指纹
                         </h3>
-                        <span className="text-[10px] font-mono text-ink-secondary bg-canvas-gray px-2 py-0.5 rounded-ds-sm border border-hairline font-bold">
+                        <span className="text-[10px] font-sans text-ink-secondary bg-canvas-gray px-2 py-0.5 rounded-ds-sm border border-hairline font-bold">
                           99.8% 匹配率
                         </span>
                       </div>
@@ -1732,14 +1732,14 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                         基于 SHA-256 HMAC 与设备芯片生成的唯一密钥，防止账号盗用与刷单行为。
                       </p>
                     </div>
-                    <span className="text-xs font-mono text-success bg-success-soft border border-success/30 px-2.5 py-1 rounded-ds self-start sm:self-auto font-bold flex items-center gap-1.5">
+                    <span className="text-xs font-sans text-success bg-success-soft border border-success/30 px-2.5 py-1 rounded-ds self-start sm:self-auto font-bold flex items-center gap-1.5">
                       <ShieldCheck className="w-3.5 h-3.5 text-success" />
                       安全防御生效中
                     </span>
                   </div>
 
                   {/* Key Metrics Cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 font-mono">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 font-sans">
                     <div className="p-3.5 bg-canvas-gray/50 border border-hairline rounded-ds">
                       <div className="flex justify-between items-center text-ink-tertiary text-[10px] uppercase mb-1">
                         <span>云端用户权威唯一 UID</span>
@@ -1813,7 +1813,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                         <h3 className="text-sm font-bold text-ink uppercase tracking-tight">
                           财务账户与流水快照
                         </h3>
-                        <span className="text-[10px] font-mono text-ink-secondary bg-canvas-gray px-2 py-0.5 rounded-ds-sm border border-hairline font-bold">
+                        <span className="text-[10px] font-sans text-ink-secondary bg-canvas-gray px-2 py-0.5 rounded-ds-sm border border-hairline font-bold">
                           实时结算对账
                         </span>
                       </div>
@@ -1821,11 +1821,11 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                         查看账户可用储值额度、会员积分变动流水及最近对账明细。
                       </p>
                     </div>
-                    <span className="text-xs font-mono text-ink-tertiary">近 30 天结算流水</span>
+                    <span className="text-xs font-sans text-ink-tertiary">近 30 天结算流水</span>
                   </div>
 
                   {/* Finance Metrics Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-sans">
                     <div className="p-3.5 bg-canvas-gray/40 border border-hairline rounded-ds">
                       <span className="text-[10px] text-ink-secondary block uppercase mb-1 font-bold">储值账户可用额度</span>
                       <span className="text-2xl font-black text-ink block leading-tight font-amount">¥{balance.toFixed(2)}</span>
@@ -1844,7 +1844,7 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                   </div>
 
                   {/* Transaction Filter Tabs */}
-                  <div className="flex items-center gap-1.5 border-b border-hairline pb-2 pt-1 font-mono text-xs">
+                  <div className="flex items-center gap-1.5 border-b border-hairline pb-2 pt-1 font-sans text-xs">
                     {[
                       { key: 'all', label: '全部流水' },
                       { key: 'recharge', label: '在线充值' },
@@ -1888,16 +1888,16 @@ export const UserProfileEditView: React.FC<UserProfileEditViewProps> = ({
                           <div>
                             <div className="font-bold text-ink flex items-center gap-1.5">
                               <span>{item.title}</span>
-                              <span className="text-[10px] font-mono text-ink-tertiary bg-canvas px-1.5 py-0.2 rounded-ds-sm border border-hairline">
+                              <span className="text-[10px] font-sans text-ink-tertiary bg-canvas px-1.5 py-0.2 rounded-ds-sm border border-hairline">
                                 {item.status}
                               </span>
                             </div>
-                            <div className="text-[11px] text-ink-tertiary font-mono mt-0.5">
+                            <div className="text-[11px] text-ink-tertiary font-sans mt-0.5">
                               {item.sub} · {item.time}
                             </div>
                           </div>
                         </div>
-                        <div className="text-right font-mono shrink-0">
+                        <div className="text-right font-sans shrink-0">
                           <span
                             className={`text-sm font-bold font-amount ${
                               item.amount.startsWith('+') ? 'text-success' : 'text-ink'

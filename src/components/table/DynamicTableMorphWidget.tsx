@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Users,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   Sparkles,
   ShieldCheck,
   ShoppingBag,
@@ -21,7 +23,8 @@ import {
   QrCode,
   Copy,
   Check,
-  AlertCircle
+  AlertCircle,
+  Shuffle
 } from 'lucide-react';
 import { useTableSessionUi } from './useTableSessionUi';
 import { TableQuickSwitchWidget } from './TableQuickSwitchWidget';
@@ -48,6 +51,7 @@ import {
 } from '../../utils/tableSessionEngine';
 import { generateShortCode } from '../../utils/tableQrEngine';
 import { generateQrCodeDataUrl } from '../../utils/qrCodeEngine';
+import { getMemberAvatar } from '../../utils/tableAvatarHelper';
 
 export interface DynamicTableMorphWidgetProps {
   currentTable?: string;
@@ -56,21 +60,6 @@ export interface DynamicTableMorphWidgetProps {
   showToast?: (title: string, desc?: string) => void;
   diningMode?: string;
   isMerchantView?: boolean; // 商家端专属注入视角
-}
-
-const AVATARS = [
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=faces',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&h=120&fit=crop&crop=faces',
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&h=120&fit=crop&crop=faces',
-  'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=120&h=120&fit=crop&crop=faces',
-  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=faces',
-  'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=120&h=120&fit=crop&crop=faces',
-];
-
-function getMemberAvatar(id: string, index: number): string {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
-  return AVATARS[(hash + index) % AVATARS.length];
 }
 
 function formatRelativeTime(isoString?: string): string {
@@ -83,6 +72,15 @@ function formatRelativeTime(isoString?: string): string {
   const hours = Math.floor(mins / 60);
   return `${hours}小时前`;
 }
+
+const PRESET_TABLES = [
+  { code: 'A1', label: 'A1 窗景席', guests: 2, zone: '外场窗边' },
+  { code: 'A2', label: 'A2 双人座', guests: 2, zone: '外场中庭' },
+  { code: 'A3', label: 'A3 四人桌', guests: 4, zone: '大厅中央' },
+  { code: 'B1', label: 'B1 吧台席', guests: 1, zone: '餐车前吧' },
+  { code: 'B2', label: 'B2 露天席', guests: 4, zone: '户外花园' },
+  { code: 'C1', label: 'C1 聚会座', guests: 6, zone: '聚会卡座' }
+];
 
 export const DynamicTableMorphWidget: React.FC<DynamicTableMorphWidgetProps> = ({
   currentTable = 'A1',
@@ -99,6 +97,40 @@ export const DynamicTableMorphWidget: React.FC<DynamicTableMorphWidgetProps> = (
   const [showQrModal, setShowQrModal] = useState<boolean>(false);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [inlineFeedback, setInlineFeedback] = useState<string | null>(null);
+
+  // 下拉菜单收拢控制
+  const [isActionsDropdownOpen, setIsActionsDropdownOpen] = useState<boolean>(false);
+  const [actionsDropdownCoords, setActionsDropdownCoords] = useState<{ top: number; left: number } | null>(null);
+  const actionsButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  const toggleActionsDropdown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isActionsDropdownOpen) {
+      setIsActionsDropdownOpen(false);
+    } else {
+      if (actionsButtonRef.current) {
+        const rect = actionsButtonRef.current.getBoundingClientRect();
+        const menuWidth = 240;
+        const left = Math.max(10, Math.min(rect.left, window.innerWidth - menuWidth - 10));
+        setActionsDropdownCoords({
+          top: rect.bottom + 6,
+          left
+        });
+      }
+      setIsActionsDropdownOpen(true);
+    }
+  };
+
+  useEffect(() => {
+    if (!isActionsDropdownOpen) return;
+    const handleDismiss = () => setIsActionsDropdownOpen(false);
+    window.addEventListener('scroll', handleDismiss, { passive: true });
+    window.addEventListener('resize', handleDismiss);
+    return () => {
+      window.removeEventListener('scroll', handleDismiss);
+      window.removeEventListener('resize', handleDismiss);
+    };
+  }, [isActionsDropdownOpen]);
 
   // 挂载真实 TableSessionUi 状态体系
   const { actions, myParticipant, identity, activeSession } = useTableSessionUi();
@@ -329,11 +361,14 @@ export const DynamicTableMorphWidget: React.FC<DynamicTableMorphWidgetProps> = (
   const handleSimulateMemberCart = (participantId: string, memberName: string) => {
     if (!session) return;
     const dishes = [
-      { name: '炭火慢烤和牛汉堡', price: 48, cat: '招牌主食' },
-      { name: '美式金牌香脆薯条', price: 18, cat: '特色小吃' },
-      { name: '精酿鲜萃青柠苏打', price: 16, cat: '特调饮品' },
-      { name: '法式黑松露牛肉卷', price: 36, cat: '招牌主食' },
-      { name: '炙烤迷迭香鸡翅 (4只)', price: 28, cat: '特色小吃' }
+      { id: 'dish-1', name: '炭烤和牛小汉堡双重奏', price: 63, cat: '主食' },
+      { id: 'dish-2', name: '黑松露墨汁手工玉棋', price: 58, cat: '招牌热食' },
+      { id: 'dish-3', name: '果木烟熏黑豚炙烤五花', price: 55, cat: '特色烧鸟' },
+      { id: 'dish-4', name: '暗夜虚空冷萃浓缩咖啡', price: 32, cat: '特调饮品' },
+      { id: 'dish-5', name: '黑曜石松露金黄脆薯', price: 28, cat: '小吃' },
+      { id: 'dish-6', name: '火山熔岩黑芝麻舒芙蕾', price: 38, cat: '甜品' },
+      { id: 'dish-7', name: '极夜西西里青柠微气泡', price: 26, cat: '特调饮品' },
+      { id: 'dish-8', name: '炙烧极上黑椒牛舌饭', price: 52, cat: '主食' }
     ];
     const chosen = dishes[Math.floor(Math.random() * dishes.length)];
     const existing = session.participants.find((p) => p.participantId === participantId);
@@ -343,13 +378,25 @@ export const DynamicTableMorphWidget: React.FC<DynamicTableMorphWidgetProps> = (
     const nextCount = prevCount + 1;
     const nextAmount = prevAmount + chosen.price;
 
+    const prevItems = existing?.cartSummary?.items || [];
+    const itemIndex = prevItems.findIndex((it) => it.dishId === chosen.id);
+    let nextItems;
+    if (itemIndex >= 0) {
+      nextItems = prevItems.map((it, idx) =>
+        idx === itemIndex ? { ...it, quantity: it.quantity + 1 } : it
+      );
+    } else {
+      nextItems = [...prevItems, { dishId: chosen.id, dishName: chosen.name, quantity: 1, price: chosen.price }];
+    }
+
     updateParticipantCart({
       sessionId: session.sessionId,
       participantId,
       cart: {
         itemCount: nextCount,
         totalAmount: nextAmount,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        items: nextItems
       }
     });
 
@@ -358,6 +405,7 @@ export const DynamicTableMorphWidget: React.FC<DynamicTableMorphWidgetProps> = (
       participantId,
       node: {
         categoryName: chosen.cat,
+        lastClickedDishId: chosen.id,
         lastClickedDishName: chosen.name,
         at: new Date().toISOString()
       }
@@ -366,12 +414,43 @@ export const DynamicTableMorphWidget: React.FC<DynamicTableMorphWidgetProps> = (
     reactiveSyncBus.publish('TABLE_SESSION_MUTATED', {
       sessionId: session.sessionId,
       tableCode: activeTableCode,
-      change: 'participant_joined',
+      change: 'cart_updated',
       participantId,
       at: new Date().toISOString()
     });
     refreshCurrentSession();
     setInlineFeedback(`${memberName} 加购了「${chosen.name}」(¥${chosen.price})`);
+    setTimeout(() => setInlineFeedback(null), 3000);
+  };
+
+  // 真实测试协同挑菜浏览：模拟该成员正在浏览某道菜品
+  const handleSimulateMemberBrowsing = (participantId: string, memberName: string) => {
+    if (!session) return;
+    const dishes = [
+      { id: 'dish-1', name: '炭烤和牛小汉堡双重奏', price: 63, cat: '主食' },
+      { id: 'dish-2', name: '黑松露墨汁手工玉棋', price: 58, cat: '招牌热食' },
+      { id: 'dish-3', name: '果木烟熏黑豚炙烤五花', price: 55, cat: '特色烧鸟' },
+      { id: 'dish-4', name: '暗夜虚空冷萃浓缩咖啡', price: 32, cat: '特调饮品' },
+      { id: 'dish-5', name: '黑曜石松露金黄脆薯', price: 28, cat: '小吃' },
+      { id: 'dish-6', name: '火山熔岩黑芝麻舒芙蕾', price: 38, cat: '甜品' },
+      { id: 'dish-7', name: '极夜西西里青柠微气泡', price: 26, cat: '特调饮品' },
+      { id: 'dish-8', name: '炙烧极上黑椒牛舌饭', price: 52, cat: '主食' }
+    ];
+    const chosen = dishes[Math.floor(Math.random() * dishes.length)];
+
+    updateParticipantNode({
+      sessionId: session.sessionId,
+      participantId,
+      node: {
+        categoryName: chosen.cat,
+        lastClickedDishId: chosen.id,
+        lastClickedDishName: chosen.name,
+        at: new Date().toISOString()
+      }
+    });
+
+    refreshCurrentSession();
+    setInlineFeedback(`${memberName} 正在浏览挑选「${chosen.name}」`);
     setTimeout(() => setInlineFeedback(null), 3000);
   };
 
@@ -495,24 +574,24 @@ export const DynamicTableMorphWidget: React.FC<DynamicTableMorphWidgetProps> = (
             </div>
 
             {/* 桌号与同桌人数 */}
-            <div className="flex items-center space-x-2 min-w-0 flex-wrap">
+            <div className="flex items-center space-x-1.5 sm:space-x-2 min-w-0 flex-nowrap">
               {isMerchantView && (
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-600 text-white shrink-0">
-                  商家端·协同双向监管
+                <span className="text-[9.5px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-600 text-white shrink-0">
+                  商家端·双向监管
                 </span>
               )}
-              <span className="font-extrabold text-sm text-neutral-900 tracking-tight font-mono">
+              <span className="font-extrabold text-xs sm:text-sm text-neutral-900 tracking-tight font-mono shrink-0">
                 {activeTableCode} 号桌
               </span>
-              <span className="w-1 h-1 rounded-full bg-neutral-300" />
-              <span className="text-xs font-bold text-orange-700 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200 flex items-center gap-1">
+              <span className="w-1 h-1 rounded-full bg-neutral-300 shrink-0" />
+              <span className="text-[11px] sm:text-xs font-bold text-orange-700 bg-orange-50 px-1.5 sm:px-2 py-0.5 rounded-full border border-orange-200 flex items-center gap-1 shrink-0 whitespace-nowrap">
                 <Users className="w-3 h-3" />
-                {activeParticipants.length}人同桌
+                {activeParticipants.length}人
               </span>
               <span className="hidden sm:inline-block text-xs text-neutral-500 truncate">
                 {tableTotalCartItems > 0
-                  ? `已协同选购 ${tableTotalCartItems} 件 · ¥${tableTotalCartAmount.toFixed(2)}`
-                  : '真实同桌多人协同点餐中'}
+                  ? `已选 ${tableTotalCartItems} 件 · ¥${tableTotalCartAmount.toFixed(2)}`
+                  : '多人协同中'}
               </span>
             </div>
           </div>
@@ -564,7 +643,7 @@ export const DynamicTableMorphWidget: React.FC<DynamicTableMorphWidgetProps> = (
           )}
         </AnimatePresence>
 
-        {/* 展开态面板 */}
+          {/* 展开态面板 */}
         <AnimatePresence>
           {isExpanded && (
             <motion.div
@@ -572,89 +651,74 @@ export const DynamicTableMorphWidget: React.FC<DynamicTableMorphWidgetProps> = (
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.2, ease: 'easeInOut' }}
-              className="border-t border-neutral-100 px-3.5 pt-3 pb-3.5 space-y-3"
+              className="border-t border-neutral-100 px-3 pt-2 pb-2.5 space-y-2"
             >
-              {/* 顶部控制栏 */}
-              <div className="flex items-center justify-between pb-2.5 border-b border-neutral-100 flex-wrap gap-2">
-                {/* 左侧：换桌与桌号 */}
-                <div className="flex items-center space-x-2">
-                  <TableQuickSwitchWidget
-                    currentTable={currentTable}
-                    onSelectTable={(code) => {
-                      onSelectQuickTable?.(code);
-                    }}
-                    onOpenFullMatrix={onSwitchTable}
+              {/* 顶部控制栏：自动补齐中段空白、两端紧凑收拢 */}
+              <div className="flex items-center pb-1.5 border-b border-neutral-100 flex-nowrap gap-1.5 w-full">
+                {/* 左侧：收拢所有操作的下拉菜单按钮 */}
+                <button
+                  ref={actionsButtonRef}
+                  type="button"
+                  onClick={toggleActionsDropdown}
+                  className="px-2.5 py-1 rounded-xl text-xs font-bold bg-neutral-50 hover:bg-neutral-100 active:scale-95 text-neutral-800 border border-neutral-200 transition flex items-center space-x-1 whitespace-nowrap shrink-0 cursor-pointer shadow-2xs"
+                  title="桌台操作与换桌"
+                >
+                  <Shuffle className="w-3 h-3 text-orange-600 shrink-0" />
+                  <span className="whitespace-nowrap font-mono">桌台操作</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
+                  <ChevronDown
+                    className={`w-3 h-3 text-neutral-400 transition-transform duration-200 shrink-0 ${
+                      isActionsDropdownOpen ? 'rotate-180 text-orange-600' : ''
+                    }`}
                   />
+                </button>
 
-                  {/* 邀请好友同桌扫码 */}
-                  <button
-                    type="button"
-                    onClick={handleOpenQrCode}
-                    className="px-2.5 py-1 rounded-xl text-xs font-semibold text-neutral-700 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 transition flex items-center space-x-1 cursor-pointer"
-                    title="查看桌台专属二维码"
-                  >
-                    <QrCode className="w-3 h-3 text-neutral-600" />
-                    <span>桌台二维码</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleCopyInviteText}
-                    className="px-2.5 py-1 rounded-xl text-xs font-semibold text-neutral-700 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 transition flex items-center space-x-1 cursor-pointer"
-                    title="复制同桌点餐邀请口令"
-                  >
-                    {copiedCode ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-neutral-600" />}
-                    <span>{copiedCode ? '已复制口令' : '复制口令'}</span>
-                  </button>
+                {/* 中间：自动补齐填满空白区域的整桌加购状态条 */}
+                <div className="flex-1 min-w-0 px-2 py-1 rounded-xl text-xs font-mono font-extrabold bg-orange-50/90 border border-orange-200 text-orange-800 flex items-center justify-center space-x-1 whitespace-nowrap shadow-2xs">
+                  <ShoppingBag className="w-3 h-3 text-orange-600 shrink-0" />
+                  <span className="truncate">加购: {tableTotalCartItems}件 · ¥{tableTotalCartAmount.toFixed(2)}</span>
                 </div>
 
-                {/* 右侧：整桌协同加购总计 */}
-                <div className="flex items-center space-x-2">
-                  {isMerchantView && (
-                    <button
-                      type="button"
-                      onClick={handleMerchantResetSession}
-                      className="px-2 py-1 rounded-lg text-xs font-semibold bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 transition cursor-pointer"
-                    >
-                      清台重置
-                    </button>
-                  )}
-
-                  <div className="px-2.5 py-1 rounded-xl text-xs font-mono font-extrabold bg-orange-50 border border-orange-200 text-orange-800 flex items-center space-x-1.5">
-                    <ShoppingBag className="w-3.5 h-3.5 text-orange-600" />
-                    <span>全桌加购: {tableTotalCartItems}件 · ¥{tableTotalCartAmount.toFixed(2)}</span>
-                  </div>
-                </div>
+                {/* 右侧：显式收拢关闭按钮 */}
+                <button
+                  type="button"
+                  onClick={() => setIsExpanded(false)}
+                  className="px-2 py-1 rounded-xl text-xs font-medium text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100 border border-neutral-200/80 transition flex items-center space-x-0.5 whitespace-nowrap shrink-0 cursor-pointer shadow-2xs"
+                  title="收拢关闭面板"
+                >
+                  <ChevronUp className="w-3.5 h-3.5 shrink-0" />
+                  <span className="whitespace-nowrap">收起</span>
+                </button>
               </div>
 
-              {/* 标签切换栏 */}
-              <div className="flex items-center space-x-1.5 p-1 bg-neutral-100/80 rounded-xl text-xs font-medium">
+              {/* 标签切换栏：紧凑填充、绝不换行 */}
+              <div className="flex items-center space-x-1 p-0.5 bg-neutral-100/80 rounded-xl text-xs font-medium w-full flex-nowrap">
                 <button
                   type="button"
                   onClick={() => setEmbeddedTab('status_flow')}
-                  className={`flex-1 py-1 px-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 cursor-pointer ${
+                  className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1 cursor-pointer whitespace-nowrap shrink-0 ${
                     embeddedTab === 'status_flow'
                       ? 'bg-white text-neutral-900 shadow-2xs'
                       : 'text-neutral-500 hover:text-neutral-800'
                   }`}
                 >
-                  <Radio className="w-3 h-3 text-emerald-600 animate-pulse" />
-                  <span>真实协同点餐状态流 ({activeParticipants.length}人)</span>
+                  <Radio className="w-3 h-3 text-emerald-600 animate-pulse shrink-0" />
+                  <span className="whitespace-nowrap">协同状态 ({activeParticipants.length}人)</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setEmbeddedTab('auth_management')}
-                  className={`flex-1 py-1 px-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 cursor-pointer ${
+                  className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1 cursor-pointer whitespace-nowrap shrink-0 ${
                     embeddedTab === 'auth_management'
                       ? 'bg-white text-neutral-900 shadow-2xs'
                       : 'text-neutral-500 hover:text-neutral-800'
                   }`}
                 >
-                  <ShieldCheck className="w-3 h-3 text-amber-500" />
-                  <span>桌主授权与同桌管理</span>
+                  <ShieldCheck className="w-3 h-3 text-amber-500 shrink-0" />
+                  <span className="whitespace-nowrap">桌主授权</span>
                   {pendingRequests.length > 0 && (
-                    <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-red-500 text-white font-mono">
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-red-500 text-white font-mono shrink-0 ml-1">
                       {pendingRequests.length}
                     </span>
                   )}
@@ -663,21 +727,21 @@ export const DynamicTableMorphWidget: React.FC<DynamicTableMorphWidgetProps> = (
 
               {/* 内容区域 1：真实协同点餐状态流 */}
               {embeddedTab === 'status_flow' && (
-                <div className="space-y-2">
-                  {/* 整桌协同加购汇聚横幅 */}
-                  <div className="p-2.5 rounded-xl bg-gradient-to-r from-orange-50/70 via-amber-50/50 to-white border border-orange-200/80 flex items-center justify-between text-xs">
-                    <div className="flex items-center space-x-2 min-w-0">
-                      <Sparkles className="w-4 h-4 text-orange-600 shrink-0" />
-                      <div className="min-w-0">
-                        <span className="font-bold text-neutral-900">同桌点单协同池：</span>
-                        <span className="text-neutral-600">
+                <div className="space-y-1.5">
+                  {/* 整桌协同加购汇聚横幅：紧凑收拢间距，横向自适应补齐 */}
+                  <div className="py-1.5 px-2.5 rounded-xl bg-linear-to-r from-orange-50/70 via-amber-50/50 to-white border border-orange-200/80 flex items-center justify-between text-xs gap-2">
+                    <div className="flex items-center space-x-1.5 min-w-0 flex-1">
+                      <Sparkles className="w-3.5 h-3.5 text-orange-600 shrink-0" />
+                      <div className="min-w-0 flex-1 flex items-center">
+                        <span className="font-bold text-neutral-900 whitespace-nowrap shrink-0">同桌协同池：</span>
+                        <span className="text-neutral-600 text-[11px] truncate block flex-1">
                           {activeParticipants.length > 1
-                            ? `各就餐人加购实时汇总，桌主或食客均可统一核对提交`
-                            : `等待好友入座，扫桌码或点餐口令即可并入本桌协同`}
+                            ? `各就餐人加购实时汇总，桌主或食客统一核对`
+                            : `扫桌码或点餐口令即可并入本桌协同`}
                         </span>
                       </div>
                     </div>
-                    <div className="font-mono font-extrabold text-orange-700 shrink-0 text-sm">
+                    <div className="font-mono font-extrabold text-orange-700 shrink-0 text-sm whitespace-nowrap">
                       ¥{tableTotalCartAmount.toFixed(2)}
                     </div>
                   </div>
@@ -712,7 +776,7 @@ export const DynamicTableMorphWidget: React.FC<DynamicTableMorphWidgetProps> = (
                     return (
                       <div
                         key={p.participantId}
-                        className="p-2.5 rounded-xl border border-neutral-100 bg-neutral-50/70 hover:bg-neutral-100/70 transition-all flex items-center justify-between gap-2.5"
+                        className="py-2 px-2.5 rounded-xl border border-neutral-100 bg-neutral-50/70 hover:bg-neutral-100/70 transition-all flex items-center justify-between gap-2"
                       >
                         <div className="flex items-center space-x-2.5 min-w-0">
                           <div className="relative shrink-0">
@@ -753,17 +817,28 @@ export const DynamicTableMorphWidget: React.FC<DynamicTableMorphWidgetProps> = (
                           </div>
                         </div>
 
-                        <div className="flex items-center space-x-2 shrink-0">
-                          {/* 针对同桌协作者的真实加购模拟按钮（便于无第二台手机时现场体验真实加购联动） */}
+                        <div className="flex items-center space-x-1.5 shrink-0">
+                          {/* 针对同桌协作者的挑菜与加购联动模拟 */}
                           {!isMe && (
-                            <button
-                              type="button"
-                              onClick={() => handleSimulateMemberCart(p.participantId, p.displayName)}
-                              className="px-2 py-0.8 rounded-lg text-[10.5px] font-semibold text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 transition cursor-pointer"
-                              title="模拟该同桌好友加购一件餐品"
-                            >
-                              + 加购餐品
-                            </button>
+                            <div className="flex items-center space-x-1">
+                              <button
+                                type="button"
+                                onClick={() => handleSimulateMemberBrowsing(p.participantId, p.displayName)}
+                                className="px-1.5 py-0.8 rounded-lg text-[10.5px] font-semibold text-neutral-700 bg-neutral-100 hover:bg-neutral-200 border border-neutral-300 transition cursor-pointer flex items-center gap-0.5"
+                                title="模拟该同桌好友正在浏览某道菜品"
+                              >
+                                <Eye className="w-2.8 h-2.8 text-neutral-500" />
+                                <span>看菜品</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleSimulateMemberCart(p.participantId, p.displayName)}
+                                className="px-2 py-0.8 rounded-lg text-[10.5px] font-semibold text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 transition cursor-pointer"
+                                title="模拟该同桌好友加购一件餐品"
+                              >
+                                + 加购
+                              </button>
+                            </div>
                           )}
 
                           <div className="text-right">
@@ -923,35 +998,35 @@ export const DynamicTableMorphWidget: React.FC<DynamicTableMorphWidgetProps> = (
                 </div>
               )}
 
-              {/* 底部真实接入同桌就餐人快捷操作栏 */}
-              <div className="pt-2 border-t border-neutral-100 flex items-center justify-between text-xs flex-wrap gap-2">
-                <span className="text-neutral-500 text-[11px]">
-                  快捷接入同桌就餐人 (真实会话)：
+              {/* 底部真实接入同桌就餐人快捷操作栏：自动补齐横向空白 */}
+              <div className="pt-1.5 border-t border-neutral-100 flex items-center text-xs flex-nowrap gap-1.5 w-full">
+                <span className="text-neutral-500 text-[11px] whitespace-nowrap shrink-0">
+                  快捷入座:
                 </span>
-                <div className="flex items-center space-x-1.5">
+                <div className="flex-1 flex items-center gap-1.5 min-w-0">
                   <button
                     type="button"
                     onClick={() => handleAddRealCompanion('同桌食客 · 小林')}
-                    className="px-2 py-1 rounded-lg text-xs font-semibold text-neutral-700 hover:text-black bg-white hover:bg-neutral-100 border border-neutral-200 shadow-2xs flex items-center space-x-1 transition cursor-pointer"
+                    className="flex-1 min-w-0 py-1 px-1 rounded-lg text-xs font-semibold text-neutral-700 hover:text-black bg-white hover:bg-neutral-100 border border-neutral-200 shadow-2xs flex items-center justify-center space-x-1 transition cursor-pointer whitespace-nowrap"
                   >
-                    <UserPlus className="w-3.5 h-3.5 text-orange-600" />
-                    <span>+ 小林</span>
+                    <UserPlus className="w-3.5 h-3.5 text-orange-600 shrink-0" />
+                    <span className="truncate">+ 小林</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => handleAddRealCompanion('同桌食客 · 阿强')}
-                    className="px-2 py-1 rounded-lg text-xs font-semibold text-neutral-700 hover:text-black bg-white hover:bg-neutral-100 border border-neutral-200 shadow-2xs flex items-center space-x-1 transition cursor-pointer"
+                    className="flex-1 min-w-0 py-1 px-1 rounded-lg text-xs font-semibold text-neutral-700 hover:text-black bg-white hover:bg-neutral-100 border border-neutral-200 shadow-2xs flex items-center justify-center space-x-1 transition cursor-pointer whitespace-nowrap"
                   >
-                    <UserPlus className="w-3.5 h-3.5 text-blue-600" />
-                    <span>+ 阿强</span>
+                    <UserPlus className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    <span className="truncate">+ 阿强</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => handleAddRealCompanion('同桌食客 · 小雅')}
-                    className="px-2 py-1 rounded-lg text-xs font-semibold text-neutral-700 hover:text-black bg-white hover:bg-neutral-100 border border-neutral-200 shadow-2xs flex items-center space-x-1 transition cursor-pointer"
+                    className="flex-1 min-w-0 py-1 px-1 rounded-lg text-xs font-semibold text-neutral-700 hover:text-black bg-white hover:bg-neutral-100 border border-neutral-200 shadow-2xs flex items-center justify-center space-x-1 transition cursor-pointer whitespace-nowrap"
                   >
-                    <UserPlus className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>+ 小雅</span>
+                    <UserPlus className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span className="truncate">+ 小雅</span>
                   </button>
                 </div>
               </div>
@@ -1021,6 +1096,154 @@ export const DynamicTableMorphWidget: React.FC<DynamicTableMorphWidgetProps> = (
           </div>
         )}
       </AnimatePresence>
+
+      {/* 真实脱离溢出流的桌台功能下拉菜单 (Portal) */}
+      {isActionsDropdownOpen && actionsDropdownCoords && typeof document !== 'undefined' && createPortal(
+        <>
+          {/* 背景轻触遮罩 */}
+          <div
+            className="fixed inset-0 z-[120]"
+            onClick={() => setIsActionsDropdownOpen(false)}
+          />
+
+          {/* 下拉菜单面板 */}
+          <div
+            style={{
+              top: `${actionsDropdownCoords.top}px`,
+              left: `${actionsDropdownCoords.left}px`
+            }}
+            className="fixed z-[121] w-64 bg-white/98 backdrop-blur-md rounded-2xl shadow-xl border border-neutral-200 p-2.5 space-y-2 text-xs select-none animate-in fade-in zoom-in-95 duration-150"
+          >
+            {/* 当前桌号状态条 */}
+            <div className="flex items-center justify-between px-1 pb-1.5 border-b border-neutral-100">
+              <div className="flex items-center space-x-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span className="font-extrabold text-neutral-900 font-mono">{activeTableCode} 号桌</span>
+              </div>
+              <span className="text-[10px] font-bold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200">
+                堂食协同
+              </span>
+            </div>
+
+            {/* 快速换桌 */}
+            <div>
+              <div className="text-[10px] font-bold text-neutral-500 px-1 mb-1.5 flex items-center justify-between">
+                <span>快速换桌</span>
+                {onSwitchTable && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsActionsDropdownOpen(false);
+                      onSwitchTable();
+                    }}
+                    className="text-orange-600 hover:text-orange-700 font-bold cursor-pointer text-[10px]"
+                  >
+                    全部桌位 &gt;
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-1">
+                {PRESET_TABLES.map((t) => {
+                  const isCurr = t.code === activeTableCode;
+                  return (
+                    <button
+                      key={t.code}
+                      type="button"
+                      onClick={() => {
+                        if (!isCurr) {
+                          onSelectQuickTable?.(t.code);
+                          showToast?.(`已极速换桌至 ${t.code} 号桌`, '堂食点单与传菜目标已即时切换');
+                        }
+                        setIsActionsDropdownOpen(false);
+                      }}
+                      className={`py-1.5 px-1 rounded-xl text-center font-mono font-bold text-xs transition cursor-pointer ${
+                        isCurr
+                          ? 'bg-orange-500 text-white shadow-2xs'
+                          : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-800 border border-neutral-200/70'
+                      }`}
+                    >
+                      {t.code}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 快捷功能列表 */}
+            <div className="pt-1.5 border-t border-neutral-100 space-y-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsActionsDropdownOpen(false);
+                  handleOpenQrCode();
+                }}
+                className="w-full px-2 py-1.5 rounded-xl hover:bg-neutral-50 flex items-center justify-between text-neutral-700 hover:text-neutral-900 transition cursor-pointer text-left"
+              >
+                <div className="flex items-center space-x-2">
+                  <div className="w-6 h-6 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center">
+                    <QrCode className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="font-semibold text-xs">出示桌台二维码</span>
+                </div>
+                <ChevronRight className="w-3 h-3 text-neutral-400" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsActionsDropdownOpen(false);
+                  handleCopyInviteText();
+                }}
+                className="w-full px-2 py-1.5 rounded-xl hover:bg-neutral-50 flex items-center justify-between text-neutral-700 hover:text-neutral-900 transition cursor-pointer text-left"
+              >
+                <div className="flex items-center space-x-2">
+                  <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                    {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  </div>
+                  <span className="font-semibold text-xs">复制同桌邀请口令</span>
+                </div>
+                <span className="text-[10px] text-neutral-400 font-mono font-bold bg-neutral-100 px-1.5 py-0.5 rounded">
+                  {shortCode}
+                </span>
+              </button>
+
+              {isMerchantView && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsActionsDropdownOpen(false);
+                    handleMerchantResetSession();
+                  }}
+                  className="w-full px-2 py-1.5 rounded-xl hover:bg-red-50 text-red-700 transition cursor-pointer flex items-center space-x-2 text-left"
+                >
+                  <div className="w-6 h-6 rounded-lg bg-red-50 text-red-600 flex items-center justify-center">
+                    <X className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="font-semibold text-xs">商家清台重置</span>
+                </button>
+              )}
+
+              {/* 收拢关闭面板 */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsActionsDropdownOpen(false);
+                  setIsExpanded(false);
+                }}
+                className="w-full px-2 py-1.5 rounded-xl hover:bg-neutral-100 text-neutral-600 transition cursor-pointer flex items-center justify-between text-left"
+              >
+                <div className="flex items-center space-x-2">
+                  <div className="w-6 h-6 rounded-lg bg-neutral-100 text-neutral-600 flex items-center justify-center">
+                    <ChevronUp className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="font-medium text-xs">收拢关闭面板</span>
+                </div>
+              </button>
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
     </div>
   );
 };

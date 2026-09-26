@@ -74,7 +74,7 @@ export const PermissionDeniedGuard: React.FC<PermissionDeniedGuardProps> = ({
             <ShieldAlert className="w-6 h-6" />
           </div>
           <div>
-            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-100/70 border border-amber-300/60 text-[10px] font-mono text-amber-900 font-bold mb-1">
+            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-100/70 border border-amber-300/60 text-[10px] tabular-nums text-amber-900 font-bold mb-1">
               <Lock className="w-3 h-3" />
               <span>RBAC 岗位权限受限</span>
             </div>
@@ -90,12 +90,12 @@ export const PermissionDeniedGuard: React.FC<PermissionDeniedGuardProps> = ({
         {/* Current Identity vs Required Hierarchy */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 my-5">
           <div className="p-3 rounded-xl bg-neutral-50 border border-neutral-200">
-            <span className="text-[10px] font-mono text-neutral-400 block uppercase tracking-wider">
+            <span className="text-[10px] tabular-nums text-neutral-400 block uppercase tracking-wider">
               当前在岗身份
             </span>
             <div className="text-sm font-bold text-[#1a1a17] mt-1 flex items-center gap-1.5">
               <span>{merchantSession?.name || '未登入'}</span>
-              <span className="text-xs font-normal text-neutral-500 font-mono">
+              <span className="text-xs font-normal text-neutral-500 tabular-nums">
                 ({merchantSession?.phone ? maskPhoneNumber(merchantSession.phone) : '无'})
               </span>
             </div>
@@ -107,7 +107,7 @@ export const PermissionDeniedGuard: React.FC<PermissionDeniedGuardProps> = ({
           </div>
 
           <div className="p-3 rounded-xl bg-amber-50/50 border border-amber-200">
-            <span className="text-[10px] font-mono text-amber-700 block uppercase tracking-wider">
+            <span className="text-[10px] tabular-nums text-amber-700 block uppercase tracking-wider">
               准入最低要求
             </span>
             <div className="text-sm font-bold text-[#1a1a17] mt-1 flex items-center gap-1.5">
@@ -128,7 +128,7 @@ export const PermissionDeniedGuard: React.FC<PermissionDeniedGuardProps> = ({
               <KeyRound className="w-3.5 h-3.5 text-amber-600" />
               店长现场临时提权 (放行 15 分钟)
             </span>
-            <span className="text-[10px] font-mono text-neutral-400">测试放行码: 8888</span>
+            <span className="text-[10px] tabular-nums text-neutral-400">测试放行码: 8888</span>
           </div>
           <form onSubmit={handleVerifyOverride} className="flex gap-2">
             <input
@@ -137,7 +137,7 @@ export const PermissionDeniedGuard: React.FC<PermissionDeniedGuardProps> = ({
               value={overridePin}
               onChange={(e) => setOverridePin(e.target.value)}
               placeholder="输入 4~6 位店长放行 PIN"
-              className="flex-1 text-xs font-mono px-3 py-1.5 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+              className="flex-1 text-xs tabular-nums px-3 py-1.5 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
             />
             <button
               type="submit"

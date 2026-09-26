@@ -468,7 +468,7 @@ export const GearCategoryDial: React.FC<GearCategoryDialProps> = ({
             <div className="flex items-center gap-0.5">
               <div className="w-0.8 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_4px_rgba(245,158,11,0.8)]" />
             </div>
-            <div className={`text-[8px] font-mono font-bold ${theme === 'dark' ? 'text-amber-300 bg-black/50 border-amber-500/40' : 'text-amber-800 bg-white/90 border-amber-300 shadow-2xs'} px-1 py-0.2 rounded border`}>
+            <div className={`text-[8px] tabular-nums font-bold ${theme === 'dark' ? 'text-amber-300 bg-black/50 border-amber-500/40' : 'text-amber-800 bg-white/90 border-amber-300 shadow-2xs'} px-1 py-0.2 rounded border`}>
               {activeIndex + 1}/{subCategoryList.length}
             </div>
           </div>
@@ -536,7 +536,7 @@ export const GearCategoryDial: React.FC<GearCategoryDialProps> = ({
                     <div className="flex items-center gap-0.5 shrink-0">
                       {count > 0 && (
                         <span
-                          className={`text-[8px] sm:text-[8.5px] font-mono px-0.8 sm:px-1 py-0.2 rounded-full font-bold shadow-xs ${
+                          className={`text-[8px] sm:text-[8.5px] tabular-nums px-0.8 sm:px-1 py-0.2 rounded-full font-bold shadow-xs ${
                             isSelected
                               ? 'bg-amber-500 text-black'
                               : (theme === 'dark' ? 'bg-black/50 text-white border border-white/20' : 'bg-neutral-100 text-neutral-700 border border-neutral-300')

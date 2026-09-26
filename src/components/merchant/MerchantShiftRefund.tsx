@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   RotateCcw,
   Receipt,
@@ -28,6 +28,9 @@ import { INITIAL_SHIFTS, INITIAL_REFUNDS, INITIAL_RESERVATIONS } from '../../dat
 import { exportToCsv } from '../../utils/dataExportEngine';
 import { executeRealPayRefund } from '../../utils/realPaymentCloudEngine';
 import { businessTransactionEngine } from '../../utils/businessTransactionEngine';
+import { HeatmapGridMatrix, HeatmapDataPoint } from '../common/HeatmapGridMatrix';
+import { audioHaptics } from '../../utils/audioHaptics';
+import { ThermalReceiptTicket, ThermalReceiptTicketProps } from '../common/ThermalReceiptTicket';
 
 interface MerchantShiftRefundProps {
   showToast: (msg: string) => void;
@@ -41,6 +44,7 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
   onAuditRefund
 }) => {
   const [subTab, setSubTab] = useState<'shift' | 'refund' | 'reservation' | 'customer_refund'>('shift');
+  const [receiptModalData, setReceiptModalData] = useState<ThermalReceiptTicketProps | null>(null);
 
   // Shift state
   const [shifts, setShifts] = useState<ShiftRecord[]>(INITIAL_SHIFTS);
@@ -50,6 +54,68 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
   const [actualCashInput, setActualCashInput] = useState('500.0');
   const [diffReason, setDiffReason] = useState<any>('none');
   const [shiftNote, setShiftNote] = useState('晚班交接，外卖接单平稳');
+  const [selectedShiftDate, setSelectedShiftDate] = useState<string | null>(null);
+
+  // 42 天收银交接与钱箱对账打卡热力数据源
+  const shiftHeatmapData: HeatmapDataPoint[] = useMemo(() => {
+    const map = new Map<string, { totalSales: number; count: number; diff: number }>();
+    shifts.forEach((s) => {
+      const match = s.shiftNo.match(/\d{4}\d{2}\d{2}/);
+      let dStr = '';
+      if (match) {
+        const raw = match[0];
+        dStr = `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
+      } else {
+        dStr = new Date().toISOString().slice(0, 10);
+      }
+      const cur = map.get(dStr) || { totalSales: 0, count: 0, diff: 0 };
+      cur.totalSales += s.grossSales || 0;
+      cur.count += 1;
+      cur.diff += Math.abs(s.cashDiff || 0);
+      map.set(dStr, cur);
+    });
+
+    const today = new Date();
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const dStr = d.toISOString().slice(0, 10);
+      if (!map.has(dStr)) {
+        const dayOfWeek = d.getDay();
+        const isBusy = dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6;
+        const sales = isBusy ? 4380 + ((i * 137) % 1500) : 2600 + ((i * 113) % 900);
+        map.set(dStr, {
+          totalSales: sales,
+          count: 2,
+          diff: i === 5 ? 8.0 : 0
+        });
+      }
+    }
+
+    const list: HeatmapDataPoint[] = [];
+    map.forEach((val, dStr) => {
+      const hasDiff = val.diff > 0;
+      list.push({
+        date: dStr,
+        value: Math.round(val.totalSales),
+        title: `${val.count}个班次 · ¥${val.totalSales.toFixed(1)}`,
+        extraNote: hasDiff ? `钱箱差异 ¥${val.diff.toFixed(1)}` : '钱箱平账',
+        status: hasDiff ? 'warning' : 'success',
+        metrics: [
+          { label: '营收', value: `¥${val.totalSales.toFixed(1)}` },
+          { label: '钱箱', value: hasDiff ? `差异 ¥${val.diff.toFixed(1)}` : '平账 0.0' }
+        ]
+      });
+    });
+    return list;
+  }, [shifts]);
+
+  const displayedShifts = useMemo(() => {
+    if (!selectedShiftDate) return shifts;
+    const compactDate = selectedShiftDate.replace(/-/g, '');
+    const filtered = shifts.filter((s) => s.shiftNo.replace(/-/g, '').includes(compactDate));
+    return filtered.length > 0 ? filtered : shifts;
+  }, [shifts, selectedShiftDate]);
 
   // Refund state
   const [refunds, setRefunds] = useState<RefundRecord[]>(INITIAL_REFUNDS);
@@ -75,6 +141,30 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
   const [resNote, setResNote] = useState('需要安排靠窗景观位');
 
   // Submit Shift Close
+  const openShiftReceiptModal = (s: ShiftRecord) => {
+    audioHaptics.playTicketTear();
+    setReceiptModalData({
+      receiptNo: s.shiftNo,
+      title: '收银班次日结与钱箱对账凭证',
+      subtitle: `班次周期: ${s.startTime} ~ ${s.endTime}`,
+      storeName: 'Urban Radar 流动餐车 #001',
+      terminalNo: 'POS-CASH-DESK',
+      cashierName: s.closedBy,
+      timestamp: s.endTime,
+      items: [
+        { name: '微信支付流水归集', qty: 1, price: s.wechatSales, note: `${s.orderCount} 笔订单累计` },
+        { name: '支付宝交易资金归集', qty: 1, price: s.alipaySales },
+        { name: '现金实收记账', qty: 1, price: s.cashSales },
+        { name: '钱箱实点现金', qty: 1, price: s.actualCash, note: s.diffReasonText }
+      ],
+      subtotal: s.grossSales,
+      totalAmount: s.grossSales,
+      payMethod: '多通道资金归集',
+      stampText: s.cashDiff === 0 ? '已平账 0.0' : `差异 ¥${s.cashDiff.toFixed(1)}`,
+      stampColor: s.cashDiff === 0 ? 'green' : 'amber'
+    });
+  };
+
   const handleCloseShiftSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const actualCash = parseFloat(actualCashInput) || 0;
@@ -110,7 +200,9 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
 
     setShifts([newShift, ...shifts]);
     setIsClosingShift(false);
-    showToast(`交班完成！交班小票已自动打印，营收 ¥${newShift.grossSales.toFixed(2)}`);
+    audioHaptics.playCashDrawerChime();
+    openShiftReceiptModal(newShift);
+    showToast(`交班完成！钱箱已弹出并生成拟真交班小票，营收 ¥${newShift.grossSales.toFixed(2)}`);
   };
 
   // Submit Refund
@@ -120,9 +212,12 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
 
     // Check manager authorization if > 200 or policy enabled
     if (amount >= 200 && managerAuthPin !== '8888') {
+      audioHaptics.playWarningAlert();
       showToast('退款金额超过 ¥200 限制！请输入正确的主管授权 PIN 码 (演示: 8888)');
       return;
     }
+
+    audioHaptics.playMechanicalLatch();
 
     const newRefund: RefundRecord = {
       id: `ref-${Date.now().toString().slice(-4)}`,
@@ -812,70 +907,101 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
 
       {/* 5. Shifts List View */}
       {subTab === 'shift' && (
-        <div className="bg-white rounded-[4px] border border-[#e6e6e4] overflow-hidden shadow-2xs">
-          <div className="p-3 bg-[#f7f7f5] border-b border-[#e6e6e4] flex items-center justify-between">
-            <h4 className="font-semibold text-xs text-[#37352f] flex items-center gap-1.5">
-              <RotateCcw className="w-3.5 h-3.5 text-[#2b593f]" />
-              <span>历史班次营收与现金钱箱对账单 (Shift Logs)</span>
-            </h4>
-            <span className="text-[10px] text-[#787774]">T+0 实时结交 · 差异自动入账</span>
-          </div>
+        <div className="space-y-3">
+          <HeatmapGridMatrix
+            id="shift-handover-heatmap"
+            title="收银交接班与钱箱对账打卡热力"
+            subtitle="透视各班次交接频次与钱箱长短款平账走势，点击指定日期可精准下钻该日交班日志"
+            theme="amber"
+            daysCount={42}
+            data={shiftHeatmapData}
+            metricUnit="元"
+            selectedDate={selectedShiftDate}
+            onSelectDate={(dStr) => {
+              setSelectedShiftDate(dStr === selectedShiftDate ? null : dStr);
+              showToast(dStr === selectedShiftDate ? '已重置显示全部班次' : `已下钻过滤 ${dStr} 的收银交班流水`);
+            }}
+            legendLabels={['无班次', '轻量交接', '平账达标', '高峰稳健', '差异/超额']}
+          />
 
-          {/* Mobile Card List (< md) */}
-          <div className="md:hidden divide-y divide-[#efefed]">
-            {shifts.map((s) => (
-              <div key={s.id} className="p-3 space-y-2 hover:bg-[#fbfbfa]">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono font-semibold text-xs text-[#37352f]">{s.shiftNo}</span>
-                  <span className="font-mono font-semibold text-sm text-[#2b593f]">¥{s.grossSales.toFixed(2)}</span>
-                </div>
-                <div className="text-[11px] text-[#787774] flex items-center justify-between">
-                  <span>{s.startTime} - {s.endTime} ({s.orderCount}单)</span>
-                  <span className="text-[#37352f] font-medium">{s.closedBy} → 接班: {s.successor}</span>
-                </div>
-                <div className="bg-[#f7f7f5] rounded-[2px] p-2 text-[10.5px] space-y-1 font-mono">
-                  <div className="flex justify-between text-[#5a5854]">
-                    <span>微: ¥{s.wechatSales.toFixed(1)} / 支: ¥{s.alipaySales.toFixed(1)}</span>
-                    <span>现: ¥{s.cashSales.toFixed(1)}</span>
-                  </div>
-                  <div className="flex justify-between border-t border-[#e6e6e4] pt-1">
-                    <span className="text-[#37352f]">实点现金: ¥{s.actualCash.toFixed(1)}</span>
-                    <span className={`font-semibold ${s.cashDiff === 0 ? 'text-[#2b593f]' : 'text-[#d44333]'}`}>
-                      {s.cashDiff === 0 ? '平账 0.0' : `差异 ¥${s.cashDiff.toFixed(1)}`}
-                    </span>
-                  </div>
-                </div>
-                <div className="text-[10.5px] text-[#5a5854] flex items-center justify-between gap-2">
-                  <span className="truncate">{s.diffReasonText} {s.note ? `(${s.note})` : ''}</span>
-                  <button
-                    type="button"
-                    onClick={() => window.print()}
-                    className="px-2 py-1 bg-[#f1f1ef] hover:bg-[#e8e8e6] text-[#37352f] rounded-[2px] font-medium text-[10.5px] flex items-center gap-1 cursor-pointer shrink-0"
-                  >
-                    <Printer className="w-3 h-3" />
-                    <span>补打小票</span>
-                  </button>
-                </div>
+          <div className="bg-white rounded-[4px] border border-[#e6e6e4] overflow-hidden shadow-2xs">
+            <div className="p-3 bg-[#f7f7f5] border-b border-[#e6e6e4] flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="font-semibold text-xs text-[#37352f] flex items-center gap-1.5">
+                  <RotateCcw className="w-3.5 h-3.5 text-[#2b593f]" />
+                  <span>历史班次营收与现金钱箱对账单 (Shift Logs)</span>
+                </h4>
+                {selectedShiftDate && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] bg-amber-50 text-amber-800 border border-amber-200 text-[10.5px]">
+                    <span>正在查看：{selectedShiftDate}</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedShiftDate(null)}
+                      className="text-amber-600 hover:text-amber-900 cursor-pointer font-bold ml-0.5"
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
               </div>
-            ))}
-          </div>
+              <span className="text-[10px] text-[#787774]">T+0 实时结交 · 差异自动入账</span>
+            </div>
 
-          {/* Desktop Table (>= md) */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-[#e6e6e4] bg-[#fbfbfa] text-[#787774] text-[10.5px]">
-                  <th className="p-2.5 font-semibold">班次/时间</th>
-                  <th className="p-2.5 font-semibold">交接人员</th>
-                  <th className="p-2.5 font-semibold">班次总营收</th>
-                  <th className="p-2.5 font-semibold">微信 / 支付宝 / 现金</th>
-                  <th className="p-2.5 font-semibold">实点现金 vs 差异</th>
-                  <th className="p-2.5 font-semibold">钱箱差异说明</th>
-                  <th className="p-2.5 font-semibold">操作</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#efefed]">
-                {shifts.map((s) => (
+            {/* Mobile Card List (< md) */}
+            <div className="md:hidden divide-y divide-[#efefed]">
+              {displayedShifts.map((s) => (
+                <div key={s.id} className="p-3 space-y-2 hover:bg-[#fbfbfa]">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono font-semibold text-xs text-[#37352f]">{s.shiftNo}</span>
+                    <span className="font-mono font-semibold text-sm text-[#2b593f]">¥{s.grossSales.toFixed(2)}</span>
+                  </div>
+                  <div className="text-[11px] text-[#787774] flex items-center justify-between">
+                    <span>{s.startTime} - {s.endTime} ({s.orderCount}单)</span>
+                    <span className="text-[#37352f] font-medium">{s.closedBy} → 接班: {s.successor}</span>
+                  </div>
+                  <div className="bg-[#f7f7f5] rounded-[2px] p-2 text-[10.5px] space-y-1 font-mono">
+                    <div className="flex justify-between text-[#5a5854]">
+                      <span>微: ¥{s.wechatSales.toFixed(1)} / 支: ¥{s.alipaySales.toFixed(1)}</span>
+                      <span>现: ¥{s.cashSales.toFixed(1)}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-[#e6e6e4] pt-1">
+                      <span className="text-[#37352f]">实点现金: ¥{s.actualCash.toFixed(1)}</span>
+                      <span className={`font-semibold ${s.cashDiff === 0 ? 'text-[#2b593f]' : 'text-[#d44333]'}`}>
+                        {s.cashDiff === 0 ? '平账 0.0' : `差异 ¥${s.cashDiff.toFixed(1)}`}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-[10.5px] text-[#5a5854] flex items-center justify-between gap-2">
+                    <span className="truncate">{s.diffReasonText} {s.note ? `(${s.note})` : ''}</span>
+                    <button
+                      type="button"
+                      onClick={() => openShiftReceiptModal(s)}
+                      className="px-2 py-1 bg-[#f1f1ef] hover:bg-[#e8e8e6] text-[#37352f] rounded-[2px] font-medium text-[10.5px] flex items-center gap-1 cursor-pointer shrink-0 active:scale-95"
+                    >
+                      <Printer className="w-3 h-3" />
+                      <span>补打小票</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table (>= md) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-[#e6e6e4] bg-[#fbfbfa] text-[#787774] text-[10.5px]">
+                    <th className="p-2.5 font-semibold">班次/时间</th>
+                    <th className="p-2.5 font-semibold">交接人员</th>
+                    <th className="p-2.5 font-semibold">班次总营收</th>
+                    <th className="p-2.5 font-semibold">微信 / 支付宝 / 现金</th>
+                    <th className="p-2.5 font-semibold">实点现金 vs 差异</th>
+                    <th className="p-2.5 font-semibold">钱箱差异说明</th>
+                    <th className="p-2.5 font-semibold">操作</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#efefed]">
+                  {displayedShifts.map((s) => (
                   <tr key={s.id} className="hover:bg-[#fbfbfa] transition-colors">
                     <td className="p-2.5">
                       <span className="font-mono font-semibold text-xs text-[#37352f] block">{s.shiftNo}</span>
@@ -925,8 +1051,8 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                     <td className="p-2.5">
                       <button
                         type="button"
-                        onClick={() => window.print()}
-                        className="px-2 py-1 bg-[#f1f1ef] hover:bg-[#e8e8e6] text-[#37352f] rounded-[2px] font-medium text-[11px] flex items-center gap-1 cursor-pointer"
+                        onClick={() => openShiftReceiptModal(s)}
+                        className="px-2 py-1 bg-[#f1f1ef] hover:bg-[#e8e8e6] text-[#37352f] rounded-[2px] font-medium text-[11px] flex items-center gap-1 cursor-pointer active:scale-95 shadow-2xs"
                       >
                         <Printer className="w-3 h-3" />
                         <span>补打</span>
@@ -938,7 +1064,8 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
             </table>
           </div>
         </div>
-      )}
+      </div>
+    )}
 
       {/* 6. Refund List View */}
       {subTab === 'refund' && (
@@ -1700,6 +1827,38 @@ export const MerchantShiftRefund: React.FC<MerchantShiftRefundProps> = ({
                 <span>确认驳回退款</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 拟真热敏凭证小票交互预览弹窗 (工业触觉锯齿纸纹 & 声触回响) */}
+      {receiptModalData && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white p-5 rounded-lg shadow-2xl max-w-sm w-full relative max-h-[92vh] overflow-y-auto">
+            <button
+              type="button"
+              onClick={() => {
+                audioHaptics.playMicroClick();
+                setReceiptModalData(null);
+              }}
+              className="absolute top-3 right-3 p-1.5 text-[#787774] hover:text-[#201f1d] hover:bg-[#efefed] cursor-pointer rounded-full transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <div className="mb-3 text-center">
+              <h4 className="font-bold text-xs text-[#37352f] tracking-wide">拟真热敏凭证小票预览</h4>
+              <p className="text-[10.5px] text-[#787774]">工业微凹热敏纸纹理 · 物理锯齿撕纸与声触触觉反馈</p>
+            </div>
+            <ThermalReceiptTicket
+              {...receiptModalData}
+              onTear={() => {
+                showToast('已完成小票单据模拟撕取');
+              }}
+              onPrint={() => {
+                showToast('正在向热敏小票机发送 ESC/POS 打印指令...');
+                setTimeout(() => window.print(), 200);
+              }}
+            />
           </div>
         </div>
       )}

@@ -13,9 +13,17 @@ import {
   Moon,
   Building2,
   Plus,
-  Minus
+  Minus,
+  RotateCcw,
+  LocateFixed,
+  Sliders,
+  FileText,
+  Activity,
+  Image as ImageIcon
 } from 'lucide-react';
 import { TruckInfo } from '../../types';
+import { TruckQuickConfigModal } from './TruckQuickConfigModal';
+import { DynamicGpsBeacon, DynamicAntennaRadar } from '../common/DynamicIcons';
 import {
   getAllTruckConfigs,
   saveTruckConfig,
@@ -26,14 +34,19 @@ import {
   geocodeAddress,
   PlaceSuggestion,
   suggestPlaces,
-  getTruckTheme
+  getTruckTheme,
+  calculateGeodesicDistanceKm,
+  recordStallRelocationAudit,
+  requestBrowserGeolocation,
+  DEFAULT_TRUCK_CONFIGS
 } from '../../utils/truckLocationEngine';
 import { TruckLocationMapPicker } from './TruckLocationMapPicker';
 import { businessTransactionEngine } from '../../utils/businessTransactionEngine';
+import { pushTruckLocationToCloud, syncSingleModuleToCloud } from '../../utils/cloudbase';
 
 interface MerchantStallGPSProps {
   truck: TruckInfo;
-  onUpdateLocation: (newLocation: string, radiusKm: number) => void;
+  onUpdateLocation: (newLocation: string, radiusKm: number, coords?: [number, number]) => void;
   showToast: (msg: string) => void;
 }
 
@@ -49,13 +62,13 @@ interface GpsDraft {
   savedAt: string;
 }
 
-// 常用快捷商圈图钉
+// 常用快捷商圈图钉 (上海静安大悦城核心商圈周边 1~3km 连续性驻泊位，彻底消除跨省市坐标跳跃)
 const QUICK_LANDMARKS = [
-  { name: '三宝郡庭', locationName: '三宝郡庭东门', lat: 30.3012, lng: 120.1262, radius: 1.0 },
-  { name: '拱墅万达', locationName: '拱墅万达广场西区', lat: 30.3045, lng: 120.1310, radius: 3.0 },
-  { name: '西湖文化', locationName: '西湖文化广场地铁口', lat: 30.2785, lng: 120.1601, radius: 3.0 },
-  { name: '武林银泰', locationName: '武林银泰临街专送口', lat: 30.2721, lng: 120.1625, radius: 3.0 },
-  { name: '市民中心', locationName: '钱江新城市民中心', lat: 30.2458, lng: 120.2105, radius: 5.0 }
+  { name: '大悦城南广场', locationName: '西藏北路曲阜路 · 大悦城南广场', lat: 31.2435, lng: 121.4690, radius: 3.0 },
+  { name: '北座中庭连廊', locationName: '静安大悦城北座办公楼连廊', lat: 31.2450, lng: 121.4680, radius: 2.5 },
+  { name: '曲阜路地铁口', locationName: '曲阜路地铁站 1/5 号出口接驳位', lat: 31.2428, lng: 121.4698, radius: 2.0 },
+  { name: '万象天地西里', locationName: '苏河湾万象天地西里广场', lat: 31.2442, lng: 121.4725, radius: 3.0 },
+  { name: '七浦路步行街', locationName: '七浦路时尚步行街连廊外摆位', lat: 31.2458, lng: 121.4752, radius: 3.5 }
 ];
 
 export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
@@ -97,6 +110,9 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
   const [searchInput, setSearchInput] = useState('');
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [suggestOpen, setSuggestOpen] = useState(false);
+
+  // 主厨通告、驻点真实数据与车载硬件工况配置模态框
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
 
   // 高德 Key 配置展开
@@ -321,6 +337,42 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
     setFenceRadius(km);
   };
 
+  // 一键复位官方默认驻泊车位
+  const handleResetOfficialPreset = () => {
+    if (locationLocked) {
+      showToast('🔒 当前为查看模式，请先点击右上角挂锁解锁');
+      return;
+    }
+    const def = DEFAULT_TRUCK_CONFIGS.find((t) => t.id === selectedTruckId) || DEFAULT_TRUCK_CONFIGS[0];
+    setLocationName(def.locationName);
+    setFenceRadius(def.deliveryRadiusKm);
+    setPinLat(def.latitude);
+    setPinLng(def.longitude);
+    setFlyTo({ lat: def.latitude, lng: def.longitude, seq: Date.now() });
+    showToast(`已复位至商圈官方划定车位：${def.locationName}`);
+  };
+
+  // 设备真实 GPS 高精定位
+  const [isLocatingDeviceGps, setIsLocatingDeviceGps] = useState(false);
+  const handleFetchActualGps = async () => {
+    if (locationLocked) {
+      showToast('🔒 当前为查看模式，请先点击右上角挂锁解锁');
+      return;
+    }
+    setIsLocatingDeviceGps(true);
+    showToast('正在请求当前物理设备真实 GPS 信号...');
+    const res = await requestBrowserGeolocation();
+    setIsLocatingDeviceGps(false);
+    if (res.success && res.latitude) {
+      setPinLat(res.latitude);
+      setPinLng(res.longitude);
+      setFlyTo({ lat: res.latitude, lng: res.longitude, seq: Date.now() });
+      showToast(`已成功捕获设备真实 GPS 坐标 (±${res.accuracy || 20}m)`);
+    } else {
+      showToast(res.error || '无法获取设备真实 GPS，已保持当前基准点');
+    }
+  };
+
   // 保存并广播
   const handleBroadcast = () => {
     if (locationLocked) {
@@ -340,10 +392,38 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
         updatedAt: new Date().toISOString()
       };
 
+      // 记录站台移动审计链
+      const distDeltaKm = calculateGeodesicDistanceKm(
+        currentTruckConfig.latitude,
+        currentTruckConfig.longitude,
+        pinRef.current.lat,
+        pinRef.current.lng
+      );
+      const distDeltaMeters = Math.round(distDeltaKm * 1000);
+      recordStallRelocationAudit({
+        truckId: selectedTruckId,
+        truckName: currentTruckConfig.name,
+        prevLat: currentTruckConfig.latitude,
+        prevLng: currentTruckConfig.longitude,
+        prevLocationName: currentTruckConfig.locationName,
+        newLat: pinRef.current.lat,
+        newLng: pinRef.current.lng,
+        newLocationName: locationName,
+        distanceDeltaMeters: distDeltaMeters,
+        newRadiusKm: fenceRadius,
+        reason: distDeltaMeters > 0 ? `站台位移 ${distDeltaMeters} 米并更新电子围栏` : '更新站台参数与电子围栏半径'
+      });
+
       saveTruckConfig(updatedConfig);
       setAllTrucks(getAllTruckConfigs());
       clearDraft(selectedTruckId);
-      onUpdateLocation(locationName, fenceRadius);
+      const coords: [number, number] = [pinRef.current.lng, pinRef.current.lat];
+      onUpdateLocation(locationName, fenceRadius, coords);
+
+      // 云端静默直推：确保实时同步腾讯云集合与多端设备
+      void pushTruckLocationToCloud(updatedConfig);
+      void syncSingleModuleToCloud('truck_locations');
+      void syncSingleModuleToCloud('contingency_audits');
 
       // 跨组件联动事务：餐车停靠点广播 -> 触发外摆桌台联动 & 语音通知
       businessTransactionEngine.executeStallRelocationCascade({
@@ -355,6 +435,8 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
         deliveryRadiusKm: fenceRadius,
         showToast
       });
+
+      showToast(distDeltaMeters > 0 ? `停靠点已广播全网 (位移 ${distDeltaMeters}m · 围栏 ${fenceRadius}km)` : `站台参数已全网广播同步 (围栏 ${fenceRadius}km)`);
     }, 600);
   };
 
@@ -373,11 +455,29 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
        * 1. 顶层紧凑控制条 (纯图标按钮与微型状态)
        * ============================================================ */}
       <div className="bg-white p-2.5 rounded-[2px] border border-[#e6e6e4] flex items-center justify-between gap-2 flex-wrap">
-        {/* 左侧：餐车当前编号与 5G 指示灯 */}
+        {/* 左侧：餐车当前编号、Logo 与 5G 指示灯 */}
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-[2px] bg-[#0f172a] text-white flex items-center justify-center font-medium">
-            <Truck className="w-3.5 h-3.5 text-emerald-400" />
-          </div>
+          {currentTruckConfig.logo || currentTruckConfig.image ? (
+            <button
+              type="button"
+              onClick={() => setIsConfigModalOpen(true)}
+              className="w-7 h-7 rounded-md overflow-hidden border border-emerald-500/60 shadow-2xs hover:scale-105 transition-transform cursor-pointer relative group shrink-0"
+              title="点击配置/上传餐车品牌 Logo"
+            >
+              <img
+                src={currentTruckConfig.logo || currentTruckConfig.image}
+                alt="Logo"
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                <ImageIcon className="w-3 h-3 text-white" />
+              </div>
+            </button>
+          ) : (
+            <div className="w-6 h-6 rounded-[2px] bg-[#0f172a] text-white flex items-center justify-center font-medium">
+              <Truck className="w-3.5 h-3.5 text-emerald-400" />
+            </div>
+          )}
           <span className="font-medium text-xs text-[#0f172a] tracking-tight">
             {currentTruckConfig.name.replace(/黑曜石\s*/, '').replace(/流动餐车/, '')}
           </span>
@@ -495,6 +595,18 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
             </button>
           )}
 
+          {/* 主厨通告与硬件工况热配置按钮 */}
+          <button
+            type="button"
+            onClick={() => setIsConfigModalOpen(true)}
+            className="h-6 px-2 rounded-[2px] bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-700 flex items-center gap-1 font-bold text-[11px] cursor-pointer transition-all shadow-2xs"
+            title="主厨通告、驻点细则与硬件工况实时配置"
+          >
+            <Sliders className="w-3 h-3 text-emerald-600" />
+            <span className="hidden sm:inline">通告·工况·福利热配置</span>
+            <span className="sm:hidden">热配置</span>
+          </button>
+
           {/* 高德 Key 设置纯图标按钮 */}
           <button
             type="button"
@@ -542,12 +654,12 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
          * ------------------------------------------------------------ */}
         <div className="w-full lg:w-[320px] xl:w-[340px] shrink-0 bg-white border border-[#e6e6e4] rounded-[2px] flex flex-col overflow-hidden">
           {/* 微型坐标与半径状态条 */}
-          <div className="px-3 py-1.5 bg-[#fbfbfa] border-b border-[#f1f1ef] flex items-center justify-between font-mono text-[11px] text-[#787774]">
-            <span className="flex items-center gap-1">
-              <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+          <div className="px-3 py-1.5 bg-[#fbfbfa] border-b border-[#f1f1ef] flex items-center justify-between text-[11px] text-[#787774]">
+            <span className="flex items-center gap-1.5 font-semibold text-neutral-800">
+              <DynamicGpsBeacon size={13} active={!locationLocked} />
               {pinLat.toFixed(4)}, {pinLng.toFixed(4)}
             </span>
-            <span className="font-medium text-[#0f172a] bg-white px-1.5 py-0.5 rounded-[2px] border border-[#e6e6e4]">
+            <span className="font-bold text-[#0f172a] bg-white px-2 py-0.5 rounded-[2px] border border-[#e6e6e4]">
               {fenceRadius.toFixed(1)} km
             </span>
           </div>
@@ -610,8 +722,30 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
               />
             </div>
 
-            {/* 快捷商圈图钉按钮组 */}
+            {/* 快捷商圈图钉与官方基准按钮组 */}
             <div className="flex items-center gap-1 flex-wrap">
+              <button
+                type="button"
+                disabled={locationLocked}
+                onClick={handleResetOfficialPreset}
+                className="px-2 py-0.5 rounded-[2px] border border-amber-200 hover:border-amber-400 bg-amber-50/70 hover:bg-amber-100/70 text-[11px] text-amber-900 flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-40"
+                title="一键复位至官方划定规范停靠车位"
+              >
+                <RotateCcw className="w-3 h-3 text-amber-700" />
+                <span>官方泊位</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={locationLocked || isLocatingDeviceGps}
+                onClick={handleFetchActualGps}
+                className="px-2 py-0.5 rounded-[2px] border border-emerald-200 hover:border-emerald-400 bg-emerald-50/70 hover:bg-emerald-100/70 text-[11px] text-emerald-900 flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-40"
+                title="请求设备真实 GPS 传感器定位"
+              >
+                <LocateFixed className={`w-3 h-3 text-emerald-700 ${isLocatingDeviceGps ? 'animate-spin' : ''}`} />
+                <span>设备GPS</span>
+              </button>
+
               {QUICK_LANDMARKS.map((loc, idx) => (
                 <button
                   key={idx}
@@ -625,6 +759,45 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
                   <span>{loc.name}</span>
                 </button>
               ))}
+            </div>
+
+            {/* 站台主厨通告与车载物联网遥测快捷信息栏 */}
+            <div className="p-2 bg-[#fbfbfa] rounded-[2px] border border-[#e6e6e4] space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-[11px] text-[#0f172a] flex items-center gap-1">
+                  <FileText className="w-3 h-3 text-emerald-600" />
+                  <span>主厨通告 & 车载工况</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsConfigModalOpen(true)}
+                  className="px-1.5 py-0.5 rounded-[2px] bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-700 text-[10px] font-bold flex items-center gap-0.5 cursor-pointer"
+                >
+                  <Sliders className="w-3 h-3" />
+                  <span>热配置</span>
+                </button>
+              </div>
+              <div className="text-[10.5px] text-[#787774] line-clamp-2 leading-snug">
+                {currentTruckConfig.chefAnnouncement || '暂未发布今日主厨通告，点击热配置即可实时发布并向全网广播。'}
+              </div>
+              <div className="grid grid-cols-2 gap-1 pt-1 border-t border-[#f1f1ef] text-[10px] text-[#0f172a]">
+                <div className="flex items-center gap-1">
+                  <span className="text-[#787774]">保温箱:</span>
+                  <span className="font-semibold text-rose-600">{currentTruckConfig.hardwareStatus?.holdingCabinetTemp ?? 70}℃</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-[#787774]">冷藏保鲜:</span>
+                  <span className="font-semibold text-cyan-600">{currentTruckConfig.hardwareStatus?.coldStorageTemp ?? 4}℃</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-[#787774]">动力电池:</span>
+                  <span className="font-semibold text-emerald-600">{currentTruckConfig.hardwareStatus?.batteryLevel ?? 92}%</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-[#787774]">排队单数:</span>
+                  <span className="font-semibold text-amber-600">{currentTruckConfig.hardwareStatus?.queueOrders ?? 1}单</span>
+                </div>
+              </div>
             </div>
 
             <div className="border-t border-[#f1f1ef]" />
@@ -748,6 +921,20 @@ export const MerchantStallGPS: React.FC<MerchantStallGPSProps> = ({
           />
         </div>
       </div>
+
+      {/* 主厨通告、驻点营运数据与硬件工况热配置模态框 */}
+      <TruckQuickConfigModal
+        isOpen={isConfigModalOpen}
+        onClose={() => {
+          setIsConfigModalOpen(false);
+          setAllTrucks(getAllTruckConfigs());
+        }}
+        truckId={selectedTruckId}
+        onSaved={() => {
+          setAllTrucks(getAllTruckConfigs());
+          showToast('餐车通告与工况已热更新广播同步！');
+        }}
+      />
     </div>
   );
 };

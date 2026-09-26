@@ -19,7 +19,9 @@ import {
   ShieldCheck,
   CheckCheck,
   Send,
-  Sparkles,
+  SlidersHorizontal,
+  Zap,
+  UtensilsCrossed,
   MessageSquare,
   Flame,
   Coffee,
@@ -254,15 +256,15 @@ export const OrderHistoryMessagesView: React.FC<OrderHistoryMessagesViewProps> =
 
         {/* 快捷催单/加辣/自提确认互动胶囊栏 */}
         <div className="max-w-4xl mx-auto px-3.5 pb-2.5 overflow-x-auto flex items-center space-x-2 scrollbar-none">
-          <span className="text-[11px] text-neutral-500 font-bold shrink-0 flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-amber-500" />
+          <span className="text-[11px] text-neutral-500 font-medium shrink-0 flex items-center gap-1">
+            <Zap className="w-3 h-3 text-neutral-600 stroke-[1.5]" />
             快速联络：
           </span>
           {[
             { id: 'urge', label: '催单加急', text: '请问当前订单备餐还需要多久？已在等候区', icon: Flame },
-            { id: 'spicy', label: '备注加辣/调味', text: '餐品请多放黑椒浓汁，尽量少辣，谢谢餐车师傅！', icon: Sparkles },
+            { id: 'spicy', label: '备注加辣/调味', text: '餐品请多放黑椒浓汁，尽量少辣，谢谢餐车师傅！', icon: SlidersHorizontal },
             { id: 'pickup', label: '到达餐车站台', text: '我已到达餐车旁，请问在哪个取餐窗口？', icon: CheckCircle2 },
-            { id: 'paper', label: '纸巾餐具加料', text: '需要多备一份一次性环保餐具与消毒湿巾', icon: Coffee }
+            { id: 'paper', label: '纸巾餐具加料', text: '需要多备一份一次性环保餐具与消毒湿巾', icon: UtensilsCrossed }
           ].map((act) => {
             const Icon = act.icon;
             return (
@@ -271,9 +273,9 @@ export const OrderHistoryMessagesView: React.FC<OrderHistoryMessagesViewProps> =
                 type="button"
                 onClick={() => handleSendQuickAction(act.text, act.id)}
                 disabled={quickSendBusy === act.id}
-                className="px-2.5 py-1 rounded-full text-xs font-semibold bg-white hover:bg-neutral-50 active:scale-95 border border-neutral-200/90 text-neutral-800 shadow-2xs flex items-center space-x-1 whitespace-nowrap transition cursor-pointer disabled:opacity-50"
+                className="px-2.5 py-1 rounded-full text-xs font-medium bg-white hover:bg-neutral-50 active:scale-95 border border-neutral-200/90 text-neutral-800 shadow-2xs flex items-center space-x-1 whitespace-nowrap transition cursor-pointer disabled:opacity-50"
               >
-                <Icon className="w-3 h-3 text-amber-600" />
+                <Icon className="w-3 h-3 text-neutral-700 stroke-[1.5]" />
                 <span>{act.label}</span>
               </button>
             );

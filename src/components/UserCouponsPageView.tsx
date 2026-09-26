@@ -30,6 +30,7 @@ import { copyTextToClipboard } from '../utils/clipboard';
 import { generateQrCodeDataUrl } from '../utils/qrCodeEngine';
 import { useToast } from './ui/ToastContext';
 import { BackButton } from './BackButton';
+import { OrganicCardReveal } from '../utils/useCardScrollReveal';
 
 interface UserCouponsPageViewProps {
   onBackToMenu: () => void;
@@ -269,7 +270,7 @@ export const UserCouponsPageView: React.FC<UserCouponsPageViewProps> = ({
             <div className="w-3.5 h-3.5 rounded-full border-2 border-black flex items-center justify-center">
               <span className="text-[8px] font-black">★</span>
             </div>
-            <span className="text-[10.5px] font-black tracking-wider uppercase text-black font-mono">
+            <span className="text-[10.5px] font-black tracking-wider uppercase text-black tabular-nums">
               {isVIPActive ? '黑卡尊享会员' : '先锋注册会员'}
             </span>
           </div>
@@ -282,7 +283,7 @@ export const UserCouponsPageView: React.FC<UserCouponsPageViewProps> = ({
                 当前可用优惠券
               </span>
               <div className="flex items-baseline gap-1 mt-0.5">
-                <span className="text-lg sm:text-xl font-black text-black font-mono">
+                <span className="text-lg sm:text-xl font-black text-black tabular-nums">
                   {availableCoupons.length}
                 </span>
                 <span className="text-[10px] font-bold text-black">有效可用</span>
@@ -295,7 +296,7 @@ export const UserCouponsPageView: React.FC<UserCouponsPageViewProps> = ({
                 预计累计可省
               </span>
               <div className="mt-0.5">
-                <span className="text-lg sm:text-xl font-black text-[#059669] font-mono">
+                <span className="text-lg sm:text-xl font-black text-[#059669] tabular-nums">
                   ¥{totalPotentialSavings > 0 ? totalPotentialSavings.toFixed(0) : '50'}
                 </span>
               </div>
@@ -316,7 +317,7 @@ export const UserCouponsPageView: React.FC<UserCouponsPageViewProps> = ({
                 placeholder="输入兑换码 (如 UR-VIP5)..."
                 value={couponInput}
                 onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-                className="w-full text-xs font-medium text-black placeholder-[#8c8b84] bg-transparent outline-none uppercase font-mono"
+                className="w-full text-xs font-medium text-black placeholder-[#8c8b84] bg-transparent outline-none uppercase tabular-nums"
               />
             </div>
 
@@ -336,7 +337,7 @@ export const UserCouponsPageView: React.FC<UserCouponsPageViewProps> = ({
                 key={code}
                 type="button"
                 onClick={() => handleRedeemCode(undefined, code)}
-                className="bg-[#e9e9e6] hover:bg-[#deded9] active:scale-95 text-[#333] px-1.5 py-0.5 rounded font-mono font-bold whitespace-nowrap transition-colors cursor-pointer"
+                className="bg-[#e9e9e6] hover:bg-[#deded9] active:scale-95 text-[#333] px-1.5 py-0.5 rounded tabular-nums font-bold whitespace-nowrap transition-colors cursor-pointer"
               >
                 +{code}
               </button>
@@ -354,7 +355,7 @@ export const UserCouponsPageView: React.FC<UserCouponsPageViewProps> = ({
             }`}
           >
             <span>可使用</span>
-            <span className="bg-black text-white text-[9px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center font-mono">
+            <span className="bg-black text-white text-[9px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center tabular-nums">
               {availableCoupons.length}
             </span>
             {activeTab === 'available' && (
@@ -423,15 +424,15 @@ export const UserCouponsPageView: React.FC<UserCouponsPageViewProps> = ({
               const isAvailable = status === 'available';
 
               return (
-                <div
+                <OrganicCardReveal
                   key={item.userCouponId}
-                  className={`bg-white rounded-xl border border-[#e5e5e2] shadow-2xs relative overflow-hidden transition-all ${
+                  className={`bg-white rounded-xl border border-[#e5e5e2] shadow-2xs relative overflow-hidden transition-colors ${
                     isAvailable ? 'hover:border-black' : 'opacity-60 bg-[#f7f7f5]'
                   }`}
                 >
                   {/* VIP ONLY / Badge Tag (Top Right) */}
                   {coupon.badgeText && isAvailable && (
-                    <div className="absolute top-0 right-0 bg-black text-white text-[8px] font-black px-1.5 py-0.2 rounded-bl-md font-mono tracking-wider">
+                    <div className="absolute top-0 right-0 bg-black text-white text-[8px] font-black px-1.5 py-0.2 rounded-bl-md tabular-nums tracking-wider">
                       {coupon.badgeText.toUpperCase()}
                     </div>
                   )}
@@ -442,7 +443,7 @@ export const UserCouponsPageView: React.FC<UserCouponsPageViewProps> = ({
                     <div className="shrink-0 min-w-[56px] pt-0.5">
                       {coupon.couponType === 'discount_percent' ? (
                         <div className="flex items-baseline gap-0.5">
-                          <span className="text-xl font-black text-black font-mono leading-none tracking-tight">
+                          <span className="text-xl font-black text-black tabular-nums leading-none tracking-tight">
                             {((1 - coupon.discountValue) * 100).toFixed(0)}
                           </span>
                           <span className="text-[9.5px] font-black text-black leading-none">
@@ -459,7 +460,7 @@ export const UserCouponsPageView: React.FC<UserCouponsPageViewProps> = ({
                       ) : (
                         <div className="flex items-baseline">
                           <span className="text-xs font-bold text-black mr-0.5">¥</span>
-                          <span className="text-xl font-black text-black font-mono leading-none tracking-tight">
+                          <span className="text-xl font-black text-black tabular-nums leading-none tracking-tight">
                             {coupon.discountValue}
                           </span>
                         </div>
@@ -495,7 +496,7 @@ export const UserCouponsPageView: React.FC<UserCouponsPageViewProps> = ({
                             e.stopPropagation();
                             handleCopyCode(coupon.code);
                           }}
-                          className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-[#f4f4f2] hover:bg-[#eaeae6] border border-[#e2e3e1] text-[9px] font-mono font-bold text-[#37352f] cursor-pointer transition-colors"
+                          className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-[#f4f4f2] hover:bg-[#eaeae6] border border-[#e2e3e1] text-[9px] tabular-nums font-bold text-[#37352f] cursor-pointer transition-colors"
                           title="点击复制券码"
                         >
                           {copiedCode === coupon.code ? (
@@ -599,7 +600,7 @@ export const UserCouponsPageView: React.FC<UserCouponsPageViewProps> = ({
                                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                               </span>
                               <span className="font-bold text-neutral-800">真实动态核销小组件</span>
-                              <span className="text-[#8a8a82] font-mono text-[9.5px]">
+                              <span className="text-[#8a8a82] tabular-nums text-[9.5px]">
                                 (刷新倒计时: {Math.floor(qrRefreshCountdown / 60)}:{(qrRefreshCountdown % 60).toString().padStart(2, '0')})
                               </span>
                             </div>
@@ -641,7 +642,7 @@ export const UserCouponsPageView: React.FC<UserCouponsPageViewProps> = ({
                             {isGeneratingQr[coupon.code] || !qrDataUrls[coupon.code] ? (
                               <div className="w-36 h-36 sm:w-40 sm:h-40 flex flex-col items-center justify-center gap-2 text-neutral-400">
                                 <RefreshCw className="w-6 h-6 animate-spin text-neutral-500" />
-                                <span className="text-[10.5px] font-mono">生成真实核销二维码中...</span>
+                                <span className="text-[10.5px] tabular-nums">生成真实核销二维码中...</span>
                               </div>
                             ) : (
                               <div className="relative">
@@ -672,7 +673,7 @@ export const UserCouponsPageView: React.FC<UserCouponsPageViewProps> = ({
                             </div>
 
                             <div className="flex items-center justify-center gap-2 pt-0.5">
-                              <span className="font-mono font-black text-sm tracking-widest text-black select-all">
+                              <span className="tabular-nums font-black text-sm tracking-widest text-black select-all">
                                 {coupon.code}
                               </span>
                               <button
@@ -714,7 +715,7 @@ export const UserCouponsPageView: React.FC<UserCouponsPageViewProps> = ({
                       </motion.div>
                     )}
                   </AnimatePresence>
-                </div>
+                </OrganicCardReveal>
               );
             })
           )}
@@ -744,7 +745,7 @@ export const UserCouponsPageView: React.FC<UserCouponsPageViewProps> = ({
             <div className="space-y-2 text-xs text-[#37352f]">
               <div className="p-3 bg-[#fafaf8] rounded-xl border border-[#e2e3e1]">
                 <span className="font-bold text-black block">{selectedRuleDetail.title}</span>
-                <span className="text-[11px] text-[#787770] font-mono mt-0.5 block">
+                <span className="text-[11px] text-[#787770] tabular-nums mt-0.5 block">
                   优惠券编码: {selectedRuleDetail.code}
                 </span>
               </div>
@@ -790,7 +791,7 @@ export const UserCouponsPageView: React.FC<UserCouponsPageViewProps> = ({
               {isGeneratingQr[selectedQrCoupon.code] || !qrDataUrls[selectedQrCoupon.code] ? (
                 <div className="w-40 h-40 flex flex-col items-center justify-center gap-2 text-neutral-400">
                   <RefreshCw className="w-6 h-6 animate-spin text-neutral-500" />
-                  <span className="text-[10.5px] font-mono">正在生成真实二维码...</span>
+                  <span className="text-[10.5px] tabular-nums">正在生成真实二维码...</span>
                 </div>
               ) : (
                 <img
@@ -805,7 +806,7 @@ export const UserCouponsPageView: React.FC<UserCouponsPageViewProps> = ({
             <div>
               <div className="text-sm font-bold text-black">{selectedQrCoupon.title}</div>
               <div className="flex items-center justify-center gap-1.5 mt-1">
-                <span className="text-xs font-mono font-bold text-[#666] tracking-wider select-all">
+                <span className="text-xs tabular-nums font-bold text-[#666] tracking-wider select-all">
                   {selectedQrCoupon.code}
                 </span>
                 <button

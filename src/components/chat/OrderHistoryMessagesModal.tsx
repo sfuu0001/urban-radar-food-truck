@@ -20,7 +20,6 @@ import {
   Flame,
   Radio,
   Send,
-  Sparkles,
   ChevronRight,
   Copy,
   Receipt,
@@ -364,9 +363,20 @@ export const OrderHistoryMessagesModal: React.FC<OrderHistoryMessagesModalProps>
                         </span>
 
                         <span
-                          className={`text-[10.5px] font-bold px-2 py-0.5 rounded-full border ${statusBadge.bg}`}
+                          className={`text-[10.5px] font-bold px-2 py-0.5 rounded-full border ${statusBadge.bg} inline-flex items-center gap-1 transition-all ${order.isRecentlyUpdated ? 'ring-2 ring-emerald-400/50' : ''}`}
                         >
-                          {statusBadge.text}
+                          {order.isRecentlyUpdated && (
+                            <span className="relative flex h-2 w-2 shrink-0 items-center justify-center">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500 animate-pulse-dot" />
+                            </span>
+                          )}
+                          <span>{statusBadge.text}</span>
+                          {order.isRecentlyUpdated && (
+                            <span className="text-[9px] font-black text-emerald-700 bg-emerald-100/90 px-1 py-0.2 rounded-full leading-none normal-case animate-pulse">
+                              最新
+                            </span>
+                          )}
                         </span>
                       </div>
 

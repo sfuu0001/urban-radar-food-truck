@@ -1,9 +1,32 @@
 import { TruckInfo, DiningMode } from '../types';
 import { safeGetStorage, safeSetStorage } from './safeStorage';
+import { INITIAL_TRUCK_INFO } from '../data/mockData';
 
 export interface GeoCoordinate {
   latitude: number;
   longitude: number;
+}
+
+export interface TruckHardwareStatus {
+  holdingCabinetTemp: number; // 车载恒温舱温控 (默认 70℃)
+  coldStorageTemp: number; // 移动冷链冷藏温控 (默认 4℃)
+  batteryLevel: number; // 车载动力电池电量 (0-100%)
+  gpsSatellites: number; // 北斗/高精GPS搜星数量 (如 18 颗)
+  queueOrders: number; // 实时待出餐排队单数 (如 2 单)
+  powerStatus?: 'normal' | 'charging' | 'low'; // 供电状态
+  sanitationLevel?: string; // 车体食品安全消杀状态
+  voltage?: number; // 车载供电电压 (220V/48V)
+}
+
+export interface TruckCouponConfig {
+  id: string;
+  title: string;
+  amount: number;
+  threshold: number;
+  type: 'exclusive' | 'group' | 'delivery';
+  badge: string;
+  expiry: string;
+  description?: string;
 }
 
 export interface TruckLocationConfig {
@@ -18,6 +41,16 @@ export interface TruckLocationConfig {
   minDeliveryAmount?: number;
   baseDeliveryFee?: number;
   updatedAt?: string;
+  // 商家后台自定义品牌形象与Logo (支持自定义上传 Base64 / 存储 URL)
+  logo?: string;
+  image?: string;
+  // 商家后台可自定义实时热更新字段
+  chefAnnouncement?: string; // 站台主厨实时通告与寄语
+  stationNotice?: string; // 驻点说明、市政备案与交规指引
+  businessHours?: string; // 营业驻点时间 (如 10:30 - 22:30)
+  parkingSpotDetail?: string; // 精准车位/泊车点
+  hardwareStatus?: TruckHardwareStatus; // 车载硬件工况遥测数据
+  coupons?: TruckCouponConfig[]; // 关联专属福利券
 }
 
 /**
@@ -237,6 +270,22 @@ export const DEFAULT_TRUCK_CONFIGS: TruckLocationConfig[] = [
     status: 'open',
     minDeliveryAmount: 35,
     baseDeliveryFee: 5,
+    logo: 'https://images.unsplash.com/photo-1565123409695-7b5ef63a2efb?w=200&h=200&fit=crop',
+    image: 'https://images.unsplash.com/photo-1565123409695-7b5ef63a2efb?w=200&h=200&fit=crop',
+    businessHours: '10:30 - 22:30 (午市/晚市/夜宵)',
+    parkingSpotDetail: '西藏北路曲阜路交叉口 · 大悦城南广场 01 号流动餐车专用泊位',
+    stationNotice: '市政特许移动餐饮备案 SH-JA-20260901 · 严禁占道经营 · 已接驳市政清洁绿电',
+    chefAnnouncement: '【站台主厨通告】01 号车老饕粉丝群火热开启，每日 11:30 独家特供和牛鲜包与炭烤鲜肉串，凭群身份享全单 9 折与到店立减。欢迎各位食客加入！',
+    hardwareStatus: {
+      holdingCabinetTemp: 70,
+      coldStorageTemp: 4,
+      batteryLevel: 94,
+      gpsSatellites: 18,
+      queueOrders: 2,
+      powerStatus: 'normal',
+      sanitationLevel: 'A级 · 今日已封签消杀',
+      voltage: 220
+    },
     updatedAt: '2026-09-06 00:00:00'
   },
   {
@@ -250,6 +299,22 @@ export const DEFAULT_TRUCK_CONFIGS: TruckLocationConfig[] = [
     status: 'open',
     minDeliveryAmount: 40,
     baseDeliveryFee: 6,
+    logo: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=200&h=200&fit=crop',
+    image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=200&h=200&fit=crop',
+    businessHours: '08:00 - 21:00 (早市/午市白领快选)',
+    parkingSpotDetail: '静安大悦城北座办公楼连廊南侧专用泊位',
+    stationNotice: '写字楼极速专线 · 配备智能取餐保温柜 · 支持无接触极速自提',
+    chefAnnouncement: '【午市特邀专享】02 号车北座办公区特邀满 50 减 10 限定券火热发放中，现磨冷萃与热食即点即取，免排队极速出餐！',
+    hardwareStatus: {
+      holdingCabinetTemp: 68,
+      coldStorageTemp: 3,
+      batteryLevel: 88,
+      gpsSatellites: 16,
+      queueOrders: 1,
+      powerStatus: 'normal',
+      sanitationLevel: 'A级 · 今日已封签消杀',
+      voltage: 220
+    },
     updatedAt: '2026-09-06 00:00:00'
   },
   {
@@ -263,6 +328,22 @@ export const DEFAULT_TRUCK_CONFIGS: TruckLocationConfig[] = [
     status: 'open',
     minDeliveryAmount: 35,
     baseDeliveryFee: 5,
+    logo: 'https://images.unsplash.com/photo-1509722747041-616f39b57569?w=200&h=200&fit=crop',
+    image: 'https://images.unsplash.com/photo-1509722747041-616f39b57569?w=200&h=200&fit=crop',
+    businessHours: '16:00 - 02:00 (水岸夜市/夜宵俱乐部)',
+    parkingSpotDetail: '苏河湾万象天地西里广场滨水观景木栈道外摆区',
+    stationNotice: '滨水夜市特许经营 · 配备户外防水配电箱与外摆露营折叠桌椅',
+    chefAnnouncement: '【水岸夜市集结令】03 号车常驻苏河湾水岸，凭任意点单入群即可领取特调冰爽特饮一杯，每周五晚车友音乐派对！',
+    hardwareStatus: {
+      holdingCabinetTemp: 72,
+      coldStorageTemp: 4,
+      batteryLevel: 91,
+      gpsSatellites: 20,
+      queueOrders: 3,
+      powerStatus: 'charging',
+      sanitationLevel: 'A级 · 今日已封签消杀',
+      voltage: 220
+    },
     updatedAt: '2026-09-06 00:00:00'
   },
   {
@@ -276,6 +357,22 @@ export const DEFAULT_TRUCK_CONFIGS: TruckLocationConfig[] = [
     status: 'open',
     minDeliveryAmount: 45,
     baseDeliveryFee: 8,
+    logo: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=200&h=200&fit=crop',
+    image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=200&h=200&fit=crop',
+    businessHours: '00:00 - 24:00 (全天候 24 小时在线)',
+    parkingSpotDetail: '汉中路光复路口 · 静安国际中心东侧专送接驳港',
+    stationNotice: '24 小时专送接驳枢纽 · 绿色通道快速停靠 · 外卖骑手专属取餐台',
+    chefAnnouncement: '【24H 极速专送】04 号车提供汉中路商圈 24 小时夜间热食直达保障，车载 70℃ 恒温箱巡航，骑手接力 15 分钟必达！',
+    hardwareStatus: {
+      holdingCabinetTemp: 70,
+      coldStorageTemp: 2,
+      batteryLevel: 96,
+      gpsSatellites: 19,
+      queueOrders: 0,
+      powerStatus: 'normal',
+      sanitationLevel: 'A级 · 今日已封签消杀',
+      voltage: 220
+    },
     updatedAt: '2026-09-06 00:00:00'
   }
 ];
@@ -445,13 +542,31 @@ function writeHashConfigs(configs: TruckLocationConfig[]): void {
  */
 export function getAllTruckConfigs(): TruckLocationConfig[] {
   const fromHash = decodeHashConfigs();
-  if (fromHash && fromHash.length > 0) return fromHash;
-  const fromLs = safeGetStorage<TruckLocationConfig[]>(STORAGE_KEY_TRUCKS, DEFAULT_TRUCK_CONFIGS);
-  if (fromLs && fromLs.length > 0) {
-    writeHashConfigs(fromLs); // 把 localStorage 镜像进 hash, 后续刷新从 hash 读
-    return fromLs;
+  let list: TruckLocationConfig[] = [];
+  if (fromHash && fromHash.length > 0) {
+    list = fromHash;
+  } else {
+    const fromLs = safeGetStorage<TruckLocationConfig[]>(STORAGE_KEY_TRUCKS, DEFAULT_TRUCK_CONFIGS);
+    if (fromLs && fromLs.length > 0) {
+      writeHashConfigs(fromLs); // 把 localStorage 镜像进 hash, 后续刷新从 hash 读
+      list = fromLs;
+    } else {
+      list = DEFAULT_TRUCK_CONFIGS;
+    }
   }
-  return DEFAULT_TRUCK_CONFIGS;
+
+  // 深度融合补全主厨通告、驻点说明及物联网硬件工况字段，保障多端热更新实时生效
+  return list.map((t) => {
+    const def = DEFAULT_TRUCK_CONFIGS.find((d) => d.id === t.id) || DEFAULT_TRUCK_CONFIGS[0];
+    return {
+      ...def,
+      ...t,
+      hardwareStatus: {
+        ...def.hardwareStatus,
+        ...(t.hardwareStatus || {})
+      }
+    };
+  });
 }
 
 /**
@@ -525,6 +640,26 @@ export function updateTruckLocation(
         latitude,
         longitude,
         deliveryRadiusKm: radiusKm !== undefined ? radiusKm : t.deliveryRadiusKm,
+        updatedAt: new Date().toLocaleString('zh-CN')
+      };
+    }
+    return t;
+  });
+  saveAllTruckConfigs(updated);
+  return updated.find((t) => t.id === truckId) || updated[0];
+}
+
+/**
+ * 商家端自定义上传或更新餐车品牌 Logo
+ */
+export function updateTruckLogo(truckId: string, logoUrl: string): TruckLocationConfig {
+  const all = getAllTruckConfigs();
+  const updated = all.map((t) => {
+    if (t.id === truckId) {
+      return {
+        ...t,
+        logo: logoUrl.trim(),
+        image: logoUrl.trim(),
         updatedAt: new Date().toLocaleString('zh-CN')
       };
     }
@@ -1479,6 +1614,22 @@ export function saveTruckConfig(config: Partial<TruckLocationConfig> & { id: str
     updated = [...all, fullConfig];
   }
   saveAllTruckConfigs(updated);
+
+  // 双轨同步：同步维护 obsidian_truck_info 本地权威快照，杜绝主信息落后于位点配置
+  try {
+    const activeId = safeGetStorage<string>(STORAGE_KEY_ACTIVE_TRUCK_ID, 'truck-01');
+    if (config.id === activeId || config.id === 'truck-01') {
+      const currentTruckInfo = safeGetStorage<any>('obsidian_truck_info', INITIAL_TRUCK_INFO);
+      safeSetStorage('obsidian_truck_info', {
+        ...currentTruckInfo,
+        currentLocationName: pickName,
+        latitude: pickLat,
+        longitude: pickLng
+      });
+    }
+  } catch {
+    // ignore
+  }
 }
 
 /* =========================================================================
@@ -1941,3 +2092,44 @@ export function getAmapNavigationUrls(
     webMarkerUrl
   };
 }
+
+/**
+ * 记录流动餐车停靠点与围栏变动审计台账 (保存至 obsidian_contingency_audits)
+ */
+export function recordStallRelocationAudit(audit: {
+  truckId: string;
+  truckName: string;
+  operator?: string;
+  prevLat: number;
+  prevLng: number;
+  prevLocationName: string;
+  newLat: number;
+  newLng: number;
+  newLocationName: string;
+  distanceDeltaMeters: number;
+  newRadiusKm: number;
+  reason?: string;
+}): void {
+  const AUDIT_STORAGE_KEY = 'obsidian_contingency_audits';
+  const existing = safeGetStorage<any[]>(AUDIT_STORAGE_KEY, []);
+  const record = {
+    id: `audit-loc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    type: 'stall_relocation',
+    truckId: audit.truckId,
+    truckName: audit.truckName,
+    operator: audit.operator || '值班店长 (001)',
+    prevLat: audit.prevLat,
+    prevLng: audit.prevLng,
+    prevLocationName: audit.prevLocationName,
+    newLat: audit.newLat,
+    newLng: audit.newLng,
+    newLocationName: audit.newLocationName,
+    distanceDeltaMeters: audit.distanceDeltaMeters,
+    newRadiusKm: audit.newRadiusKm,
+    reason: audit.reason || '商家端主动微调停靠点并全网广播',
+    timestamp: new Date().toISOString()
+  };
+  const updated = [record, ...existing].slice(0, 100);
+  safeSetStorage(AUDIT_STORAGE_KEY, updated);
+}
+

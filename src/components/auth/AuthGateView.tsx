@@ -455,14 +455,14 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                 <UtensilsCrossed className="w-[15px] h-[15px]" strokeWidth={2.2} />
               </div>
               <div className="flex flex-col">
-                <span className="font-mono text-[11px] font-bold tracking-tight text-neutral-900 leading-none">
+                <span className="tabular-nums text-[11px] font-bold tracking-tight text-neutral-900 leading-none">
                   URBAN RADAR · POS GATE
                 </span>
-                <span className="font-mono text-[9px] text-neutral-400 leading-none mt-0.5">GATEWAY #CR-88029</span>
+                <span className="tabular-nums text-[9px] text-neutral-400 leading-none mt-0.5">GATEWAY #CR-88029</span>
               </div>
             </div>
 
-            <nav aria-label="登录端别" className="flex items-center gap-4 shrink-0 font-mono text-xs">
+            <nav aria-label="登录端别" className="flex items-center gap-4 shrink-0 tabular-nums text-xs">
               <button
                 type="button"
                 onClick={() => onSwitchRole('merchant')}
@@ -490,14 +490,14 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
             <button
               type="button"
               onClick={onCancel}
-              className="ml-auto sm:ml-0 flex items-center gap-1 text-[11px] font-mono text-neutral-400 hover:text-neutral-900 transition-colors cursor-pointer shrink-0"
+              className="ml-auto sm:ml-0 flex items-center gap-1 text-[11px] tabular-nums text-neutral-400 hover:text-neutral-900 transition-colors cursor-pointer shrink-0"
             >
               <ArrowLeft className="w-3.5 h-3.5" strokeWidth={2} />
               返回前台点餐
             </button>
           </div>
 
-          <div className="flex items-center gap-2 font-mono text-[11px] shrink-0">
+          <div className="flex items-center gap-2 tabular-nums text-[11px] shrink-0">
             <div className="hidden md:flex items-center gap-1.5 bg-neutral-100/90 border border-neutral-200/80 px-2 py-1 rounded-[3px] text-neutral-600">
               <Wifi className="w-[13px] h-[13px] text-emerald-600" strokeWidth={2} />
               <span>RTK 5G · 18ms</span>
@@ -556,10 +556,10 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
             {/* 底部菜品详情 */}
             <div className="relative z-10 mt-auto p-4 lg:p-5 space-y-3">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className={`px-2 py-0.5 rounded-[2px] font-mono text-[10px] font-bold tracking-wider ${slide.categoryTone}`}>
+                <span className={`px-2 py-0.5 rounded-[2px] tabular-nums text-[10px] font-bold tracking-wider ${slide.categoryTone}`}>
                   {slide.category}
                 </span>
-                <span className="font-mono text-[10px] text-neutral-300">PASTA-REF #{slide.refCode}</span>
+                <span className="tabular-nums text-[10px] text-neutral-300">PASTA-REF #{slide.refCode}</span>
               </div>
               <div>
                 <h2 className="font-display text-2xl lg:text-3xl font-bold text-white tracking-tight leading-tight">
@@ -575,11 +575,11 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                     key={spec.label}
                     className="bg-neutral-900/70 backdrop-blur border border-white/10 rounded-[3px] px-2.5 py-2"
                   >
-                    <div className="flex items-center gap-1 font-mono text-[9px] text-neutral-400 uppercase tracking-wider">
+                    <div className="flex items-center gap-1 tabular-nums text-[9px] text-neutral-400 uppercase tracking-wider">
                       <spec.icon className={`w-3 h-3 ${spec.tone}`} strokeWidth={2} />
                       <span>{spec.label}</span>
                     </div>
-                    <div className="font-mono text-[11px] font-bold text-white mt-1 truncate">{spec.value}</div>
+                    <div className="tabular-nums text-[11px] font-bold text-white mt-1 truncate">{spec.value}</div>
                   </div>
                 ))}
               </div>
@@ -598,7 +598,7 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                     />
                   ))}
                 </div>
-                <span className="font-mono text-[10px] text-neutral-400 shrink-0">
+                <span className="tabular-nums text-[10px] text-neutral-400 shrink-0">
                   {String(slideIndex + 1).padStart(2, '0')} / {String(SLIDES.length).padStart(2, '0')} GALLERY VIEW
                 </span>
               </div>
@@ -613,10 +613,10 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                 <div className="flex items-start justify-between pb-3 border-b border-neutral-200/80">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-[10px] bg-neutral-900 text-white px-1.5 py-0.5 rounded-[3px] font-semibold">
+                      <span className="tabular-nums text-[10px] bg-neutral-900 text-white px-1.5 py-0.5 rounded-[3px] font-semibold">
                         GATEWAY L-4
                       </span>
-                      <span className="font-mono text-[11px] text-neutral-500 font-medium">STATION #POS-01</span>
+                      <span className="tabular-nums text-[11px] text-neutral-500 font-medium">STATION #POS-01</span>
                     </div>
                     <h3 className="font-display text-base text-neutral-900 font-bold mt-1 tracking-tight">
                       {isMerchant ? '餐车·商户端操作台身份核验' : '骑手专送·站点登录身份核验'}
@@ -629,7 +629,7 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
 
                 {/* 模式切换 */}
                 <div className="flex items-center gap-2 pt-3">
-                  <div className="grid grid-cols-2 w-full bg-neutral-100/90 p-0.5 rounded-[3px] font-mono text-xs">
+                  <div className="grid grid-cols-2 w-full bg-neutral-100/90 p-0.5 rounded-[3px] tabular-nums text-xs">
                     <button
                       type="button"
                       aria-label="短信 / 专员速选"
@@ -662,7 +662,7 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                 {/* 在册专员速选 */}
                 {authMode === 'sms' && (
                   <div className="mt-3.5 space-y-1.5">
-                    <div className="flex items-center justify-between font-mono text-[11px] gap-2">
+                    <div className="flex items-center justify-between tabular-nums text-[11px] gap-2">
                       <span className="text-neutral-500 shrink-0">
                         {isMerchant ? '在册当班专员' : '在册骑手'} (轻触速选):
                       </span>
@@ -679,7 +679,7 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                                 value={rosterQuery}
                                 onChange={(event) => setRosterQuery(event.target.value)}
                                 placeholder="搜手机/工号"
-                                className="w-24 h-5 px-1.5 bg-white border border-neutral-300 rounded-[3px] font-mono text-[10px] text-neutral-900 focus:outline-none focus:border-neutral-900"
+                                className="w-24 h-5 px-1.5 bg-white border border-neutral-300 rounded-[3px] tabular-nums text-[10px] text-neutral-900 focus:outline-none focus:border-neutral-900"
                               />
                               <button
                                 type="button"
@@ -717,7 +717,7 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                         >
                           <span className="text-base leading-none">{item.avatar}</span>
                           <span
-                            className={`font-mono text-[10px] font-bold mt-1 tracking-tight ${
+                            className={`tabular-nums text-[10px] font-bold mt-1 tracking-tight ${
                               activeChipPhone === item.phone
                                 ? 'text-white'
                                 : 'text-neutral-500 group-hover:text-neutral-900'
@@ -736,7 +736,7 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                         </button>
                       ))}
                       {filteredRoster.length === 0 && (
-                        <div className="col-span-3 py-3 text-center font-mono text-[10px] text-neutral-400">
+                        <div className="col-span-3 py-3 text-center tabular-nums text-[10px] text-neutral-400">
                           无匹配的在册人员
                         </div>
                       )}
@@ -747,11 +747,11 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                 {/* 表单 */}
                 <form onSubmit={handleSubmit} className="mt-3.5 space-y-3">
                   <div className="space-y-1">
-                    <label htmlFor="gate-phone" className="block font-mono text-[11px] text-neutral-600">
+                    <label htmlFor="gate-phone" className="block tabular-nums text-[11px] text-neutral-600">
                       认证手机号 (REGISTERED MOBILE)
                     </label>
                     <div className="flex rounded-[3px] overflow-hidden border border-neutral-300/80 focus-within:border-neutral-900 bg-white transition-colors">
-                      <span className="inline-flex items-center px-2.5 bg-neutral-100 font-mono text-xs text-neutral-700 select-none border-r border-neutral-200">
+                      <span className="inline-flex items-center px-2.5 bg-neutral-100 tabular-nums text-xs text-neutral-700 select-none border-r border-neutral-200">
                         +86
                       </span>
                       <input
@@ -762,14 +762,14 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                         value={phone}
                         onChange={(event) => setPhone(event.target.value.replace(/\D/g, '').slice(0, 11))}
                         placeholder="输入11位在册专员手机"
-                        className="w-full h-8 px-2.5 font-mono text-xs text-neutral-900 focus:outline-none bg-transparent"
+                        className="w-full h-8 px-2.5 tabular-nums text-xs text-neutral-900 focus:outline-none bg-transparent"
                       />
                     </div>
                   </div>
 
                   {authMode === 'sms' ? (
                     <div className="space-y-1">
-                      <div className="flex items-center justify-between font-mono text-[11px]">
+                      <div className="flex items-center justify-between tabular-nums text-[11px]">
                         <label htmlFor="gate-code" className="text-neutral-600">
                           6位动态短信口令
                         </label>
@@ -784,13 +784,13 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                           value={smsCode}
                           onChange={(event) => setSmsCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
                           placeholder="6 位动态口令"
-                          className="w-full h-8 px-2.5 bg-white border border-neutral-300/80 focus:border-neutral-900 rounded-[3px] font-mono text-xs tracking-widest text-neutral-900 focus:outline-none transition-colors"
+                          className="w-full h-8 px-2.5 bg-white border border-neutral-300/80 focus:border-neutral-900 rounded-[3px] tabular-nums text-xs tracking-widest text-neutral-900 focus:outline-none transition-colors"
                         />
                         <button
                           type="button"
                           onClick={handleSendCode}
                           disabled={countdown > 0}
-                          className="relative h-8 px-3 bg-neutral-100 hover:bg-neutral-200/80 disabled:opacity-60 disabled:cursor-not-allowed text-neutral-800 font-mono text-xs rounded-[3px] border border-neutral-300/60 whitespace-nowrap transition-colors flex items-center gap-1 cursor-pointer"
+                          className="relative h-8 px-3 bg-neutral-100 hover:bg-neutral-200/80 disabled:opacity-60 disabled:cursor-not-allowed text-neutral-800 tabular-nums text-xs rounded-[3px] border border-neutral-300/60 whitespace-nowrap transition-colors flex items-center gap-1 cursor-pointer"
                         >
                           <Timer className="w-3.5 h-3.5" strokeWidth={2} />
                           <span>{countdown > 0 ? `${countdown}s 后重发` : '获取口令'}</span>
@@ -799,7 +799,7 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                     </div>
                   ) : (
                     <div className="space-y-1">
-                      <label htmlFor="gate-pwd" className="block font-mono text-[11px] text-neutral-600">
+                      <label htmlFor="gate-pwd" className="block tabular-nums text-[11px] text-neutral-600">
                         操作台主密码 (MASTER PASSWORD)
                       </label>
                       <input
@@ -808,13 +808,13 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                         value={password}
                         onChange={(event) => setPassword(event.target.value)}
                         placeholder="输入操作台主密码"
-                        className="w-full h-8 px-2.5 bg-white border border-neutral-300/80 focus:border-neutral-900 rounded-[3px] font-mono text-xs text-neutral-900 focus:outline-none transition-colors"
+                        className="w-full h-8 px-2.5 bg-white border border-neutral-300/80 focus:border-neutral-900 rounded-[3px] tabular-nums text-xs text-neutral-900 focus:outline-none transition-colors"
                       />
                     </div>
                   )}
 
                   {/* 物理工卡指示 */}
-                  <div className="p-2 bg-neutral-100/80 border border-neutral-200/60 rounded-[3px] flex items-center justify-between font-mono text-[11px]">
+                  <div className="p-2 bg-neutral-100/80 border border-neutral-200/60 rounded-[3px] flex items-center justify-between tabular-nums text-[11px]">
                     <div className="flex items-center gap-1.5 text-neutral-600">
                       <BadgeCheck className="w-[15px] h-[15px] text-emerald-600" strokeWidth={2} />
                       <span>
@@ -825,7 +825,7 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                   </div>
 
                   {errorMessage && (
-                    <div className="p-2 bg-red-50 border border-red-200 rounded-[3px] flex items-start gap-1.5 text-[11px] text-red-700 font-mono">
+                    <div className="p-2 bg-red-50 border border-red-200 rounded-[3px] flex items-start gap-1.5 text-[11px] text-red-700 tabular-nums">
                       <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" strokeWidth={2} />
                       <span>{errorMessage}</span>
                     </div>
@@ -842,7 +842,7 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                     {!isLoading && <ArrowRight className="w-4 h-4" strokeWidth={2.2} />}
                   </button>
 
-                  <div className="flex items-center justify-between font-mono text-[9px] text-neutral-400 pt-0.5">
+                  <div className="flex items-center justify-between tabular-nums text-[9px] text-neutral-400 pt-0.5">
                     <span>GBT/ 35273-2020 · 生物特征已脱敏</span>
                     <span>URBAN-RADAR-OS v4.8</span>
                   </div>
@@ -882,7 +882,7 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span
-                    className={`px-1.5 py-0.5 rounded-[2px] font-mono text-[10px] border ${
+                    className={`px-1.5 py-0.5 rounded-[2px] tabular-nums text-[10px] border ${
                       fpMatch
                         ? 'bg-neutral-100 text-neutral-700 border-neutral-200/60'
                         : 'bg-red-50 text-red-700 border-red-200 font-bold'
@@ -909,7 +909,7 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                   {/* ① 硬件指纹与信道监测（真实采集值） */}
                   {subPanel === 'telemetry' && (
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between pb-1.5 border-b border-neutral-200/60 font-mono text-[11px]">
+                      <div className="flex items-center justify-between pb-1.5 border-b border-neutral-200/60 tabular-nums text-[11px]">
                         <span className="font-semibold text-neutral-900 flex items-center gap-1.5">
                           <Cpu className="w-[15px] h-[15px] text-neutral-700" strokeWidth={2} />
                           硬件指纹与信道监测
@@ -919,16 +919,16 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                       <div className="grid grid-cols-2 gap-1.5">
                         {telemetryRows.map((row) => (
                           <div key={row.label} className="bg-neutral-50 border border-neutral-200/70 rounded-[2px] p-2">
-                            <div className="font-mono text-[9px] text-neutral-400 uppercase tracking-wider truncate">
+                            <div className="tabular-nums text-[9px] text-neutral-400 uppercase tracking-wider truncate">
                               {row.label}
                             </div>
-                            <div className="font-mono text-[10px] font-bold text-neutral-800 mt-1 truncate">
+                            <div className="tabular-nums text-[10px] font-bold text-neutral-800 mt-1 truncate">
                               {row.value}
                             </div>
                           </div>
                         ))}
                       </div>
-                      <div className="flex items-center justify-between font-mono text-[10px] text-neutral-400 pt-1">
+                      <div className="flex items-center justify-between tabular-nums text-[10px] text-neutral-400 pt-1">
                         <span className="flex items-center gap-1">
                           <UserCheck className="w-3 h-3 text-emerald-600" strokeWidth={2} />
                           沙盒环境核验完成
@@ -947,14 +947,14 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                   {/* ② RBAC 店长短时提权（真实引擎：15 分钟窗口 + 安全审计） */}
                   {subPanel === 'rbac' && (
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between pb-1.5 border-b border-neutral-200/60 font-mono text-[11px]">
+                      <div className="flex items-center justify-between pb-1.5 border-b border-neutral-200/60 tabular-nums text-[11px]">
                         <span className="font-semibold text-neutral-900 flex items-center gap-1.5">
                           <ShieldAlert className="w-[15px] h-[15px] text-amber-700" strokeWidth={2} />
                           RBAC 店长短时提权
                         </span>
                         <span className="text-neutral-500 text-[10px]">TIER-1</span>
                       </div>
-                      <div className="text-[11px] font-mono text-neutral-600 flex items-center justify-between gap-2">
+                      <div className="text-[11px] tabular-nums text-neutral-600 flex items-center justify-between gap-2">
                         <span className="truncate">拦截: 批量订单退款 (#O-89102)</span>
                         <span className="text-neutral-900 font-semibold shrink-0">需店长 Tier-1</span>
                       </div>
@@ -964,20 +964,20 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                           onChange={(event) => setOverridePin(event.target.value.replace(/\D/g, '').slice(0, 6))}
                           maxLength={6}
                           placeholder="4-6 位店长授权码"
-                          className="w-full h-7 px-2 bg-white border border-neutral-300 rounded-[2px] font-mono text-xs text-neutral-900 focus:outline-none focus:border-neutral-900"
+                          className="w-full h-7 px-2 bg-white border border-neutral-300 rounded-[2px] tabular-nums text-xs text-neutral-900 focus:outline-none focus:border-neutral-900"
                         />
                         <button
                           type="button"
                           onClick={applyElevation}
                           disabled={overridePin.length < 4}
-                          className="h-7 px-2.5 bg-neutral-900 hover:bg-black disabled:opacity-50 text-white font-mono text-[11px] rounded-[2px] whitespace-nowrap transition-colors cursor-pointer"
+                          className="h-7 px-2.5 bg-neutral-900 hover:bg-black disabled:opacity-50 text-white tabular-nums text-[11px] rounded-[2px] whitespace-nowrap transition-colors cursor-pointer"
                         >
                           释放
                         </button>
                       </div>
                       {overrideMsg && (
                         <div
-                          className={`font-mono text-[10px] leading-relaxed ${
+                          className={`tabular-nums text-[10px] leading-relaxed ${
                             overrideMsg.ok ? 'text-emerald-700' : 'text-red-600'
                           }`}
                         >
@@ -985,14 +985,14 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                         </div>
                       )}
                       {activeOverride && (
-                        <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-[2px] font-mono text-[10px] text-emerald-800 space-y-0.5">
+                        <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-[2px] tabular-nums text-[10px] text-emerald-800 space-y-0.5">
                           <div className="font-bold">提权窗口已激活（15 分钟）</div>
                           <div>授权人: {activeOverride.authorizedBy}</div>
                           <div>有效期至 {new Date(activeOverride.expiresAt).toLocaleTimeString()}</div>
                           <div className="truncate">事由: {activeOverride.reason}</div>
                         </div>
                       )}
-                      <div className="text-[10px] font-mono text-neutral-500 leading-relaxed">
+                      <div className="text-[10px] tabular-nums text-neutral-500 leading-relaxed">
                         真实引擎: verifyAndGrantManagerOverride · 默认授权码 8888 · 每次校验（含失败）均写入安全审计
                       </div>
                     </div>
@@ -1001,7 +1001,7 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                   {/* ③ 在岗交接班换登矩阵（真实在册账号 + 安全审计） */}
                   {subPanel === 'shift' && (
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between pb-1.5 border-b border-neutral-200/60 font-mono text-[11px]">
+                      <div className="flex items-center justify-between pb-1.5 border-b border-neutral-200/60 tabular-nums text-[11px]">
                         <span className="font-semibold text-neutral-900 flex items-center gap-1.5">
                           <ArrowLeftRight className="w-[15px] h-[15px] text-neutral-700" strokeWidth={2} />
                           在岗交接班换登矩阵
@@ -1015,10 +1015,10 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                             className="flex items-center justify-between p-1.5 bg-neutral-50 border border-neutral-200/60 rounded-[2px] gap-2"
                           >
                             <div className="min-w-0">
-                              <div className="font-mono text-xs font-semibold text-neutral-900 truncate">
+                              <div className="tabular-nums text-xs font-semibold text-neutral-900 truncate">
                                 {entry.name}
                               </div>
-                              <div className="font-mono text-[10px] text-neutral-500 truncate">
+                              <div className="tabular-nums text-[10px] text-neutral-500 truncate">
                                 工号: {entry.code} · {entry.phone.slice(-4)} 就绪
                               </div>
                             </div>
@@ -1026,7 +1026,7 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                               <button
                                 type="button"
                                 onClick={() => handleHandover(entry)}
-                                className="h-6 px-1.5 bg-white hover:bg-neutral-100 text-neutral-800 border border-neutral-300 font-mono text-[10px] rounded-[2px] transition-colors cursor-pointer"
+                                className="h-6 px-1.5 bg-white hover:bg-neutral-100 text-neutral-800 border border-neutral-300 tabular-nums text-[10px] rounded-[2px] transition-colors cursor-pointer"
                                 title="填入账号口令"
                               >
                                 填入
@@ -1034,7 +1034,7 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                               <button
                                 type="button"
                                 onClick={() => handleQuickInstantLogin(entry)}
-                                className="h-6 px-2 bg-neutral-900 hover:bg-black text-white font-mono text-[10px] rounded-[2px] transition-colors cursor-pointer font-medium shadow-2xs"
+                                className="h-6 px-2 bg-neutral-900 hover:bg-black text-white tabular-nums text-[10px] rounded-[2px] transition-colors cursor-pointer font-medium shadow-2xs"
                                 title="一键免密直接登入操作台"
                               >
                                 速登
@@ -1044,11 +1044,11 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                         ))}
                       </div>
                       {handoverMsg && (
-                        <div className="p-2 bg-blue-50 border border-blue-200 rounded-[2px] font-mono text-[10px] text-blue-800 leading-relaxed">
+                        <div className="p-2 bg-blue-50 border border-blue-200 rounded-[2px] tabular-nums text-[10px] text-blue-800 leading-relaxed">
                           {handoverMsg}
                         </div>
                       )}
-                      <div className="text-[10px] font-mono text-neutral-500 leading-relaxed">
+                      <div className="text-[10px] tabular-nums text-neutral-500 leading-relaxed">
                         交接即把准入上下文切换至该在册账号（自动填入口令）并写入安全审计；数据源为
                         PRESET_MERCHANT_STAFF / PRESET_RIDERS。
                       </div>
@@ -1084,7 +1084,7 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                   className={`w-[18px] h-[18px] ${securityModal.match ? 'text-emerald-600' : 'text-red-600'}`}
                   strokeWidth={2}
                 />
-                <h4 id="gate-security-title" className="font-mono text-sm font-bold tracking-tight">
+                <h4 id="gate-security-title" className="tabular-nums text-sm font-bold tracking-tight">
                   {securityModal.title}
                 </h4>
               </div>
@@ -1104,7 +1104,7 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                 : '检测到当前终端 GPU 指纹与餐车固定 POS 注册签名不吻合（离散度差值超过阈值）。系统已激活沙盒锁定策略，请联系值班店长或向运维上报工单。'}
             </p>
 
-            <div className="p-2.5 bg-neutral-100 rounded-[3px] font-mono text-[11px] space-y-1">
+            <div className="p-2.5 bg-neutral-100 rounded-[3px] tabular-nums text-[11px] space-y-1">
               <div className="flex items-center justify-between gap-2">
                 <span>PROD-HASH:</span>
                 <span className="font-semibold text-neutral-900 truncate">
@@ -1129,7 +1129,7 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
             </div>
 
             {posTicketId && (
-              <div className="p-2 bg-amber-50 border border-amber-200 rounded-[3px] font-mono text-[11px] text-amber-800">
+              <div className="p-2 bg-amber-50 border border-amber-200 rounded-[3px] tabular-nums text-[11px] text-amber-800">
                 运维工单已生成: <strong>{posTicketId}</strong>（已写入安全审计日志）
               </div>
             )}
@@ -1138,7 +1138,7 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
               <button
                 type="button"
                 onClick={() => setSecurityModal(null)}
-                className="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-mono text-xs rounded-[3px] transition-colors cursor-pointer"
+                className="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 tabular-nums text-xs rounded-[3px] transition-colors cursor-pointer"
               >
                 关闭窗口
               </button>
@@ -1146,7 +1146,7 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ role, onSwitchRole, 
                 <button
                   type="button"
                   onClick={submitOpsTicket}
-                  className="px-3 py-1.5 bg-neutral-900 hover:bg-black text-white font-mono text-xs rounded-[3px] transition-colors cursor-pointer"
+                  className="px-3 py-1.5 bg-neutral-900 hover:bg-black text-white tabular-nums text-xs rounded-[3px] transition-colors cursor-pointer"
                 >
                   向运维上报工单
                 </button>

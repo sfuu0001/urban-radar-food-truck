@@ -539,13 +539,13 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                     />
                     <span>{cat.name}</span>
                     {isActive && catHasSub && activeSubCategory !== 'all' && activeSubCatObj && (
-                      <span className="text-[9.5px] border border-white/30 text-white font-mono px-1 py-0.2 rounded bg-white/15">
+                      <span className="text-[9.5px] border border-white/30 text-white tabular-nums px-1 py-0.2 rounded bg-white/15">
                         {activeSubCatObj.name}
                       </span>
                     )}
                     {count !== undefined && count > 0 && (
                       <span
-                        className={`text-[9.5px] sm:text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold leading-tight transition-colors border ${
+                        className={`text-[9.5px] sm:text-[10px] px-1.5 py-0.2 rounded-full tabular-nums font-bold leading-tight transition-colors border ${
                           isActive
                             ? 'border-white/30 text-white/90 bg-white/10'
                             : 'border-[#e4e4e0] text-[#7a7972] bg-white/60'
@@ -581,7 +581,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                 >
                   <Sparkles className={`w-3.5 h-3.5 shrink-0 ${isPromoBarExpanded ? 'text-white' : 'text-amber-600'}`} />
                   <span>特惠</span>
-                  <span className={`text-[9.5px] px-1.5 py-0.2 rounded-full font-mono font-bold border ${
+                  <span className={`text-[9.5px] px-1.5 py-0.2 rounded-full tabular-nums font-bold border ${
                     isPromoBarExpanded ? 'border-white/30 text-white bg-white/15' : 'border-amber-300 text-amber-900 bg-white/80'
                   }`}>
                     {promoSummary.discountItemCount}
@@ -641,7 +641,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                           <span>{subCat.name}</span>
                           {count > 0 && (
                             <span
-                              className={`text-[8.5px] px-1 rounded-full font-mono leading-tight bg-transparent border ${
+                              className={`text-[8.5px] px-1 rounded-full tabular-nums leading-tight bg-transparent border ${
                                 isSubActive
                                   ? 'border-neutral-900 text-neutral-900 font-bold'
                                   : 'border-neutral-200 text-[#787770]'
@@ -699,7 +699,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                             </span>
                           )}
                         </div>
-                        <span className="text-[10px] font-mono text-neutral-500">
+                        <span className="text-[10px] tabular-nums text-neutral-500">
                           {currentCategoryConfig.tagline}
                         </span>
                       </div>
@@ -746,7 +746,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
 
                               <div className="flex flex-col items-end shrink-0 ml-1.5">
                                 <span
-                                  className={`text-[9px] px-1.5 py-0.2 rounded-full font-mono font-bold leading-tight bg-transparent border ${
+                                  className={`text-[9px] px-1.5 py-0.2 rounded-full tabular-nums font-bold leading-tight bg-transparent border ${
                                     isSubActive
                                       ? 'border-neutral-900 text-neutral-900'
                                       : 'border-neutral-200 text-[#787770]'

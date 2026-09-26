@@ -143,60 +143,96 @@ export const CallingFilterDeck: React.FC<CallingFilterDeckProps> = ({
         </div>
       </div>
 
-      {/* b. 双行工业选择器 */}
+      {/* b. 双行工业选择器 (Deck Style) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-        <div className="flex items-center gap-2 bg-rad-inset border border-rad-line px-2 py-1 rounded-rad">
-          <span className="font-mono text-[10px] text-rad-text-muted uppercase font-bold whitespace-nowrap">
-            CATEGORY:
+        <div className="flex items-center gap-2 bg-[#fbfbfa] border border-[#e6e6e4] px-2.5 py-1.5 rounded-full">
+          <span className="font-mono text-[10px] text-[#787774] uppercase font-bold whitespace-nowrap">
+            CHANNEL:
           </span>
-          <div className="flex items-center gap-1 flex-wrap">
-            <SelectorChip
-              key="all"
-              label="全部渠道"
-              active={channelFilter === 'all'}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
               onClick={() => setChannelFilter('all')}
-            />
-            <SelectorChip
-              key="pickup"
-              label="仅到店自提 (PICKUP)"
-              active={channelFilter === 'pickup'}
+              className={`px-3 py-1 rounded-full font-mono text-[11px] flex items-center gap-1 transition-all cursor-pointer whitespace-nowrap font-medium border ${
+                channelFilter === 'all'
+                  ? 'bg-[#37352f] text-white border-[#37352f] font-semibold shadow-2xs'
+                  : 'bg-white text-[#5b5a56] hover:text-[#191817] border-[#e6e6e4]'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${channelFilter === 'all' ? 'bg-[#4dab63]' : 'bg-[#d3d1cb]'}`} />
+              <span>全部渠道</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setChannelFilter('pickup')}
-            />
-            <SelectorChip
-              key="table"
-              label="仅堂食排队 (DINE-IN)"
-              active={channelFilter === 'table'}
+              className={`px-3 py-1 rounded-full font-mono text-[11px] flex items-center gap-1 transition-all cursor-pointer whitespace-nowrap font-medium border ${
+                channelFilter === 'pickup'
+                  ? 'bg-[#d9730d] text-white border-[#d9730d] font-semibold shadow-2xs'
+                  : 'bg-[#fdf8f4] text-[#b06000] hover:bg-[#fbeddb] border-[#fae2a0]'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${channelFilter === 'pickup' ? 'bg-white' : 'bg-[#d9730d]'}`} />
+              <span>🛍️ 自提 (PICKUP)</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setChannelFilter('table')}
-            />
+              className={`px-3 py-1 rounded-full font-mono text-[11px] flex items-center gap-1 transition-all cursor-pointer whitespace-nowrap font-medium border ${
+                channelFilter === 'table'
+                  ? 'bg-[#37352f] text-white border-[#37352f] font-semibold shadow-2xs'
+                  : 'bg-[#f7f7f5] text-[#37352f] hover:bg-[#efefed] border-[#d3d1cb]'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${channelFilter === 'table' ? 'bg-[#4dab63]' : 'bg-[#787774]'}`} />
+              <span>🍽️ 堂食 (DINE-IN)</span>
+            </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 bg-rad-inset border border-rad-line px-2 py-1 rounded-rad justify-between md:justify-start">
-          <span className="font-mono text-[10px] text-rad-text-muted uppercase font-bold whitespace-nowrap">
+        <div className="flex items-center gap-2 bg-[#fbfbfa] border border-[#e6e6e4] px-2.5 py-1.5 rounded-full justify-between md:justify-start">
+          <span className="font-mono text-[10px] text-[#787774] uppercase font-bold whitespace-nowrap">
             WAIT STATUS:
           </span>
           <div className="flex items-center gap-1.5 flex-wrap">
-            <SelectorChip
-              key="all"
-              label="全部进度"
-              active={waitFocus === 'all'}
+            <button
+              type="button"
               onClick={() => setWaitFocus('all')}
-            />
-            <SelectorChip
-              key="overdue"
-              label={`超时预警监控 (OVERDUE ${counts.overdue})`}
-              active={waitFocus === 'overdue'}
+              className={`px-3 py-1 rounded-full font-mono text-[11px] flex items-center gap-1 transition-all cursor-pointer whitespace-nowrap font-medium border ${
+                waitFocus === 'all'
+                  ? 'bg-[#37352f] text-white border-[#37352f] font-semibold shadow-2xs'
+                  : 'bg-white text-[#5b5a56] hover:text-[#191817] border-[#e6e6e4]'
+              }`}
+            >
+              <span>全部进度</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setWaitFocus('overdue')}
-              tone="red"
-              pulse={counts.overdue > 0}
-            />
-            <SelectorChip
-              key="ready"
-              label={`队头就绪 (READY ${counts.ready})`}
-              active={waitFocus === 'ready'}
+              className={`px-3 py-1 rounded-full font-mono text-[11px] flex items-center gap-1 transition-all cursor-pointer whitespace-nowrap font-medium border ${
+                waitFocus === 'overdue'
+                  ? 'bg-rose-600 text-white border-rose-600 font-semibold shadow-2xs'
+                  : 'bg-rose-50 text-rose-700 hover:bg-rose-100 border-rose-200'
+              }`}
+            >
+              {counts.overdue > 0 && <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-ping" />}
+              <span>超时预警 ({counts.overdue})</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setWaitFocus('ready')}
-              tone="green"
-            />
+              className={`px-3 py-1 rounded-full font-mono text-[11px] flex items-center gap-1 transition-all cursor-pointer whitespace-nowrap font-medium border ${
+                waitFocus === 'ready'
+                  ? 'bg-[#2b593f] text-white border-[#2b593f] font-semibold shadow-2xs'
+                  : 'bg-[#f2f8f4] text-[#1e4632] hover:bg-[#e6f4ec] border-[#c4e3d0]'
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-[#4dab63]" />
+              <span>队头就绪 ({counts.ready})</span>
+            </button>
           </div>
         </div>
       </div>

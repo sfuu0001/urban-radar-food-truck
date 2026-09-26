@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   Printer, 
   Settings, 
   Layers, 
   CheckCircle2, 
+  Check,
   AlertCircle, 
   Wifi, 
   QrCode, 
@@ -16,21 +17,51 @@ import {
   Sliders,
   Scissors,
   FileText,
-  Bluetooth
+  Bluetooth,
+  Usb,
+  Network,
+  Radio,
+  Zap,
+  MoreVertical,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { 
   PrinterStation, 
   ReceiptTemplateConfig, 
   Order, 
-  DishItem 
+  DishItem,
+  DetectedPrinterDevice 
 } from '../../types';
 import { 
   INITIAL_PRINTER_STATIONS, 
   INITIAL_RECEIPT_TEMPLATE 
 } from '../../data/merchantExtendedMockData';
-import { useDevSimulation } from '../../context/DevSimulationContext';
-import { SimulationProbe } from '../dev/SimulationProbe';
 import { BluetoothPrinterManager } from './BluetoothPrinterManager';
+import { PrinterAutoDetectorModal } from './printer/PrinterAutoDetectorModal';
+import { PrinterActionPopover } from './printer/PrinterActionPopover';
+import { PrinterQuickConfigDrawer } from './printer/PrinterQuickConfigDrawer';
+import { ReceiptPaperTemplateEditor } from './printer/ReceiptPaperTemplateEditor';
+import { ReceiptSelfTestModal } from './printer/ReceiptSelfTestModal';
+import { PrintStyleTunerModal } from './printer/PrintStyleTunerModal';
+import {
+  getAutoPrintPolicy,
+  saveAutoPrintPolicy,
+  AutoPrintPolicyConfig
+} from '../../utils/autoPrintDispatcherEngine';
+import {
+  buildSelfTestLayoutLines,
+  buildOrderReceiptBytes,
+  buildSelfTestBytes,
+  sendBytesToNetworkOrWifi,
+  sendBytesToUsbDevice,
+  sendBytesToBluetoothCharacteristic
+} from '../../utils/escpos';
+import {
+  probeLocalBridge,
+  printLayoutViaBridge,
+  getPrintStyle
+} from '../../utils/localPrintBridge';
 
 interface MerchantPrintingHubProps {
   orders: Order[];
@@ -53,31 +84,179 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
     return raw ? JSON.parse(raw) : INITIAL_RECEIPT_TEMPLATE;
   });
 
-  const [activeSubTab, setActiveSubTab] = useState<'stations' | 'bluetooth' | 'template' | 'split_preview'>('bluetooth');
+  // Navigation Sub-tab
+  const [activeSubTab, setActiveSubTab] = useState<'stations' | 'bluetooth' | 'template' | 'split_preview'>('stations');
   const [selectedStation, setSelectedStation] = useState<PrinterStation | null>(stations[0] || null);
-  const [previewPaperWidth, setPreviewPaperWidth] = useState<'58mm' | '80mm'>('80mm');
-  const [testOrder, setTestOrder] = useState<Order>(() => orders[0] || {
-    id: 'ord-test-01',
-    orderNo: '#9821',
-    customerName: '林逸凡',
-    userPhone: '138****8821',
-    items: [
-      { name: '碳烤和牛小汉堡双重奏', quantity: 2, price: 128.0, options: '五分熟 · 秘制黑椒酱' },
-      { name: '招牌红柳大汗羊肉大串', quantity: 5, price: 60.0, options: '微辣 · 经典孜然' },
-      { name: '手作鲜柠檬冷萃乌龙茶', quantity: 2, price: 36.0, options: '少冰 · 七分糖' },
-      { name: '黑松露芝士焗金薯条', quantity: 1, price: 32.0, options: '原味' }
-    ],
-    totalAmount: 256.0,
-    status: 'cooking',
-    statusText: '制作中',
-    createdTime: '12:15',
-    estimatedDeliveryTime: '12:45',
-    etaMinutes: 30,
-    deliveryAddress: '黑石科技园区 1 号楼 B 座 1204 室',
-    truckName: '黑石移动餐车 (总店)',
-    progressPercent: 40,
-    channelType: 'delivery'
-  });
+  const [isDetectorOpen, setIsDetectorOpen] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<string>(orders[0]?.id || '');
+  const [channelMode, setChannelMode] = useState<'auto' | 'dine_in' | 'pickup' | 'delivery'>('auto');
+
+  // 全局来单自动出单策略状态
+  const [autoPolicy, setAutoPolicy] = useState<AutoPrintPolicyConfig>(getAutoPrintPolicy);
+
+  // 监听食客在线下单支付成功后自动出纸事件
+  React.useEffect(() => {
+    const handleAutoPrintSuccess = (e: Event) => {
+      const custom = e as CustomEvent;
+      if (custom.detail?.orderNo) {
+        showToast(`⚡【自动出单成功】订单 #${custom.detail.orderNo} 已由【${custom.detail.printerName}】完成出纸！`);
+      }
+    };
+    window.addEventListener('obsidian_order_auto_printed', handleAutoPrintSuccess);
+    return () => window.removeEventListener('obsidian_order_auto_printed', handleAutoPrintSuccess);
+  }, [showToast]);
+
+  const toggleAutoPrintPolicy = () => {
+    const next = saveAutoPrintPolicy({ autoPrintEnabled: !autoPolicy.autoPrintEnabled });
+    setAutoPolicy(next);
+    showToast(next.autoPrintEnabled ? '⚡ 来单自动出单已开启：顾客在线支付即刻自动出纸' : '⏸️ 来单自动出单已暂停：需人工手工打印');
+  };
+
+  // Popover & Drawer states
+  const [activeMenuStationId, setActiveMenuStationId] = useState<string | null>(null);
+  const [configDrawerStation, setConfigDrawerStation] = useState<any | null>(null);
+  const [selfTestModalStation, setSelfTestModalStation] = useState<any | null>(null);
+
+  // 打印样式调校 + 本地打印桥在线状态 (15s 轮询)
+  const [styleTunerOpen, setStyleTunerOpen] = useState(false);
+  const [bridgeOnline, setBridgeOnline] = useState<boolean | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const probe = async () => {
+      const online = await probeLocalBridge();
+      if (!alive) return;
+      setBridgeOnline(online);
+    };
+    probe();
+    const t = window.setInterval(probe, 15000);
+    return () => { alive = false; window.clearInterval(t); };
+  }, []);
+
+  // 单按钮下拉菜单配置与状态
+  const [isViewMenuOpen, setIsViewMenuOpen] = useState(false);
+  const viewMenuRef = useRef<HTMLDivElement>(null);
+
+  const HUB_VIEW_OPTIONS = useMemo(() => [
+    {
+      key: 'bluetooth' as const,
+      label: '随车蓝牙便携机',
+      icon: Bluetooth,
+      description: '低功耗 BLE 5.2 · BR RawPrinter',
+      badge: '随车主打',
+      badgeColor: 'bg-blue-50 text-blue-700 border-blue-200/80',
+      iconColor: 'text-blue-600',
+      iconBg: 'bg-blue-50/80'
+    },
+    {
+      key: 'stations' as const,
+      label: '档口打印集群',
+      icon: Printer,
+      description: '主厨/烧烤/水吧多档口网络矩阵',
+      badge: 'LAN / WiFi',
+      badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
+      iconColor: 'text-neutral-800',
+      iconBg: 'bg-neutral-100'
+    },
+    {
+      key: 'template' as const,
+      label: '小票打样与纸张模板',
+      icon: Sliders,
+      description: '58mm/80mm 连续卷纸与联单参数',
+      badge: '纸张设计',
+      badgeColor: 'bg-amber-50 text-amber-700 border-amber-200/80',
+      iconColor: 'text-amber-600',
+      iconBg: 'bg-amber-50/80'
+    },
+    {
+      key: 'split_preview' as const,
+      label: '全渠道拆单模拟',
+      icon: Layers,
+      description: '多渠道订单自动分单与飞单流转',
+      badge: '飞单履约',
+      badgeColor: 'bg-purple-50 text-purple-700 border-purple-200/80',
+      iconColor: 'text-purple-600',
+      iconBg: 'bg-purple-50/80'
+    }
+  ], []);
+
+  const currentViewOption = HUB_VIEW_OPTIONS.find(opt => opt.key === activeSubTab) || HUB_VIEW_OPTIONS[0];
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (viewMenuRef.current && !viewMenuRef.current.contains(event.target as Node)) {
+        setIsViewMenuOpen(false);
+      }
+    };
+    if (isViewMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isViewMenuOpen]);
+
+  // Real data resolution
+  const currentOrder = useMemo<Order>(() => {
+    const found = orders.find(o => o.id === selectedOrderId);
+    if (found) {
+      return {
+        ...found,
+        tableCode: found.tableCode || 'A-08',
+        tableZone: found.tableZone || '餐车外摆休闲区',
+        dinerCount: found.dinerCount || 4,
+        pickupCode: found.pickupCode || '6812',
+        pickupShelfCode: found.pickupShelfCode || '02号保温自提柜',
+        deliveryAddress: found.deliveryAddress || '黑石科技园区 1 号楼 B 座 1204 室',
+        channelType: found.channelType || 'dine_in'
+      };
+    }
+
+    const realItems = (dishes && dishes.length > 0 ? dishes.slice(0, 4) : []).map((d, i) => ({
+      name: d.name,
+      quantity: i === 0 ? 2 : 1,
+      price: d.price,
+      options: d.options?.[0] || '标准出品'
+    }));
+
+    const total = realItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
+
+    return {
+      id: 'ord-current-real',
+      orderNo: '#A108',
+      customerName: '流动餐车食客',
+      userPhone: '138****0000',
+      items: realItems.length > 0 ? realItems : [
+        { name: '现烤招牌羊肉大串', quantity: 4, price: 48.0, options: '微辣' },
+        { name: '手作鲜柠檬冷萃茶', quantity: 2, price: 36.0, options: '少冰' }
+      ],
+      totalAmount: total > 0 ? total : 84.0,
+      status: 'cooking',
+      statusText: '制作中',
+      createdTime: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      estimatedDeliveryTime: '30分钟后',
+      etaMinutes: 25,
+      deliveryAddress: '黑石科技园区 1 号楼 B 座 1204 室',
+      tableCode: 'A-08',
+      tableZone: '餐车外摆休闲区',
+      dinerCount: 4,
+      pickupCode: '6812',
+      pickupShelfCode: '02号保温自提柜',
+      truckName: 'Urban Radar 流动餐车',
+      progressPercent: 30,
+      channelType: 'dine_in'
+    };
+  }, [orders, dishes, selectedOrderId]);
+
+  // Compute effective channel
+  const effectiveChannel = useMemo<'dine_in' | 'pickup' | 'delivery'>(() => {
+    if (channelMode !== 'auto') return channelMode;
+    if (currentOrder.channelType === 'pickup') return 'pickup';
+    if (currentOrder.channelType === 'delivery') return 'delivery';
+    if (currentOrder.channelType === 'dine_in') return 'dine_in';
+    if (currentOrder.tableCode) return 'dine_in';
+    if (currentOrder.pickupCode) return 'pickup';
+    return 'dine_in';
+  }, [channelMode, currentOrder]);
 
   const saveStations = (newStations: PrinterStation[]) => {
     setStations(newStations);
@@ -87,23 +266,115 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
   const saveTemplate = (newTemplate: ReceiptTemplateConfig) => {
     setTemplate(newTemplate);
     localStorage.setItem('obsidian_receipt_template', JSON.stringify(newTemplate));
-    showToast('小票模板配置已实时保存！');
+    showToast('小票模板配置已保存');
   };
 
-  const handleTestPrint = (stationName: string) => {
-    showToast(`已向【${stationName}】发送测试小票数据指令！`);
+  // Hardware Printing — 打印桥直连优先 (本机 POS-80 Windows 队列稳定)，失败降级原始硬件通道
+  const handleTestPrint = async (station: PrinterStation) => {
+    setSelfTestModalStation(station);
+    showToast(`正在向【${station.name}】下发测试样张...`);
+    try {
+      const bridgeOnlineNow = await probeLocalBridge();
+      if (bridgeOnlineNow) {
+        const styleRes = await getPrintStyle('selftest');
+        const paperWidth = styleRes.ok && styleRes.style ? styleRes.style.paperWidthMm : 80;
+        const lines = buildSelfTestLayoutLines({
+          deviceName: station.name,
+          paperWidth: paperWidth === 58 ? '58mm' : '80mm',
+          channelLabel: '本机打印桥 · Windows 队列直连',
+          hardwareId: station.deviceIp || station.macAddress || 'USB001',
+          isDefault: station.isDefault,
+          autoPrint: autoPolicy.autoPrintEnabled,
+          timestamp: new Date().toLocaleString('zh-CN', { hour12: false })
+        });
+        const res = await printLayoutViaBridge(lines, '硬件自检样张', 'selftest');
+        if (res.ok) {
+          showToast(`【${station.name}】自检样张已通过本机打印桥出纸 (雅黑排版)`);
+          return;
+        }
+        showToast(`打印桥出纸异常: ${res.error || '未知错误'}，改走原始硬件通道...`);
+      } else {
+        showToast('本地打印桥未运行，改走原始硬件通道...');
+      }
+
+      const bytes = buildSelfTestBytes(station.name, station.paperWidth, station.connectionType || 'network', station.deviceIp || station.macAddress);
+      if (station.connectionType === 'usb' && station.usbVendorId) {
+        await sendBytesToUsbDevice(parseInt(station.usbVendorId, 16), parseInt(station.usbProductId || '0x5011', 16), bytes);
+      } else if (station.connectionType === 'network' || station.connectionType === 'wifi') {
+        await sendBytesToNetworkOrWifi(station.deviceIp || '192.168.1.200', station.port || 9100, bytes);
+      } else if (station.connectionType === 'bluetooth') {
+        const btGatt = (window as any).__obsidian_active_bt_gatt_char;
+        if (btGatt) {
+          await sendBytesToBluetoothCharacteristic(btGatt, bytes);
+        } else {
+          throw new Error(`打印机【${station.name}】未建立物理蓝牙 GATT 链路，请先在下方车载蓝牙面板扫描连接`);
+        }
+      } else {
+        throw new Error(`设备【${station.name}】硬件通信通道未就绪`);
+      }
+      showToast(`【${station.name}】测试打印完成`);
+    } catch (e: any) {
+      showToast(`打印失败: ${e?.message || '通信中断'}`);
+    }
   };
 
-  const handleBrowserPrint = () => {
-    window.print();
+  const handleSetDefaultStation = (stationId: string) => {
+    const updated = stations.map(s => ({
+      ...s,
+      isDefault: s.id === stationId
+    }));
+    saveStations(updated);
+    showToast('已设为默认打印机');
   };
 
-  // Split order items according to stations
+  const handleDeleteStation = (stationId: string) => {
+    if (stations.length <= 1) {
+      showToast('至少保留一台打印机设备');
+      return;
+    }
+    const updated = stations.filter(s => s.id !== stationId);
+    saveStations(updated);
+    showToast('已移除该打印机设备');
+  };
+
+  const handleBindPrinterToStation = (stationId: string, device: DetectedPrinterDevice) => {
+    const updated = stations.map(s => {
+      if (s.id === stationId) {
+        return {
+          ...s,
+          name: `${device.name}`,
+          connectionType: device.connectionType,
+          deviceIp: device.connectionType === 'network' || device.connectionType === 'wifi' ? device.identifier : s.deviceIp,
+          macAddress: device.connectionType === 'bluetooth' ? device.identifier : s.macAddress,
+          usbVendorId: device.connectionType === 'usb' ? device.identifier.split(':')[0] : s.usbVendorId,
+          usbProductId: device.connectionType === 'usb' ? device.identifier.split(':')[1] : s.usbProductId,
+          paperWidth: device.paperWidth,
+          status: 'online' as const,
+          pingLatencyMs: device.pingLatencyMs,
+          lastPrintedAt: '刚刚绑定'
+        };
+      }
+      return s;
+    });
+    saveStations(updated);
+  };
+
+  const handleSaveDrawerConfig = (updated: any) => {
+    const nextList = stations.map(s => {
+      if (s.id === updated.id) {
+        return { ...s, ...updated };
+      }
+      return updated.isDefault ? { ...s, isDefault: false } : s;
+    });
+    saveStations(nextList);
+  };
+
+  // Split order items
   const getSplitItemsForStation = (station: PrinterStation) => {
     if (station.categoriesHandled.includes('all')) {
-      return testOrder.items;
+      return currentOrder.items;
     }
-    return testOrder.items.filter(item => {
+    return currentOrder.items.filter(item => {
       const matchedDish = dishes.find(d => d.name === item.name);
       if (!matchedDish) return true;
       return station.categoriesHandled.includes(matchedDish.category);
@@ -112,72 +383,188 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Header Banner */}
-      <div className="bg-white rounded-[4px] border border-[#e6e6e4] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">
-        <div>
-          <div className="flex items-center gap-2">
-            <Printer className="w-5 h-5 text-[#d9730d]" />
-            <h2 className="text-sm font-semibold text-[#37352f]">多档口拆单打印与小票模板中心</h2>
-            <span className="px-2 py-0.5 bg-[#edf6f1] text-[#2b593f] border border-[#cbe4d7] text-xs font-medium rounded-[2px]">
-              {stations.filter(s => s.status === 'online').length}/{stations.length} 台在线
-            </span>
-          </div>
-          <p className="text-xs text-[#787774] mt-1">
-            支持外卖/堂食多档口（炭烤档、水吧、油炸档、前台总单）自动分流飞单，自定义热敏纸模板与小票联数。
-          </p>
+      {/* 4-Channel Auto-Detector Modal */}
+      <PrinterAutoDetectorModal
+        isOpen={isDetectorOpen}
+        onClose={() => setIsDetectorOpen(false)}
+        configuredStations={stations}
+        onBindPrinterToStation={handleBindPrinterToStation}
+        showToast={showToast}
+      />
+
+      {/* 参数配置抽屉 (折叠不需要平铺的字段) */}
+      <PrinterQuickConfigDrawer
+        isOpen={!!configDrawerStation}
+        onClose={() => setConfigDrawerStation(null)}
+        device={configDrawerStation}
+        onSave={handleSaveDrawerConfig}
+        onTestPrint={(dev) => handleTestPrint(dev)}
+        showToast={showToast}
+      />
+
+      {/* 实体自检测试出纸与真机调起弹窗 */}
+      <ReceiptSelfTestModal
+        isOpen={!!selfTestModalStation}
+        onClose={() => setSelfTestModalStation(null)}
+        device={selfTestModalStation}
+        onSendRawBytes={async () => {
+          if (selfTestModalStation) {
+            await handleTestPrint(selfTestModalStation);
+          }
+        }}
+        showToast={showToast}
+      />
+
+      {/* 打印样式调校弹窗 (分票别管理 · 真实 GDI 渲染预览) */}
+      <PrintStyleTunerModal
+        open={styleTunerOpen}
+        onClose={() => setStyleTunerOpen(false)}
+        showToast={showToast}
+        sampleOrder={currentOrder}
+        sampleTemplate={template}
+        sampleChannel={effectiveChannel}
+        autoPrintEnabled={autoPolicy.autoPrintEnabled}
+      />
+
+      {/* ================================================================= */}
+      {/* 1. 单排一体化调度工具栏 (参考图 1 供售打样主控胶囊风格与图 2 顶栏) */}
+      {/* ================================================================= */}
+      {/* ================================================================= */}
+      {/* 1. 单排一体化调度工具栏 (单按钮下拉菜单 Popover + 自动出纸 + 扫描) */}
+      {/* ================================================================= */}
+      <div className="flex items-center justify-between gap-2 bg-white rounded-xl border border-neutral-200/90 p-1.5 shadow-2xs">
+        {/* 左侧：单排一体化调度胶囊触发器 (严格遵循供售打样主控胶囊风格：rounded-full, border border-neutral-900, bg-white, h-8, 绿色实心微标) */}
+        <div className="relative" ref={viewMenuRef}>
+          <button
+            type="button"
+            onClick={() => setIsViewMenuOpen(!isViewMenuOpen)}
+            className={`h-8 px-3.5 rounded-full border transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs select-none active:scale-[0.98] font-bold text-xs shrink-0 ${
+              isViewMenuOpen
+                ? 'bg-neutral-900/[0.04] text-neutral-950 border-neutral-900 ring-2 ring-neutral-900/10'
+                : 'bg-white text-neutral-950 border-neutral-900 hover:bg-neutral-50'
+            }`}
+          >
+            {/* 动态图标 */}
+            <currentViewOption.icon className="w-3.5 h-3.5 text-neutral-950 shrink-0" />
+            
+            {/* 当前选中模块名称 */}
+            <span className="whitespace-nowrap tracking-tight">{currentViewOption.label}</span>
+            
+            {/* 绿色实心微标 */}
+            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+            
+            {/* 优雅下拉旋转小箭头 */}
+            <ChevronDown className={`w-3 h-3 text-neutral-500 transition-transform duration-200 shrink-0 ${isViewMenuOpen ? 'rotate-180 text-neutral-900' : ''}`} />
+          </button>
+
+          {/* 美化下拉弹出菜单 (毛玻璃、超柔阴影与工控卡片排版) */}
+          {isViewMenuOpen && (
+            <div className="absolute top-full left-0 mt-1.5 w-72 sm:w-80 rounded-xl backdrop-blur-xl bg-white/95 border border-neutral-200/90 shadow-xl shadow-neutral-950/10 p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150 space-y-1">
+              <div className="px-2.5 py-1 text-[10px] font-bold text-neutral-400 tracking-wider uppercase flex items-center justify-between">
+                <span>打印调度 · 场景切换</span>
+                <span className="text-[9px] text-neutral-400 font-normal">点击切换视图</span>
+              </div>
+
+              {HUB_VIEW_OPTIONS.map((opt) => {
+                const isSelected = activeSubTab === opt.key;
+                const IconComponent = opt.icon;
+
+                return (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => {
+                      setActiveSubTab(opt.key);
+                      setIsViewMenuOpen(false);
+                    }}
+                    className={`w-full px-2.5 py-2 rounded-lg text-left transition-all flex items-center justify-between gap-2.5 cursor-pointer ${
+                      isSelected
+                        ? 'bg-neutral-900/[0.06] text-neutral-950 font-bold border border-neutral-300/80 shadow-2xs'
+                        : 'text-neutral-700 hover:bg-neutral-50 hover:text-neutral-950 border border-transparent'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className={`w-7 h-7 rounded-md ${opt.iconBg} flex items-center justify-center shrink-0 border border-neutral-200/50`}>
+                        <IconComponent className={`w-3.5 h-3.5 ${opt.iconColor}`} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs truncate">{opt.label}</span>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full border leading-tight ${opt.badgeColor}`}>
+                            {opt.badge}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-neutral-400 truncate mt-0.5 font-normal">
+                          {opt.description}
+                        </p>
+                      </div>
+                    </div>
+
+                    {isSelected && (
+                      <div className="w-5 h-5 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-200/80">
+                        <Check className="w-3 h-3" />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
-        {/* Tab Switcher */}
-        <div className="flex items-center gap-1 bg-[#f7f7f5] p-1 rounded-[2px] border border-[#e6e6e4] overflow-x-auto no-scrollbar flex-nowrap max-w-full">
+        {/* 右侧：单排极简自动出纸总控 + 打印样式 + 扫描新设备 (统一 h-8，单排不折行) */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* 本地打印桥在线状态徽标 */}
+          <div
+            className="h-8 px-2.5 rounded-lg bg-white border border-neutral-200/90 text-xs font-semibold flex items-center gap-1.5 shadow-2xs whitespace-nowrap"
+            title={bridgeOnline ? '本地打印桥在线: 127.0.0.1:17778 (网页→本机队列→POS-80)' : '本地打印桥未运行: 网页打印按钮将不可用，请在收银机双击 start-bridge.cmd'}
+          >
+            <span className={`w-2 h-2 rounded-full shrink-0 ${bridgeOnline === null ? 'bg-neutral-300 animate-pulse' : bridgeOnline ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+            <span className={bridgeOnline ? 'text-emerald-700' : 'text-rose-600'}>
+              {bridgeOnline === null ? '桥检测中' : bridgeOnline ? '打印桥在线' : '打印桥离线'}
+            </span>
+          </div>
+
           <button
             type="button"
-            onClick={() => setActiveSubTab('bluetooth')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-[2px] cursor-pointer transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
-              activeSubTab === 'bluetooth'
-                ? 'bg-[#37352f] text-white shadow-2xs'
-                : 'text-[#787774] hover:text-[#37352f]'
-            }`}
+            onClick={() => setStyleTunerOpen(true)}
+            className="h-8 px-2.5 sm:px-3 rounded-lg bg-white border border-neutral-200/90 hover:bg-neutral-50 text-neutral-800 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs whitespace-nowrap active:scale-[0.98]"
+            title="字体/字号/边距/纸宽实时调校，预览即真实打印效果"
           >
-            <Bluetooth className="w-3.5 h-3.5 text-blue-400" />
-            <span>蓝牙便携打印机 (随车直连)</span>
+            <Sliders className="w-3.5 h-3.5 text-emerald-600" />
+            <span>打印样式</span>
           </button>
+
           <button
             type="button"
-            onClick={() => setActiveSubTab('stations')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-[2px] cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
-              activeSubTab === 'stations'
-                ? 'bg-white text-[#37352f] shadow-2xs'
-                : 'text-[#787774] hover:text-[#37352f]'
+            onClick={toggleAutoPrintPolicy}
+            className={`h-8 px-2.5 sm:px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs whitespace-nowrap active:scale-[0.98] ${
+              autoPolicy.autoPrintEnabled
+                ? 'bg-emerald-50 text-emerald-800 border border-emerald-300/80 hover:bg-emerald-100/70'
+                : 'bg-neutral-50 text-neutral-500 border border-neutral-200 hover:bg-neutral-100'
             }`}
+            title={autoPolicy.autoPrintEnabled ? '点击暂停来单自动出单' : '点击开启来单自动出单'}
           >
-            档口打印机设备 ({stations.length})
+            <Zap className={`w-3.5 h-3.5 ${autoPolicy.autoPrintEnabled ? 'text-emerald-600 animate-pulse' : 'text-neutral-400'}`} />
+            <span className="hidden xs:inline">{autoPolicy.autoPrintEnabled ? '自动出纸: 开启' : '自动出纸: 暂停'}</span>
+            <span className="xs:hidden">{autoPolicy.autoPrintEnabled ? '自动开启' : '自动暂停'}</span>
           </button>
+
           <button
             type="button"
-            onClick={() => setActiveSubTab('template')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-[2px] cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
-              activeSubTab === 'template'
-                ? 'bg-white text-[#37352f] shadow-2xs'
-                : 'text-[#787774] hover:text-[#37352f]'
-            }`}
+            onClick={() => setIsDetectorOpen(true)}
+            className="h-8 px-2.5 sm:px-3 rounded-lg bg-white border border-neutral-200/90 hover:bg-neutral-50 text-neutral-800 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs whitespace-nowrap active:scale-[0.98]"
+            title="一键扫描新设备"
           >
-            小票模板定制
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveSubTab('split_preview')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-[2px] cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
-              activeSubTab === 'split_preview'
-                ? 'bg-white text-[#37352f] shadow-2xs'
-                : 'text-[#787774] hover:text-[#37352f]'
-            }`}
-          >
-            自动拆单飞单模拟
+            <Radio className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
+            <span>扫描新设备</span>
           </button>
         </div>
       </div>
 
-      {/* 1. Sub-Tab: Bluetooth Mobile Printers */}
+      {/* ================================================================= */}
+      {/* 2. 子标签：随车蓝牙便携机 (复用 BR RawPrinter 极简架构)            */}
+      {/* ================================================================= */}
       {activeSubTab === 'bluetooth' && (
         <BluetoothPrinterManager
           orders={orders}
@@ -186,424 +573,222 @@ export const MerchantPrintingHub: React.FC<MerchantPrintingHubProps> = ({
         />
       )}
 
-      {/* 2. Sub-Tab: Stations Management */}
+      {/* ================================================================= */}
+      {/* 3. 子标签：档口打印机集群 (参考图 2 极简卡片重构，去除冗长文字)      */}
+      {/* ================================================================= */}
       {activeSubTab === 'stations' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-          {stations.map(station => {
-            const isSelected = selectedStation?.id === station.id;
-            return (
-              <div 
-                key={station.id}
-                className={`bg-white rounded-[4px] border transition-all p-4 relative flex flex-col justify-between shadow-2xs ${
-                  isSelected ? 'border-[#37352f]' : 'border-[#e6e6e4] hover:border-[#37352f]'
-                }`}
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="p-1.5 bg-[#f7f7f5] rounded-[2px] text-[#37352f] border border-[#e6e6e4]">
-                        <Printer className="w-4 h-4" />
-                      </span>
-                      <span className="font-semibold text-sm text-[#37352f]">{station.name}</span>
-                    </div>
-                    <span className="flex items-center gap-1 text-[11px] font-medium text-[#2b593f] bg-[#edf6f1] px-2 py-0.5 rounded-[2px] border border-[#cbe4d7]">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#2b593f] animate-pulse"></span>
-                      在线
-                    </span>
-                  </div>
-
-                  <div className="space-y-1.5 text-xs text-[#787774] my-3">
-                    <div className="flex justify-between">
-                      <span>设备 IP：</span>
-                      <span className="font-mono text-[#37352f]">{station.deviceIp}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>纸张规格：</span>
-                      <span className="font-medium text-[#37352f]">{station.paperWidth} 热敏纸</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>打印联数：</span>
-                      <span className="text-[#37352f]">{station.copies} 联/单</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>上次出纸：</span>
-                      <span className="text-[#37352f]">{station.lastPrintedAt || '无记录'}</span>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-[#efefed]">
-                    <span className="text-[11px] text-[#787774] block mb-1 font-medium">负责品类分流：</span>
-                    <div className="flex flex-wrap gap-1">
-                      {station.categoriesHandled.map(cat => (
-                        <span key={cat} className="px-1.5 py-0.5 bg-[#f7f7f5] text-[#37352f] rounded-[2px] text-[11px] border border-[#e6e6e4]">
-                          {cat === 'all' ? '全部菜品' : cat === 'skewers' ? '炭烤串品' : cat === 'western' ? '西式主餐' : cat === 'drinks' ? '水吧冷饮' : cat === 'desserts' ? '烘焙甜点' : '风味小吃'}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 pt-3 border-t border-[#efefed] flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleTestPrint(station.name)}
-                    className="flex-1 py-1.5 bg-[#f7f7f5] hover:bg-[#efefed] text-[#37352f] rounded-[2px] text-xs font-semibold border border-[#e6e6e4] flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-2xs"
-                  >
-                    <Play className="w-3 h-3 text-[#37352f]" />
-                    <span>测试打印</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedStation(station);
-                      setActiveSubTab('split_preview');
-                    }}
-                    className="px-3 py-1.5 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-[2px] text-xs font-semibold border border-[#37352f] flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-2xs"
-                  >
-                    <Eye className="w-3 h-3 text-white" />
-                    <span>预览小票</span>
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* 2. Sub-Tab: Template Customizer */}
-      {activeSubTab === 'template' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Controls on Left */}
-          <div className="lg:col-span-7 bg-white rounded-[4px] border border-[#e6e6e4] p-5 space-y-4 shadow-2xs">
-            <div className="flex items-center justify-between pb-3 border-b border-[#e6e6e4]">
-              <div className="flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-[#d9730d]" />
-                <h3 className="font-semibold text-sm text-[#37352f]">热敏小票内容与排版配置</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => saveTemplate(INITIAL_RECEIPT_TEMPLATE)}
-                className="text-xs text-[#787774] hover:text-[#37352f] cursor-pointer"
-              >
-                恢复默认模板
-              </button>
+        <div className="space-y-3">
+          {/* 设备分组标尺行 (参考图 2: 打印机 +) */}
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-neutral-800">打印机</span>
+              <span className="text-[11px] text-neutral-400">
+                ({stations.filter(s => s.status === 'online').length}/{stations.length} 台在线)
+              </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div>
-                <label className="block text-[#787774] mb-1 font-medium">小票主抬头 (店名)</label>
-                <input
-                  type="text"
-                  value={template.headerTitle}
-                  onChange={(e) => setTemplate({ ...template, headerTitle: e.target.value })}
-                  className="w-full px-3 py-1.5 bg-[#f7f7f5] border border-[#e6e6e4] rounded-[2px] focus:bg-white focus:outline-none focus:border-[#37352f] text-[#37352f]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#787774] mb-1 font-medium">小票副标题 (标语)</label>
-                <input
-                  type="text"
-                  value={template.subHeader}
-                  onChange={(e) => setTemplate({ ...template, subHeader: e.target.value })}
-                  className="w-full px-3 py-1.5 bg-[#f7f7f5] border border-[#e6e6e4] rounded-[2px] focus:bg-white focus:outline-none focus:border-[#37352f] text-[#37352f]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#787774] mb-1 font-medium">顾客 WiFi 名称</label>
-                <input
-                  type="text"
-                  value={template.wifiName}
-                  onChange={(e) => setTemplate({ ...template, wifiName: e.target.value })}
-                  className="w-full px-3 py-1.5 bg-[#f7f7f5] border border-[#e6e6e4] rounded-[2px] focus:bg-white focus:outline-none focus:border-[#37352f] text-[#37352f]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#787774] mb-1 font-medium">WiFi 连接密码</label>
-                <input
-                  type="text"
-                  value={template.wifiPassword || ''}
-                  onChange={(e) => setTemplate({ ...template, wifiPassword: e.target.value })}
-                  className="w-full px-3 py-1.5 bg-[#f7f7f5] border border-[#e6e6e4] rounded-[2px] focus:bg-white focus:outline-none focus:border-[#37352f] text-[#37352f]"
-                />
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-[#efefed]">
-              <span className="text-xs font-semibold text-[#37352f] block mb-2">小票元素展示开关</span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                <label className="flex items-center gap-2 p-2 bg-[#f7f7f5] rounded-[2px] cursor-pointer border border-[#e6e6e4]">
-                  <input
-                    type="checkbox"
-                    checked={template.showOrderNo}
-                    onChange={(e) => setTemplate({ ...template, showOrderNo: e.target.checked })}
-                    className="rounded-[2px] text-[#37352f] focus:ring-0"
-                  />
-                  <span>醒目打印大号单号/取餐号</span>
-                </label>
-
-                <label className="flex items-center gap-2 p-2 bg-[#f7f7f5] rounded-[2px] cursor-pointer border border-[#e6e6e4]">
-                  <input
-                    type="checkbox"
-                    checked={template.showOptionNotes}
-                    onChange={(e) => setTemplate({ ...template, showOptionNotes: e.target.checked })}
-                    className="rounded-[2px] text-[#37352f] focus:ring-0"
-                  />
-                  <span>打印口味/辣度/做法详细备注</span>
-                </label>
-
-                <label className="flex items-center gap-2 p-2 bg-[#f7f7f5] rounded-[2px] cursor-pointer border border-[#e6e6e4]">
-                  <input
-                    type="checkbox"
-                    checked={template.showPrice}
-                    onChange={(e) => setTemplate({ ...template, showPrice: e.target.checked })}
-                    className="rounded-[2px] text-[#37352f] focus:ring-0"
-                  />
-                  <span>打印单价与实付金额明细</span>
-                </label>
-
-                <label className="flex items-center gap-2 p-2 bg-[#f7f7f5] rounded-[2px] cursor-pointer border border-[#e6e6e4]">
-                  <input
-                    type="checkbox"
-                    checked={template.showQrCode}
-                    onChange={(e) => setTemplate({ ...template, showQrCode: e.target.checked })}
-                    className="rounded-[2px] text-[#37352f] focus:ring-0"
-                  />
-                  <span>底部打印电子发票/评价二维码</span>
-                </label>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[#787774] mb-1 font-medium text-xs">页脚温馨提示语</label>
-              <textarea
-                rows={2}
-                value={template.footerNotes}
-                onChange={(e) => setTemplate({ ...template, footerNotes: e.target.value })}
-                className="w-full px-3 py-1.5 bg-[#f7f7f5] border border-[#e6e6e4] rounded-[2px] focus:bg-white focus:outline-none focus:border-[#37352f] text-xs text-[#37352f]"
-              />
-            </div>
-
-            <div className="pt-2 flex justify-end">
-              <button
-                type="button"
-                onClick={() => saveTemplate(template)}
-                className="px-4 py-1.5 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-[2px] text-xs font-semibold cursor-pointer transition-colors shadow-2xs"
-              >
-                保存模板配置
-              </button>
-            </div>
-          </div>
-
-          {/* Receipt Live Visualizer on Right */}
-          <div className="lg:col-span-5 flex flex-col items-center">
-            <div className="w-full max-w-sm">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-[#787774]">热敏纸打印效果实时模拟</span>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setPreviewPaperWidth('58mm')}
-                    className={`px-2 py-0.5 text-[11px] font-medium rounded-[2px] cursor-pointer ${
-                      previewPaperWidth === '58mm' ? 'bg-[#37352f] text-white' : 'bg-white text-[#787774] border border-[#e6e6e4]'
-                    }`}
-                  >
-                    58mm 窄票
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewPaperWidth('80mm')}
-                    className={`px-2 py-0.5 text-[11px] font-medium rounded-[2px] cursor-pointer ${
-                      previewPaperWidth === '80mm' ? 'bg-[#37352f] text-white' : 'bg-white text-[#787774] border border-[#e6e6e4]'
-                    }`}
-                  >
-                    80mm 宽票
-                  </button>
-                </div>
-              </div>
-
-              {/* Thermal Paper Simulation Card */}
-              <div 
-                className={`bg-[#fafaf8] border border-[#e6e6e4] shadow-2xs p-4 sm:p-5 text-[#37352f] font-mono mx-auto transition-all max-w-full rounded-[4px] ${
-                  previewPaperWidth === '58mm' ? 'w-full max-w-[260px] text-[11px]' : 'w-full max-w-[310px] text-xs'
-                }`}
-                style={{
-                  backgroundImage: 'radial-gradient(#e6e6e4 0.75px, transparent 0.75px)',
-                  backgroundSize: '12px 12px'
-                }}
-              >
-                {/* Header */}
-                <div className="text-center pb-3 border-b border-dashed border-[#d3d1cb]">
-                  <h4 className="font-semibold text-sm tracking-wide text-[#37352f]">{template.headerTitle}</h4>
-                  <p className="text-[11px] text-[#787774] mt-0.5">{template.subHeader}</p>
-                  <span className="inline-block mt-1 px-2 py-0.5 bg-[#efefed] text-[#37352f] text-[10px] font-medium rounded-[2px]">
-                    {template.customerCopyText}
-                  </span>
-                </div>
-
-                {/* Meta */}
-                <div className="py-2.5 border-b border-dashed border-[#d3d1cb] space-y-1">
-                  <div className="flex justify-between items-baseline">
-                    <span className="font-semibold text-base text-[#37352f]">{testOrder.orderNo}</span>
-                    <span className="text-[11px] text-[#787774]">{testOrder.createdTime} 下单</span>
-                  </div>
-                  <div className="flex justify-between text-[11px] text-[#787774]">
-                    <span>渠道：外卖专送</span>
-                    <span>顾客：{testOrder.customerName}</span>
-                  </div>
-                </div>
-
-                {/* Items Table */}
-                <div className="py-3 border-b border-dashed border-[#d3d1cb]">
-                  <div className="flex justify-between font-medium pb-1 text-[11px] border-b border-[#e6e6e4] mb-2 text-[#787774]">
-                    <span>品名 / 规格</span>
-                    <span>数量 / 金额</span>
-                  </div>
-
-                  <div className="space-y-2">
-                    {testOrder.items.map((it, idx) => (
-                      <div key={idx}>
-                        <div className="flex justify-between font-medium text-[#37352f]">
-                          <span className="break-words max-w-[170px]">{it.name}</span>
-                          <span>x{it.quantity}  ¥{(it.price * it.quantity).toFixed(1)}</span>
-                        </div>
-                        {template.showOptionNotes && it.options && (
-                          <span className="text-[10px] text-[#787774] block pl-2">↳ {it.options}</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Totals */}
-                <div className="py-2.5 border-b border-dashed border-[#d3d1cb] space-y-1 text-right">
-                  <div className="flex justify-between text-[#787774] text-[11px]">
-                    <span>商品小计：</span>
-                    <span>¥{testOrder.totalAmount.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between font-semibold text-sm pt-1 text-[#37352f]">
-                    <span>实收总额：</span>
-                    <span>¥{testOrder.totalAmount.toFixed(2)}</span>
-                  </div>
-                </div>
-
-                {/* Footer & QR */}
-                <div className="pt-3 text-center space-y-2 text-[10px] text-[#787774]">
-                  {template.wifiName && (
-                    <div className="bg-[#f7f7f5] p-1.5 rounded-[2px] border border-[#e6e6e4]">
-                      <span>WiFi: <b>{template.wifiName}</b> | 密码: <b>{template.wifiPassword}</b></span>
-                    </div>
-                  )}
-
-                  {template.showQrCode && (
-                    <div className="flex flex-col items-center justify-center pt-1">
-                      <div className="w-16 h-16 bg-[#37352f] text-white flex items-center justify-center rounded-[2px]">
-                        <QrCode className="w-12 h-12 text-white" />
-                      </div>
-                      <span className="text-[9px] text-[#787774] mt-1">扫码开具电子发票与会员积分</span>
-                    </div>
-                  )}
-
-                  <p className="italic text-[#787774] pt-1">{template.footerNotes}</p>
-                </div>
-              </div>
-
-              {/* Print Test Action */}
-              <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  onClick={handleBrowserPrint}
-                  className="w-full py-2 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-[2px] text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>唤起浏览器真实打印</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 3. Sub-Tab: Split Printing Simulation */}
-      {activeSubTab === 'split_preview' && (
-        <SimulationProbe pointId="SIM_PRINTER_STATION_SPLIT" className="block">
-          <div className="bg-white rounded-[4px] border border-[#e6e6e4] p-5 space-y-5 shadow-2xs">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#e6e6e4]">
-            <div>
-              <h3 className="font-semibold text-sm text-[#37352f]">全渠道订单智能多档口拆分飞单</h3>
-              <p className="text-xs text-[#787774] mt-0.5">
-                系统根据每道菜品的品类属性，自动分发飞单至对应档口（无需人工干预），保障前后厨极速协同。
-              </p>
-            </div>
             <button
               type="button"
-              onClick={() => window.print()}
-              className="px-3.5 py-1.5 bg-[#2b593f] hover:bg-[#204430] text-white rounded-[2px] text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              onClick={() => setIsDetectorOpen(true)}
+              className="w-7 h-7 rounded-lg text-emerald-800 hover:bg-emerald-50 hover:text-emerald-900 flex items-center justify-center transition-all cursor-pointer"
+              title="添加/扫描新打印机"
             >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>一键触发全档口拆单打印</span>
+              <Plus className="w-5 h-5" />
             </button>
           </div>
 
-          {/* 4 Stations Split Visual Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          {/* 极简打印机设备卡片列表 (精确复刻图 2 的精简美学) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
             {stations.map(station => {
-              const splitItems = getSplitItemsForStation(station);
+              const connType = station.connectionType || 'network';
+              const isOnline = station.status === 'online';
+              const isMenuOpen = activeMenuStationId === station.id;
+
               return (
-                <div key={station.id} className="border border-[#e6e6e4] rounded-[4px] p-3.5 bg-[#fafaf8] flex flex-col justify-between shadow-2xs">
-                  <div>
-                    <div className="flex items-center justify-between pb-2 border-b border-[#e6e6e4] mb-2">
-                      <span className="font-semibold text-xs text-[#37352f]">{station.name}</span>
-                      <span className="px-1.5 py-0.5 bg-[#fef3d6] text-[#d9730d] border border-[#fae2a0] text-[10px] rounded-[2px] font-medium">
-                        {station.paperWidth}
-                      </span>
+                <div
+                  key={station.id}
+                  className={`bg-white rounded-xl border transition-all p-3.5 relative flex items-center justify-between gap-3 shadow-2xs ${
+                    station.isDefault
+                      ? 'border-neutral-300 ring-1 ring-neutral-200'
+                      : 'border-neutral-200/90 hover:border-neutral-300'
+                  }`}
+                >
+                  {/* 左侧：连接协议图标与设备信息 */}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                      connType === 'bluetooth' ? 'bg-blue-50 text-blue-600' :
+                      connType === 'usb' ? 'bg-amber-50 text-amber-600' :
+                      connType === 'wifi' ? 'bg-purple-50 text-purple-600' :
+                      'bg-emerald-50 text-emerald-700'
+                    }`}>
+                      {connType === 'bluetooth' && <Bluetooth className="w-4 h-4" />}
+                      {connType === 'usb' && <Usb className="w-4 h-4" />}
+                      {connType === 'wifi' && <Wifi className="w-4 h-4" />}
+                      {connType === 'network' && <Network className="w-4 h-4" />}
                     </div>
 
-                    <div className="text-[11px] text-[#787774] space-y-1 mb-2">
-                      <div>单号：<b className="text-[#37352f]">{testOrder.orderNo}</b></div>
-                      <div>类别：{station.categoriesHandled.join(', ')}</div>
-                    </div>
+                    <div className="min-w-0 space-y-0.5">
+                      {/* 第一行：状态指示绿点 + 名称 + 默认微标 */}
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`w-2 h-2 rounded-full shrink-0 ${
+                            isOnline
+                              ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]'
+                              : 'bg-neutral-300'
+                          }`}
+                        />
+                        <span className="font-bold text-sm text-neutral-900 truncate">
+                          {station.name}
+                        </span>
+                        {station.isDefault && (
+                          <span className="text-[10px] px-1.5 py-0.2 rounded font-medium bg-neutral-100 text-neutral-600 border border-neutral-200 shrink-0">
+                            默认
+                          </span>
+                        )}
+                        {station.autoPrintOnNewOrder !== false && (
+                          <span className="text-[10px] px-1.5 py-0.2 rounded font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/80 shrink-0 flex items-center gap-0.5">
+                            <Zap className="w-2.5 h-2.5" />
+                            <span>自动出单</span>
+                          </span>
+                        )}
+                      </div>
 
-                    <div className="bg-white rounded-[2px] border border-[#e6e6e4] p-2 space-y-2 min-h-[140px]">
-                      {splitItems.length === 0 ? (
-                        <div className="h-full flex items-center justify-center text-xs text-[#787774] py-8">
-                          本单无该档口菜品
-                        </div>
-                      ) : (
-                        splitItems.map((item, i) => (
-                          <div key={i} className="text-xs border-b border-dashed border-[#efefed] pb-1 last:border-0">
-                            <div className="flex justify-between font-medium text-[#37352f]">
-                              <span>{item.name}</span>
-                              <span className="text-[#d9730d]">x{item.quantity}</span>
-                            </div>
-                            {item.options && (
-                              <span className="text-[10px] text-[#787774] block pl-1">↳ {item.options}</span>
-                            )}
-                          </div>
-                        ))
-                      )}
+                      {/* 第二行：精炼副字段 (规格 · IP/MAC 截断) */}
+                      <div className="text-[11px] text-neutral-400 truncate flex items-center gap-1.5">
+                        <span>{station.paperWidth}</span>
+                        <span>·</span>
+                        <span className="truncate max-w-[180px] sm:max-w-[260px]">
+                          {connType === 'bluetooth'
+                            ? (station.macAddress || 'BLE 设备')
+                            : connType === 'usb'
+                            ? (station.usbVendorId ? `${station.usbVendorId}:${station.usbProductId || '0x5011'}` : 'USB 直连')
+                            : `${station.deviceIp || '192.168.1.200'}:${station.port || 9100}`}
+                        </span>
+                        {station.pingLatencyMs && (
+                          <>
+                            <span>·</span>
+                            <span className="text-emerald-700 font-medium">
+                              {station.pingLatencyMs}ms
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="mt-3 pt-2 border-t border-[#e6e6e4] flex items-center justify-between text-[11px]">
-                    <span className="text-[#787774]">包含菜品：<b>{splitItems.length}</b> 种</span>
+                  {/* 右侧：操作菜单触发器与浮层 Popover */}
+                  <div className="relative shrink-0">
                     <button
                       type="button"
-                      onClick={() => handleTestPrint(station.name)}
-                      className="text-[#d9730d] hover:text-[#b06000] font-medium cursor-pointer"
+                      onClick={() =>
+                        setActiveMenuStationId(isMenuOpen ? null : station.id)
+                      }
+                      className="w-8 h-8 rounded-lg text-neutral-400 hover:text-neutral-800 hover:bg-neutral-100 flex items-center justify-center transition-colors cursor-pointer"
+                      title="操作菜单"
                     >
-                      单机补打 🖨️
+                      <MoreVertical className="w-4 h-4" />
                     </button>
+
+                    {/* 图 2 右侧极简 Popover */}
+                    <PrinterActionPopover
+                      isOpen={isMenuOpen}
+                      onClose={() => setActiveMenuStationId(null)}
+                      isDefault={station.isDefault}
+                      isConnected={isOnline}
+                      onSetDefault={() => handleSetDefaultStation(station.id)}
+                      onOpenConfig={() => setConfigDrawerStation(station)}
+                      onTestPrint={() => handleTestPrint(station)}
+                      onDelete={() => handleDeleteStation(station.id)}
+                    />
                   </div>
                 </div>
               );
             })}
           </div>
         </div>
-      </SimulationProbe>
-    )}
-  </div>
-);
+      )}
+
+      {/* ================================================================= */}
+      {/* 4. 子标签：小票样式打样与纸样模板定制中心 (全功能完整恢复)         */}
+      {/* ================================================================= */}
+      {activeSubTab === 'template' && (
+        <ReceiptPaperTemplateEditor
+          template={template}
+          onSaveTemplate={saveTemplate}
+          orders={orders}
+          dishes={dishes}
+          showToast={showToast}
+        />
+      )}
+
+      {/* ================================================================= */}
+      {/* 5. 子标签：全渠道拆单飞单模拟                                     */}
+      {/* ================================================================= */}
+      {activeSubTab === 'split_preview' && (
+        <div className="bg-white rounded-xl border border-neutral-200/90 p-4 space-y-4 shadow-2xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-100">
+            <div>
+              <h3 className="font-bold text-sm text-neutral-900">智能档口拆单飞单</h3>
+              <p className="text-xs text-neutral-400 mt-0.5">根据品类自动分流出餐，前后厨极速协同</p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <select
+                value={selectedOrderId}
+                onChange={(e) => setSelectedOrderId(e.target.value)}
+                className="px-2.5 py-1.5 bg-neutral-50 border border-neutral-200 rounded-lg text-xs font-medium text-neutral-800 focus:outline-none"
+              >
+                {orders.map(o => (
+                  <option key={o.id} value={o.id}>
+                    {o.orderNo} · {o.customerName} (¥{o.totalAmount})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* 档口拆单平铺卡片 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+            {stations.map(station => {
+              const splitItems = getSplitItemsForStation(station);
+              return (
+                <div key={station.id} className="border border-neutral-200 rounded-xl p-3 bg-neutral-50/50 flex flex-col justify-between space-y-2">
+                  <div>
+                    <div className="flex items-center justify-between pb-1.5 border-b border-neutral-200">
+                      <span className="font-bold text-xs text-neutral-900">{station.name}</span>
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-neutral-200/70 text-neutral-700 font-medium">
+                        {station.paperWidth}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1 py-1 min-h-[90px]">
+                      {splitItems.length === 0 ? (
+                        <div className="text-neutral-400 text-xs py-6 text-center">本单无该档口菜品</div>
+                      ) : (
+                        splitItems.map((item, i) => (
+                          <div key={i} className="flex justify-between items-center text-xs">
+                            <span className="text-neutral-800 font-medium truncate">{item.name}</span>
+                            <span className="font-bold text-neutral-600">x{item.quantity}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleTestPrint(station)}
+                    className="w-full h-7 rounded-lg bg-white border border-neutral-200 hover:bg-neutral-100 text-neutral-700 text-xs font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <Play className="w-3 h-3" />
+                    <span>单机补打</span>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };

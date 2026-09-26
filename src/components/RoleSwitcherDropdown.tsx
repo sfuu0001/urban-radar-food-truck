@@ -219,7 +219,7 @@ export const RoleSwitcherDropdown: React.FC<RoleSwitcherDropdownProps> = ({
                   <p className="text-[9.5px] text-neutral-400">4-Level Mesh 拓扑多端联动</p>
                 </div>
               </div>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200/60 text-[9.5px] font-mono font-medium text-emerald-700 tracking-tight">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200/60 text-[9.5px] tabular-nums font-medium text-emerald-700 tracking-tight">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 级联生效中
               </span>
@@ -267,14 +267,14 @@ export const RoleSwitcherDropdown: React.FC<RoleSwitcherDropdownProps> = ({
                         >
                           {roleItem.title}
                         </h2>
-                        <span className="text-[8.5px] font-mono px-1 py-0.2 rounded bg-neutral-100 text-neutral-600 border border-neutral-200">
+                        <span className="text-[8.5px] tabular-nums px-1 py-0.2 rounded bg-neutral-100 text-neutral-600 border border-neutral-200">
                           {roleItem.levelTag}
                         </span>
                         <span
                           className={`inline-flex items-center px-1.5 py-0.2 rounded text-[9px] tracking-tight shrink-0 ${
                             isSelected
                               ? 'font-medium bg-[#1a1a17] text-white'
-                              : 'font-mono font-medium ' + roleItem.badgeStyle
+                              : 'tabular-nums font-medium ' + roleItem.badgeStyle
                           }`}
                         >
                           {roleItem.badge}
@@ -289,7 +289,7 @@ export const RoleSwitcherDropdown: React.FC<RoleSwitcherDropdownProps> = ({
                               setIsOpen(false);
                               onOpenAuthGate(roleItem.key as 'merchant' | 'rider');
                             }}
-                            className="text-[8.5px] font-mono font-semibold px-1 py-0.2 rounded border border-neutral-300 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 transition-colors cursor-pointer"
+                            className="text-[8.5px] tabular-nums font-semibold px-1 py-0.2 rounded border border-neutral-300 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 transition-colors cursor-pointer"
                             title="更换在岗账号或重新核验"
                           >
                             换登
@@ -340,7 +340,7 @@ export const RoleSwitcherDropdown: React.FC<RoleSwitcherDropdownProps> = ({
                     当前席位权限视界
                   </span>
                 </div>
-                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-purple-100 text-purple-800 border border-purple-200 font-semibold">
+                <span className="text-[9px] tabular-nums px-1.5 py-0.2 rounded bg-purple-100 text-purple-800 border border-purple-200 font-semibold">
                   放行中 {activePermissionsCount}/15 项
                 </span>
               </div>
@@ -357,7 +357,7 @@ export const RoleSwitcherDropdown: React.FC<RoleSwitcherDropdownProps> = ({
                     </span>
                   </div>
                   <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
-                    <span className="font-mono text-[9px] text-neutral-500 bg-neutral-100 px-1.5 py-0.2 rounded border border-neutral-200/60">
+                    <span className="tabular-nums text-[9px] text-neutral-500 bg-neutral-100 px-1.5 py-0.2 rounded border border-neutral-200/60">
                       {activeIdentity.scopeLabel}
                     </span>
                     {onOpenAuthGate && (activeIdentity.tier === 'L3' || activeIdentity.tier === 'L4') && (

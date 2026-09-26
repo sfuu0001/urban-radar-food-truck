@@ -46,6 +46,7 @@ import { RiderLevelQuestModal } from './RiderLevelQuestModal';
 import { RiderWeatherBanner } from './RiderWeatherBanner';
 import { RiderRejectionModal } from './RiderRejectionModal';
 import { RiderPickupCodeModal } from './RiderPickupCodeModal';
+import { MobileCameraScannerModal } from '../common/MobileCameraScannerModal';
 import { getOrGeneratePickupCode, getPickupShelfCode, subscribePickupVerifiedEvent } from '../../utils/pickupCodeEngine';
 import { useCascadeAuth } from '../../context/CascadeAuthContext';
 
@@ -133,6 +134,7 @@ export const RiderActiveTask: React.FC<RiderActiveTaskProps> = ({
   const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
   const [isQuestOpen, setIsQuestOpen] = useState<boolean>(false);
   const [isPickupCodeModalOpen, setIsPickupCodeModalOpen] = useState<boolean>(false);
+  const [isRiderCameraScannerOpen, setIsRiderCameraScannerOpen] = useState<boolean>(false);
 
   // Local state extensions
   const [photoInfo, setPhotoInfo] = useState<{ locationTag: string; timestamp: string } | null>(null);
@@ -887,7 +889,7 @@ export const RiderActiveTask: React.FC<RiderActiveTaskProps> = ({
             </div>
 
             {/* Main Action Button (Mobile: Full Width Row 2 / Desktop: Right Inline CTA) */}
-            <div className="shrink-0 flex items-center gap-1.5 w-full sm:w-auto">
+            <div className="shrink-0 flex items-center gap-1.5 w-full sm:w-auto flex-wrap sm:flex-nowrap">
               {isPickupPhase ? (
                 <>
                   <button
@@ -897,7 +899,17 @@ export const RiderActiveTask: React.FC<RiderActiveTaskProps> = ({
                     title="出示取件条码与口令给商家核销"
                   >
                     <KeyRound className="w-3.5 h-3.5" />
-                    <span>出示取件码 ({getOrGeneratePickupCode(activeOrder.orderNo, activeOrder.pickupCode)})</span>
+                    <span>取件码 ({getOrGeneratePickupCode(activeOrder.orderNo, activeOrder.pickupCode)})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsRiderCameraScannerOpen(true)}
+                    className="flex-1 sm:flex-none px-3 py-2 sm:py-1.5 bg-[#edf6f1] hover:bg-[#d8eedf] text-[#2b593f] border border-[#cbe4d7] rounded-[2px] font-bold text-xs flex items-center justify-center gap-1 cursor-pointer shadow-2xs transition-all whitespace-nowrap active:scale-98"
+                    title="手机相机快捷扫码取餐（扫描餐车货架/餐品条码）"
+                  >
+                    <Camera className="w-3.5 h-3.5 text-[#2b593f]" />
+                    <span>扫码取餐</span>
                   </button>
 
                   <button
@@ -918,14 +930,25 @@ export const RiderActiveTask: React.FC<RiderActiveTaskProps> = ({
                   </button>
                 </>
               ) : (
-                <button
-                  type="button"
-                  onClick={handleFinishDelivery}
-                  className="w-full sm:w-auto px-4 py-2 sm:py-1.5 bg-[#2b593f] hover:bg-[#204430] active:scale-98 text-white rounded-[2px] font-semibold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-md transition-all whitespace-nowrap"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                  <span>确认送达 · 结算报酬 (¥{(activeOrder.courierEarnings + (isBadWeather ? surgeBonusAmount : 0)).toFixed(2)})</span>
-                </button>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => setIsRiderCameraScannerOpen(true)}
+                    className="px-3.5 py-2 sm:py-1.5 bg-[#f7f7f5] hover:bg-[#efefed] text-[#37352f] border border-[#e6e6e4] rounded-[2px] font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs transition-all whitespace-nowrap active:scale-98"
+                    title="手机相机扫码核销交付（自提柜/顾客门牌码）"
+                  >
+                    <Camera className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>扫码交付</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleFinishDelivery}
+                    className="flex-1 sm:flex-none px-4 py-2 sm:py-1.5 bg-[#2b593f] hover:bg-[#204430] active:scale-98 text-white rounded-[2px] font-semibold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-md transition-all whitespace-nowrap"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                    <span>确认送达 · 结算报酬 (¥{(activeOrder.courierEarnings + (isBadWeather ? surgeBonusAmount : 0)).toFixed(2)})</span>
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -1080,6 +1103,36 @@ export const RiderActiveTask: React.FC<RiderActiveTaskProps> = ({
           showToast={showToast}
         />
       )}
+
+      {/* 骑手端相机扫码（取餐核验 / 交付核销） */}
+      <MobileCameraScannerModal
+        isOpen={isRiderCameraScannerOpen}
+        onClose={() => setIsRiderCameraScannerOpen(false)}
+        title={isPickupPhase ? '骑手取餐 · 扫码验真' : '专送送达 · 扫码核销'}
+        hint={
+          isPickupPhase
+            ? '扫描餐车货架二维码或餐品小票条形码，自动确认取餐装车'
+            : '扫描智能取餐柜屏幕或顾客门牌二维码，完成交付并自动结算'
+        }
+        showToast={showToast}
+        autoRouteGlobalEngine={false}
+        onScanSuccess={(scannedCode) => {
+          setIsRiderCameraScannerOpen(false);
+          const trimmed = scannedCode.trim().toUpperCase();
+          if (isPickupPhase) {
+            if (!allItemsChecked) {
+              activeOrder.items.forEach((it, idx) => {
+                if (!it.checked) onToggleItemCheck(activeOrder.id, idx);
+              });
+            }
+            onAdvancePhase(activeOrder.id);
+            showToast(`【扫码验真成功】已识别 ${trimmed}，餐品已核对，开启专送！`);
+          } else {
+            handleFinishDelivery();
+            showToast(`【扫码交付成功】已核销 ${trimmed}，订单已顺利完成并结算报酬！`);
+          }
+        }}
+      />
     </div>
   );
 };

@@ -9,3 +9,7 @@ coverage/
 
 *.tsbuildinfo
 .workbuddy/
+
+# local build/deploy outputs (not source)
+dist-local/
+deploy-cloud/

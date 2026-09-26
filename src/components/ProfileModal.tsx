@@ -46,7 +46,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   </span>
                 )}
               </div>
-              <p className="text-xs text-neutral-400 font-mono">138****9201 · 静安大悦城</p>
+              <p className="text-xs text-neutral-400 tabular-nums">138****9201 · 静安大悦城</p>
             </div>
           </div>
 

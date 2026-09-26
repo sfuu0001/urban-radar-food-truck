@@ -213,7 +213,12 @@ function bindEventsOnce(): void {
     }
   });
 
-  // PARTICIPANT_NODE_CHANGED：顾客端不消费（只进商家端）
+  // PARTICIPANT_NODE_CHANGED：同桌成员查看菜品/分类变更 -> 协同联动刷新
+  reactiveSyncBus.subscribe('PARTICIPANT_NODE_CHANGED', (payload) => {
+    if (state.activeSession?.sessionId === payload.sessionId) {
+      reloadMySession(myId());
+    }
+  });
 }
 
 /* ---------------------------------------------------------------------------
@@ -263,7 +268,11 @@ export function useTableSessionUi(): TableSessionUiState & {
     dismissDialog: (requestId: string) => void;
     reportCategory: (categoryId: string, categoryName: string) => void;
     reportDishClick: (dishId: string, dishName: string) => void;
-    reportCart: (itemCount: number, totalAmount: number) => void;
+    reportCart: (
+      itemCount: number,
+      totalAmount: number,
+      items?: Array<{ dishId: string; dishName: string; quantity: number; price?: number }>
+    ) => void;
     canOrder: () => boolean;
     leave: () => void;
   };
@@ -415,14 +424,19 @@ export function useTableSessionUi(): TableSessionUiState & {
       );
     },
 
-    reportCart: (itemCount, totalAmount) => {
+    reportCart: (itemCount, totalAmount, items) => {
       const { activeSession, identity } = state;
       if (!activeSession || !identity) return;
       try {
         updateParticipantCart({
           sessionId: activeSession.sessionId,
           participantId: identity.participantId,
-          cart: { itemCount, totalAmount, updatedAt: new Date().toISOString() }
+          cart: {
+            itemCount,
+            totalAmount,
+            updatedAt: new Date().toISOString(),
+            items: items || []
+          }
         });
       } catch {
         /* 静默 */

@@ -441,7 +441,7 @@ export const CartPageView: React.FC<CartPageViewProps> = ({
                         <h5 className="font-bold text-neutral-900 truncate text-[11px]">{dish.name}</h5>
                       </div>
                       <div className="flex items-center justify-between pt-1 border-t border-neutral-200/60">
-                        <span className="font-mono font-bold text-neutral-900 text-xs">
+                        <span className="tabular-nums font-bold text-neutral-900 text-xs">
                           ¥{dish.price.toFixed(2)}
                         </span>
                         <button

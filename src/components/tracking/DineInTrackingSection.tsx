@@ -215,7 +215,7 @@ export const DineInTrackingSection: React.FC<DineInTrackingSectionProps> = ({
             {/* Table Badge */}
             <div className="w-11 h-11 rounded-xl bg-neutral-900 text-white flex flex-col items-center justify-center shrink-0 shadow-xs">
               <span className="text-[9px] font-medium opacity-70 leading-none">桌台</span>
-              <span className="font-mono font-bold text-base leading-tight mt-0.5">{tableCode}</span>
+              <span className="font-sans font-bold text-base leading-tight mt-0.5">{tableCode}</span>
             </div>
 
             <div className="min-w-0 flex-1">
@@ -245,7 +245,7 @@ export const DineInTrackingSection: React.FC<DineInTrackingSectionProps> = ({
 
           <div className="text-right shrink-0">
             <span className="text-[11px] text-neutral-400 block font-normal">消费合计</span>
-            <span className="font-mono font-bold text-lg sm:text-xl text-neutral-900">
+            <span className="font-sans font-bold text-lg sm:text-xl text-neutral-900">
               ¥{(order.totalAmount || 186.0).toFixed(2)}
             </span>
           </div>
@@ -255,7 +255,7 @@ export const DineInTrackingSection: React.FC<DineInTrackingSectionProps> = ({
         <div className="flex items-center justify-between pt-2.5 border-t border-neutral-100 text-xs">
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="text-neutral-400 shrink-0">堂食单号:</span>
-            <span className="font-mono font-medium text-neutral-800 tracking-tight truncate">{orderNo}</span>
+            <span className="font-sans font-medium text-neutral-800 tracking-tight truncate">{orderNo}</span>
           </div>
           <button
             type="button"
@@ -278,7 +278,7 @@ export const DineInTrackingSection: React.FC<DineInTrackingSectionProps> = ({
               <UtensilsCrossed className="w-4 h-4 text-neutral-800" />
               <span>菜品出餐进展</span>
             </span>
-            <span className="font-mono font-bold text-xs text-neutral-900">
+            <span className="font-sans font-bold text-xs text-neutral-900">
               已上桌 {servedCount}/{totalCount} 件 ({servePercent}%)
             </span>
           </div>
@@ -384,7 +384,7 @@ export const DineInTrackingSection: React.FC<DineInTrackingSectionProps> = ({
                       }`}
                     >
                       {isStruck ? (
-                        <span className="font-mono text-xs font-bold">✕</span>
+                        <span className="font-sans text-xs font-bold">✕</span>
                       ) : isGift ? (
                         <Sparkles className="w-3.5 h-3.5" />
                       ) : isServed ? (
@@ -443,7 +443,7 @@ export const DineInTrackingSection: React.FC<DineInTrackingSectionProps> = ({
                           )}
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2 mt-1 text-xs font-mono text-neutral-500">
+                        <div className="flex items-center gap-2 mt-1 text-xs font-sans text-neutral-500">
                           <span>单价 ¥{dish.price.toFixed(2)}</span>
                           <span className="text-neutral-300">·</span>
                           <span className="font-bold text-neutral-900">x{dish.quantity} 份</span>
@@ -469,7 +469,7 @@ export const DineInTrackingSection: React.FC<DineInTrackingSectionProps> = ({
                           <span>已上桌</span>
                         </span>
                         {dish.serveTime && (
-                          <p className="text-[10px] font-mono text-neutral-400">{dish.serveTime} 送达</p>
+                          <p className="text-[10px] font-sans text-neutral-400">{dish.serveTime} 送达</p>
                         )}
                       </div>
                     ) : isUrged ? (
@@ -483,7 +483,7 @@ export const DineInTrackingSection: React.FC<DineInTrackingSectionProps> = ({
                           <Flame className="w-3 h-3" />
                           <span>制作中</span>
                         </span>
-                        <p className="text-[10px] font-mono text-amber-700">{dish.prepProgress || 70}%</p>
+                        <p className="text-[10px] font-sans text-amber-700">{dish.prepProgress || 70}%</p>
                       </div>
                     ) : (
                       <span className="inline-flex items-center text-[10.5px] font-medium px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600 whitespace-nowrap">
@@ -502,7 +502,7 @@ export const DineInTrackingSection: React.FC<DineInTrackingSectionProps> = ({
                         style={{ width: `${dish.prepProgress || 40}%` }}
                       />
                     </div>
-                    <span className="text-[10px] font-mono text-neutral-400">
+                    <span className="text-[10px] font-sans text-neutral-400">
                       进度 {dish.prepProgress || 40}%
                     </span>
                   </div>

@@ -53,7 +53,7 @@ export const TrackingTimelineLogs: React.FC<TrackingTimelineLogsProps> = ({
           >
             {logs.map((log, idx) => (
               <div key={idx} className="flex items-start gap-2.5">
-                <span className="font-mono text-[10px] text-[#888] pt-0.5 shrink-0">{log.time}</span>
+                <span className="font-sans text-[10px] text-[#888] pt-0.5 shrink-0">{log.time}</span>
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-black truncate">{log.title}</p>
                   <p className="text-[11px] text-[#666] mt-0.5 break-words">{log.desc}</p>

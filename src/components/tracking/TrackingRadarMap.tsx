@@ -659,7 +659,7 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
           </svg>
         </div>
-        <div class="absolute -top-6.5 left-1/2 -translate-x-1/2 whitespace-nowrap bg-[#1A1A17] text-white text-[9.5px] font-mono font-bold px-2 py-0.5 rounded-full shadow-lg border border-white/20 flex items-center gap-1">
+        <div class="absolute -top-6.5 left-1/2 -translate-x-1/2 whitespace-nowrap bg-[#1A1A17] text-white text-[9.5px] font-sans font-bold px-2 py-0.5 rounded-full shadow-lg border border-white/20 flex items-center gap-1">
           <span style="color: ${activeRiderColor}">⚡ ${speed}km/h</span>
           <span class="text-white/30">|</span>
           <span class="text-neutral-200">${activeRoute?.name?.split('·')?.[0]?.trim() || '专送'} ${Math.round(routeProgress)}%</span>
@@ -808,7 +808,7 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
               title="点击查看/配置高德开放平台 API 对接详情"
             >
               <Compass className="w-3 h-3 text-emerald-400 animate-spin-slow" />
-              <span className="text-emerald-400 font-mono">AMap</span>
+              <span className="text-emerald-400 font-sans">AMap</span>
               <span className="text-neutral-200">
                 {activeRoute?.name?.split('·')?.[1]?.trim() || (routeSource === 'amap' ? '极速绿波' : '网格对齐')}
               </span>
@@ -841,7 +841,7 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
               <ExternalLink className="w-2.5 h-2.5 opacity-80" />
             </button>
 
-            <div className="bg-[#1A1A17]/95 backdrop-blur-md text-white text-[10.5px] font-mono font-bold px-2.5 py-1 rounded-full shadow-md flex items-center gap-1 border border-white/15">
+            <div className="bg-[#1A1A17]/95 backdrop-blur-md text-white text-[10.5px] font-sans font-bold px-2.5 py-1 rounded-full shadow-md flex items-center gap-1 border border-white/15">
               <motion.span
                 animate={{ opacity: [1, 0.3, 1], scale: [1, 1.2, 1] }}
                 transition={{ repeat: Infinity, duration: 1.2 }}
@@ -876,7 +876,7 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
                   />
                   <span>{r.name.split('·')[0].trim()}</span>
                   <span
-                    className={`text-[9px] px-1 py-0.2 rounded font-mono ${
+                    className={`text-[9px] px-1 py-0.2 rounded font-sans ${
                       isCurrent ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
                     }`}
                   >
@@ -941,7 +941,7 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
         <div className="absolute bottom-2.5 left-3 flex items-center gap-1.5 z-20 flex-wrap pointer-events-auto">
           <div className="bg-white/95 backdrop-blur-md text-gray-900 text-[11px] font-bold px-2 py-0.5 rounded-md border border-gray-200/90 shadow-sm flex items-center gap-1">
             <Zap className="w-3 h-3 text-neutral-900 fill-neutral-900" />
-            <span className="font-mono">{speed} km/h</span>
+            <span className="font-sans">{speed} km/h</span>
           </div>
 
           <div className="bg-white/95 backdrop-blur-md text-gray-800 text-[10.5px] font-medium px-2 py-0.5 rounded-md border border-gray-200/90 shadow-sm flex items-center gap-1">
@@ -1003,7 +1003,7 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsAmapModalOpen(false)}
-                  className="text-neutral-500 hover:text-black font-mono text-base px-1 cursor-pointer"
+                  className="text-neutral-500 hover:text-black font-sans text-base px-1 cursor-pointer"
                 >
                   ✕
                 </button>
@@ -1020,7 +1020,7 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
                 </div>
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-neutral-500">坐标基准体系:</span>
-                  <span className="font-mono font-bold text-blue-700">GCJ-02 (火星加密精确对齐)</span>
+                  <span className="font-sans font-bold text-blue-700">GCJ-02 (火星加密精确对齐)</span>
                 </div>
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-neutral-500">专送路径规划引擎:</span>
@@ -1030,7 +1030,7 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
                 </div>
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-neutral-500">轨迹节点解析:</span>
-                  <span className="font-mono text-neutral-800 font-bold">
+                  <span className="font-sans text-neutral-800 font-bold">
                     {routeData?.points.length || 0} 个真实路网拐点
                   </span>
                 </div>
@@ -1046,7 +1046,7 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
               <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-none space-y-1.5">
                 <div className="font-bold text-blue-950 flex items-center justify-between">
                   <span>高德官方导航通道</span>
-                  <span className="text-[10px] text-blue-600 font-mono">amapuri://</span>
+                  <span className="text-[10px] text-blue-600 font-sans">amapuri://</span>
                 </div>
                 <p className="text-[11px] text-blue-900 leading-relaxed">
                   专送支持一键直达高德地图客户端或高德网页版，实时路况同步查看。
@@ -1073,7 +1073,7 @@ export const TrackingRadarMap: React.FC<TrackingRadarMapProps> = ({
                   value={amapKeyInput}
                   onChange={(e) => setAmapKeyInput(e.target.value)}
                   placeholder={currentAmapKey ? `当前 Key: ${currentAmapKey.slice(0, 8)}**** (留空保存恢复默认)` : '输入高德 Web 服务 Key'}
-                  className="w-full bg-neutral-50 border border-neutral-300 px-2.5 py-1.5 text-xs font-mono text-neutral-900 focus:outline-none focus:border-black"
+                  className="w-full bg-neutral-50 border border-neutral-300 px-2.5 py-1.5 text-xs font-sans text-neutral-900 focus:outline-none focus:border-black"
                 />
                 <div className="flex items-center justify-between text-[10px] text-neutral-500">
                   <span>支持高德开放平台申请的「Web 服务」类型 Key</span>

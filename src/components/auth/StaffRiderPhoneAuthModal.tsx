@@ -215,7 +215,7 @@ export const StaffRiderPhoneAuthModal: React.FC<StaffRiderPhoneAuthModalProps> =
                   {roleTitle} · 手机号实名认证
                 </h2>
                 <span
-                  className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border ${
+                  className={`text-[10px] tabular-nums font-bold px-1.5 py-0.5 rounded border ${
                     isMerchant
                       ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
                       : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
@@ -248,7 +248,7 @@ export const StaffRiderPhoneAuthModal: React.FC<StaffRiderPhoneAuthModalProps> =
             <Fingerprint className="w-4 h-4 text-emerald-400 shrink-0" />
             <div className="text-[11.5px] leading-tight text-neutral-300 truncate">
               <span className="text-white font-medium">设备指纹状态：</span>
-              <span className="text-emerald-400 font-mono font-bold">
+              <span className="text-emerald-400 tabular-nums font-bold">
                 {deviceDetails?.hardwareHash || 'HW-COLLECTING...'}
               </span>
               <span className="text-neutral-400 ml-1.5 hidden sm:inline">
@@ -273,7 +273,7 @@ export const StaffRiderPhoneAuthModal: React.FC<StaffRiderPhoneAuthModalProps> =
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden bg-[#0d0e10] border-b border-neutral-800 px-4 py-3 text-[11px] font-mono text-neutral-300 space-y-1.5"
+              className="overflow-hidden bg-[#0d0e10] border-b border-neutral-800 px-4 py-3 text-[11px] tabular-nums text-neutral-300 space-y-1.5"
             >
               <div className="flex justify-between border-b border-neutral-800/60 pb-1 text-neutral-400 text-[10px]">
                 <span>硬件特征项 (Hardware Invariant Core)</span>
@@ -388,11 +388,11 @@ export const StaffRiderPhoneAuthModal: React.FC<StaffRiderPhoneAuthModalProps> =
                             <span className="font-bold text-sm text-white truncate">
                               {preset.name}
                             </span>
-                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-neutral-800 text-neutral-300">
+                            <span className="text-[10px] tabular-nums px-1.5 py-0.2 rounded bg-neutral-800 text-neutral-300">
                               {'staffNo' in preset ? preset.staffNo : preset.riderNo}
                             </span>
                           </div>
-                          <div className="text-xs font-mono text-neutral-400 mt-0.5">
+                          <div className="text-xs tabular-nums text-neutral-400 mt-0.5">
                             手机号: {maskPhoneNumber(preset.phone)} · {preset.tag}
                           </div>
                         </div>
@@ -425,10 +425,10 @@ export const StaffRiderPhoneAuthModal: React.FC<StaffRiderPhoneAuthModalProps> =
               <div>
                 <label className="block text-xs font-semibold text-neutral-300 mb-1.5 flex items-center justify-between">
                   <span>登录手机号 (必填)</span>
-                  <span className="text-[11px] text-neutral-500 font-mono">11位大陆号码</span>
+                  <span className="text-[11px] text-neutral-500 tabular-nums">11位大陆号码</span>
                 </label>
                 <div className="relative flex items-center">
-                  <div className="absolute left-3 text-neutral-400 text-xs font-mono font-bold select-none">
+                  <div className="absolute left-3 text-neutral-400 text-xs tabular-nums font-bold select-none">
                     +86
                   </div>
                   <input
@@ -437,7 +437,7 @@ export const StaffRiderPhoneAuthModal: React.FC<StaffRiderPhoneAuthModalProps> =
                     value={phone}
                     onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                     placeholder="请输入手机号码"
-                    className="w-full bg-neutral-900 border border-neutral-700 rounded-xl pl-12 pr-4 py-2.5 text-sm text-white font-mono placeholder:text-neutral-600 focus:outline-none focus:border-amber-500 transition-colors"
+                    className="w-full bg-neutral-900 border border-neutral-700 rounded-xl pl-12 pr-4 py-2.5 text-sm text-white tabular-nums placeholder:text-neutral-600 focus:outline-none focus:border-amber-500 transition-colors"
                   />
                   {phone && (
                     <button
@@ -471,7 +471,7 @@ export const StaffRiderPhoneAuthModal: React.FC<StaffRiderPhoneAuthModalProps> =
                       value={smsCode}
                       onChange={(e) => setSmsCode(e.target.value.trim())}
                       placeholder="6位短信验证码"
-                      className="flex-1 bg-neutral-900 border border-neutral-700 rounded-xl px-3.5 py-2.5 text-sm text-white font-mono tracking-wider placeholder:text-neutral-600 focus:outline-none focus:border-amber-500 transition-colors"
+                      className="flex-1 bg-neutral-900 border border-neutral-700 rounded-xl px-3.5 py-2.5 text-sm text-white tabular-nums tracking-wider placeholder:text-neutral-600 focus:outline-none focus:border-amber-500 transition-colors"
                     />
                     <button
                       type="button"
@@ -560,7 +560,7 @@ export const StaffRiderPhoneAuthModal: React.FC<StaffRiderPhoneAuthModalProps> =
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
             <span>手机号实名鉴权 · 设备硬件指纹信息持续不变</span>
           </div>
-          <span className="text-[10px] text-neutral-500 font-mono">Urban Radar Auth v3.2</span>
+          <span className="text-[10px] text-neutral-500 tabular-nums">Urban Radar Auth v3.2</span>
         </div>
       </motion.div>
     </div>

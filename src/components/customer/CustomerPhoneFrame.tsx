@@ -15,6 +15,7 @@ import {
   DEFAULT_DEVICE_ID,
   getDeviceById
 } from '../../constants/deviceViewport';
+import { CustomerRemoteAssistWrapper } from './CustomerRemoteAssistWrapper';
 
 interface CustomerPhoneFrameProps {
   children: React.ReactNode;
@@ -41,8 +42,12 @@ export const CustomerPhoneFrame: React.FC<CustomerPhoneFrameProps> = ({ children
   }, []);
 
   if (!isDesktop) {
-    // 移动端：原样全屏（100dvh），不套壳
-    return <div className="relative h-[100dvh] w-full overflow-hidden">{children}</div>;
+    // 移动端：原样全屏（100dvh），不套壳，接入远程协助包装器
+    return (
+      <div className="relative h-[100dvh] w-full overflow-hidden">
+        <CustomerRemoteAssistWrapper>{children}</CustomerRemoteAssistWrapper>
+      </div>
+    );
   }
 
   const preset = getDeviceById(DEFAULT_DEVICE_ID)!;
@@ -63,9 +68,9 @@ export const CustomerPhoneFrame: React.FC<CustomerPhoneFrameProps> = ({ children
             transform: 'translateZ(0)'
           }}
         >
-          {children}
+          <CustomerRemoteAssistWrapper>{children}</CustomerRemoteAssistWrapper>
         </div>
-        <div className="font-mono text-[10px] text-[#9a9a96] tracking-wider">{cap}</div>
+        <div className="font-semibold text-[10px] text-[#9a9a96] tracking-wider">{cap}</div>
       </div>
     </div>
   );

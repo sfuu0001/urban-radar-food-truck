@@ -1,26 +1,23 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Bluetooth,
   Printer,
-  Wifi,
+  Settings,
+  Plus,
   Radio,
   Battery,
-  BatteryCharging,
-  CheckCircle2,
-  AlertCircle,
-  Play,
-  RefreshCw,
-  Plus,
-  Trash2,
-  Sliders,
+  ChevronDown,
+  ChevronUp,
+  MoreVertical,
   Scissors,
   Bell,
+  Play,
   FileText,
-  Copy,
-  ChevronDown,
-  Power,
+  Trash2,
+  CheckCircle2,
+  HardDrive,
   Zap,
-  HardDrive
+  AlertCircle
 } from 'lucide-react';
 import {
   BluetoothPrinterDevice,
@@ -33,8 +30,14 @@ import {
   buildOrderReceiptBytes,
   buildSelfTestBytes,
   sendBytesToBluetoothCharacteristic,
+  connectBluetoothDeviceAndGetWriteCharacteristic,
+  POS_BLE_PRINTER_SERVICE_UUIDS,
   BluetoothRemoteGATTCharacteristic
 } from '../../utils/escpos';
+import { getSavedDetectedPrinters } from '../../utils/printerAutoDetectEngine';
+import { PrinterActionPopover } from './printer/PrinterActionPopover';
+import { PrinterQuickConfigDrawer } from './printer/PrinterQuickConfigDrawer';
+import { ReceiptSelfTestModal } from './printer/ReceiptSelfTestModal';
 
 interface BluetoothPrinterManagerProps {
   orders: Order[];
@@ -42,119 +45,74 @@ interface BluetoothPrinterManagerProps {
   showToast: (msg: string, desc?: string) => void;
 }
 
-// Initial Preset Food-Truck Bluetooth Thermal Printers
-const DEFAULT_BLUETOOTH_PRINTERS: BluetoothPrinterDevice[] = [
-  {
-    id: 'bt-01',
-    name: '佳博 Gprinter 58便携蓝牙票据机',
-    modelBrand: 'Gprinter GP-58MBIII (车载便携手持)',
-    macAddress: 'DC:0D:30:8F:A2:11',
-    paperWidth: '58mm',
-    status: 'connected',
-    batteryLevel: 92,
-    signalRssi: -52,
-    isDefault: true,
-    autoPrintNewOrders: true,
-    copies: 2,
-    firmwareVersion: 'V4.2.0_BLE',
-    lastPrintedAt: '12:18'
-  },
-  {
-    id: 'bt-02',
-    name: '芯烨 Xprinter 80宽幅移动热敏机',
-    modelBrand: 'Xprinter XP-P300 (前台接单大号纸)',
-    macAddress: '00:1A:7D:DA:71:09',
-    paperWidth: '80mm',
-    status: 'disconnected',
-    batteryLevel: 68,
-    signalRssi: -68,
-    isDefault: false,
-    autoPrintNewOrders: false,
-    copies: 1,
-    firmwareVersion: 'V3.8.1_BLE',
-    lastPrintedAt: '昨天 19:40'
-  },
-  {
-    id: 'bt-03',
-    name: '汉印 HPRT 车载后厨自粘标签机',
-    modelBrand: 'HPRT HM-E200 (防油防水杯贴/餐盒贴)',
-    macAddress: '88:25:83:FE:19:62',
-    paperWidth: '58mm',
-    status: 'disconnected',
-    batteryLevel: 85,
-    signalRssi: -60,
-    isDefault: false,
-    autoPrintNewOrders: false,
-    copies: 1,
-    firmwareVersion: 'V2.6.4_BLE',
-    lastPrintedAt: '无记录'
-  }
-];
+// 内存中维护的已配对物理蓝牙设备句柄映射 (Web Bluetooth BluetoothDevice 对象不可序列化存储至 localStorage)
+const activeBluetoothDeviceMap = new Map<string, any>();
 
 export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = ({
   orders,
   template,
   showToast
 }) => {
-  // Bluetooth devices state
   const [printers, setPrinters] = useState<BluetoothPrinterDevice[]>(() => {
     const raw = localStorage.getItem('obsidian_bt_printers');
-    return raw ? JSON.parse(raw) : DEFAULT_BLUETOOTH_PRINTERS;
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // 初始化时若无真实 GATT 连接句柄，状态置为 disconnected，杜绝假 connected
+          return parsed.map((p: any) => ({
+            ...p,
+            status: 'disconnected' as const,
+            connectionType: p.connectionType || 'bluetooth'
+          }));
+        }
+      } catch (e) {
+        // fallback
+      }
+    }
+    return [];
   });
 
-  // Selected device for management
   const [selectedPrinterId, setSelectedPrinterId] = useState<string>(
-    printers[0]?.id || 'bt-01'
+    printers[0]?.id || ''
   );
 
-  // Selected order for manual print test
   const [selectedOrderId, setSelectedOrderId] = useState<string>(
     orders[0]?.id || ''
   );
 
-  // Print logs
-  const [logs, setLogs] = useState<BluetoothPrintTaskLog[]>([
-    {
-      id: 'log-01',
-      timestamp: '12:18:04',
-      printerName: '佳博 Gprinter 58便携蓝牙票据机',
-      orderNo: '#9821',
-      bytesCount: 684,
-      status: 'success',
-      taskType: 'order_receipt',
-      detail: '2联出单完成 (顾客联+制作联) · 耗时 480ms'
-    }
-  ]);
+  const [logs, setLogs] = useState<BluetoothPrintTaskLog[]>([]);
 
-  // UI States
+  // UI Interactive States
   const [isScanning, setIsScanning] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
-  const [printProgress, setPrintProgress] = useState(0);
-  const [isPairModalOpen, setIsPairModalOpen] = useState(false);
-  const [discoveredDevices, setDiscoveredDevices] = useState<
-    { name: string; mac: string; rssi: number; width: '58mm' | '80mm' }[]
-  >([]);
-  const [activeHexPreview, setActiveHexPreview] = useState<string>('');
-  const [showHexModal, setShowHexModal] = useState(false);
+  const [activeMenuPrinterId, setActiveMenuPrinterId] = useState<string | null>(null);
+  const [configDrawerDevice, setConfigDrawerDevice] = useState<any | null>(null);
+  const [selfTestModalDevice, setSelfTestModalDevice] = useState<any | null>(null);
 
-  // Real Web Bluetooth GATT Reference
-  const realBluetoothCharacteristicRef = useRef<BluetoothRemoteGATTCharacteristic | null>(
-    null
+  // Collapsible Advanced Panels (默认折叠以保持精简)
+  const [isManualPrintOpen, setIsManualPrintOpen] = useState(false);
+  const [isHardwareDebugOpen, setIsHardwareDebugOpen] = useState(false);
+  const [isLogsOpen, setIsLogsOpen] = useState(false);
+
+  // Real Web Bluetooth GATT Reference 映射: printerId -> BluetoothRemoteGATTCharacteristic
+  const bluetoothCharacteristicsRef = useRef<Map<string, BluetoothRemoteGATTCharacteristic>>(
+    new Map()
   );
 
   const activePrinter = printers.find((p) => p.id === selectedPrinterId) || printers[0];
   const targetOrder = orders.find((o) => o.id === selectedOrderId) || orders[0] || {
-    id: 'ord-test-sample',
-    orderNo: '#9825',
-    customerName: '赵先生 (VIP 食客)',
-    userPhone: '139****1988',
-    deliveryAddress: '黑石数智大厦 A 座 1608 移动专送车停靠点',
+    id: 'ord-current-real',
+    orderNo: '#A108',
+    customerName: '流动餐车食客',
+    userPhone: '138****0000',
+    deliveryAddress: '流动餐车外摆取餐口',
     items: [
-      { name: '炭烤和牛小汉堡双重奏', quantity: 2, price: 128.0, options: '五分熟 · 秘制黑椒酱' },
-      { name: '手作鲜柠檬冷萃乌龙茶', quantity: 2, price: 36.0, options: '少冰 · 微糖' }
+      { name: '现烤招牌羊肉大串', quantity: 4, price: 48.0, options: '微辣 · 孜然' },
+      { name: '手作鲜柠檬冷萃茶', quantity: 2, price: 36.0, options: '少冰 · 七分糖' }
     ],
-    totalAmount: 164.0,
-    createdTime: '刚刚 12:28'
+    totalAmount: 84.0,
+    createdTime: '刚刚'
   };
 
   const savePrinters = (newList: BluetoothPrinterDevice[]) => {
@@ -162,7 +120,13 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
     localStorage.setItem('obsidian_bt_printers', JSON.stringify(newList));
   };
 
-  // Add Log Entry
+  // 同步全局当前活动特征通道供自动打印调度引擎使用
+  const updateGlobalActiveCharacteristic = (char: BluetoothRemoteGATTCharacteristic | null) => {
+    if (typeof window !== 'undefined') {
+      (window as any).__obsidian_active_bt_gatt_char = char;
+    }
+  };
+
   const addLog = (
     taskType: BluetoothPrintTaskLog['taskType'],
     orderNo: string,
@@ -173,358 +137,93 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
     const newLog: BluetoothPrintTaskLog = {
       id: `log-${Date.now()}`,
       timestamp: new Date().toLocaleTimeString('zh-CN', { hour12: false }),
-      printerName: activePrinter?.name || '蓝牙热敏打印机',
+      printerName: activePrinter?.name || '蓝牙小票机',
       orderNo,
       bytesCount,
       status,
       taskType,
       detail
     };
-    setLogs((prev) => [newLog, ...prev.slice(0, 29)]);
+    setLogs((prev) => [newLog, ...prev.slice(0, 19)]);
   };
 
-  // 1. Toggle Bluetooth Connection (Connect / Disconnect)
+  // 建立真实 GATT 连接
+  const connectDeviceGatt = async (printerId: string, deviceHandle?: any): Promise<BluetoothRemoteGATTCharacteristic> => {
+    const target = printers.find((p) => p.id === printerId);
+    const dev = deviceHandle || activeBluetoothDeviceMap.get(printerId);
+
+    if (!dev) {
+      throw new Error(`未找到【${target?.name || '打印机'}】的物理蓝牙设备句柄，请点击右上角「+」重新扫描配对`);
+    }
+
+    // 更新为 connecting
+    setPrinters((prev) =>
+      prev.map((p) => (p.id === printerId ? { ...p, status: 'connecting' as const } : p))
+    );
+
+    try {
+      const { characteristic } = await connectBluetoothDeviceAndGetWriteCharacteristic(dev);
+      bluetoothCharacteristicsRef.current.set(printerId, characteristic);
+      updateGlobalActiveCharacteristic(characteristic);
+
+      // 监听断开事件
+      if (dev.addEventListener) {
+        dev.addEventListener('gattserverdisconnected', () => {
+          bluetoothCharacteristicsRef.current.delete(printerId);
+          updateGlobalActiveCharacteristic(null);
+          setPrinters((prev) =>
+            prev.map((p) => (p.id === printerId ? { ...p, status: 'disconnected' as const } : p))
+          );
+          showToast(`【${dev.name || '蓝牙打印机'}】蓝牙连接已断开`);
+        });
+      }
+
+      setPrinters((prev) => {
+        const next = prev.map((p) => (p.id === printerId ? { ...p, status: 'connected' as const } : p));
+        savePrinters(next);
+        return next;
+      });
+
+      return characteristic;
+    } catch (err: any) {
+      bluetoothCharacteristicsRef.current.delete(printerId);
+      updateGlobalActiveCharacteristic(null);
+      setPrinters((prev) => {
+        const next = prev.map((p) => (p.id === printerId ? { ...p, status: 'disconnected' as const } : p));
+        savePrinters(next);
+        return next;
+      });
+      throw err;
+    }
+  };
+
+  // Toggle connection (真连接 / 真断开)
   const handleToggleConnection = async (printerId: string) => {
     const target = printers.find((p) => p.id === printerId);
     if (!target) return;
 
     if (target.status === 'connected') {
-      // Disconnect
+      const dev = activeBluetoothDeviceMap.get(printerId);
+      if (dev && dev.gatt && dev.gatt.connected) {
+        try {
+          dev.gatt.disconnect();
+        } catch {}
+      }
+      bluetoothCharacteristicsRef.current.delete(printerId);
+      updateGlobalActiveCharacteristic(null);
       const updated = printers.map((p) =>
         p.id === printerId ? { ...p, status: 'disconnected' as const } : p
       );
       savePrinters(updated);
-      realBluetoothCharacteristicRef.current = null;
-      showToast(`已断开与【${target.name}】的蓝牙连接`);
+      showToast(`已断开【${target.name}】蓝牙连接`);
     } else {
-      // Connect
-      const updatedConnecting = printers.map((p) =>
-        p.id === printerId ? { ...p, status: 'connecting' as const } : p
-      );
-      savePrinters(updatedConnecting);
-
-      setTimeout(() => {
-        const updatedConnected = printers.map((p) =>
-          p.id === printerId ? { ...p, status: 'connected' as const } : p
-        );
-        savePrinters(updatedConnected);
-        showToast(`已成功连接蓝牙打印机【${target.name}】`, '通信信道建立成功，就绪出纸！');
-      }, 700);
-    }
-  };
-
-  // 2. Real Web Bluetooth Scan / Virtual Pairing
-  const handleStartBluetoothScan = async () => {
-    setIsScanning(true);
-    setIsPairModalOpen(true);
-    setDiscoveredDevices([]);
-
-    // Check if Web Bluetooth is natively supported in browser
-    const hasWebBluetooth =
-      typeof navigator !== 'undefined' && 'bluetooth' in navigator && (navigator as any).bluetooth;
-
-    if (hasWebBluetooth) {
       try {
-        // Standard Thermal Printer GATT Services
-        const device = await (navigator as any).bluetooth.requestDevice({
-          acceptAllDevices: true,
-          optionalServices: [
-            '000018f0-0000-1000-8000-00805f9b34fb', // Standard Printer Service
-            '0000ffe0-0000-1000-8000-00805f9b34fb', // Common BLE SPP
-            '0000ff00-0000-1000-8000-00805f9b34fb',
-            '49535343-fe7d-4ae5-8fa9-9fafd205e455'
-          ]
-        });
-
-        if (device && device.name) {
-          showToast(`已发现物理蓝牙设备: ${device.name}`, '正在握手连接 GATT 服务...');
-          const server = await device.gatt?.connect();
-          if (server) {
-            // Find writable characteristic
-            const services = await server.getPrimaryServices();
-            for (const s of services) {
-              const chars = await s.getCharacteristics();
-              for (const c of chars) {
-                if (c.properties.write || c.properties.writeWithoutResponse) {
-                  realBluetoothCharacteristicRef.current = c;
-                  break;
-                }
-              }
-              if (realBluetoothCharacteristicRef.current) break;
-            }
-          }
-
-          // Register new device
-          const newDev: BluetoothPrinterDevice = {
-            id: `bt-${Date.now()}`,
-            name: device.name,
-            modelBrand: `${device.name} (硬件物理直连)`,
-            macAddress: device.id.slice(0, 17).toUpperCase(),
-            paperWidth: '58mm',
-            status: 'connected',
-            batteryLevel: 95,
-            signalRssi: -45,
-            isDefault: printers.length === 0,
-            autoPrintNewOrders: true,
-            copies: 1,
-            firmwareVersion: 'V5.0_BLE_NATIVE'
-          };
-
-          const nextList = [newDev, ...printers];
-          savePrinters(nextList);
-          setSelectedPrinterId(newDev.id);
-          setIsScanning(false);
-          setIsPairModalOpen(false);
-          showToast(`已成功配对并连接物理蓝牙打印机【${device.name}】！`);
-          return;
-        }
+        await connectDeviceGatt(printerId);
+        showToast(`已成功建立 GATT 链路连接【${target.name}】`);
       } catch (err: any) {
-        console.warn('Web Bluetooth scanning fallback to simulated discovery:', err);
+        showToast('蓝牙连接失败', err?.message || '请重新扫描配对');
       }
     }
-
-    // Simulated Food-Truck Environment Discovered List
-    setTimeout(() => {
-      setDiscoveredDevices([
-        {
-          name: 'GP-58MBIII-A1B2',
-          mac: 'DC:0D:30:9E:C1:22',
-          rssi: -48,
-          width: '58mm'
-        },
-        {
-          name: 'Xprinter_XP-N160I',
-          mac: '00:1A:7D:99:3B:14',
-          rssi: -58,
-          width: '80mm'
-        },
-        {
-          name: 'HPRT_HM-E300_FoodTruck',
-          mac: '88:25:83:AA:71:08',
-          rssi: -62,
-          width: '58mm'
-        },
-        {
-          name: 'Feie_FP-58W_Mobile',
-          mac: 'E4:A3:82:11:4F:90',
-          rssi: -71,
-          width: '58mm'
-        }
-      ]);
-      setIsScanning(false);
-    }, 1000);
-  };
-
-  // 3. Pair Discovered Device
-  const handlePairDiscoveredDevice = (dev: {
-    name: string;
-    mac: string;
-    rssi: number;
-    width: '58mm' | '80mm';
-  }) => {
-    const newDevice: BluetoothPrinterDevice = {
-      id: `bt-${Date.now()}`,
-      name: dev.name,
-      modelBrand: `${dev.name} (餐车移动蓝牙热敏机)`,
-      macAddress: dev.mac,
-      paperWidth: dev.width,
-      status: 'connected',
-      batteryLevel: 88,
-      signalRssi: dev.rssi,
-      isDefault: false,
-      autoPrintNewOrders: true,
-      copies: 1,
-      firmwareVersion: 'V4.2.1_BLE',
-      lastPrintedAt: '刚刚配对'
-    };
-
-    const nextList = [newDevice, ...printers];
-    savePrinters(nextList);
-    setSelectedPrinterId(newDevice.id);
-    setIsPairModalOpen(false);
-    showToast(`已成功配对并连接【${dev.name}】！`, '自动设为在线状态，可随时打印小票');
-  };
-
-  // 4. Print Order Receipt via Bluetooth
-  const handlePrintOrder = async (orderToPrint = targetOrder) => {
-    if (!activePrinter) {
-      showToast('请先选择一台蓝牙打印机');
-      return;
-    }
-
-    if (activePrinter.status !== 'connected') {
-      showToast('当前蓝牙打印机处于未连接状态', '请先点击【连接设备】后再出纸');
-      return;
-    }
-
-    setIsPrinting(true);
-    setPrintProgress(10);
-
-    try {
-      const copies = activePrinter.copies || 1;
-      const { bytes, textPreview } = buildOrderReceiptBytes(
-        orderToPrint as any,
-        template,
-        activePrinter.paperWidth,
-        copies
-      );
-
-      // Convert first 32 bytes to hex preview
-      const hexArr: string[] = [];
-      for (let i = 0; i < Math.min(bytes.length, 64); i++) {
-        hexArr.push(bytes[i].toString(16).padStart(2, '0').toUpperCase());
-      }
-      setActiveHexPreview(
-        `// ESC/POS 数据流总计 ${bytes.length} 字节 (包含 ESC @ 初始化、格式放大与自动蜂鸣/切刀)\n` +
-          hexArr.join(' ') +
-          (bytes.length > 64 ? ' ... [剩余数据已编码]' : '')
-      );
-
-      // If physical Bluetooth characteristic is present, send chunks
-      if (realBluetoothCharacteristicRef.current) {
-        await sendBytesToBluetoothCharacteristic(
-          realBluetoothCharacteristicRef.current,
-          bytes,
-          (sent, total) => {
-            setPrintProgress(Math.round((sent / total) * 100));
-          }
-        );
-      } else {
-        // Simulation animation
-        await new Promise((r) => setTimeout(r, 200));
-        setPrintProgress(45);
-        await new Promise((r) => setTimeout(r, 300));
-        setPrintProgress(85);
-        await new Promise((r) => setTimeout(r, 200));
-        setPrintProgress(100);
-      }
-
-      // Update last printed at
-      const updated = printers.map((p) =>
-        p.id === activePrinter.id
-          ? {
-              ...p,
-              lastPrintedAt: new Date().toLocaleTimeString('zh-CN', {
-                hour: '2-digit',
-                minute: '2-digit'
-              })
-            }
-          : p
-      );
-      savePrinters(updated);
-
-      addLog(
-        'order_receipt',
-        orderToPrint.orderNo || '#9999',
-        bytes.length,
-        'success',
-        `${copies}联出单成功 · 纸宽 ${activePrinter.paperWidth}`
-      );
-
-      showToast(
-        `【${activePrinter.name}】小票打印成功！`,
-        `单号 ${orderToPrint.orderNo} · 规格: ${activePrinter.paperWidth} (${copies}联)`
-      );
-    } catch (err: any) {
-      console.error('Bluetooth printing failed:', err);
-      addLog(
-        'order_receipt',
-        orderToPrint.orderNo || '#9999',
-        0,
-        'failed',
-        err?.message || '蓝牙传输信道中断'
-      );
-      showToast('蓝牙小票打印失败', err?.message || '请检查打印机电量与蓝牙信号');
-    } finally {
-      setIsPrinting(false);
-      setTimeout(() => setPrintProgress(0), 1000);
-    }
-  };
-
-  // 5. Hardware Self-Test Page
-  const handlePrintSelfTest = async () => {
-    if (!activePrinter) return;
-    setIsPrinting(true);
-    setPrintProgress(20);
-
-    try {
-      const bytes = buildSelfTestBytes(activePrinter.name, activePrinter.paperWidth);
-      if (realBluetoothCharacteristicRef.current) {
-        await sendBytesToBluetoothCharacteristic(
-          realBluetoothCharacteristicRef.current,
-          bytes,
-          (sent, total) => setPrintProgress(Math.round((sent / total) * 100))
-        );
-      } else {
-        await new Promise((r) => setTimeout(r, 450));
-        setPrintProgress(100);
-      }
-
-      addLog('self_test', '自检样张', bytes.length, 'success', '全项硬件指标检测正常');
-      showToast(`已向【${activePrinter.name}】发送硬件自检样张！`, '包含浓度、字体与状态检测');
-    } catch (err: any) {
-      showToast('自检打印失败', err?.message);
-    } finally {
-      setIsPrinting(false);
-      setTimeout(() => setPrintProgress(0), 800);
-    }
-  };
-
-  // 6. Beep Buzzer Test
-  const handleTestBuzzer = async () => {
-    if (!activePrinter) return;
-    const builder = new EscPosBuilder().buzzer(2, 3);
-    const bytes = builder.build();
-
-    if (realBluetoothCharacteristicRef.current) {
-      try {
-        await sendBytesToBluetoothCharacteristic(
-          realBluetoothCharacteristicRef.current,
-          bytes
-        );
-      } catch (e) {}
-    }
-
-    addLog('beep_test', '蜂鸣测试', bytes.length, 'success', '双声蜂鸣报警测试');
-    showToast(`【${activePrinter.name}】蜂鸣器已触发 🔔`, '滴~ 滴~ 提醒声音正常');
-  };
-
-  // 7. Feed 3 Lines
-  const handleFeedLines = async () => {
-    if (!activePrinter) return;
-    const builder = new EscPosBuilder().feed(3);
-    const bytes = builder.build();
-
-    if (realBluetoothCharacteristicRef.current) {
-      try {
-        await sendBytesToBluetoothCharacteristic(
-          realBluetoothCharacteristicRef.current,
-          bytes
-        );
-      } catch (e) {}
-    }
-
-    addLog('feed_lines', '走纸3行', bytes.length, 'success', '走纸马达推进正常');
-    showToast(`【${activePrinter.name}】推进走纸 3 行完成`);
-  };
-
-  // 8. Cut Paper Test
-  const handleCutPaper = async () => {
-    if (!activePrinter) return;
-    const builder = new EscPosBuilder().cut(true);
-    const bytes = builder.build();
-
-    if (realBluetoothCharacteristicRef.current) {
-      try {
-        await sendBytesToBluetoothCharacteristic(
-          realBluetoothCharacteristicRef.current,
-          bytes
-        );
-      } catch (e) {}
-    }
-
-    addLog('cut_paper', '自动切纸', bytes.length, 'success', '步进切刀动作指令已下发');
-    showToast(`【${activePrinter.name}】切刀测试动作完成！`);
   };
 
   // Set default printer
@@ -534,599 +233,573 @@ export const BluetoothPrinterManager: React.FC<BluetoothPrinterManagerProps> = (
       isDefault: p.id === printerId
     }));
     savePrinters(updated);
-    showToast('已更新默认出纸蓝牙打印机！');
+    const char = bluetoothCharacteristicsRef.current.get(printerId) || null;
+    updateGlobalActiveCharacteristic(char);
+    showToast('已设为默认打印机');
   };
 
-  // Remove paired device
+  // Remove printer
   const handleRemovePrinter = (printerId: string) => {
-    if (printers.length <= 1) {
-      showToast('至少保留一台打印机配置');
-      return;
+    const dev = activeBluetoothDeviceMap.get(printerId);
+    if (dev && dev.gatt && dev.gatt.connected) {
+      try {
+        dev.gatt.disconnect();
+      } catch {}
     }
+    activeBluetoothDeviceMap.delete(printerId);
+    bluetoothCharacteristicsRef.current.delete(printerId);
+    if (selectedPrinterId === printerId) {
+      updateGlobalActiveCharacteristic(null);
+    }
+
     const updated = printers.filter((p) => p.id !== printerId);
     savePrinters(updated);
     if (selectedPrinterId === printerId) {
       setSelectedPrinterId(updated[0]?.id || '');
     }
-    showToast('已移除该蓝牙打印机设备');
+    showToast('已删除打印机');
+  };
+
+  // Test Print (真机字节流下发，未就绪时明确报错拒绝虚假成功)
+  const handleTestPrint = async (printer: BluetoothPrinterDevice) => {
+    setIsPrinting(true);
+
+    try {
+      let char = bluetoothCharacteristicsRef.current.get(printer.id);
+
+      // 若未连接则尝试通过设备句柄发起真机连接
+      if (!char) {
+        const dev = activeBluetoothDeviceMap.get(printer.id);
+        if (dev) {
+          showToast(`正在与【${printer.name}】建立 GATT 连接...`);
+          char = await connectDeviceGatt(printer.id, dev);
+        }
+      }
+
+      if (!char) {
+        throw new Error(
+          `打印机【${printer.name}】尚未建立物理蓝牙连接，请先点击右上角「+」配对并连接真实蓝牙设备`
+        );
+      }
+
+      const bytes = buildSelfTestBytes(
+        printer.name, 
+        printer.paperWidth, 
+        (printer.connectionType as any) || 'bluetooth', 
+        printer.macAddress
+      );
+
+      await sendBytesToBluetoothCharacteristic(char, bytes);
+      addLog('self_test', '自检样张', bytes.length, 'success', `已真实下发 ${bytes.length} 字节`);
+      showToast(`已向【${printer.name}】成功下发测试打印 (${bytes.length} 字节)`);
+      setSelfTestModalDevice(printer);
+    } catch (err: any) {
+      addLog('self_test', '自检样张', 0, 'failed', err?.message || '链路未就绪');
+      showToast('测试打印失败', err?.message || '蓝牙特征未就绪');
+    } finally {
+      setIsPrinting(false);
+    }
+  };
+
+  // Real Scan / Pair new device (调用 navigator.bluetooth.requestDevice 拿到真实 device 并立即执行 GATT 连接)
+  const handleScanAndAdd = async () => {
+    setIsScanning(true);
+    showToast('正在打开系统蓝牙配对窗口...');
+    const hasWebBluetooth =
+      typeof navigator !== 'undefined' && 'bluetooth' in navigator && (navigator as any).bluetooth;
+
+    if (!hasWebBluetooth) {
+      setIsScanning(false);
+      showToast('当前环境不支持 Web Bluetooth', '请使用 Chrome / Edge 浏览器并开启蓝牙');
+      return;
+    }
+
+    try {
+      const device = await (navigator as any).bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: POS_BLE_PRINTER_SERVICE_UUIDS
+      });
+
+      if (!device || !device.id) {
+        setIsScanning(false);
+        return;
+      }
+
+      const devName = device.name || 'POS-Thermal-Printer';
+      const cleanId = `bt-${device.id.slice(0, 12).replace(/[^a-zA-Z0-9]/g, '') || Date.now()}`;
+      const macAddress = (device.id || 'BLE-DEV-ADDR').slice(0, 32).toUpperCase();
+
+      showToast(`已配对【${devName}】，正在建立 GATT 数据通信通道...`);
+
+      // 存储设备句柄到内存
+      activeBluetoothDeviceMap.set(cleanId, device);
+
+      // 发起真实 GATT 连接获取可写特征
+      const char = await connectDeviceGatt(cleanId, device);
+
+      const newDev: BluetoothPrinterDevice = {
+        id: cleanId,
+        name: devName,
+        modelBrand: devName.includes('GP') ? '佳博 Gprinter' : devName.includes('XP') ? '芯烨 Xprinter' : 'ESC/POS Thermal BLE',
+        macAddress,
+        paperWidth: devName.includes('80') ? '80mm' : '58mm',
+        status: 'connected',
+        batteryLevel: 95,
+        signalRssi: -48,
+        isDefault: printers.length === 0,
+        autoPrintNewOrders: true,
+        copies: 1,
+        firmwareVersion: 'V5.2.0_BLE'
+      };
+
+      const next = [newDev, ...printers.filter((p) => p.id !== cleanId)];
+      savePrinters(next);
+      setSelectedPrinterId(newDev.id);
+      showToast(`已成功配对并建立物理链路【${devName}】`);
+    } catch (err: any) {
+      if (err.name === 'NotFoundError') {
+        // 用户取消配对窗口
+      } else {
+        showToast('蓝牙配对或 GATT 连接失败', err?.message || '请确保打印机已开机且处于可配对状态');
+      }
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  // Save drawer config
+  const handleSaveDrawerConfig = (updated: any) => {
+    const nextList = printers.map((p) => {
+      if (p.id === updated.id) {
+        return { ...p, ...updated };
+      }
+      return updated.isDefault ? { ...p, isDefault: false } : p;
+    });
+    savePrinters(nextList);
   };
 
   return (
     <div className="space-y-4">
-      {/* 顶部极简状态横幅 */}
-      <div className="bg-white rounded-[4px] border border-[#e6e6e4] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs">
-        <div className="flex items-start gap-3">
-          <div className="w-9 h-9 rounded-[2px] bg-[#f7f7f5] text-[#37352f] border border-[#e6e6e4] flex items-center justify-center shrink-0">
-            <Bluetooth className="w-4 h-4 text-[#37352f]" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-semibold text-sm text-[#37352f]">随车蓝牙便携打印机中枢</h3>
-              <span className="px-2 py-0.5 bg-[#edf6f1] text-[#2b593f] text-xs font-medium rounded-[2px] border border-[#cbe4d7] flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#2b593f] animate-pulse" />
-                <span>
-                  {printers.filter((p) => p.status === 'connected').length} 台已连接
-                </span>
-              </span>
-              <span className="px-2 py-0.5 bg-[#f7f7f5] text-[#787774] text-xs font-mono rounded-[2px] border border-[#e6e6e4]">
-                BLE 5.2 / ESC/POS
-              </span>
-            </div>
-            <p className="text-xs text-[#787774] mt-1">
-              免布线直连流动餐车车载热敏小票机、手持收银一体机及后厨防水标签机，支持
-              58mm / 80mm 双规格与新订单极速自动出纸。
-            </p>
-          </div>
+      {/* 极简参数配置抽屉 */}
+      <PrinterQuickConfigDrawer
+        isOpen={!!configDrawerDevice}
+        onClose={() => setConfigDrawerDevice(null)}
+        device={configDrawerDevice}
+        onSave={handleSaveDrawerConfig}
+        onTestPrint={(dev) => handleTestPrint(dev)}
+        showToast={showToast}
+      />
+
+      {/* 实体自检测试出纸与真机调起弹窗 */}
+      <ReceiptSelfTestModal
+        isOpen={!!selfTestModalDevice}
+        onClose={() => setSelfTestModalDevice(null)}
+        device={selfTestModalDevice}
+        onSendRawBytes={async () => {
+          if (!selfTestModalDevice) return;
+          const char = bluetoothCharacteristicsRef.current.get(selfTestModalDevice.id);
+          if (!char) {
+            throw new Error(`设备【${selfTestModalDevice.name}】蓝牙链路未就绪，请先连接打印机`);
+          }
+          const bytes = buildSelfTestBytes(
+            selfTestModalDevice.name, 
+            selfTestModalDevice.paperWidth, 
+            (selfTestModalDevice.connectionType as any) || 'bluetooth', 
+            selfTestModalDevice.macAddress
+          );
+          await sendBytesToBluetoothCharacteristic(char, bytes);
+        }}
+        showToast={showToast}
+      />
+
+      {/* 顶部标题栏与全局设置 (参考图 2: BR RawPrinter 极简顶栏) */}
+      <div className="flex items-center justify-between px-1 py-1">
+        <div className="flex items-center gap-2">
+          <h2 className="text-base sm:text-lg font-bold text-neutral-900 tracking-tight">
+            BR RawPrinter
+          </h2>
+          <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]" />
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={handleStartBluetoothScan}
-            disabled={isScanning}
-            className="px-3.5 py-1.5 bg-[#37352f] hover:bg-[#201f1d] text-white text-xs font-semibold rounded-[2px] flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs disabled:opacity-50"
-          >
-            <Radio className={`w-3.5 h-3.5 ${isScanning ? 'animate-spin' : ''}`} />
-            <span>{isScanning ? '正在搜索蓝牙...' : '搜索附近蓝牙设备'}</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => {
+            if (activePrinter) setConfigDrawerDevice(activePrinter);
+          }}
+          className="w-8 h-8 rounded-full text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 flex items-center justify-center transition-colors cursor-pointer"
+          title="系统配置"
+        >
+          <Settings className="w-5 h-5" />
+        </button>
       </div>
 
-      {/* 主工作区两栏布局 */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* 左侧：已配对蓝牙设备列表与控制卡 (5 Cols) */}
-        <div className="lg:col-span-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#37352f] flex items-center gap-1.5">
-              <HardDrive className="w-4 h-4 text-[#787774]" />
-              <span>已配对设备 ({printers.length})</span>
-            </span>
-            <span className="text-[11px] text-[#787774]">点击切换活动操作设备</span>
-          </div>
-
-          <div className="space-y-3">
-            {printers.map((printer) => {
-              const isSelected = printer.id === activePrinter?.id;
-              const isConnected = printer.status === 'connected';
-
-              return (
-                <div
-                  key={printer.id}
-                  onClick={() => setSelectedPrinterId(printer.id)}
-                  className={`bg-white rounded-[4px] p-3.5 border transition-all cursor-pointer relative shadow-2xs ${
-                    isSelected
-                      ? 'border-[#37352f]'
-                      : 'border-[#e6e6e4] hover:border-[#37352f]'
-                  }`}
-                >
-                  {/* Top Bar */}
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-sm text-[#37352f] truncate">
-                          {printer.name}
-                        </span>
-                        {printer.isDefault && (
-                          <span className="px-1.5 py-0.2 bg-[#efefed] text-[#37352f] text-[10px] font-medium rounded-[2px] border border-[#e6e6e4] shrink-0">
-                            默认
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-[#787774] truncate mt-0.5 font-mono">
-                        {printer.modelBrand}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-1 shrink-0">
-                      <span
-                        className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-[2px] border ${
-                          isConnected
-                            ? 'bg-[#edf6f1] text-[#2b593f] border-[#cbe4d7]'
-                            : printer.status === 'connecting'
-                            ? 'bg-[#fef3d6] text-[#d9730d] border-[#fae2a0]'
-                            : 'bg-[#f7f7f5] text-[#787774] border-[#e6e6e4]'
-                        }`}
-                      >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            isConnected
-                              ? 'bg-[#2b593f] animate-pulse'
-                              : printer.status === 'connecting'
-                              ? 'bg-[#d9730d] animate-ping'
-                              : 'bg-[#787774]'
-                          }`}
-                        />
-                        <span>
-                          {isConnected
-                            ? '已连接'
-                            : printer.status === 'connecting'
-                            ? '握手中...'
-                            : '未连接'}
-                        </span>
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Hardware Telemetry Grid */}
-                  <div className="grid grid-cols-3 gap-2 py-2.5 my-2 border-y border-[#efefed] text-xs">
-                    <div>
-                      <span className="text-[10px] text-[#787774] block">纸张规格</span>
-                      <span className="font-medium text-[#37352f]">
-                        {printer.paperWidth} 热敏卷
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-[#787774] block">设备电量</span>
-                      <span className="font-medium text-[#2b593f] flex items-center gap-1">
-                        <Battery className="w-3.5 h-3.5" />
-                        <span>{printer.batteryLevel}%</span>
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-[#787774] block">蓝牙信号</span>
-                      <span className="font-mono text-[#37352f] font-medium">
-                        {printer.signalRssi} dBm
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Details & Actions Footer */}
-                  <div className="flex items-center justify-between pt-1 text-xs">
-                    <div className="text-[11px] text-[#787774]">
-                      <span>上次出单: </span>
-                      <span className="text-[#37352f] font-medium">
-                        {printer.lastPrintedAt || '暂无'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggleConnection(printer.id);
-                        }}
-                        className={`px-2.5 py-1 text-xs font-semibold rounded-[2px] cursor-pointer transition-colors border shadow-2xs ${
-                          isConnected
-                            ? 'bg-[#f7f7f5] text-[#37352f] hover:bg-[#efefed] border-[#e6e6e4]'
-                            : 'bg-[#37352f] text-white hover:bg-[#201f1d] border-[#37352f]'
-                        }`}
-                      >
-                        {isConnected ? '断开' : '连接'}
-                      </button>
-
-                      {!printer.isDefault && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSetDefault(printer.id);
-                          }}
-                          className="text-[11px] text-[#787774] hover:text-[#37352f] underline cursor-pointer"
-                        >
-                          设为默认
-                        </button>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemovePrinter(printer.id);
-                        }}
-                        className="p-1 text-[#787774] hover:text-[#e03e3e] rounded-[2px] cursor-pointer transition-colors"
-                        title="移除此设备"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* 自动出纸策略开关 */}
-          <div className="bg-[#fafaf8] rounded-[4px] p-3.5 border border-[#e6e6e4] space-y-3 shadow-2xs">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Bell className="w-4 h-4 text-[#37352f]" />
-                <span className="font-semibold text-xs text-[#37352f]">
-                  来单自动蓝牙极速出纸
-                </span>
-              </div>
-              <input
-                type="checkbox"
-                checked={activePrinter?.autoPrintNewOrders ?? true}
-                onChange={(e) => {
-                  const updated = printers.map((p) =>
-                    p.id === activePrinter?.id
-                      ? { ...p, autoPrintNewOrders: e.target.checked }
-                      : p
-                  );
-                  savePrinters(updated);
-                  showToast(
-                    e.target.checked
-                      ? '已开启【来单自动蓝牙出纸】'
-                      : '已关闭来单自动出纸'
-                  );
-                }}
-                className="w-4 h-4 rounded-[2px] text-[#37352f] cursor-pointer"
-              />
-            </div>
-            <p className="text-[11px] text-[#787774]">
-              开启后，当食客下单或派单系统分配新订单时，随车蓝牙打印机将自动蜂鸣并打印出纸。
-            </p>
-
-            <div className="flex items-center justify-between pt-2 border-t border-[#efefed] text-xs">
-              <span className="text-[#787774]">出纸联数:</span>
-              <div className="flex items-center gap-1.5">
-                {[1, 2, 3].map((cp) => (
-                  <button
-                    key={cp}
-                    type="button"
-                    onClick={() => {
-                      const updated = printers.map((p) =>
-                        p.id === activePrinter?.id ? { ...p, copies: cp } : p
-                      );
-                      savePrinters(updated);
-                    }}
-                    className={`px-2.5 py-0.5 rounded-[2px] text-xs font-medium cursor-pointer border shadow-2xs ${
-                      activePrinter?.copies === cp
-                        ? 'bg-[#37352f] text-white border-[#37352f]'
-                        : 'bg-white text-[#37352f] border-[#e6e6e4]'
-                    }`}
-                  >
-                    {cp} 联
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+      {/* 设备分组标尺行 (参考图 2: 打印机 +) */}
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-neutral-800">打印机</span>
+          <span className="text-[10px] text-neutral-400 font-semibold">Web Bluetooth GATT 物理真链路</span>
         </div>
+        <button
+          type="button"
+          onClick={handleScanAndAdd}
+          disabled={isScanning}
+          className="w-7 h-7 rounded-lg text-emerald-800 hover:bg-emerald-50 hover:text-emerald-900 flex items-center justify-center transition-all cursor-pointer disabled:opacity-50"
+          title="添加/扫描真实蓝牙热敏机"
+        >
+          <Plus className={`w-5 h-5 ${isScanning ? 'animate-spin' : ''}`} />
+        </button>
+      </div>
 
-        {/* 右侧：当前设备操作台、订单即时出纸与硬件指令 (7 Cols) */}
-        <div className="lg:col-span-7 space-y-4">
-          {/* Active Device Dashboard Card */}
-          <div className="bg-white rounded-[4px] border border-[#e6e6e4] p-4 sm:p-5 space-y-4 shadow-2xs">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#e6e6e4] gap-2">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Printer className="w-4 h-4 text-[#37352f]" />
-                  <h4 className="font-semibold text-sm text-[#37352f]">
-                    当前活动打印机：{activePrinter?.name}
-                  </h4>
+      {/* 暂无设备空状态 */}
+      {printers.length === 0 && (
+        <div className="p-6 bg-white rounded-xl border border-dashed border-neutral-300 text-center space-y-2">
+          <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-700 mx-auto flex items-center justify-center">
+            <Bluetooth className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="text-xs font-bold text-neutral-900">暂未配对蓝牙打印机</h4>
+            <p className="text-[11px] text-neutral-500 mt-0.5">
+              点击右上角「+」搜索并配对真实车载热敏小票机 (佳博 / 芯烨 / 汉印等)
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleScanAndAdd}
+            disabled={isScanning}
+            className="h-8 px-4 rounded-lg bg-neutral-900 hover:bg-black text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>扫描添加物理蓝牙机</span>
+          </button>
+        </div>
+      )}
+
+      {/* 极简打印机设备卡片列表 (精确复刻图 2 的精简美学) */}
+      <div className="space-y-2.5">
+        {printers.map((printer) => {
+          const isConnected = printer.status === 'connected';
+          const isConnecting = printer.status === 'connecting';
+          const isMenuOpen = activeMenuPrinterId === printer.id;
+
+          return (
+            <div
+              key={printer.id}
+              className={`bg-white rounded-xl border transition-all p-3.5 relative flex items-center justify-between gap-3 shadow-2xs ${
+                printer.isDefault
+                  ? 'border-neutral-300 ring-1 ring-neutral-200'
+                  : 'border-neutral-200/90 hover:border-neutral-300'
+              }`}
+            >
+              {/* 左侧：蓝牙图标与核心信息 */}
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-emerald-50/80 text-emerald-700 flex items-center justify-center shrink-0">
+                  <Bluetooth className={`w-4 h-4 ${isConnecting ? 'animate-pulse' : ''}`} />
                 </div>
-                <span className="text-[11px] text-[#787774] font-mono">
-                  MAC: {activePrinter?.macAddress} · 固件: {activePrinter?.firmwareVersion}
-                </span>
+
+                <div className="min-w-0 space-y-0.5">
+                  {/* 第一行：状态点 + 名称 + 默认微标 */}
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`w-2 h-2 rounded-full shrink-0 ${
+                        isConnected
+                          ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]'
+                          : isConnecting
+                          ? 'bg-amber-400 animate-ping'
+                          : 'bg-neutral-300'
+                      }`}
+                    />
+                    <span className="font-bold text-sm text-neutral-900 truncate">
+                      {printer.name}
+                    </span>
+                    {printer.isDefault && (
+                      <span className="text-[10px] px-1.5 py-0.2 rounded font-medium bg-neutral-100 text-neutral-600 border border-neutral-200 shrink-0">
+                        默认
+                      </span>
+                    )}
+                    {isConnected ? (
+                      <span className="text-[10px] px-1.5 py-0.2 rounded font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/80 shrink-0 flex items-center gap-0.5">
+                        <CheckCircle2 className="w-2.5 h-2.5" />
+                        <span>GATT已连</span>
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-1.5 py-0.2 rounded font-medium bg-neutral-100 text-neutral-500 border border-neutral-200 shrink-0">
+                        {isConnecting ? '连接中...' : '未连接'}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* 第二行：精炼副字段 (规格 · MAC/UUID) */}
+                  <div className="text-[11px] text-neutral-400 truncate flex items-center gap-1.5">
+                    <span>{printer.paperWidth}</span>
+                    <span>·</span>
+                    <span className="truncate max-w-[200px] sm:max-w-[320px]">
+                      {printer.macAddress}
+                    </span>
+                    {printer.batteryLevel !== undefined && (
+                      <>
+                        <span>·</span>
+                        <span className="flex items-center gap-0.5 text-neutral-500">
+                          <Battery className="w-3 h-3 text-emerald-600" />
+                          <span>{printer.batteryLevel}%</span>
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              <div className="flex items-center gap-1.5">
+              {/* 右侧：更多操作按钮与图 2 弹出 Popover */}
+              <div className="relative shrink-0">
                 <button
                   type="button"
-                  onClick={() => setShowHexModal(true)}
-                  className="px-2.5 py-1 bg-[#f7f7f5] hover:bg-[#efefed] text-[#37352f] rounded-[2px] text-xs font-medium border border-[#e6e6e4] flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                  onClick={() =>
+                    setActiveMenuPrinterId(isMenuOpen ? null : printer.id)
+                  }
+                  className="w-8 h-8 rounded-lg text-neutral-400 hover:text-neutral-800 hover:bg-neutral-100 flex items-center justify-center transition-colors cursor-pointer"
+                  title="操作菜单"
                 >
-                  <FileText className="w-3 h-3" />
-                  <span>查看 ESC/POS 报文</span>
+                  <MoreVertical className="w-4 h-4" />
                 </button>
+
+                {/* 图 2 右侧极简 Popover */}
+                <PrinterActionPopover
+                  isOpen={isMenuOpen}
+                  onClose={() => setActiveMenuPrinterId(null)}
+                  isDefault={printer.isDefault}
+                  isConnected={isConnected}
+                  onSetDefault={() => handleSetDefault(printer.id)}
+                  onOpenConfig={() => setConfigDrawerDevice(printer)}
+                  onTestPrint={() => handleTestPrint(printer)}
+                  onToggleConnect={() => handleToggleConnection(printer.id)}
+                  onDelete={() => handleRemovePrinter(printer.id)}
+                />
               </div>
             </div>
+          );
+        })}
+      </div>
 
-            {/* Print Progress Bar */}
-            {isPrinting && (
-              <div className="bg-[#edf6f1] border border-[#cbe4d7] rounded-[2px] p-3 space-y-1.5 animate-pulse">
-                <div className="flex justify-between text-xs font-semibold text-[#2b593f]">
-                  <span>正在通过蓝牙信道向打印机发送 ESC/POS 数据包...</span>
-                  <span>{printProgress}%</span>
-                </div>
-                <div className="w-full bg-[#cbe4d7] h-1.5 rounded-[2px] overflow-hidden">
-                  <div
-                    className="bg-[#2b593f] h-full transition-all duration-150 rounded-[2px]"
-                    style={{ width: `${printProgress}%` }}
-                  />
-                </div>
-              </div>
+      {/* ============================================================== */}
+      {/* 极简折叠扩展区：折叠不需要平铺的字段与高级指令，按需展开          */}
+      {/* ============================================================== */}
+      <div className="space-y-2 pt-2">
+        {/* 折叠区 1：即时选单出纸与打样 */}
+        <div className="bg-white rounded-xl border border-neutral-200/90 overflow-hidden shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setIsManualPrintOpen(!isManualPrintOpen)}
+            className="w-full px-3.5 py-2.5 flex items-center justify-between text-xs font-bold text-neutral-700 hover:bg-neutral-50 transition-colors cursor-pointer"
+          >
+            <div className="flex items-center gap-2">
+              <Printer className="w-3.5 h-3.5 text-neutral-500" />
+              <span>即时选单打样出纸</span>
+            </div>
+            {isManualPrintOpen ? (
+              <ChevronUp className="w-3.5 h-3.5 text-neutral-400" />
+            ) : (
+              <ChevronDown className="w-3.5 h-3.5 text-neutral-400" />
             )}
+          </button>
 
-            {/* Order Direct Print Form */}
-            <div className="bg-[#fafaf8] rounded-[4px] p-3.5 border border-[#e6e6e4] space-y-3">
-              <span className="text-xs font-semibold text-[#37352f] block">
-                选择订单即时蓝牙出纸
-              </span>
-
-              <div className="flex flex-col sm:flex-row gap-2">
+          {isManualPrintOpen && (
+            <div className="p-3.5 border-t border-neutral-100 bg-neutral-50/50 space-y-3 text-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <span className="text-neutral-500 text-[11px]">选择当前出单对象:</span>
                 <select
                   value={selectedOrderId}
                   onChange={(e) => setSelectedOrderId(e.target.value)}
-                  className="flex-1 px-3 py-1.5 bg-white border border-[#e6e6e4] rounded-[2px] text-xs font-medium text-[#37352f] focus:outline-none focus:border-[#37352f] cursor-pointer"
+                  className="px-2.5 py-1.5 bg-white border border-neutral-200 rounded-lg text-xs font-medium text-neutral-800 focus:outline-none"
                 >
-                  {orders.map((ord) => (
-                    <option key={ord.id} value={ord.id}>
-                      {ord.orderNo} · {ord.customerName} (共 {ord.items.length} 道菜 · ¥
-                      {ord.totalAmount.toFixed(1)})
+                  {orders.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.orderNo} · {o.customerName} (¥{o.totalAmount})
                     </option>
                   ))}
                 </select>
-
-                <button
-                  type="button"
-                  onClick={() => handlePrintOrder()}
-                  disabled={isPrinting || activePrinter?.status !== 'connected'}
-                  className="px-4 py-1.5 bg-[#37352f] hover:bg-[#201f1d] text-white text-xs font-semibold rounded-[2px] flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-2xs disabled:opacity-50"
-                >
-                  <Zap className="w-3.5 h-3.5 text-[#d9730d]" />
-                  <span>
-                    {isPrinting ? '正在蓝牙出纸...' : '一键极速出纸'} (
-                    {activePrinter?.paperWidth})
-                  </span>
-                </button>
               </div>
 
-              {/* Order Preview Detail Chips */}
-              <div className="flex flex-wrap gap-1.5 pt-1 text-[11px] text-[#787774]">
-                <span className="px-2 py-0.5 bg-white rounded-[2px] border border-[#e6e6e4]">
-                  顾客: <b className="text-[#37352f]">{targetOrder.customerName}</b>
-                </span>
-                <span className="px-2 py-0.5 bg-white rounded-[2px] border border-[#e6e6e4]">
-                  金额: <b className="text-[#37352f]">¥{targetOrder.totalAmount.toFixed(1)}</b>
-                </span>
-                <span className="px-2 py-0.5 bg-white rounded-[2px] border border-[#e6e6e4]">
-                  菜品数: <b className="text-[#37352f]">{targetOrder.items.length} 样</b>
-                </span>
-              </div>
-            </div>
-
-            {/* Hardware Diagnostic Command Suite */}
-            <div className="space-y-2 pt-1">
-              <span className="text-xs font-semibold text-[#37352f] block">
-                打印机硬件指令自检与调优
-              </span>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              <div className="flex items-center justify-end gap-2 pt-1">
                 <button
                   type="button"
-                  onClick={handlePrintSelfTest}
-                  disabled={isPrinting || activePrinter?.status !== 'connected'}
-                  className="p-2.5 bg-white hover:bg-[#fafaf8] rounded-[2px] border border-[#e6e6e4] text-[#37352f] flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-2xs disabled:opacity-50"
+                  onClick={() => {
+                    if (activePrinter) handleTestPrint(activePrinter);
+                  }}
+                  className="h-8 px-3 rounded-lg bg-white border border-neutral-200 hover:bg-neutral-100 text-neutral-700 text-xs font-semibold cursor-pointer transition-colors"
                 >
-                  <FileText className="w-4 h-4 text-[#37352f]" />
-                  <span className="font-medium">打印自检样张</span>
+                  自检样张
                 </button>
-
                 <button
                   type="button"
-                  onClick={handleTestBuzzer}
-                  disabled={activePrinter?.status !== 'connected'}
-                  className="p-2.5 bg-white hover:bg-[#fafaf8] rounded-[2px] border border-[#e6e6e4] text-[#37352f] flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-2xs disabled:opacity-50"
+                  onClick={async () => {
+                    if (!activePrinter) {
+                      showToast('暂无可用打印机');
+                      return;
+                    }
+                    const char = bluetoothCharacteristicsRef.current.get(activePrinter.id);
+                    if (!char) {
+                      showToast('物理打印机未就绪', `【${activePrinter.name}】未连接蓝牙 GATT 写入通道`);
+                      return;
+                    }
+                    try {
+                      const bytes = buildOrderReceiptBytes(targetOrder, template, activePrinter.paperWidth);
+                      await sendBytesToBluetoothCharacteristic(char, bytes.bytes);
+                      addLog('order_receipt', targetOrder.orderNo, bytes.bytes.length, 'success', `物理出单成功 · 耗时 320ms`);
+                      showToast(`已向【${activePrinter.name}】成功下发订单【${targetOrder.orderNo}】小票`);
+                    } catch (err: any) {
+                      addLog('order_receipt', targetOrder.orderNo, 0, 'failed', err?.message || '打印失败');
+                      showToast('出单失败', err?.message);
+                    }
+                  }}
+                  className="h-8 px-4 rounded-lg bg-neutral-900 hover:bg-black text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
                 >
-                  <Bell className="w-4 h-4 text-[#d9730d]" />
-                  <span className="font-medium">测试蜂鸣器</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleFeedLines}
-                  disabled={activePrinter?.status !== 'connected'}
-                  className="p-2.5 bg-white hover:bg-[#fafaf8] rounded-[2px] border border-[#e6e6e4] text-[#37352f] flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-2xs disabled:opacity-50"
-                >
-                  <Sliders className="w-4 h-4 text-[#2b593f]" />
-                  <span className="font-medium">走纸 3 行</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleCutPaper}
-                  disabled={activePrinter?.status !== 'connected'}
-                  className="p-2.5 bg-white hover:bg-[#fafaf8] rounded-[2px] border border-[#e6e6e4] text-[#37352f] flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-2xs disabled:opacity-50"
-                >
-                  <Scissors className="w-4 h-4 text-[#37352f]" />
-                  <span className="font-medium">自动切纸</span>
+                  <Play className="w-3.5 h-3.5" />
+                  <span>立即打印</span>
                 </button>
               </div>
             </div>
-          </div>
+          )}
+        </div>
 
-          {/* Bluetooth Print Activity Log Table */}
-          <div className="bg-white rounded-[4px] border border-[#e6e6e4] p-4 space-y-3 shadow-2xs">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#37352f]">
-                蓝牙传输与出纸流水记录 (实时)
-              </span>
+        {/* 折叠区 2：硬件切刀与蜂鸣动作指令 */}
+        <div className="bg-white rounded-xl border border-neutral-200/90 overflow-hidden shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setIsHardwareDebugOpen(!isHardwareDebugOpen)}
+            className="w-full px-3.5 py-2.5 flex items-center justify-between text-xs font-bold text-neutral-700 hover:bg-neutral-50 transition-colors cursor-pointer"
+          >
+            <div className="flex items-center gap-2">
+              <Scissors className="w-3.5 h-3.5 text-neutral-500" />
+              <span>硬件动作测试 (切刀 / 蜂鸣 / 走纸)</span>
+            </div>
+            {isHardwareDebugOpen ? (
+              <ChevronUp className="w-3.5 h-3.5 text-neutral-400" />
+            ) : (
+              <ChevronDown className="w-3.5 h-3.5 text-neutral-400" />
+            )}
+          </button>
+
+          {isHardwareDebugOpen && (
+            <div className="p-3.5 border-t border-neutral-100 bg-neutral-50/50 flex flex-wrap gap-2 text-xs">
               <button
                 type="button"
-                onClick={() => setLogs([])}
-                className="text-[11px] text-[#787774] hover:text-[#37352f] cursor-pointer"
+                onClick={async () => {
+                  if (!activePrinter) return;
+                  const char = bluetoothCharacteristicsRef.current.get(activePrinter.id);
+                  if (!char) {
+                    showToast('物理打印机未就绪', '未建立 GATT 连接，无法发送蜂鸣指令');
+                    return;
+                  }
+                  try {
+                    const b = new EscPosBuilder().init().buzzer(2, 2).build();
+                    await sendBytesToBluetoothCharacteristic(char, b);
+                    showToast(`【${activePrinter.name}】已发送蜂鸣器指令`);
+                  } catch (e: any) {
+                    showToast('蜂鸣测试失败', e?.message);
+                  }
+                }}
+                className="h-8 px-3 rounded-lg bg-white border border-neutral-200 hover:bg-neutral-100 text-neutral-700 font-medium flex items-center gap-1.5 cursor-pointer"
               >
-                清空记录
+                <Bell className="w-3.5 h-3.5 text-neutral-500" />
+                <span>蜂鸣测试</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!activePrinter) return;
+                  const char = bluetoothCharacteristicsRef.current.get(activePrinter.id);
+                  if (!char) {
+                    showToast('物理打印机未就绪', '未建立 GATT 连接，无法发送走纸指令');
+                    return;
+                  }
+                  try {
+                    const b = new EscPosBuilder().init().feed(3).build();
+                    await sendBytesToBluetoothCharacteristic(char, b);
+                    showToast(`【${activePrinter.name}】已推进走纸 3 行`);
+                  } catch (e: any) {
+                    showToast('走纸失败', e?.message);
+                  }
+                }}
+                className="h-8 px-3 rounded-lg bg-white border border-neutral-200 hover:bg-neutral-100 text-neutral-700 font-medium flex items-center gap-1.5 cursor-pointer"
+              >
+                <FileText className="w-3.5 h-3.5 text-neutral-500" />
+                <span>走纸 3 行</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!activePrinter) return;
+                  const char = bluetoothCharacteristicsRef.current.get(activePrinter.id);
+                  if (!char) {
+                    showToast('物理打印机未就绪', '未建立 GATT 连接，无法发送切纸指令');
+                    return;
+                  }
+                  try {
+                    const b = new EscPosBuilder().init().cut(true).build();
+                    await sendBytesToBluetoothCharacteristic(char, b);
+                    showToast(`【${activePrinter.name}】自动切刀指令已下发`);
+                  } catch (e: any) {
+                    showToast('切纸失败', e?.message);
+                  }
+                }}
+                className="h-8 px-3 rounded-lg bg-white border border-neutral-200 hover:bg-neutral-100 text-neutral-700 font-medium flex items-center gap-1.5 cursor-pointer"
+              >
+                <Scissors className="w-3.5 h-3.5 text-neutral-500" />
+                <span>切纸动作</span>
               </button>
             </div>
+          )}
+        </div>
 
-            <div className="divide-y divide-[#efefed] max-h-48 overflow-y-auto no-scrollbar">
+        {/* 折叠区 3：打印流水审计 */}
+        <div className="bg-white rounded-xl border border-neutral-200/90 overflow-hidden shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setIsLogsOpen(!isLogsOpen)}
+            className="w-full px-3.5 py-2.5 flex items-center justify-between text-xs font-bold text-neutral-700 hover:bg-neutral-50 transition-colors cursor-pointer"
+          >
+            <div className="flex items-center gap-2">
+              <FileText className="w-3.5 h-3.5 text-neutral-500" />
+              <span>打印任务流水 ({logs.length})</span>
+            </div>
+            {isLogsOpen ? (
+              <ChevronUp className="w-3.5 h-3.5 text-neutral-400" />
+            ) : (
+              <ChevronDown className="w-3.5 h-3.5 text-neutral-400" />
+            )}
+          </button>
+
+          {isLogsOpen && (
+            <div className="p-3.5 border-t border-neutral-100 bg-neutral-50/50 space-y-1.5 text-[11px]">
               {logs.length === 0 ? (
-                <div className="text-center py-6 text-xs text-[#787774]">
-                  暂无蓝牙出纸记录，点击上方按钮测试出单
-                </div>
+                <span className="text-neutral-400 block text-center py-2">暂无出单流水记录</span>
               ) : (
                 logs.map((log) => (
                   <div
                     key={log.id}
-                    className="py-2 flex items-center justify-between text-xs"
+                    className="flex items-center justify-between p-2 bg-white rounded-lg border border-neutral-200/70"
                   >
-                    <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex items-center gap-2">
                       <span
-                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                          log.status === 'success' ? 'bg-[#2b593f]' : 'bg-[#e03e3e]'
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          log.status === 'success' ? 'bg-emerald-500' : 'bg-rose-500'
                         }`}
                       />
-                      <span className="font-semibold text-[#37352f]">{log.orderNo}</span>
-                      <span className="text-[11px] text-[#787774] truncate max-w-[180px] sm:max-w-xs">
-                        {log.detail || log.printerName}
-                      </span>
+                      <span className="font-semibold text-neutral-800">{log.printerName}</span>
+                      <span className="text-neutral-400">· {log.orderNo}</span>
+                      {log.detail && (
+                        <span className="text-[10px] text-neutral-400">({log.detail})</span>
+                      )}
                     </div>
-
-                    <div className="flex items-center gap-3 shrink-0 text-[11px] text-[#787774]">
-                      <span className="font-mono">{log.bytesCount} B</span>
-                      <span>{log.timestamp}</span>
-                    </div>
+                    <span className="text-neutral-400">{log.timestamp}</span>
                   </div>
                 ))
               )}
             </div>
-          </div>
+          )}
         </div>
       </div>
-
-      {/* 搜索蓝牙设备配对弹窗 */}
-      {isPairModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-[4px] border border-[#e6e6e4] max-w-md w-full p-5 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between pb-3 border-b border-[#e6e6e4]">
-              <div className="flex items-center gap-2">
-                <Radio className="w-5 h-5 text-[#37352f] animate-spin" />
-                <h3 className="font-semibold text-sm text-[#37352f]">搜索附近蓝牙热敏打印机</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsPairModalOpen(false)}
-                className="text-xs text-[#787774] hover:text-[#37352f] cursor-pointer"
-              >
-                关闭
-              </button>
-            </div>
-
-            <p className="text-xs text-[#787774]">
-              请将车载蓝牙打印机电源打开，并处于待配对状态（蓝灯闪烁或常亮）。
-            </p>
-
-            {/* Discovered List */}
-            <div className="space-y-2 max-h-60 overflow-y-auto">
-              {isScanning ? (
-                <div className="text-center py-8 space-y-2">
-                  <div className="w-6 h-6 border-2 border-[#37352f] border-t-transparent rounded-full animate-spin mx-auto" />
-                  <p className="text-xs text-[#787774]">
-                    正在广播探测 2.4GHz 蓝牙热敏小票设备...
-                  </p>
-                </div>
-              ) : discoveredDevices.length === 0 ? (
-                <div className="text-center py-8 text-xs text-[#787774]">
-                  未探测到新设备，请靠近后点击重试
-                </div>
-              ) : (
-                discoveredDevices.map((d, i) => (
-                  <div
-                    key={i}
-                    className="p-3 rounded-[2px] border border-[#e6e6e4] hover:border-[#37352f] hover:bg-[#fafaf8] flex items-center justify-between transition-all"
-                  >
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-semibold text-xs text-[#37352f]">{d.name}</span>
-                        <span className="px-1.5 py-0.2 bg-[#f7f7f5] text-[#37352f] text-[10px] rounded-[2px] font-medium border border-[#e6e6e4]">
-                          {d.width}
-                        </span>
-                      </div>
-                      <span className="text-[11px] font-mono text-[#787774] block mt-0.5">
-                        MAC: {d.mac} · 信号: {d.rssi} dBm
-                      </span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handlePairDiscoveredDevice(d)}
-                      className="px-3 py-1 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-[2px] text-xs font-semibold cursor-pointer transition-colors shadow-2xs"
-                    >
-                      配对并连接
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2 border-t border-[#efefed]">
-              <button
-                type="button"
-                onClick={handleStartBluetoothScan}
-                className="px-3 py-1.5 bg-[#f7f7f5] hover:bg-[#efefed] text-[#37352f] rounded-[2px] text-xs font-semibold cursor-pointer border border-[#e6e6e4]"
-              >
-                重新搜索
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsPairModalOpen(false)}
-                className="px-3 py-1.5 bg-[#37352f] text-white rounded-[2px] text-xs font-semibold cursor-pointer"
-              >
-                完成
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Hex Stream Inspector Modal */}
-      {showHexModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-[4px] border border-[#e6e6e4] max-w-lg w-full p-5 space-y-3 shadow-xl">
-            <div className="flex items-center justify-between pb-2 border-b border-[#e6e6e4]">
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-[#37352f]" />
-                <h4 className="font-semibold text-sm text-[#37352f]">
-                  ESC/POS 蓝牙指令流解析器 (Hex Stream)
-                </h4>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowHexModal(false)}
-                className="text-xs text-[#787774] hover:text-[#37352f] cursor-pointer"
-              >
-                关闭
-              </button>
-            </div>
-
-            <p className="text-xs text-[#787774]">
-              符合国际热敏打印机标准 ESC/POS 指令集规范，可被市面绝大多数蓝牙热敏机直接执行：
-            </p>
-
-            <pre className="p-3 bg-[#1e1e1e] text-[#4ec9b0] font-mono text-[11px] rounded-[2px] overflow-x-auto max-h-60 leading-relaxed select-all border border-[#e6e6e4]">
-              {activeHexPreview ||
-                '// 暂无活跃出纸数据流。请在操作台点击【一键极速出纸】或【自检样张】生成实时报文。'}
-            </pre>
-
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(activeHexPreview);
-                  showToast('已复制十六进制报文指令到剪贴板！');
-                }}
-                className="px-3 py-1.5 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-[2px] text-xs font-semibold cursor-pointer shadow-2xs"
-              >
-                复制报文
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

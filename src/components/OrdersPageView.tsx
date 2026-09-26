@@ -244,6 +244,46 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
     };
   }, [isDrawerDropdownOpen]);
 
+  // 记录最近发生状态变更的订单ID映射（保持15秒脉冲动效）
+  const [recentlyUpdatedOrderIds, setRecentlyUpdatedOrderIds] = useState<Record<string, number>>({});
+  const prevOrderStatusesRef = useRef<Record<string, string>>({});
+  const isOrdersInitRef = useRef(true);
+
+  useEffect(() => {
+    if (isOrdersInitRef.current) {
+      isOrdersInitRef.current = false;
+      const initialMap: Record<string, string> = {};
+      orders.forEach((o) => {
+        const key = String(o.id || o.orderNo);
+        initialMap[key] = `${o.status}_${o.stepIndex}_${o.refundStatus || ''}`;
+      });
+      prevOrderStatusesRef.current = initialMap;
+      return;
+    }
+
+    const changedKeys: string[] = [];
+    orders.forEach((o) => {
+      const key = String(o.id || o.orderNo);
+      const currentStatusStr = `${o.status}_${o.stepIndex}_${o.refundStatus || ''}`;
+      const prevStatusStr = prevOrderStatusesRef.current[key];
+      if (prevStatusStr && prevStatusStr !== currentStatusStr) {
+        changedKeys.push(key);
+      }
+      prevOrderStatusesRef.current[key] = currentStatusStr;
+    });
+
+    if (changedKeys.length > 0) {
+      const now = Date.now();
+      setRecentlyUpdatedOrderIds((prev) => {
+        const next = { ...prev };
+        changedKeys.forEach((k) => {
+          next[k] = now;
+        });
+        return next;
+      });
+    }
+  }, [orders]);
+
   const handleSelectDrawerMode = (mode: 'all' | 'first' | 'none') => {
     setDrawerExpandMode(mode);
     try {
@@ -596,6 +636,14 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
         displayStepIndex = 1;
       }
 
+      const isJustUpdated = Boolean(
+        (recentlyUpdatedOrderIds[String(o.id)] && Date.now() - recentlyUpdatedOrderIds[String(o.id)] < 15000) ||
+        (recentlyUpdatedOrderIds[String(o.orderNo)] && Date.now() - recentlyUpdatedOrderIds[String(o.orderNo)] < 15000) ||
+        o.isRecentlyUpdated ||
+        (o as any)._justUpdated ||
+        (o.statusUpdatedAt && Date.now() - new Date(o.statusUpdatedAt).getTime() < 45000)
+      );
+
       return {
         id: o.id,
         title: o.truckName || '黑曜石 01 号流动餐车',
@@ -623,6 +671,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
         totalAmount: o.totalAmount,
         hasTopAccent: cfg.key === 'delivering' || cfg.key === 'picked_up' || isDelivering,
         stepIndex: displayStepIndex,
+        isRecentlyUpdated: isJustUpdated,
         courierName: o.courierName || (isDelivering ? '陈志远 (专线骑手 R-8821)' : '餐车吧台主理人'),
         courierPhone: o.courierPhone || '138-1829-9201',
         createdTime: o.createdTime || '刚刚',
@@ -639,6 +688,13 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
     .filter((o) => o.status === 'completed' || (o.status as string) === 'delivered' || o.status === 'refunded' || o.stepIndex === 7 || o.stepIndex === 4)
     .map((o) => {
       const cfg = getOrderStatusConfig(o.status || 'completed');
+      const isJustUpdated = Boolean(
+        (recentlyUpdatedOrderIds[String(o.id)] && Date.now() - recentlyUpdatedOrderIds[String(o.id)] < 15000) ||
+        (recentlyUpdatedOrderIds[String(o.orderNo)] && Date.now() - recentlyUpdatedOrderIds[String(o.orderNo)] < 15000) ||
+        o.isRecentlyUpdated ||
+        (o as any)._justUpdated ||
+        (o.statusUpdatedAt && Date.now() - new Date(o.statusUpdatedAt).getTime() < 45000)
+      );
       return {
         id: o.id,
         title: o.truckName || '黑曜石 01 号流动餐车',
@@ -658,6 +714,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
         totalAmount: o.totalAmount,
         hasTopAccent: false,
         stepIndex: 4,
+        isRecentlyUpdated: isJustUpdated,
         courierName: o.courierName || '陈志远 (专线骑手 R-8821)',
         courierPhone: o.courierPhone || '138-1829-9201',
         createdTime: o.createdTime || '已送达',
@@ -800,7 +857,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
               <span className="text-xs font-bold text-[#141413] truncate max-w-[80px] sm:max-w-[120px]">
                 {userProfile?.nickname || '先锋食客'}
               </span>
-              <span className="text-[9.5px] px-1 py-0.2 rounded bg-[#f4f4f2] text-[#55544d] font-mono font-semibold border border-[#e2e3df] shrink-0">
+              <span className="text-[9.5px] px-1 py-0.2 rounded bg-[#f4f4f2] text-[#55544d] tabular-nums font-semibold border border-[#e2e3df] shrink-0">
                 UID: {currentUid.slice(0, 8)}...
               </span>
             </div>
@@ -886,7 +943,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
         <div className="flex items-center gap-1.5">
           <Cloud className="w-3.5 h-3.5 text-emerald-600 shrink-0 animate-pulse" />
           <span className="text-[11px] font-bold">
-            云函数端点: <span className="font-mono text-emerald-800">orders / createOrder</span>
+            云函数端点: <span className="tabular-nums text-emerald-800">orders / createOrder</span>
           </span>
         </div>
         <button
@@ -914,7 +971,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
             <CookingPot className={`w-3.5 h-3.5 ${activeTab === 'in_progress' ? 'text-sky-600' : 'text-[#787770]'}`} />
             <span>进行中</span>
             <span
-              className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-black ${
+              className={`text-[10px] px-1.5 py-0.2 rounded-full tabular-nums font-black ${
                 activeTab === 'in_progress' ? 'bg-sky-500 text-white' : 'bg-white text-black'
               }`}
             >
@@ -934,7 +991,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
             <CheckCircle2 className={`w-3.5 h-3.5 ${activeTab === 'recently_delivered' ? 'text-emerald-600' : 'text-[#787770]'}`} />
             <span>近期送达</span>
             <span
-              className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-black ${
+              className={`text-[10px] px-1.5 py-0.2 rounded-full tabular-nums font-black ${
                 activeTab === 'recently_delivered' ? 'bg-emerald-500 text-white' : 'bg-white text-black'
               }`}
             >
@@ -1016,7 +1073,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
                       <SlidersHorizontal className="w-3.5 h-3.5 text-obsidian" />
                       出餐制作抽屉视图
                     </span>
-                    <span className="text-[10px] text-[#787770] font-mono">下拉菜单</span>
+                    <span className="text-[10px] text-[#787770] tabular-nums">下拉菜单</span>
                   </div>
                   <p className="text-[10.5px] text-[#787770] mt-0.5 leading-snug">
                     设置订单卡片制作进度与配料明细的默认展开状态
@@ -1290,7 +1347,7 @@ export const OrdersPageView: React.FC<OrdersPageViewProps> = ({
               <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-xl space-y-2">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-bold text-neutral-700">当前经过的状态节点：</span>
-                  <span className="font-mono text-emerald-800 font-bold bg-emerald-100/80 px-2 py-0.5 rounded text-[11px]">
+                  <span className="tabular-nums text-emerald-800 font-bold bg-emerald-100/80 px-2 py-0.5 rounded text-[11px]">
                     {refundModalOrder.stepIndex === 0
                       ? '节点 0: 下单支付'
                       : refundModalOrder.stepIndex === 1

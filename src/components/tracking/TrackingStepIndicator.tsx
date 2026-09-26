@@ -191,11 +191,11 @@ export const TrackingStepIndicator: React.FC<TrackingStepIndicatorProps> = ({
               <div className="flex items-center justify-between gap-1">
                 <span className="font-bold text-xs sm:text-sm tracking-tight flex items-center gap-1.5">
                   <span>{statusConfig.label}</span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-none font-bold border uppercase bg-white/80">
+                  <span className="text-[10px] font-sans px-1.5 py-0.2 rounded-none font-bold border uppercase bg-white/80">
                     {statusConfig.badgeText}
                   </span>
                 </span>
-                <span className="text-[10.5px] font-mono opacity-70">异常调度</span>
+                <span className="text-[10.5px] font-sans opacity-70">异常调度</span>
               </div>
               <p className="text-[11px] mt-1 opacity-90 leading-relaxed">
                 {statusConfig.subText}
@@ -241,7 +241,7 @@ export const TrackingStepIndicator: React.FC<TrackingStepIndicatorProps> = ({
         {/* Toggle dynamic state simulation panel or Non-admin Lock Badge */}
         {effectiveAllowSimulation ? (
           <div className="flex items-center gap-1.5 shrink-0">
-            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-mono font-bold">
+            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-sans font-bold">
               <Unlock className="w-2.5 h-2.5" /> 管理员可改
             </span>
             <button
@@ -309,7 +309,7 @@ export const TrackingStepIndicator: React.FC<TrackingStepIndicatorProps> = ({
                 <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                 <span>全状态流程模拟器 · 点击即时流转切换</span>
               </span>
-              <span className="text-[10px] text-neutral-400 font-mono">
+              <span className="text-[10px] text-neutral-400 font-sans">
                 即时同步订单与跟踪视图
               </span>
             </div>
@@ -398,11 +398,11 @@ export const TrackingStepIndicator: React.FC<TrackingStepIndicatorProps> = ({
                   {/* Step Number */}
                   <div className="h-4.5 flex items-center justify-center mb-1">
                     {step.isActive ? (
-                      <span className="bg-[#181816] text-white text-[9px] font-bold font-mono px-1 py-0.2 rounded-none">
+                      <span className="bg-[#181816] text-white text-[9px] font-bold font-sans px-1 py-0.2 rounded-none">
                         {step.stepNum}
                       </span>
                     ) : (
-                      <span className="bg-[#f0f0ee] text-[#787872] text-[9px] font-bold font-mono px-1 py-0.2 rounded-none">
+                      <span className="bg-[#f0f0ee] text-[#787872] text-[9px] font-bold font-sans px-1 py-0.2 rounded-none">
                         {step.stepNum}
                       </span>
                     )}
@@ -475,7 +475,7 @@ export const TrackingStepIndicator: React.FC<TrackingStepIndicatorProps> = ({
         {/* Non-Admin Security Lock Hint at Timeline Footer */}
         {!effectiveAllowSimulation && (
           <div className="mt-2.5 pt-2 border-t border-neutral-100 flex items-center justify-between text-[10px] text-neutral-400 px-0.5">
-            <span className="flex items-center gap-1 font-mono">
+            <span className="flex items-center gap-1 font-sans">
               <Lock className="w-3 h-3 text-neutral-400 shrink-0" />
               <span>食客实时追踪 · 节点流转已受保护锁定</span>
             </span>
